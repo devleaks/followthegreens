@@ -23,7 +23,8 @@ from .globals import ARRIVAL, DEPARTURE
 from .lightstring import LightString
 from .ui import UIUtil
 
-logging.basicConfig(level=logging.DEBUG)  # filename=('FTG_log.txt')
+logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.DEBUG)
 
 
 class FollowTheGreen:
