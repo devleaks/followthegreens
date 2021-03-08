@@ -107,7 +107,7 @@ class Light:
         if lightTypeOff and not self.instanceOff:
             self.instanceOff = XPLMCreateInstance(lightTypeOff.obj, self.drefs)
             XPLMInstanceSetPosition(self.instanceOff, self.xyz, self.params)
-            logging.debug("Light::place: light off placed")
+            # logging.debug("Light::place: light off placed")
 
     def on(self):
         if not self.xyz:
@@ -236,6 +236,7 @@ class LightString:
         graph = route.graph
         thisLights = []
         onILS = False
+        onILSidx = None
         onRwy = onRunway
 
         if len(self.lights) > 0:
@@ -248,16 +249,19 @@ class LightString:
         # logging.debug("placed first light")
         distanceBeforeNextLight = DISTANCEBETWEENGREENLIGHTS
 
+        logging.debug("Light::populate: at vertex %d, %s, %d.", 0, currVertex.id, len(thisLights))
         for i in range(1, len(route.route)):
             nextVertex = graph.get_vertex(route.route[i])
+            logging.debug("Light::populate: at vertex %d, %s, %d.", i, nextVertex.id, len(thisLights))
 
             distToNextVertex = distance(currPoint, nextVertex)
             brng = bearing(currVertex, nextVertex)
 
             thisEdge = graph.get_edge(currVertex.id, nextVertex.id)
             if not onILS and thisEdge.has_active("ils"):  # remember entry into ILS zone
-                logging.debug("Light::populate: thisEdge active ils %d, %s.", i, thisEdge.usage)
+                logging.debug("Light::populate: thisEdge active ils %s-%s, %d, %s.", thisEdge.start.id, thisEdge.end.id, i, thisEdge.usage)
                 onILS = thisEdge
+                onILSidx = len(thisLights)
             elif not thisEdge.has_active(DEPARTURE):  # no longer an ILS zone
                 # logging.debug("Light::populate: thisEdge %d, %s.", i, thisEdge.usage)
                 onILS = False
@@ -269,11 +273,11 @@ class LightString:
                 lightAtStopbar = len(thisLights)
                 if onILS:
                     stopbarAt = graph.get_vertex(onILS.start.id)
-                    lightAtStopbar = len(thisLights)    # we also remember the light# where we should place the stopbar.
+                    lightAtStopbar = onILSidx    # we also remember the light# where we should place the stopbar.
                     onILS = False
-                    logging.debug("Light::populate: potential stop bar on departure before ils %d", i)
+                    logging.debug("Light::populate: potential stop bar on departure before ils %d, %d", i, lightAtStopbar)
                 else:
-                    logging.debug("Light::populate: potential stop bar on departure %d", i)
+                    logging.debug("Light::populate: potential stop bar on departure %d, %d", i, lightAtStopbar)
 
                 # We remember the light index in the stopbar name. That way we can light the green up to the stopbar and light the stopbar
                 # Yup, orientation may be funny, may be not square to [currVertex,nextVertex].  @todo
@@ -297,10 +301,10 @@ class LightString:
                 if onILS:
                     stopbarAt = graph.get_vertex(onILS.start.id)
                     lightAtStopbar = len(thisLights)
-                    logging.debug("Light::populate: potential stop bar on arrival before ils %d", i)
+                    logging.debug("Light::populate: potential stop bar on arrival before ils %d, %d", i, lightAtStopbar)
                     onILS = False
                 else:
-                    logging.debug("Light::populate: potential stop bar on arrival %d", i)
+                    logging.debug("Light::populate: potential stop bar on arrival %d, %d", i, lightAtStopbar)
 
                 # We remember the light index in the stopbar name. That way we can light the green up to the stopbar and light the stopbar
                 if not onRwy:  # If we are on a runway, we assume that no stopbar is necessary to leave the runway
@@ -351,6 +355,13 @@ class LightString:
             lastLight = lastPoint
             logging.debug("added light at last vertex %s", route.route[len(route.route) - 1].id)
 
+
+        last = 0
+        for i in range(len(self.stopbars)):
+            sb = self.stopbars[i]
+            logging.debug("Light::populate: stopbar %d: %d-%d.", i, last, sb.lightStringIndex)
+            last = sb.lightStringIndex
+
         self.lights = thisLights
 
         return thisLights
@@ -377,6 +388,7 @@ class LightString:
         brng = bearing(start, self.lights[0].position)
         dist = distance(start, self.lights[0].position)
         return [10 * round(brng / 10), 10 * round(dist / 10), abs(brng - convertAngleTo360(heading))]
+
 
     def loadObjects(self):
         self.lightTypes = {}
