@@ -23,8 +23,7 @@ from .globals import ARRIVAL, DEPARTURE
 from .lightstring import LightString
 from .ui import UIUtil
 
-logging.basicConfig(level=logging.INFO)
-# logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)  # filename=('FTG_log.txt')
 
 
 class FollowTheGreen:
@@ -45,6 +44,7 @@ class FollowTheGreen:
         self.lights = None
         self.segment = 0            # counter for green segments currently lit -0-----|-1-----|-2---------|-3---
         self.move = None            # departure or arrival, guessed first, can be changed by pilot.
+        self.destination = None     # Handy
         self.ui = UIUtil(self)      # Where windows are built
         self.flightLoop = FlightLoop(self)  # where the magic is done
 
@@ -111,7 +111,7 @@ class FollowTheGreen:
     def getDestination(self, airport):
         # Prompt for local destination at airport.
         # Either a runway for departure or a parking for arrival.
-        if not self.airport:
+        if not self.airport or (self.airport.icao != airport):  # we may have changed airport since last call
             self.airport = Airport(airport)
             # Info 4 to 8 in airport.prepare()
             status = self.airport.prepare()  # [ok, errmsg]
@@ -169,6 +169,7 @@ class FollowTheGreen:
             # now create new ones
 
         logging.info("FollowTheGreen::followTheGreen: Got route: %s.", route)
+        self.destination = destination
         onRwy = False
         if self.move == ARRIVAL:
             onRwy, runway = self.airport.onRunway(pos, 300)  # 150m either side of runway, return [True,Runway()] or [False, None]
@@ -204,18 +205,18 @@ class FollowTheGreen:
 
         # self.segment = 0
         if self.lights.segments == 0:  # just one segment
+            logging.debug("FollowTheGreen::followTheGreen: just one segment %s", self.move)
             if self.move == ARRIVAL:
                 if len(self.lights.stopbars) == 0:  # not terminated by a stop bar, it is probably an arrival...
+                    logging.debug("FollowTheGreen::followTheGreen: just one segment on arrival")
                     return self.ui.promptForParked()
                 if len(self.lights.stopbars) == 1:  # terminated with a stop bar, it is probably a departure...
-                    logging.debug("FollowTheGreen::followTheGreen: SHOULD NOT: 1 segment with 1 stopbar on arrival?")
+                    logging.debug("FollowTheGreen::followTheGreen: 1 segment with 1 stopbar on arrival?")
                     return self.ui.promptForClearance()
             if self.move == DEPARTURE:
                 if len(self.lights.stopbars) == 0:  # not terminated by a stop bar, it is probably an arrival...
-                    logging.debug("FollowTheGreen::followTheGreen: SHOULD NOT: 1 segment with 0 stopbar on departure.")
+                    logging.debug("FollowTheGreen::followTheGreen: 1 segment with 0 stopbar on departure?")
                     return self.ui.promptForDeparture()
-                if len(self.lights.stopbars) == 1:  # terminated with a stop bar, it is probably a departure...
-                    return self.ui.promptForClearance()
 
         return self.ui.promptForClearance()
         # return self.ui.sorry("Follow the green is not completed yet.")  # development
@@ -232,6 +233,7 @@ class FollowTheGreen:
             self.lights.destroy()
             # Info 16.a
             logging.info("FollowTheGreen::nextLeg: done.")
+            self.segment = 0  # reset
             return self.ui.bye()
 
         ret = self.lights.illuminateSegment(self.segment)
@@ -246,6 +248,7 @@ class FollowTheGreen:
         if self.move == DEPARTURE and self.segment == self.lights.segments:
             # Info 16.b
             logging.info("FollowTheGreen::nextLeg: ready for take-off.")
+            self.segment = 0  # reset
             return self.ui.bye()
 
         if self.move == ARRIVAL and self.segment == self.lights.segments:

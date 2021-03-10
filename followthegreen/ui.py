@@ -144,12 +144,13 @@ class UIUtil:
 
     def hideMainWindow(self):
         # We always hide it on request, even if canHide is False
-        if self.mainWindowExists() and self.displayTime > WINDOW_DISPLAY_TIME:
+        if self.mainWindowExists():
             xp.hideWidget(self.mainWindow['widgetID'])
 
 
     def toggleVisibilityMainWindow(self):
         if self.mainWindowExists():
+            logging.debug("UIUtil::toggleVisibilityMainWindow: isMainWindowVisible(): %d.", self.isMainWindowVisible())
             if self.isMainWindowVisible():
                 self.hideMainWindow()
             else:
@@ -169,7 +170,7 @@ class UIUtil:
     #
     def greetings(self, text="Good %s."):
         h = self.ftg.aircraft.hourOfDay()
-        logging.debug("FollowTheGreen::nextLeg: bye: %d.", h)
+        logging.debug("UIUtil::nextLeg: bye: %d.", h)
         ss = list(GOOD.keys())[-1]
         for k, v in GOOD.items():
             if h > v:
