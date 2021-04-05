@@ -27,6 +27,8 @@ class FlightLoop:
     def startFlightLoop(self):
         # @todo schedule/unschedule without destroying
         phase = xplm_FlightLoop_Phase_AfterFlightModel
+        # @todo: make function to reset lastLit counter
+        self.lastLit = 0
         if not self.rabbitRunning:
             params = [phase, self.rabbitFLCB, self.refrabbit]
             self.flrabbit = XPLMCreateFlightLoop(params)
