@@ -1,17 +1,17 @@
 # Follow The Green XP Python3 Plugin Interface
-# Rel. 0.0.5 04-FEB-2021
 #
 from traceback import print_exc
 import xp
 from followthegreen import FollowTheGreen
 
+RELEASE = "1.0.1"
 
 class PythonInterface:
 
     def __init__(self):
         self.Name = "Follow the green"
         self.Sig = "followthegreen.xppython3"
-        self.Desc = "Follow the green, an X-Plane ATC A-SMGCS experience."
+        self.Desc = "Follow the green, an X-Plane ATC A-SMGCS experience. (Rel. " + RELEASE + ")"
         self.enabled = False
         self.trace = False  # produces extra debugging in XPPython3.log for this class
         self.menuIdx = None

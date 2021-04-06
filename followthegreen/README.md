@@ -26,7 +26,7 @@ Constrains are:
  Technically speaking, Follow The Green is a XPPython3 plugin, so you need XPPython3 installed and working.
 
 
-Installation
+## Installation
 
 Requirement: Have XPPython3 installed and working.
 
@@ -35,6 +35,28 @@ Copy PI_followthegreen.py file and followthegreen folder to your Resources/plugi
 Reload scripts as needed in XPPython3. Follow the green should now be a menu entry in your Plugins menu.
 Select it to start it.
 
+
+## Options and Paramters
+
+X-Plane does not provide easy user interface construction. So there is no Settings or Options window.
+You must change all parameters in a plugin file.
+
+In file X-Plane Home Directory/Resources/Plugins/PythonPlugins/followthegreen/globals.py you can adjust the following parameters.
+
+
+| parameter                 | Typical/default | Acceptable range   | Meaning                                                       |
+|---------------------------|-----------------|--------------------|---------------------------------------------------------------|
+| LIGHTS_AHEAD              |       10        |  0 - 20            | Number of light after the rabbit. If 0, lights till stopbar   |
+| RABBIT_LENGTH             |       10        |  2 - 16            | Length of the the rabbit (in number of lights)                |
+| RABBIT_DURATION           |       0.5       |  0.5 - 0.03        | Duration of a "off" light in rabitt. Low value impacts FPS    |
+| DISTANCEBETWEENGREENLIGHTS|       20        |  5 - 40            | Distance between green lights (in meter)                      |
+| WARNINGDISTANCE           |       150       |  100-300           | Distance to stop light before Follow the green window pops up |
+
+
+Watch out. Changing other parameter may crash the plugin and X-Plane.
+
+
+## More Information
 
 Here is how it works.
 
@@ -88,6 +110,7 @@ The plugin ecologically turns light off as soon as you don't need them anymore,
 thereby restoring precious resources to X-Plane.
 
 
+## Help Appreciated
 
 I appreciate some help for the following refinements.
 
@@ -131,7 +154,9 @@ Happy flying.
 
 Otto Pilot
 
-==
+
+
+## Wish
 
 Dear Laminar,
 

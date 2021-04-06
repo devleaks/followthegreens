@@ -56,7 +56,7 @@ DEPARTURE = TAXIWAY_ACTIVE_DEPARTURE
 
 DISTANCE_TO_RAMPS = 100             # meters, if closer that this to a ramp, assume departure, otherwise, assume arrival
 TOO_FAR = 500                       # meters, if further than this from a taxiway, does not kick in.
-WARNINGDISTANCE = 100               # When getting close to a STOP BAR, show main window.
+WARNINGDISTANCE = 150               # When getting close to a STOP BAR, show main window.
 
 PLANE_MONITOR_DURATION = 3          # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
 
@@ -67,6 +67,7 @@ ADDLIGHTATVERTEX = False            # Add a light at each taxiway network vertex
 ADDLIGHTATLASTVERTEX = False        # Add a light at the last vertex, even if it is closer than DISTANCEBETWEENGREENLIGHTS
 ADDSTOPBARATLASTVERTEX = False      # Add a stop bar at the end (artificial)
 
+LIGHTS_AHEAD = 10                   # Number of lights in front of rabit.
 RABBIT_TIMEON = 0.4                 # sec, set to 0 to cancel rabbit
 RABBIT_TIMEOFF = 2                  # sec
 RABBIT_PHASE = 0.3                  # sec

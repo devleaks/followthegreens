@@ -19,7 +19,7 @@ from XPLMInstance import XPLMCreateInstance, XPLMDestroyInstance, XPLMInstanceSe
 
 from .geo import Point, distance, bearing, destination, convertAngleTo360
 from .globals import DISTANCEBETWEENGREENLIGHTS, ADDLIGHTATVERTEX, ADDLIGHTATLASTVERTEX, DISTANCEBETWEENSTOPLIGHTS, MINSEGMENTSBEFOREHOLD
-from .globals import RABBIT_LENGTH, RABBIT_DURATION
+from .globals import RABBIT_LENGTH, RABBIT_DURATION, LIGHTS_AHEAD
 from .globals import AIRCRAFT_TYPES as TAXIWAY_WIDTH
 from .globals import DEPARTURE, ARRIVAL
 
@@ -438,7 +438,7 @@ class LightString:
                 lastSb = self.stopbars[segment - 1]
                 start = lastSb.lightStringIndex
             end = len(self.lights)
-            logging.debug('Light::instanciate(green): last segment %d between %d and %d.', segment, start, end)
+            logging.debug('Light::illuminateSegment: instanciate(green): last segment %d between %d and %d.', segment, start, end)
         else:
             sbend = self.stopbars[segment]
             if segment > 0:
@@ -446,23 +446,24 @@ class LightString:
                 sbbeging = self.stopbars[segment - 1]
                 start = sbbeging.lightStringIndex
             end = sbend.lightStringIndex
-            logging.debug('Light::instanciate(green): segment %d between %d and %d.', segment, start, end)
+            logging.debug('Light::illuminateSegment: instanciate(green): segment %d between %d and %d.', segment, start, end)
 
 
-        # Instanciate for each green light
-        for i in range(start, end):
-            self.lights[i].on()
-        # map(lambda x: x.on(self.txy_light_obj), self.lights[start:end])
 
-        logging.debug('Light::instanciate(green): done.')
-
-        # Instanciate for each stop light
-        # for sb in self.stopbars:
-        if len(self.stopbars) > 0 and segment < len(self.stopbars):
-            for light in sbend.lights:
-                light.on()
-            # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
-        logging.debug('Light::instanciate(stop): done.')
+        if LIGHTS_AHEAD is None or LIGHTS_AHEAD == 0:
+            # Instanciate for each green light
+            for i in range(start, end):
+                self.lights[i].on()
+            # map(lambda x: x.on(self.txy_light_obj), self.lights[start:end])
+            logging.debug('Light::illuminateSegment: no light ahead: instanciate(green): done.')
+            # Instanciate for each stop light
+            # for sb in self.stopbars:
+            if len(self.stopbars) > 0 and segment < len(self.stopbars):
+                for light in sbend.lights:
+                    light.on()
+                # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
+            logging.debug('Light::illuminateSegment: no light ahead: instanciate(stop): done.')
+        # else, lights will be turned on in front of rabbit
 
         if not self.rabbitCanRun:
             self.rabbitCanRun = True
@@ -507,6 +508,15 @@ class LightString:
                 self.lights[i].off()
             self.lastLit = idx
             logging.debug("Light::offToIndex: turned off %d -> %d.", idx, self.lastLit)
+        # else: idx out of range?
+
+
+    def onToIndex(self, idx):
+        last = min(idx, len(self.lights))
+        for i in range(self.lastLit, last):
+            self.lights[i].on()
+        # warning, verbose, since called at each rabbit flightloop
+        # logging.debug("Light::onToIndex: turned on %d -> %d.", self.lastLit, last)
 
 
     def rabbit(self, start):
@@ -525,6 +535,22 @@ class LightString:
             self.oldStart = start
             if start > 0:  # can't be.
                 self.offToIndex(start - 1)
+
+            if LIGHTS_AHEAD > 0:
+                # we need to turn lights on ahead of rabbit
+                wishidx = start + RABBIT_LENGTH + LIGHTS_AHEAD
+                if wishidx < rabbitNose:
+                    self.onToIndex(wishidx)
+                else:
+                    self.onToIndex(rabbitNose)
+                    # there might be a stop bar...
+                    if len(self.stopbars) > 0 and self.currentSegment < len(self.stopbars):  # there might be more green lights after the last stopbars
+                        sb = self.stopbars[self.currentSegment]
+                        for redlight in sb.lights:
+                            redlight.on()
+                        # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
+                        logging.debug('Light::rabbit: light ahead: instanciate stopbar %d: done.', self.currentSegment)
+
         else:  # restore previous
             restore(start, self.rabbitIdx, rabbitNose)
 
