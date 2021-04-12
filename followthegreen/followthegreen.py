@@ -112,12 +112,13 @@ class FollowTheGreen:
         # Prompt for local destination at airport.
         # Either a runway for departure or a parking for arrival.
         if not self.airport or (self.airport.icao != airport):  # we may have changed airport since last call
-            self.airport = Airport(airport)
+            airport = Airport(airport)
             # Info 4 to 8 in airport.prepare()
-            status = self.airport.prepare()  # [ok, errmsg]
+            status = airport.prepare()  # [ok, errmsg]
             if not status[0]:
-                logging.debug("FollowTheGreen::getDestination: airport not ready: %s" % (status[1]))
+                logging.warn("FollowTheGreen::getDestination: airport not ready: %s" % (status[1]))
                 return self.ui.sorry(status[1])
+            self.airport = airport
         else:
             logging.debug("FollowTheGreen::getDestination: airport already loaded")
 
@@ -141,7 +142,7 @@ class FollowTheGreen:
         #   the name of a parking ramp for arrival.
         # We know where we are, we know where we want to go.
         # If we find a route, we light it.
-        if (self.move == DEPARTURE and destination not in self.airport.runways.keys()) or (self.move == ARRIVAL and destination not in self.airport.ramps.keys()):
+        if destination not in self.airport.getDestinations(self.move):
             logging.debug("FollowTheGreen::followTheGreen: destination not valid %s for %s", destination, self.move)
             return self.ui.promptForDestination("Destination %s not valid for %s." % (destination, self.move))
 

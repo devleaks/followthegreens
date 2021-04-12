@@ -211,12 +211,12 @@ class UIUtil:
         prompt = None
         text   = None
         if move == DEPARTURE:
-            self.validDestinations = list(self.ftg.airport.runways.keys())
+            self.validDestinations = self.ftg.airport.getDestinations(DEPARTURE)
             prompt = "Please enter runway for departure"
             button = "It is an arrival"
-            text   = "RWY"
+            text   = "RWY/HLD"
         else:
-            self.validDestinations = list(self.ftg.airport.ramps.keys())
+            self.validDestinations = self.ftg.airport.getDestinations(ARRIVAL)
             prompt = "Please enter parking for arrival"
             button = "It is a departure"
             text   = "RAMP"

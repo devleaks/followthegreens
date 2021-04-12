@@ -1,5 +1,5 @@
 # Airport Utility Class
-# Airport information container: name, taxi routes, runways, ramps, etc.
+# Airport information container: name, taxi routes, runways, ramps, holding positions, etc.
 #
 import os.path
 import re
@@ -38,6 +38,12 @@ class Runway(Line):
         self.width = width
         self.polygon = pol  # avoid multiple inheritence from Line,Polygon.
 
+
+class Hold(Point):
+    # A parking area for plane
+    def __init__(self, name, lat, lon):
+        Point.__init__(self, lat, lon)
+        self.name = name
 
 class Ramp(Point):
     # A parking area for plane
@@ -101,6 +107,7 @@ class Airport:
         self.lines = []
         self.graph = Graph()
         self.runways = {}
+        self.holds = {}
         self.ramps = {}
 
 
@@ -121,6 +128,9 @@ class Airport:
             return [False, "We could not find runways for %s." % self.icao]
         # Info 7
         logging.debug("Airport::prepare: runways: %s" % (status.keys()))
+
+        status = self.ldHolds()
+        logging.debug("Airport::prepare: holding positions: %s" % (status.keys()))
 
         status = self.ldRamps()
         if len(status) == 0:
@@ -255,6 +265,19 @@ class Airport:
         return runways
 
 
+    def ldHolds(self):
+        holds = {}
+
+        if len(self.runways.keys()) > 0:
+            rwy = self.runways[list(self.runways.keys())[0]]
+            name = "Demo hold " + rwy.name
+            holds[name] = Hold(name, rwy.start.lat, rwy.start.lon)
+
+        self.holds = holds
+        logging.debug("ldRunways: added %d holding positions", len(holds.keys()))
+        return holds
+
+
     def ldRamps(self):
         # 1300  25.26123160  051.61147754 155.90 gate heavy|jets|turboprops A1
         # 1301 E airline
@@ -375,6 +398,13 @@ class Airport:
         return self.ramps.keys()
 
 
+    def getDestinations(self, mode):
+        if mode == DEPARTURE:
+            return list( list(self.runways.keys()) + list(self.holds.keys()) )
+
+        return list(self.ramps.keys())
+
+
     def mkRoute(self, aircraft, destination, move):
         # Returns (True, route object) or (False, error message)
         # From aircraft position..
@@ -418,13 +448,18 @@ class Airport:
 
         # ..to destination
         dst = None
+        dstpt = None  # heading after destination reached (heading of runway/takeoff or heading of parking)
         if move == DEPARTURE:
-            runway = self.getRunway(destination)
-            if runway:  # we sure to find one because first test
-                dstpt = runway.end  # Last "nice" turn will towards runways' end.
-                dst = self.findClosestVertex(runway.start.coords())
-            else:
-                return (False, "We could not find runway %s." % destination)
+            if destination in self.runways.keys():
+                runway = self.getRunway(destination)
+                if runway:  # we sure to find one because first test
+                    dstpt = runway.end  # Last "nice" turn will towards runways' end.
+                    dst = self.findClosestVertex(runway.start.coords())
+                else:
+                    return (False, "We could not find runway %s." % destination)
+            elif destination in self.holds.keys():
+                dst = self.findClosestVertex(self.holds[destination].coords())
+                # dstpt: We don't know which way for takeoff.
         else:
             ramp = self.getRamp(destination)
             if ramp:
