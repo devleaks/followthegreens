@@ -262,20 +262,7 @@ class Airport:
 
         self.runways = runways
         logging.debug("ldRunways: added %d runways", len(runways.keys()))
-        return runways
-
-
-    def ldHolds(self):
-        holds = {}
-
-        if len(self.runways.keys()) > 0:
-            rwy = self.runways[list(self.runways.keys())[0]]
-            name = "Demo hold " + rwy.name
-            holds[name] = Hold(name, rwy.start.lat, rwy.start.lon)
-
-        self.holds = holds
-        logging.debug("ldRunways: added %d holding positions", len(holds.keys()))
-        return holds
+        return True
 
 
     def ldRamps(self):
@@ -305,10 +292,77 @@ class Airport:
 
         self.ramps = ramps
         logging.debug("ldRamps: added %d ramps", len(ramps.keys()))
-        return ramps
+        return True
+
+
+    def ldHolds(self):
+        holds = {}
+
+        if len(self.runways.keys()) > 0:
+            rwy = self.runways[list(self.runways.keys())[0]]
+            name = "Demo hold " + rwy.name
+            holds[name] = Hold(name, rwy.start.lat, rwy.start.lon)
+
+        self.holds = holds
+        logging.debug("ldRunways: added %d holding positions", len(holds.keys()))
+        return True
 
 
     # Find
+    #
+    def getRunways(self):
+        ok = False
+        if not self.runways:
+            ok = self.ldRunways()
+        if ok or self.runways:
+            return self.runways.keys()
+        return None
+
+
+    def getRunway(self, name):
+        if self.getRunways():
+            return self.runways[name]
+        return None
+
+
+    def getRamps(self):
+        ok = False
+        if not self.ramps:
+            ok = self.ldRamps()
+        if ok or self.ramps:
+            return self.ramps.keys()
+        return None
+
+
+    def getRamp(self, name):
+        if self.getRamps():
+            return self.ramps[name]
+        return None
+
+
+    def getHolds(self):
+        ok = False
+        if not self.holds:
+            ok = self.ldHolds()
+        if ok or self.holds:
+            return self.holds.keys()
+        return None
+
+
+    def getHold(self, name):
+        if self.getHolds():
+            return self.holds[name]
+        return None
+
+
+    def getDestinations(self, mode):
+        if mode == DEPARTURE:
+            return list( list(self.runways.keys()) + list(self.holds.keys()) )
+
+        return list(self.ramps.keys())
+
+
+    # Find more...
     #
     def findClosestVertex(self, coord):
         return self.graph.findClosestVertex(Point(coord[0],coord[1]))
@@ -359,8 +413,9 @@ class Airport:
 
         return [False, None]
 
+
     def guessMove(self, coord):
-        # Return DEPARTURE|ARRIVAL
+        # Return DEPARTURE|ARRIVAL based on plane's position
         onRwy, runway = self.onRunway(coord)
         if onRwy:
             return ARRIVAL
@@ -368,41 +423,6 @@ class Airport:
         if ret[1] < DISTANCE_TO_RAMPS:  # meters, we are close to a ramp.
             return DEPARTURE
         return ARRIVAL
-
-
-    def getRunways(self):
-        if not self.runways:
-            self.ldRunways()
-        return self.runways.keys()
-
-
-    def getRamp(self, name):
-        if not self.ramps:
-            self.ldRamps()
-        if name in self.ramps:
-            return self.ramps[name]
-        return None
-
-
-    def getRunway(self, name):
-        if not self.runways:
-            self.ldRunways()
-        if name in self.runways:
-            return self.runways[name]
-        return None
-
-
-    def getRamps(self):
-        if not self.ramps:
-            self.ldRamps()
-        return self.ramps.keys()
-
-
-    def getDestinations(self, mode):
-        if mode == DEPARTURE:
-            return list( list(self.runways.keys()) + list(self.holds.keys()) )
-
-        return list(self.ramps.keys())
 
 
     def mkRoute(self, aircraft, destination, move):

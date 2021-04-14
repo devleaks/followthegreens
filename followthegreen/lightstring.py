@@ -164,18 +164,23 @@ class Stopbar:
             light.place(lightTypes[light.lightType], lightTypes[LIGHT_TYPE_OFF])
 
     def on(self):
-        for light in self.lights:
-            light.on()
-        self._on = True
+        if not self._on:
+            for light in self.lights:
+                light.on()
+            self._on = True
 
     def off(self):
-        for light in self.lights:
-            light.off()
-        self._on = False
+        if self._on:
+            for light in self.lights:
+                light.off()
+            self._on = False
 
     def destroy(self):
         for light in self.lights:
             light.destroy()
+
+    del isOn(self):
+        return self._on
 
 
 class LightString:
@@ -546,11 +551,9 @@ class LightString:
                     # there might be a stop bar...
                     if len(self.stopbars) > 0 and self.currentSegment < len(self.stopbars):  # there might be more green lights after the last stopbars
                         sb = self.stopbars[self.currentSegment]
-                        for redlight in sb.lights:
-                            redlight.on()
-                        # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
-                        logging.debug('Light::rabbit: light ahead: instanciate stopbar %d: done.', self.currentSegment)
-
+                        if not sb.isOn():
+                            sb.on()
+                            logging.debug('Light::rabbit: light ahead: instanciate stopbar %d: done.', self.currentSegment)
         else:  # restore previous
             restore(start, self.rabbitIdx, rabbitNose)
 
