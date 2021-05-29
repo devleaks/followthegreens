@@ -4,24 +4,28 @@ from traceback import print_exc
 import xp
 from followthegreen import FollowTheGreen
 
-RELEASE = "1.2.0"
+RELEASE = "1.2.2"
 
 class PythonInterface:
 
     def __init__(self):
-        self.Name = "Follow the green"
-        self.Sig = "followthegreen.xppython3"
-        self.Desc = "Follow the green, an X-Plane ATC A-SMGCS experience. (Rel. " + RELEASE + ")"
+        self.Name = "Follow the Greens"
+        self.Sig = "followthegreens.xppython3"
+        self.Desc = "Follow the Greens, an X-Plane ATC A-SMGCS experience. (Rel. " + RELEASE + ")"
         self.enabled = False
-        self.trace = False  # produces extra debugging in XPPython3.log for this class
+        self.trace = True  # produces extra debugging in XPPython3.log for this class
         self.menuIdx = None
         self.followTheGreen = None
         self.followTheGreenCmdRef = None
 
     def XPluginStart(self):
-        self.followTheGreenCmdRef = xp.createCommand('xppython3/followthegreen/toggle', 'Open or close Follow The Green window')
+        self.followTheGreenCmdRef = xp.createCommand('xppython3/followthegreen/toggle', 'Open or close Follow the Greens window')
         xp.registerCommandHandler(self.followTheGreenCmdRef, self.followTheGreenCmd, 1, None)
-        self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), 'Follow The Green', self.followTheGreenCmdRef)
+        self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), self.Name, self.followTheGreenCmdRef)
+        if self.trace:
+            print(self.Name, "PI::XPluginStop: menu added.")
+        if self.trace:
+            print(self.Name, "PI::XPluginStart: started.")
         return self.Name, self.Sig, self.Desc
 
     def XPluginStop(self):
@@ -33,6 +37,8 @@ class PythonInterface:
         if self.menuIdx:
             xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx)
             self.menuIdx = None
+            if self.trace:
+                print(self.Name, "PI::XPluginStop: menu removed.")
         if self.followTheGreen:
             try:
                 self.followTheGreen.stop()
@@ -40,17 +46,21 @@ class PythonInterface:
                 if self.trace:
                     print(self.Name, "PI::XPluginStop: stopped.")
             except:
+                if self.trace:
+                    print(self.Name, "PI::XPluginStop: exception.")
                 print_exc()
         return None
 
     def XPluginEnable(self):
         try:
             self.followTheGreen = FollowTheGreen(self)
+            self.enabled = True
             if self.trace:
                 print(self.Name, "PI::XPluginEnable: enabled.")
-            self.enabled = True
             return 1
         except:
+            if self.trace:
+                print(self.Name, "PI::XPluginEnable: exception.")
             print_exc()
         return 0
 
@@ -65,6 +75,8 @@ class PythonInterface:
                 print(self.Name, "PI::XPluginDisable: disabled.")
             return None
         except:
+            if self.trace:
+                print(self.Name, "PI::XPluginDisable: exception.")
             print_exc()
             self.enabled = False
             return None
@@ -98,6 +110,8 @@ class PythonInterface:
                 if self.trace:
                     print(self.Name, "PI::followTheGreenCmd: created.")
             except:
+                if self.trace:
+                    print(self.Name, "PI::followTheGreenCmd: exception.")
                 print_exc()
                 return 0
 
@@ -110,6 +124,8 @@ class PythonInterface:
                     print(self.Name, "PI::followTheGreenCmd: started.")
                 return 1
             except:
+                if self.trace:
+                    print(self.Name, "PI::followTheGreenCmd: exception(2).")
                 print_exc()
                 return 0
         elif not self.followTheGreen:
