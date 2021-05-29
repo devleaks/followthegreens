@@ -179,7 +179,7 @@ class Stopbar:
         for light in self.lights:
             light.destroy()
 
-    del isOn(self):
+    def isOn(self):
         return self._on
 
 
