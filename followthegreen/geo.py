@@ -143,6 +143,12 @@ class Line(Feature):
     def coords(self, lonLat=False):
         return [self.start.coords(lonLat), self.end.coords(lonLat)]
 
+    def length(self):
+        return distance(self.start, self.end)
+
+    def bearing(self):
+        return bearing(self.start, self.end)
+
 
 class LineString(Feature):
 

@@ -67,6 +67,8 @@ ADDLIGHTATVERTEX = False            # Add a light at each taxiway network vertex
 ADDLIGHTATLASTVERTEX = False        # Add a light at the last vertex, even if it is closer than DISTANCEBETWEENGREENLIGHTS
 ADDSTOPBARATLASTVERTEX = False      # Add a stop bar at the end (artificial)
 
+DISTANCEBETWEENTNLIGHTS = 5
+
 LIGHTS_AHEAD = 10                   # Number of lights in front of rabit.
 RABBIT_TIMEON = 0.4                 # sec, set to 0 to cancel rabbit
 RABBIT_TIMEOFF = 2                  # sec

@@ -5,6 +5,7 @@ __DESCRIPTION__ = "Follow the green, an X-Plane ATC A-SMGCS experience."
 
 
 from .followthegreen import FollowTheGreen
+from .showtaxiways import ShowTaxiways
 from .aircraft import Aircraft
 from .airport import Airport
 from .flightloop import FlightLoop

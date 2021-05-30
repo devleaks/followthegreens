@@ -18,7 +18,7 @@ from XPLMGraphics import XPLMWorldToLocal
 from XPLMInstance import XPLMCreateInstance, XPLMDestroyInstance, XPLMInstanceSetPosition
 
 from .geo import Point, distance, bearing, destination, convertAngleTo360
-from .globals import DISTANCEBETWEENGREENLIGHTS, ADDLIGHTATVERTEX, ADDLIGHTATLASTVERTEX, DISTANCEBETWEENSTOPLIGHTS, MINSEGMENTSBEFOREHOLD
+from .globals import DISTANCEBETWEENGREENLIGHTS, ADDLIGHTATVERTEX, ADDLIGHTATLASTVERTEX, DISTANCEBETWEENSTOPLIGHTS, MINSEGMENTSBEFOREHOLD, DISTANCEBETWEENTNLIGHTS
 from .globals import RABBIT_LENGTH, RABBIT_DURATION, LIGHTS_AHEAD
 from .globals import AIRCRAFT_TYPES as TAXIWAY_WIDTH
 from .globals import DEPARTURE, ARRIVAL
@@ -560,6 +560,47 @@ class LightString:
 
         self.rabbitIdx += 1
         return RABBIT_DURATION
+
+
+    def showAll(self, airport):
+        def showSegment(s, cnt):
+            brng = s.bearing()
+
+            # light at start of segment
+            self.lights.append(Light(LIGHT_TYPE_TAXIWAY, s.start, brng, cnt))
+            cnt += 1
+
+            dist = DISTANCEBETWEENTNLIGHTS
+            while dist < s.length():
+                pos = destination(s.start, brng, dist)
+                self.lights.append(Light(LIGHT_TYPE_TAXIWAY, pos, brng, cnt))
+                cnt += 1
+                dist += DISTANCEBETWEENTNLIGHTS
+
+            # light at end of segment
+            self.lights.append(Light(LIGHT_TYPE_TAXIWAY, s.end, brng, cnt))
+            cnt += 1
+            return cnt
+
+        lightcount = 0
+        for e in airport.graph.edges_arr:
+            lightcount = showSegment(e, lightcount)
+
+
+        # Lights up a segment of lights between 2 stop bars
+        if not self.lightTypes:
+            if not self.loadObjects():
+                return [False, "Could not load light objects."]
+
+        if not self.xyzPlaced:  # do it once and for all. Lights rarely move.
+            if not self.placeLights():
+                return [False, "Could not place light objects."]
+
+
+        for light in self.lights:
+            light.on()
+
+        return lightcount
 
 
     def destroy(self):
