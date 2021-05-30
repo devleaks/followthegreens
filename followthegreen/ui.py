@@ -335,6 +335,15 @@ class UIUtil:
         })
 
 
+    def enjoy(self):
+        return self.window([
+            "All taxiways in the network are lit. Press "+FINISH_TEXT+" to hide them.",
+            self.greetings("Enjoy your %s.")
+        ], {
+            FINISH_TEXT: self.cbBye
+        })
+
+
     def sorry(self, message):
         # Open a window with explanation.
         return self.window([

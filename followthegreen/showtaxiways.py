@@ -118,7 +118,7 @@ class ShowTaxiways:
         # Info 13
         logging.info("ShowTaxiways::showTaxiways: Added %d lights.", len(self.lights.lights))
 
-        return self.ui.bye()
+        return self.ui.enjoy()
         # return self.ui.sorry("Follow the green is not completed yet.")  # development
 
 
