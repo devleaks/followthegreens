@@ -107,11 +107,11 @@ class Light:
         if lightTypeOff and not self.instanceOff:
             self.instanceOff = XPLMCreateInstance(lightTypeOff.obj, self.drefs)
             XPLMInstanceSetPosition(self.instanceOff, self.xyz, self.params)
-            # logging.debug("Light::place: light off placed")
+            # logging.debug("LightString::place: light off placed")
 
     def on(self):
         if not self.xyz:
-            logging.debug("Light::on: light not placed")
+            logging.debug("LightString::on: light not placed")
             return
         if self.lightObject and not self.instance:
             self.instance = XPLMCreateInstance(self.lightObject, self.drefs)
@@ -249,21 +249,21 @@ class LightString:
         # logging.debug("placed first light")
         distanceBeforeNextLight = DISTANCEBETWEENGREENLIGHTS
 
-        logging.debug("Light::populate: at vertex %d, %s, %d.", 0, currVertex.id, len(thisLights))
+        logging.debug("LightString::populate: at vertex %d, %s, %d.", 0, currVertex.id, len(thisLights))
         for i in range(1, len(route.route)):
             nextVertex = graph.get_vertex(route.route[i])
-            logging.debug("Light::populate: at vertex %d, %s, %d.", i, nextVertex.id, len(thisLights))
+            logging.debug("LightString::populate: at vertex %d, %s, %d.", i, nextVertex.id, len(thisLights))
 
             distToNextVertex = distance(currPoint, nextVertex)
             brng = bearing(currVertex, nextVertex)
 
             thisEdge = graph.get_edge(currVertex.id, nextVertex.id)
             if not onILS and thisEdge.has_active("ils"):  # remember entry into ILS zone
-                logging.debug("Light::populate: thisEdge active ils %s-%s, %d, %s.", thisEdge.start.id, thisEdge.end.id, i, thisEdge.usage)
+                logging.debug("LightString::populate: thisEdge active ils %s-%s, %d, %s.", thisEdge.start.id, thisEdge.end.id, i, thisEdge.usage)
                 onILS = thisEdge
                 onILSidx = len(thisLights)
             elif not thisEdge.has_active(DEPARTURE):  # no longer an ILS zone
-                # logging.debug("Light::populate: thisEdge %d, %s.", i, thisEdge.usage)
+                # logging.debug("LightString::populate: thisEdge %d, %s.", i, thisEdge.usage)
                 onILS = False
 
             # logging.debug("dist to next: bearing: %f, distance: %f, type: %s", brng, distToNextVertex, thisEdge.usage)  # noqa: E501
@@ -275,21 +275,21 @@ class LightString:
                     stopbarAt = graph.get_vertex(onILS.start.id)
                     lightAtStopbar = onILSidx    # we also remember the light# where we should place the stopbar.
                     onILS = False
-                    logging.debug("Light::populate: potential stop bar on departure before ils %d, %d", i, lightAtStopbar)
+                    logging.debug("LightString::populate: potential stop bar on departure before ils at edge %d, %d", i, lightAtStopbar)
                 else:
-                    logging.debug("Light::populate: potential stop bar on departure %d, %d", i, lightAtStopbar)
+                    logging.debug("LightString::populate: potential stop bar on departure at edge %d, %d", i, lightAtStopbar)
 
                 # We remember the light index in the stopbar name. That way we can light the green up to the stopbar and light the stopbar
                 # Yup, orientation may be funny, may be not square to [currVertex,nextVertex].  @todo
                 if not onRwy:  # If we are on a runway, we assume that no stopbar is necessary to leave the runway
-                    logging.debug("Light::populate: departure: not on runway %d, %s", i, thisEdge.usage)
+                    logging.debug("LightString::populate: departure: not on runway at edge %d, %s", i, thisEdge.usage)
                     self.mkStopBar(lightAtStopbar, stopbarAt, nextVertex, "start", thisEdge.widthCode("E"))
                     self.segments += 1
                     onRwy = True  # We assume that we a setting a stopbar before a runway crossing.
                 else:
-                    logging.debug("Light::populate: departure: on runway #=%d, usage=%s, dept?=%s, %s.", i, thisEdge.usage, thisEdge.has_active(DEPARTURE), thisEdge.mkActives())
+                    logging.debug("LightString::populate: departure: on runway #=%d, usage=%s, dept?=%s, %s.", i, thisEdge.usage, thisEdge.has_active(DEPARTURE), thisEdge.mkActives())
                     if thisEdge.usage != "runway" and not thisEdge.has_active(DEPARTURE):  # if consecutive active departure segments, do not stop for them
-                        logging.debug("Light::populate: departure: no longer on runway at edge %d.", i)
+                        logging.debug("LightString::populate: departure: no longer on runway at edge %d.", i)
                         onRwy = False
 
             # note: if move=arrival, we should not stop on the first taxiway segment, but we may have to cross another runway further on...
@@ -301,25 +301,25 @@ class LightString:
                 if onILS:
                     stopbarAt = graph.get_vertex(onILS.start.id)
                     lightAtStopbar = len(thisLights)
-                    logging.debug("Light::populate: potential stop bar on arrival before ils %d, %d", i, lightAtStopbar)
+                    logging.debug("LightString::populate: potential stop bar on arrival before ils %d, %d", i, lightAtStopbar)
                     onILS = False
                 else:
-                    logging.debug("Light::populate: potential stop bar on arrival %d, %d", i, lightAtStopbar)
+                    logging.debug("LightString::populate: potential stop bar on arrival %d, %d", i, lightAtStopbar)
 
                 # We remember the light index in the stopbar name. That way we can light the green up to the stopbar and light the stopbar
                 if not onRwy:  # If we are on a runway, we assume that no stopbar is necessary to leave the runway
-                    logging.debug("Light::populate: arrival: on runway %d, %s", i, thisEdge.usage)
+                    logging.debug("LightString::populate: arrival: on runway %d, %s", i, thisEdge.usage)
                     self.mkStopBar(lightAtStopbar, stopbarAt, nextVertex, "start", thisEdge.widthCode("E"))
                     self.segments += 1
                     onRwy = True  # We assume that we a setting a stopbar before a runway crossing.
                 else:
-                    logging.debug("Light::populate: arrival: not on runway %d, %s", i, thisEdge.usage)
+                    logging.debug("LightString::populate: arrival: not on runway %d, %s", i, thisEdge.usage)
                     if thisEdge.usage != "runway" and not thisEdge.has_active(DEPARTURE):  # if consecutive active departure segments, do not stop for them
-                        logging.debug("Light::populate: arrival: no longer on runway at edge %d.", i)
+                        logging.debug("LightString::populate: arrival: no longer on runway at edge %d.", i)
                         onRwy = False
 
             if onRwy and thisEdge.usage != "runway" and not thisEdge.has_active(DEPARTURE):  # if consecutive active departure segments, do not stop for them
-                logging.debug("Light::populate: no longer on runway at edge %d.", i)
+                logging.debug("LightString::populate: no longer on runway at edge %d.", i)
                 onRwy = False
 
             if distToNextVertex < distanceBeforeNextLight:  # we don't insert a light, we go to next leg  # noqa: E501
@@ -353,13 +353,13 @@ class LightString:
             brgn = bearing(lastLight, lastPoint)
             thisLights.append(Light(LIGHT_TYPE_TAXIWAY, lastPoint, brgn, i))
             lastLight = lastPoint
-            logging.debug("added light at last vertex %s", route.route[len(route.route) - 1].id)
+            logging.debug("LightString::populate: added light at last vertex %s", route.route[len(route.route) - 1].id)
 
 
         last = 0
         for i in range(len(self.stopbars)):
             sb = self.stopbars[i]
-            logging.debug("Light::populate: stopbar %d: %d-%d.", i, last, sb.lightStringIndex)
+            logging.debug("LightString::populate: stopbar %d: %d-%d.", i, last, sb.lightStringIndex)
             last = sb.lightStringIndex
 
         self.lights = thisLights
@@ -378,7 +378,7 @@ class LightString:
         stopbar = Stopbar(start, brng, lightIndex, size)
 
         self.stopbars.append(stopbar)
-        logging.debug("Light::mkStopBar: added stopbar at %d", lightIndex)
+        logging.debug("LightString::mkStopBar: added stopbar at %d", lightIndex)
 
         return stopbar.lights
 
@@ -395,7 +395,7 @@ class LightString:
         for k, f in LIGHT_TYPES_OBJFILES.items():
             self.lightTypes[k] = LightType(k, f)
             self.lightTypes[k].load()
-        logging.debug('Light::loadObjects: loaded.')
+        logging.debug('LightString::loadObjects: loaded.')
         return True
 
 
@@ -407,7 +407,7 @@ class LightString:
             sb.place(self.lightTypes)
 
         self.xyzPlaced = True
-        logging.debug('Light::placeLights: placed.')
+        logging.debug('LightString::placeLights: placed.')
         return True
 
 
@@ -415,7 +415,7 @@ class LightString:
         if segment >= len(self.stopbars):
             return
         self.stopbars[segment].off()
-        logging.debug('Light::blackenSegment(stop): done.')
+        logging.debug('LightString::blackenSegment(stop): done.')
 
 
     def illuminateSegment(self, segment):
@@ -438,7 +438,7 @@ class LightString:
                 lastSb = self.stopbars[segment - 1]
                 start = lastSb.lightStringIndex
             end = len(self.lights)
-            logging.debug('Light::illuminateSegment: instanciate(green): last segment %d between %d and %d.', segment, start, end)
+            logging.debug('LightString::illuminateSegment: will instanciate(green): last segment %d between %d and %d.', segment, start, end)
         else:
             sbend = self.stopbars[segment]
             if segment > 0:
@@ -446,23 +446,22 @@ class LightString:
                 sbbeging = self.stopbars[segment - 1]
                 start = sbbeging.lightStringIndex
             end = sbend.lightStringIndex
-            logging.debug('Light::illuminateSegment: instanciate(green): segment %d between %d and %d.', segment, start, end)
-
-
+            logging.debug('LightString::illuminateSegment: will instanciate(green): segment %d between %d and %d.', segment, start, end)
 
         if LIGHTS_AHEAD is None or LIGHTS_AHEAD == 0:
-            # Instanciate for each green light
+            # Instanciate for each green light in segment and stop bar
             for i in range(start, end):
                 self.lights[i].on()
             # map(lambda x: x.on(self.txy_light_obj), self.lights[start:end])
-            logging.debug('Light::illuminateSegment: no light ahead: instanciate(green): done.')
+            logging.debug('LightString::illuminateSegment: no light ahead: instanciate(green): done.')
             # Instanciate for each stop light
             # for sb in self.stopbars:
             if len(self.stopbars) > 0 and segment < len(self.stopbars):
                 for light in sbend.lights:
                     light.on()
+                    logging.debug('LightString::illuminateSegment: illuminating stop light.', i)
                 # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
-            logging.debug('Light::illuminateSegment: no light ahead: instanciate(stop): done.')
+            logging.debug('LightString::illuminateSegment: no light ahead: instanciate(stop): done.')
         # else, lights will be turned on in front of rabbit
 
         if not self.rabbitCanRun:
@@ -507,7 +506,7 @@ class LightString:
             for i in range(self.lastLit, idx):
                 self.lights[i].off()
             self.lastLit = idx
-            logging.debug("Light::offToIndex: turned off %d -> %d.", idx, self.lastLit)
+            logging.debug("LightString::offToIndex: turned off %d -> %d.", idx, self.lastLit)
         # else: idx out of range?
 
 
@@ -516,7 +515,7 @@ class LightString:
         for i in range(self.lastLit, last):
             self.lights[i].on()
         # warning, verbose, since called at each rabbit flightloop
-        # logging.debug("Light::onToIndex: turned on %d -> %d.", self.lastLit, last)
+        # logging.debug("LightString::onToIndex: turned on %d -> %d.", self.lastLit, last)
 
 
     def rabbit(self, start):
@@ -549,7 +548,7 @@ class LightString:
                         for redlight in sb.lights:
                             redlight.on()
                         # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
-                        logging.debug('Light::rabbit: light ahead: instanciate stopbar %d: done.', self.currentSegment)
+                        logging.debug('LightString::rabbit: light ahead: instanciate stopbar %d: done.', self.currentSegment)
 
         else:  # restore previous
             restore(start, self.rabbitIdx, rabbitNose)
@@ -609,17 +608,17 @@ class LightString:
         if self.lights:
             for light in self.lights:
                 light.destroy()
-            logging.debug('Light::destroy(green): done.')
+            logging.debug('LightString::destroy(green): done.')
 
         # Destroy each stopbar
         if self.stopbars:
             for sb in self.stopbars:
                 sb.destroy()
-            logging.debug('Light::destroy(stop): done.')
+            logging.debug('LightString::destroy(stop): done.')
 
         # Unload light objects
         if self.lightTypes:
             for k, f in self.lightTypes.items():
                 f.unload()
             self.lightTypes = None
-            logging.debug('Light::destroy: unloaded.')
+            logging.debug('LightString::destroy: unloaded.')

@@ -364,10 +364,10 @@ class Graph:  # Graph(FeatureCollection)?
                 node = False
 
         if not node:
-            logging.debug("could not find route from %s to %s", source, target)
+            logging.debug("Graph::Dijkstra: could not find route from %s to %s", source, target)
             return None
         else:
             # Including the source in the path
             route.insert(0, source)
-            logging.debug("route: %s", "-".join(route))
+            logging.debug("Graph::Dijkstra: route: %s", "-".join(route))
             return route

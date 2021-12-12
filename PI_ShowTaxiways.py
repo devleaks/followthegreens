@@ -4,7 +4,7 @@ from traceback import print_exc
 import xp
 from followthegreen import ShowTaxiways
 
-RELEASE = "1.0.0"
+RELEASE = "1.3.0"
 
 class PythonInterface:
 

@@ -187,7 +187,7 @@ class FollowTheGreen:
         ret = self.lights.illuminateSegment(self.segment)
         if not ret[0]:
             return self.ui.sorry(ret[1])
-        logging.debug("FollowTheGreen::followTheGreen: lights instanciated (%d).", self.segment)
+        logging.debug("FollowTheGreen::followTheGreen: lights instanciated for segment %d.", self.segment)
 
         initbrgn, initdist, initdiff = self.lights.initial(pos, hdg)
         logging.debug("FollowTheGreen::followTheGreen: init (%d, %d, %d).", initbrgn, initdist, initdiff)

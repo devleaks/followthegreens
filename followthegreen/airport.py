@@ -155,7 +155,7 @@ class Airport:
                 # logging.debug("APT.DAT %s", scenery_pack_apt)
 
                 if os.path.isfile(scenery_pack_apt):
-                    apt_dat = open(scenery_pack_apt, "r", encoding='utf-8')
+                    apt_dat = open(scenery_pack_apt, "r", encoding="utf-8", errors="ignore")
                     line = apt_dat.readline()
 
                     while not self.loaded and line:  # while we have not found our airport and there are more lines in this pack
@@ -181,7 +181,7 @@ class Airport:
                                 logging.info("Airport::load: Read %d lines for %s." % (len(self.lines), self.name))
                                 self.loaded = True
 
-                        if(line):  # otherwize we reached the end of file
+                        if line:  # otherwize we reached the end of file
                             line = apt_dat.readline()  # next line in apt.dat
 
                     apt_dat.close()
@@ -208,7 +208,7 @@ class Airport:
 
         vertexlines = list(filter(lambda x: x.linecode() == 1201, self.lines))
         v = list(map(addVertex, vertexlines))
-        logging.debug("mkRoutingNetwork: added %d vertices" % len(v))
+        logging.debug("Airport::mkRoutingNetwork: added %d vertices" % len(v))
 
         # 1202 20 21 twoway runway 16L/34R
         # 1204 departure 16L,34R
@@ -261,7 +261,7 @@ class Airport:
                 runways[args[16]] = Runway(args[16], args[0], args[17], args[18], args[8], args[9], runway)
 
         self.runways = runways
-        logging.debug("ldRunways: added %d runways", len(runways.keys()))
+        logging.debug("Airport::ldRunways: added %d runways", len(runways.keys()))
         return runways
 
 
@@ -274,7 +274,7 @@ class Airport:
             holds[name] = Hold(name, rwy.start.lat, rwy.start.lon)
 
         self.holds = holds
-        logging.debug("ldRunways: added %d holding positions", len(holds.keys()))
+        logging.debug("Airport::ldHolds: added %d holding positions", len(holds.keys()))
         return holds
 
 
@@ -304,7 +304,7 @@ class Airport:
                 ramp = False
 
         self.ramps = ramps
-        logging.debug("ldRamps: added %d ramps", len(ramps.keys()))
+        logging.debug("Airport::ldRamps: added %d ramps", len(ramps.keys()))
         return ramps
 
 
@@ -335,7 +335,7 @@ class Airport:
             if d < shortest:
                 shortest = d
                 closest = name
-        logging.debug("findClosestRamp: %s at %f", closest, shortest)
+        logging.debug("Airport::findClosestRamp: %s at %f", closest, shortest)
         return [closest, shortest]
 
 

@@ -69,7 +69,7 @@ ADDSTOPBARATLASTVERTEX = False      # Add a stop bar at the end (artificial)
 
 DISTANCEBETWEENTNLIGHTS = 5
 
-LIGHTS_AHEAD = 10                   # Number of lights in front of rabit.
+LIGHTS_AHEAD = 0                    # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
 RABBIT_TIMEON = 0.4                 # sec, set to 0 to cancel rabbit
 RABBIT_TIMEOFF = 2                  # sec
 RABBIT_PHASE = 0.3                  # sec
