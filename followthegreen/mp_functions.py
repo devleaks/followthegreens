@@ -1,0 +1,129 @@
+# Utilities for Multiprocessing
+
+import os
+import logging
+import multiprocessing
+import re
+import time
+# from .airport import AptLine
+
+try:
+    import xp
+    from .mp_flightloop import MyLoadingFlightLoop
+
+except ImportError:
+    pass
+
+
+class Feedback:
+
+    icao = ""
+    name = ""
+    altitude = 0
+    loaded = False
+    scenery_pack = False
+    lines = []
+    status = ""
+    new_lines = []
+
+    def __init__(self):
+         self.status = "not started"
+
+
+class AptLine:
+    # APT.DAT line for this airport
+    def __init__(self, line):
+        self.arr = line.split()
+        if len(self.arr) == 0:
+            print("Empty line")
+    # logging.debug("AptLine::linecode: empty line? '%s'", line)
+
+    def linecode(self):
+        if len(self.arr) > 0:
+            return int(self.arr[0])
+        return None
+
+    def content(self):
+        if len(self.arr) > 1:
+            return " ".join(self.arr[1:])
+        return None  # line has no content
+
+
+class MultiProcessLoader:
+
+    def __init__(self, airport):
+        self.fl = None
+        self.airport = airport
+
+    def start(self): #@todo Hängt sich auf!
+        logging.debug("mp_functions::MultiProcessLoader: started")
+        multiprocessing.set_executable(xp.pythonExecutable)
+        parent_conn, child_conn = multiprocessing.Pipe()
+        logging.debug("mp_functions::MultiProcessLoader: start parent connection: " + str(parent_conn))
+        logging.debug("mp_functions::MultiProcessLoader: start child connection: " + str(child_conn))
+        p = multiprocessing.Process(target=function_frame, args=(child_conn, xp.getSystemPath(), self.airport.icao, ))
+        p.start()
+        logging.debug("mp_functions::process started: PID: " + str(p.pid))
+        logging.debug("mp_functions::process started: conn " + str(child_conn.poll()))
+        self.fl = MyLoadingFlightLoop(self.airport, parent_conn, p)
+        self.fl.startFlightLoop()
+        if p.is_alive():
+            logging.debug("mp_functions::MultiProcessLoader: second process alive")
+        return 1
+
+
+def function_frame(conn, path, icao):
+    x = Feedback()
+    x.status = 'Reading data'
+    conn.send(x)
+    fileread(conn, path, icao, x)
+    x.status = 'Airport loaded'
+    conn.send(x)
+    conn.close()
+    return
+
+
+def fileread(conn, path, icao, x):
+    SCENERY_PACKS = os.path.join(path, "Custom Scenery", "scenery_packs.ini")
+    scenery_packs = open(SCENERY_PACKS, "r")
+    scenery = scenery_packs.readline()
+    scenery = scenery.strip()
+    x.loaded = False
+    while not x.loaded and scenery:  # while we have not found our airport and there are more scenery packs
+        if re.match("^SCENERY_PACK", scenery, flags=0):
+            scenery_pack_dir = scenery[13:-1]
+            x.status = "search : " + scenery_pack_dir
+            conn.send(x)
+            scenery_pack_apt = os.path.join(path, scenery_pack_dir, "Earth nav data", "apt.dat")
+            if os.path.isfile(scenery_pack_apt):
+                apt_dat = open(scenery_pack_apt, "r", encoding="utf-8", errors="ignore")
+                line = apt_dat.readline()
+                while not x.loaded and line:  # while we have not found our airport and there are more lines in this pack
+                    if re.match("^1 ", line, flags=0):  # if it is a "startOfAirport" line
+                        newparam = line.split()  # if no characters supplied to split(), multiple space characters as one
+                        if newparam[4] == icao:  # it is the airport we are looking for
+                            x.name = " ".join(newparam[5:])
+                            x.altitude = newparam[1]
+                            x.scenery_pack = scenery_pack_apt
+                            x.lines.append(AptLine(line))
+                            line = apt_dat.readline()
+                            while line and not re.match("^1 ", line, flags=0):
+                                testline = AptLine(line)
+                                if testline.linecode() is not None:
+                                    x.lines.append(testline)
+                                else:
+                                    print("Empty line")
+                                line = apt_dat.readline()  # next line in apt.dat
+                            x.loaded = True
+                    if line:  # otherwize we reached the end of file
+                        line = apt_dat.readline()  # next line in apt.dat
+                apt_dat.close()
+        scenery = scenery_packs.readline()
+    scenery_packs.close()
+    x.new_lines = x.lines
+    return x.loaded
+
+
+if __name__ == '__main__': # Only in case....
+    pass
+

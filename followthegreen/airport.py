@@ -10,6 +10,7 @@ from .geo import Point, Line, Polygon, distance, pointInPolygon
 from .graph import Graph, Edge
 from .globals import SYSTEM_DIRECTORY, DISTANCE_TO_RAMPS, DEPARTURE, ARRIVAL, TOO_FAR
 from .globals import AIRCRAFT_TYPES as TAXIWAY_WIDTH
+from .mp_functions import MultiProcessLoader
 
 
 class AptLine:
@@ -110,49 +111,64 @@ class Airport:
         self.holds = {}
         self.ramps = {}
 
+    def prepare_new(self):
+        logging.debug("Airport::prepare_new: started")
+        # Multiprocessing insert
+        mpl = MultiProcessLoader(self)
+        status = mpl.start()
+        return status
 
     def prepare(self):
-        status = self.load()
-        if not status:
-            return [False, "We could not find airport named '%s'." % self.icao]
+        logging.debug("Airport::prepare: started")
+        # status = self.load()
+        # if not status:
+        #     return [False, "We could not find airport named '%s'." % self.icao]
 
         # Info 5
         logging.debug("Airport::prepare: Has ATC %s." % (self.hasATC()))  # actually, we don't care.
-
+        logging.debug("Airport::prepare: mkRountingNetwork started")
         status = self.mkRoutingNetwork()
         if not status:
             return [False, "We could not build taxiway network for %s." % self.icao]
-
+        logging.debug("Airport::prepare: mkRountingNetwork finished")
+        logging.debug("Airport::prepare: ldRunways started")
         status = self.ldRunways()
         if len(status) == 0:
             return [False, "We could not find runways for %s." % self.icao]
         # Info 7
+        logging.debug("Airport::prepare: ldRunways finished")
         logging.debug("Airport::prepare: runways: %s" % (status.keys()))
 
+        logging.debug("Airport::prepare: ldHolds started")
         status = self.ldHolds()
+        logging.debug("Airport::prepare: ldHolds finished")
         logging.debug("Airport::prepare: holding positions: %s" % (status.keys()))
 
+        logging.debug("Airport::prepare: ldRamps started")
         status = self.ldRamps()
         if len(status) == 0:
             return [False, "We could not find ramps/parking for %s." % self.icao]
         # Info 8
+        logging.debug("Airport::prepare: ldRamps finished")
         logging.debug("Airport::prepare: ramps: %s" % (status.keys()))
 
+        logging.debug("Airport::prepare: finished")
         return [True, "Airport ready"]
 
 
     def load(self):
+        logging.debug("Airport::load: started")
         SCENERY_PACKS = os.path.join(SYSTEM_DIRECTORY, "Custom Scenery", "scenery_packs.ini")
         scenery_packs = open(SCENERY_PACKS, "r")
         scenery = scenery_packs.readline()
         scenery = scenery.strip()
-
+        logging.debug("Airport::load: scenery_packs.ini read finished")
         while not self.loaded and scenery:  # while we have not found our airport and there are more scenery packs
             if re.match("^SCENERY_PACK", scenery, flags=0):
-                # logging.debug("SCENERY_PACK %s", scenery.rstrip())
+                logging.debug("SCENERY_PACK %s", scenery.rstrip())
                 scenery_pack_dir = scenery[13:-1]
                 scenery_pack_apt = os.path.join(scenery_pack_dir, "Earth nav data", "apt.dat")
-                # logging.debug("APT.DAT %s", scenery_pack_apt)
+                logging.debug("APT.DAT %s", scenery_pack_apt)
 
                 if os.path.isfile(scenery_pack_apt):
                     apt_dat = open(scenery_pack_apt, "r", encoding="utf-8", errors="ignore")
@@ -183,7 +199,7 @@ class Airport:
 
                         if line:  # otherwize we reached the end of file
                             line = apt_dat.readline()  # next line in apt.dat
-
+                    logging.debug("Airport::load: apt.dat loading finished")
                     apt_dat.close()
 
             scenery = scenery_packs.readline()

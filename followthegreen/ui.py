@@ -201,6 +201,51 @@ class UIUtil:
 
         return widgetWindow
 
+    def promptForWindow(self, status=""):
+        # Create a window to prompt for a local airport destination, either a runway or a parking position
+        move = self.ftg.move
+        welcome = "Welcome. We could not guess where you want to taxi."
+        if status != "":
+            welcome = status + " Try again. Where do you want to taxi?"
+
+        button = "None"
+        prompt = "Wait while loading"
+        text   = "LOADING AIRPORT DATA"
+
+        widgetWindow = self.window([
+            welcome,
+            prompt,
+            "Click inside the text box and use UP and DOWN arrow to cycle through values.",
+            "Key in first 3 digits. Backspace to start from new entry"
+        ], {
+            "Follow the green": None,
+            CANCELSHORT_TEXT: self.cbCancel
+        })
+
+
+        left = self.linetops[1][1] + 10
+        right = int(left + 150)
+        top = self.linetops[1][0] - 2
+        bottom = int(top - self.strHeight)
+        widget = xp.createWidget(left, top, right, bottom, 1, text, 0,
+                                 self.mainWindow['widgetID'],
+                                 xp.WidgetClass_TextField)
+        self.mainWindow['widgets']['dest'] = widget
+        xp.addWidgetCallback(self.mainWindow['widgets']['dest'], self.cbUpDown)
+
+        strWidth = xp.measureString(self.fontID, button)
+        left = right + 20  # after the above textfield
+        right = int(left + 1.1 * strWidth)
+        # top = int(self.wTop - 40 - self.strHeight)
+        # bottom = int(top - self.strHeight)
+        widget = xp.createWidget(left, top, right, bottom, 1, button, 0,
+                                 widgetWindow,
+                                 xp.WidgetClass_Button)
+        self.mainWindow['widgets']['move'] = widget
+        xp.addWidgetCallback(self.mainWindow['widgets']['move'], self.cbMovement)
+
+        return widgetWindow
+
 
     def promptForDestination(self, status=""):
         # Create a window to prompt for a local airport destination, either a runway or a parking position

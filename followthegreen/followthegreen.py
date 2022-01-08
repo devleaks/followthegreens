@@ -23,7 +23,7 @@ from .globals import ARRIVAL, DEPARTURE
 from .lightstring import LightString
 from .ui import UIUtil
 
-logging.basicConfig(level=logging.DEBUG)  # filename=('FTG_log.txt')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - Follow The Green - %(levelname)s - %(message)s')  # filename=('FTG_log.txt')
 
 
 class FollowTheGreen:
@@ -109,6 +109,24 @@ class FollowTheGreen:
 
 
     def getDestination(self, airport):
+        # Prompt for local destination at airport.
+        # Either a runway for departure or a parking for arrival.
+        if not self.airport or (self.airport.icao != airport):  # we may have changed airport since last call
+            self.airport = Airport(airport)
+            # Info 4 to 8 in airport.prepare()
+            status = self.airport.prepare_new()  # [ok, errmsg] ==> loading in flight loop!
+        return self.ui.promptForWindow()
+
+    def getDestination_cont(self, airport):
+        self.airport = airport
+        logging.debug("FollowTheGreen::getDestination: airport ready")
+        self.move = self.airport.guessMove(self.aircraft.position())
+        # Info 10
+        logging.info("FollowTheGreen::getDestination: Guessing %s", self.move)
+
+        return self.ui.promptForDestination()
+
+    def getDestination_old(self, airport):
         # Prompt for local destination at airport.
         # Either a runway for departure or a parking for arrival.
         if not self.airport or (self.airport.icao != airport):  # we may have changed airport since last call

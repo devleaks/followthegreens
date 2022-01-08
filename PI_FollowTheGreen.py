@@ -4,7 +4,8 @@ from traceback import print_exc
 import xp
 from followthegreen import FollowTheGreen
 
-RELEASE = "1.3.0"
+
+RELEASE = "1.3.0a"
 
 class PythonInterface:
 
