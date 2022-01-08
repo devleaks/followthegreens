@@ -118,6 +118,13 @@ class Airport:
         status = mpl.start()
         return status
 
+    def prepare_old(self):
+        logging.debug("Airport::prepare_old: started")
+        status = self.load()
+        if not status:
+            return [False, "We could not find airport named '%s'." % self.icao]
+        return self.prepare()
+
     def prepare(self):
         logging.debug("Airport::prepare: started")
         # status = self.load()
