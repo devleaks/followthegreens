@@ -111,10 +111,10 @@ class Airport:
         self.holds = {}
         self.ramps = {}
 
-    def prepare_new(self):
+    def prepare_new(self, ui):
         logging.debug("Airport::prepare_new: started")
         # Multiprocessing insert
-        mpl = MultiProcessLoader(self)
+        mpl = MultiProcessLoader(self, ui)
         status = mpl.start()
         return status
 

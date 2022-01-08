@@ -114,7 +114,9 @@ class FollowTheGreen:
         if not self.airport or (self.airport.icao != airport):  # we may have changed airport since last call
             self.airport = Airport(airport)
             # Info 4 to 8 in airport.prepare()
-            status = self.airport.prepare_new()  # [ok, errmsg] ==> loading in flight loop!
+            status = self.airport.prepare_new(self.ui)  # [ok, errmsg] ==> loading in flight loop!
+        else:
+            return self.getDestination_cont(self.airport)
         return self.ui.promptForWindow()
 
     def getDestination_cont(self, airport):

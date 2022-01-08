@@ -14,8 +14,9 @@ FLIGHT_LOOPS = -5.0      # How many flight loops we check the results
 
 class MyLoadingFlightLoop:
 
-    def __init__(self, airport, conn, process):
+    def __init__(self, airport, conn, process, ui):
         self.mc = airport  # Reference to the caller
+        self.ui = ui
         # self.ftg = ftg     # Reference to the main caller
         # self.mc.icao = icao                       ## will be used to search
         # self.mc.name = ""                         ## will be filled from search
@@ -85,6 +86,7 @@ class MyLoadingFlightLoop:
             logging.debug("mp_flightloop::myFLCB: Flight loop pipe closed or error " + str(e.errno))
             self.stopFlightLoop()
             self.mc.prepare()
-            self.mc
+            self.ui.promptForDestination()
+            self.ui.showMainWindow()
         return FLIGHT_LOOPS
 

@@ -51,11 +51,12 @@ class AptLine:
 
 class MultiProcessLoader:
 
-    def __init__(self, airport):
+    def __init__(self, airport, ui):
         self.fl = None
         self.airport = airport
+        self.ui = ui
 
-    def start(self): #@todo Hängt sich auf!
+    def start(self):
         logging.debug("mp_functions::MultiProcessLoader: started")
         multiprocessing.set_executable(xp.pythonExecutable)
         parent_conn, child_conn = multiprocessing.Pipe()
@@ -65,7 +66,7 @@ class MultiProcessLoader:
         p.start()
         logging.debug("mp_functions::process started: PID: " + str(p.pid))
         logging.debug("mp_functions::process started: conn " + str(child_conn.poll()))
-        self.fl = MyLoadingFlightLoop(self.airport, parent_conn, p)
+        self.fl = MyLoadingFlightLoop(self.airport, parent_conn, p, self.ui)
         self.fl.startFlightLoop()
         if p.is_alive():
             logging.debug("mp_functions::MultiProcessLoader: second process alive")
