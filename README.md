@@ -3,8 +3,7 @@ Follow the green, an X-Plane ATC A-SMGCS experience
 Additions by Gunduran (Detlev Hoffmann)
 
 Ideas:
-* Load of Airport Data in a separate process ==> Current initial loading takes up to 6 sec. fully blocking x-plane.
-  ==> Already tested in a separate python program how it could work now need to implement that in airport load module
+* Load of Airport Data in a separate process ==> Done, but need refresh of the main dialog
   
 * Move from the old style windows to the new styles (also dragable outside x-plane frame) and list all the destinations in combination with typing the first digits
 
