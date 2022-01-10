@@ -3,7 +3,7 @@ Follow the green, an X-Plane ATC A-SMGCS experience
 Additions by Gunduran (Detlev Hoffmann)
 
 Ideas:
-* Load of Airport Data in a separate process ==> Done, but need refresh of the main dialog
+* Load of Airport Data in a separate process ==> Done, main dialog shows loading until the load is finished, need some more testing for airports without taxiways etc.
   
 * Move from the old style windows to the new styles (also dragable outside x-plane frame) and list all the destinations in combination with typing the first digits
 
