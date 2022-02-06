@@ -4,8 +4,6 @@ import os
 import logging
 import multiprocessing
 import re
-import time
-# from .airport import AptLine
 
 try:
     import xp
@@ -16,21 +14,23 @@ except ImportError:
 
 
 class Feedback:
-
-    icao = ""
-    name = ""
-    altitude = 0
-    loaded = False
-    scenery_pack = False
-    lines = []
-    status = ""
-    new_lines = []
+    """Class to deliver the results from the separate process via the pipe to the flight loop"""
 
     def __init__(self):
-         self.status = "not started"
+        """Initialize Feedback class"""
+        self.status = "not started"
+        self.name = ""
+        self.altitude = 0
+        self.scenery_pack = False
+        self.icao = ""
+        self.loaded = False
+        self.lines = []
+        self.new_lines = []
 
 
 class AptLine:
+    """Similar Class definition like in airport package but need to defined here also for the check"""
+
     # APT.DAT line for this airport
     def __init__(self, line):
         self.arr = line.split()
@@ -50,6 +50,7 @@ class AptLine:
 
 
 class MultiProcessLoader:
+    """Initiates the separate process to load the data"""
 
     def __init__(self, airport, ui):
         self.fl = None
@@ -57,6 +58,7 @@ class MultiProcessLoader:
         self.ui = ui
 
     def start(self):
+        """start the separate process and the flight loop"""
         logging.debug("mp_functions::MultiProcessLoader: started")
         multiprocessing.set_executable(xp.pythonExecutable)
         parent_conn, child_conn = multiprocessing.Pipe()
@@ -74,6 +76,8 @@ class MultiProcessLoader:
 
 
 def function_frame(conn, path, icao):
+    """Calling function for status management of the reader"""
+
     x = Feedback()
     x.status = 'Reading data'
     conn.send(x)
@@ -85,6 +89,7 @@ def function_frame(conn, path, icao):
 
 
 def fileread(conn, path, icao, x):
+    """file reader similar to the load function in the airport package"""
     SCENERY_PACKS = os.path.join(path, "Custom Scenery", "scenery_packs.ini")
     scenery_packs = open(SCENERY_PACKS, "r")
     scenery = scenery_packs.readline()

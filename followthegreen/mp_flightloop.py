@@ -1,7 +1,5 @@
 # X-Plane Interaction Class
-# TO allow multiprocessing in the background using pipes
-# @todo logging from xp.log to logging.debug
-# @todo make it integrated from the nomenclature to work with Airport class
+# To allow multiprocessing in the background using pipes
 
 import xp
 import logging
@@ -13,23 +11,12 @@ FLIGHT_LOOPS = -5.0      # How many flight loops we check the results
 
 
 class MyLoadingFlightLoop:
+    """This flight loop is looking for messages coming from the pipe of the loader"""
 
     def __init__(self, airport, conn, process, ui):
-        self.mc = airport  # Reference to the caller
+        self.mc = airport # Reference to the caller
         self.ui = ui
-        # self.ftg = ftg     # Reference to the main caller
-        # self.mc.icao = icao                       ## will be used to search
-        # self.mc.name = ""                         ## will be filled from search
-        # self.mc.atc_ground = None                 ## ignored
-        # self.mc.altitude = 0  # ASL, in meters    ## will be filled from search
-        # self.mc.loaded = False                    ## will be set from search if found
-        # self.mc.scenery_pack = False              ## will be set from search if found
-        # self.mc.lines = []                        ## will be filled from search
-        # self.mc.graph = Graph()                   ## ignored
-        # self.mc.runways = {}                      ## irnored
-        # self.mc.holds = {}                        ## ignored
-        # self.mc.ramps = {}                        ## ignored
-        self.conn = conn     # connection from the process
+        self.conn = conn # connection from the process
         self.process = process
         self.fl = None
         self.flname = 'followthegreen load airport flight loop'
@@ -41,6 +28,7 @@ class MyLoadingFlightLoop:
 
 
     def startFlightLoop(self):
+        """Starts the loop in the AfterFlightModel sequence"""
         phase = xplm_FlightLoop_Phase_AfterFlightModel
         if not self.loopRunning:
             params = [phase, self.myFLCB, self.flname]
@@ -52,6 +40,7 @@ class MyLoadingFlightLoop:
             logging.debug("mp_flightloop::startFlightLoop: conn " + str(self.conn.poll()))
 
     def stopFlightLoop(self):
+        """Ends the loop when everything is loaded or the pipe is broken"""
         if self.loopRunning:
             xp.destroyFlightLoop(self.fl)
             self.loopRunning = False
@@ -60,6 +49,7 @@ class MyLoadingFlightLoop:
             logging.debug("mp_flightloop::stopFlightLoop: Flight loop not running")
 
     def myFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
+        """The loop it self, checks the pipe and if received data analyses the content"""
         logging.debug("mp_flightloop::FlightLoop: Flight loop - loop - Process is alive " + str(self.process.is_alive()))
         # logging.debug("mp_flightloop::FlightLoop: Flight loop - conn " + str(self.conn.poll()))
         try:
