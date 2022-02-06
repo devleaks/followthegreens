@@ -2,6 +2,11 @@
 Follow the green, an X-Plane ATC A-SMGCS experience
 Additions by Gunduran (Detlev Hoffmann)
 
+Recent changes:
+* Now using the airport data to respect the Taxiway conditions. 
+  If in the apt.dat taxiways are classified with ICAO Airdome Reference Codes (A-F), it will be mapped against the Airplane ICAO code. 
+  The list of Airplane codes comes from the FAA and there is a small step of mapping the FAA Aircaft Design Group to the Airdome Reference Code embedded.
+
 Ideas:
 * Load of Airport Data in a separate process ==> Done, main dialog shows loading until the load is finished, need some more testing for airports without taxiways etc.
   
