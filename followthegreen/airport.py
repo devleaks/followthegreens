@@ -66,6 +66,7 @@ class Route:
         self.vertices = None
         self.edges = None
         self.smoothed = None
+        logging.debug("Airport::route:: {}".format(self.options))
 
     def __str__(self):
         if self.found():
@@ -86,7 +87,7 @@ class Route:
         for i in range(len(self.route) - 1):
             e = self.graph.get_edge(self.route[i], self.route[i + 1])
             v = self.graph.get_vertex(self.route[i])
-            v.setProp("taxiway-width", TAXIWAY_WIDTH[e.widthCode("D")])  # default to D
+            v.setProp("taxiway-width", TAXIWAY_WIDTH[e.widthCode("D")])  # default to D if not given
             v.setProp("ls", i)
             self.edges.append(e)
 
@@ -240,6 +241,7 @@ class Airport:
         edgeCount = 0   # just for info
         edgeActiveCount = 0
         edge = False
+        taxiways = []
         for aptline in self.lines:
             if aptline.linecode() == 1202: # edge
                 args = aptline.content().split()
@@ -250,6 +252,8 @@ class Airport:
                     edge = None
                     if len(args) == 5:
                         edge = Edge(src, dst, cost, args[2], args[3], args[4])
+                        if "taxiway" in args[3]:
+                            taxiways.append(args[4])
                     else:
                         edge = Edge(src, dst, cost, args[2], args[3], "")
                     self.graph.add_edge(edge)
@@ -268,6 +272,8 @@ class Airport:
 
         # Info 6
         logging.info("Airport::mkRoutingNetwork: added %d nodes, %d edges (%d enhanced).", len(vertexlines), edgeCount, edgeActiveCount)
+        taxiways2 = sorted(list(set(taxiways)))
+        logging.debug("Airport::mkRoutingNetwork: {}".format(str(taxiways2)))
         return True
 
 
@@ -506,15 +512,25 @@ class Airport:
         logging.debug("Airport::mkRoute: got destination vertex %s", dst)
 
         # Try to find route (src and dst are vertex ids)
-        opts = {"taxiwayOnly": True}
+        opts = {"taxiwayOnly": True, "minSizeCode": aircraft.icaocat}
         route = Route(self.graph, src[0], dst[0], move, opts)
+        logging.debug("Airport::mkRoute: route options {}".format(route.options))
         route.find()
         if not route.found() and len(opts.keys()) > 0:  # if there were options, we try to find a route without option
-            logging.debug("Airport::mkRoute: route not found with options, trying without option.")
-            route.options = {}
+            logging.debug("Airport::mkRoute: route not found with options, trying without taxiway option.")
+            route.options = {"minSizeCode": aircraft.icaocat}
+            logging.debug("Airport::mkRoute: route options {}".format(route.options))
             route.find()
 
-        if route.found():  # second attempt may have worked
+        if not route.found() and len(opts.keys()) > 0:
+            # if there were options, we try to find a route without option
+            # @todo implement warning that the taxiway is to small!
+            logging.debug("Airport::mkRoute: route not found with options, trying without any option.")
+            route.options = {}
+            logging.debug("Airport::mkRoute: route options {}".format(route.options))
+            route.find()
+
+        if route.found():  # third attempt may have worked
             return (True, route)
 
         return (False, "We could not find a route to your destination.")
