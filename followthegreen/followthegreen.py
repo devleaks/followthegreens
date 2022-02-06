@@ -81,7 +81,12 @@ class FollowTheGreen:
         # Note: Aircraft should be "created" outside of FollowTheGreen
         # and passed to start or getAirport. That way, we can instanciate
         # individual FollowTheGreen for numerous aircrafts.
-        self.aircraft = Aircraft("A321", "D", "OO-123", "PO-123")
+        # DH: List of Aircrafts and icao categories available here:
+        # https://www.faa.gov/airports/engineering/aircraft_char_database/
+        # converted simply into a csv and using only the filds
+        # ICAO code and AAC, implemented in aircraft module, simplified __init__ for
+        # callsign only, rest comes from X-Plane dataref
+        self.aircraft = Aircraft("PO-123")
 
         pos = self.aircraft.position()
         if pos is None:
