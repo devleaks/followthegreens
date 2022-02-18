@@ -100,7 +100,7 @@ class ShowTaxiways:
     def showTaxiways(self, airport):
         if not self.airport:
             self.airport = Airport(airport)
-            status = self.airport.prepare()  # [ok, errmsg]
+            status = self.airport.prepare_old()  # [ok, errmsg]
             if not status[0]:
                 logging.debug("ShowTaxiways::showTaxiways: airport not ready: %s" % (status[1]))
                 return self.ui.sorry(status[1])

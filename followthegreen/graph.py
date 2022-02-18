@@ -153,10 +153,10 @@ class Graph:  # Graph(FeatureCollection)?
             connectionKeys = []
             for dst in src.adjacent.keys():
                 v = self.get_edge(src.id, dst)
-                code = v.widthCode("F")
+                code = v.widthCode("F") # "F" is only a default code, if provided the edge uses its own
                 txyOk = ("taxiwayOnly" in options and options["taxiwayOnly"] and v.usage != "runway") or ("taxiwayOnly" not in options)
                 scdOk = ("minSizeCode" in options and options["minSizeCode"] <= code) or ("minSizeCode" not in options)
-                # logging.debug("%s %s %s %s %s" % (dst, v.usage, code, txyOk, scdOk))
+                # logging.debug("%s %s %s %s %s %s" % (dst, v.usage, code, txyOk, scdOk, v.cost))
                 if txyOk and scdOk:
                     connectionKeys.append(dst)
 
