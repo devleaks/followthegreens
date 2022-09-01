@@ -2,9 +2,9 @@
 #
 from traceback import print_exc
 import xp
-from followthegreen import ShowTaxiways
+from followthegreens import ShowTaxiways
 
-RELEASE = "1.3.0a"
+RELEASE = "1.0.1"
 
 class PythonInterface:
 
@@ -19,7 +19,7 @@ class PythonInterface:
         self.showTaxiwaysCmdRef = None
 
     def XPluginStart(self):
-        self.showTaxiwaysCmdRef = xp.createCommand('xppython3/showtaxiways/toggle', 'Show / hide taxiway network')
+        self.showTaxiwaysCmdRef = xp.createCommand('XPPython3/followthegreens/highlight_taxiways_toggle', 'Show / hide taxiway network')
         xp.registerCommandHandler(self.showTaxiwaysCmdRef, self.showTaxiwaysCmd, 1, None)
         self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), self.Name, self.showTaxiwaysCmdRef)
         if self.trace:

@@ -23,10 +23,10 @@ from .globals import ARRIVAL, DEPARTURE
 from .lightstring import LightString
 from .ui import UIUtil
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - Follow The Green - %(levelname)s - %(message)s')  # filename=('FTG_log.txt')
+logging.basicConfig(level=logging.DEBUG)  # filename=('FTG_log.txt')
 
 
-class FollowTheGreen:
+class FollowTheGreens:
 
     # Internal status
     STATUS = {
@@ -37,7 +37,7 @@ class FollowTheGreen:
     }
 
     def __init__(self, pi):
-        self.__status = FollowTheGreen.STATUS["NEW"]
+        self.__status = FollowTheGreens.STATUS["NEW"]
         self.pi = pi
         self.airport = None
         self.aircraft = None
@@ -53,7 +53,7 @@ class FollowTheGreen:
         # Toggles visibility of main window.
         # If it was simply closed for hiding, show it again as it was.
         # If it does not exist, creates it from start of process.
-        # if self.__status = FollowTheGreen.STATUS["ACTIVE"]:
+        # if self.__status = FollowTheGreens.STATUS["ACTIVE"]:
         logging.info("FollowTheGreen::status: %s, %s.", self.__status, self.ui.mainWindowExists())
         if self.ui.mainWindowExists():
             logging.debug("FollowTheGreen::start: mainWindow exists, changing visibility %s.", self.ui.isMainWindowVisible())
@@ -81,12 +81,7 @@ class FollowTheGreen:
         # Note: Aircraft should be "created" outside of FollowTheGreen
         # and passed to start or getAirport. That way, we can instanciate
         # individual FollowTheGreen for numerous aircrafts.
-        # DH: List of Aircrafts and icao categories available here:
-        # https://www.faa.gov/airports/engineering/aircraft_char_database/
-        # converted simply into a csv and using only the filds
-        # ICAO code and AAC, implemented in aircraft module, simplified __init__ for
-        # callsign only, rest comes from X-Plane dataref
-        self.aircraft = Aircraft("PO-123")
+        self.aircraft = Aircraft("A321", "D", "OO-123", "PO-123")
 
         pos = self.aircraft.position()
         if pos is None:
@@ -114,26 +109,6 @@ class FollowTheGreen:
 
 
     def getDestination(self, airport):
-        # Prompt for local destination at airport.
-        # Either a runway for departure or a parking for arrival.
-        if not self.airport or (self.airport.icao != airport):  # we may have changed airport since last call
-            self.airport = Airport(airport)
-            # Info 4 to 8 in airport.prepare()
-            status = self.airport.prepare_new(self.ui)  # [ok, errmsg] ==> loading in flight loop!
-        else:
-            return self.getDestination_cont(self.airport)
-        return self.ui.promptForWindow()
-
-    def getDestination_cont(self, airport):
-        self.airport = airport
-        logging.debug("FollowTheGreen::getDestination: airport ready")
-        self.move = self.airport.guessMove(self.aircraft.position())
-        # Info 10
-        logging.info("FollowTheGreen::getDestination: Guessing %s", self.move)
-
-        return self.ui.promptForDestination()
-
-    def getDestination_old(self, airport):
         # Prompt for local destination at airport.
         # Either a runway for departure or a parking for arrival.
         if not self.airport or (self.airport.icao != airport):  # we may have changed airport since last call
@@ -219,7 +194,7 @@ class FollowTheGreen:
 
         logging.info("FollowTheGreen::followTheGreen: first light at %d m, heading %d DEG.", initdist, initbrgn)
         self.flightLoop.startFlightLoop()
-        self.__status = FollowTheGreen.STATUS["ACTIVE"]
+        self.__status = FollowTheGreens.STATUS["ACTIVE"]
         # Info 14
         logging.info("FollowTheGreen::followTheGreen: Flightloop started.")
 

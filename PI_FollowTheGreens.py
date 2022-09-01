@@ -2,10 +2,10 @@
 #
 from traceback import print_exc
 import xp
-from followthegreen import FollowTheGreen
+from followthegreens import FollowTheGreens
 
+RELEASE = "1.3.0"
 
-RELEASE = "1.3.0a"
 
 class PythonInterface:
 
@@ -16,13 +16,13 @@ class PythonInterface:
         self.enabled = False
         self.trace = True  # produces extra debugging in XPPython3.log for this class
         self.menuIdx = None
-        self.followTheGreen = None
-        self.followTheGreenCmdRef = None
+        self.followTheGreens = None
+        self.followTheGreensCmdRef = None
 
     def XPluginStart(self):
-        self.followTheGreenCmdRef = xp.createCommand('xppython3/followthegreen/toggle', 'Open or close Follow the Greens window')
-        xp.registerCommandHandler(self.followTheGreenCmdRef, self.followTheGreenCmd, 1, None)
-        self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), self.Name, self.followTheGreenCmdRef)
+        self.followTheGreensCmdRef = xp.createCommand('XPPython3/followthegreens/main_windown_toggle', 'Open or close Follow the Greens window')
+        xp.registerCommandHandler(self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None)
+        self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), self.Name, self.followTheGreensCmdRef)
         if self.trace:
             print(self.Name, "PI::XPluginStop: menu added.")
         if self.trace:
@@ -30,20 +30,20 @@ class PythonInterface:
         return self.Name, self.Sig, self.Desc
 
     def XPluginStop(self):
-        if self.followTheGreenCmdRef:
-            xp.unregisterCommandHandler(self.followTheGreenCmdRef,
-                                        self.followTheGreenCmd,
+        if self.followTheGreensCmdRef:
+            xp.unregisterCommandHandler(self.followTheGreensCmdRef,
+                                        self.followTheGreensCmd,
                                         1, None)
-            self.followTheGreenCmdRef = None
+            self.followTheGreensCmdRef = None
         if self.menuIdx:
             xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx)
             self.menuIdx = None
             if self.trace:
                 print(self.Name, "PI::XPluginStop: menu removed.")
-        if self.followTheGreen:
+        if self.followTheGreens:
             try:
-                self.followTheGreen.stop()
-                self.followTheGreen = None
+                self.followTheGreens.stop()
+                self.followTheGreens = None
                 if self.trace:
                     print(self.Name, "PI::XPluginStop: stopped.")
             except:
@@ -54,7 +54,7 @@ class PythonInterface:
 
     def XPluginEnable(self):
         try:
-            self.followTheGreen = FollowTheGreen(self)
+            self.followTheGreens = FollowTheGreens(self)
             self.enabled = True
             if self.trace:
                 print(self.Name, "PI::XPluginEnable: enabled.")
@@ -67,9 +67,9 @@ class PythonInterface:
 
     def XPluginDisable(self):
         try:
-            if self.enabled and self.followTheGreen:
-                self.followTheGreen.disable()
-                self.followTheGreen = None
+            if self.enabled and self.followTheGreens:
+                self.followTheGreens.disable()
+                self.followTheGreens = None
 
             self.enabled = False
             if self.trace:
@@ -88,10 +88,10 @@ class PythonInterface:
         pass
 
 
-    def followTheGreenCmd(self, *args, **kwargs):
+    def followTheGreensCmd(self, *args, **kwargs):
         # pylint: disable=unused-argument
         if not self.enabled:
-            print(self.Name, "PI::followTheGreenCmd: not enabled.")
+            print(self.Name, "PI::followTheGreensCmd: not enabled.")
             return 0
 
         # When mapped on a keystroke, followTheGreen only starts on begin of command (phase=0).
@@ -101,35 +101,35 @@ class PythonInterface:
         if len(args) > 2:
             commandPhase = args[1]
             if self.trace:
-                print(self.Name, "PI::followTheGreenCmd: COMMAND PHASE", commandPhase)
+                print(self.Name, "PI::followTheGreensCmd: COMMAND PHASE", commandPhase)
         else:
-            print(self.Name, "PI::followTheGreenCmd: NO COMMAND PHASE", len(args))
+            print(self.Name, "PI::followTheGreensCmd: NO COMMAND PHASE", len(args))
 
-        if not self.followTheGreen:
+        if not self.followTheGreens:
             try:
-                self.followTheGreen = FollowTheGreen(self)
+                self.followTheGreens = FollowTheGreens(self)
                 if self.trace:
-                    print(self.Name, "PI::followTheGreenCmd: created.")
+                    print(self.Name, "PI::followTheGreensCmd: created.")
             except:
                 if self.trace:
-                    print(self.Name, "PI::followTheGreenCmd: exception.")
+                    print(self.Name, "PI::followTheGreensCmd: exception.")
                 print_exc()
                 return 0
 
-        if self.followTheGreen and commandPhase == 0:
+        if self.followTheGreens and commandPhase == 0:
             if self.trace:
-                print(self.Name, "PI::followTheGreenCmd: available.")
+                print(self.Name, "PI::followTheGreensCmd: available.")
             try:
-                self.followTheGreen.start()
+                self.followTheGreens.start()
                 if self.trace:
-                    print(self.Name, "PI::followTheGreenCmd: started.")
+                    print(self.Name, "PI::followTheGreensCmd: started.")
                 return 1
             except:
                 if self.trace:
-                    print(self.Name, "PI::followTheGreenCmd: exception(2).")
+                    print(self.Name, "PI::followTheGreensCmd: exception(2).")
                 print_exc()
                 return 0
-        elif not self.followTheGreen:
-            print(self.Name, "PI::followTheGreenCmd: Error: could not create FollowTheGreen.")
+        elif not self.followTheGreens:
+            print(self.Name, "PI::followTheGreensCmd: Error: could not create FollowTheGreens.")
 
         return 0

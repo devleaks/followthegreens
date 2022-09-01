@@ -34,8 +34,6 @@ class UIUtil:
         self.strHeight = 0
         self.canHide = True
         self.displayTime = 0
-        self.search = ''
-        self.searchBackup = ''
 
 
     def window(self, strings, btns):
@@ -201,51 +199,6 @@ class UIUtil:
 
         return widgetWindow
 
-    def promptForWindow(self, status=""):
-        # Create a window to prompt for a local airport destination, either a runway or a parking position
-        move = self.ftg.move
-        welcome = "Welcome. We could not guess where you want to taxi."
-        if status != "":
-            welcome = status + " Try again. Where do you want to taxi?"
-
-        button = "None"
-        prompt = "Wait while loading"
-        text   = "LOADING"
-
-        widgetWindow = self.window([
-            welcome,
-            prompt,
-            "Click inside the text box and use UP and DOWN arrow to cycle through values.",
-            "Key in first 3 digits. Backspace to start from new entry"
-        ], {
-            "Follow the green": None,
-            CANCELSHORT_TEXT: self.cbCancel
-        })
-
-
-        left = self.linetops[1][1] + 10
-        right = int(left + 150)
-        top = self.linetops[1][0] - 2
-        bottom = int(top - self.strHeight)
-        widget = xp.createWidget(left, top, right, bottom, 1, text, 0,
-                                 self.mainWindow['widgetID'],
-                                 xp.WidgetClass_TextField)
-        self.mainWindow['widgets']['dest'] = widget
-        xp.addWidgetCallback(self.mainWindow['widgets']['dest'], self.cbUpDown)
-
-        strWidth = xp.measureString(self.fontID, button)
-        left = right + 20  # after the above textfield
-        right = int(left + 1.1 * strWidth)
-        # top = int(self.wTop - 40 - self.strHeight)
-        # bottom = int(top - self.strHeight)
-        widget = xp.createWidget(left, top, right, bottom, 1, button, 0,
-                                 widgetWindow,
-                                 xp.WidgetClass_Button)
-        self.mainWindow['widgets']['move'] = widget
-        xp.addWidgetCallback(self.mainWindow['widgets']['move'], self.cbMovement)
-
-        return widgetWindow
-
 
     def promptForDestination(self, status=""):
         # Create a window to prompt for a local airport destination, either a runway or a parking position
@@ -270,16 +223,14 @@ class UIUtil:
 
         if len(self.validDestinations) > 0:
             self.validDestinations.sort()
-            self.validDestIdxs = list(map(lambda x: x[0:3].upper(), self.validDestinations))
-            # logging.debug("ui: added %d ramp", self.validDestIdxs)
+            self.validDestIdxs = list(map(lambda x: x[0].upper(), self.validDestinations))
             self.destinationIdx = int(random() * len(self.validDestinations))
             text = self.validDestinations[self.destinationIdx]
 
         widgetWindow = self.window([
             welcome,
             prompt,
-            "Click inside the text box and use UP and DOWN arrow to cycle through values.",
-            "Key in first 3 digits. Backspace to start from new entry"
+            "Click inside the text box and use UP and DOWN arrow to cycle through values."
         ], {
             "Follow the green": self.cbDestination,
             CANCELSHORT_TEXT: self.cbCancel
@@ -287,7 +238,7 @@ class UIUtil:
 
 
         left = self.linetops[1][1] + 10
-        right = int(left + 150)
+        right = int(left + 100)
         top = self.linetops[1][0] - 2
         bottom = int(top - self.strHeight)
         widget = xp.createWidget(left, top, right, bottom, 1, text, 0,
@@ -440,24 +391,14 @@ class UIUtil:
             if param1[2] >= xp.VK_0 and param1[2] <= xp.VK_Z:
                 # thanks for the hint: https://forums.x-plane.org/index.php?/forums/topic/238447-best-ui-for-list-of-value/&tab=comments#comment-2130991
                 c = chr(param1[2]).upper()
-                logging.debug("UIUtil::cbUpDown:search before: %s", self.search)
-                self.searchBackup = self.search
-                self.search = ''.join((str(self.search), c))
-                logging.debug("UIUtil::cbUpDown:search after: %s", self.search)
-                logging.debug("UIUtil.:cbUpDown:search %s", self.search in self.validDestIdxs)
-                match_idx = [x for x, wort in enumerate(self.validDestIdxs) if self.search in wort]
-                logging.debug("UIUtil::cbUpDown:search indexes found: %s", str(match_idx))
-                if len(match_idx) == 0:
-                    logging.debug("UIUtil::cbUpDown:search index NOT found: %s", self.search)
-                    self.search = self.searchBackup
-                else:
-                    logging.debug("UIUtil::cbUpDown:search index found: %s", str(match_idx[0]))
-                    self.destinationIdx = match_idx[0]
+                idx = -1
+                try:
+                    idx = self.validDestIdxs.index(c)
+                except ValueError:
+                    idx = -1
+                if idx > -1:
+                    self.destinationIdx = idx
                     xp.setWidgetDescriptor(widgetID, self.validDestinations[self.destinationIdx])
-                return 1
-            if param1[2] == xp.VK_BACK:
-                self.search = ''
-                xp.setWidgetDescriptor(widgetID, self.validDestinations[0])
                 return 1
             # if any other key as been pressed, we ignore it.
             return 1
