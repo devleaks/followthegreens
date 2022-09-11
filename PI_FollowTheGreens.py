@@ -4,7 +4,7 @@ from traceback import print_exc
 import xp
 from followthegreens import FollowTheGreens
 
-RELEASE = "1.3.0"
+RELEASE = "1.4.0"
 
 
 class PythonInterface:
@@ -13,6 +13,7 @@ class PythonInterface:
         self.Name = "Follow the Greens"
         self.Sig = "followthegreens.xppython3"
         self.Desc = "Follow the Greens, an X-Plane ATC A-SMGCS experience. (Rel. " + RELEASE + ")"
+        self.Info = self.Name + f" (rel. {RELEASE})"
         self.enabled = False
         self.trace = True  # produces extra debugging in XPPython3.log for this class
         self.menuIdx = None
@@ -24,9 +25,9 @@ class PythonInterface:
         xp.registerCommandHandler(self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None)
         self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), self.Name, self.followTheGreensCmdRef)
         if self.trace:
-            print(self.Name, "PI::XPluginStop: menu added.")
+            print(self.Info, "PI::XPluginStart: menu added.")
         if self.trace:
-            print(self.Name, "PI::XPluginStart: started.")
+            print(self.Info, "PI::XPluginStart: started.")
         return self.Name, self.Sig, self.Desc
 
     def XPluginStop(self):
@@ -39,16 +40,16 @@ class PythonInterface:
             xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx)
             self.menuIdx = None
             if self.trace:
-                print(self.Name, "PI::XPluginStop: menu removed.")
+                print(self.Info, "PI::XPluginStop: menu removed.")
         if self.followTheGreens:
             try:
                 self.followTheGreens.stop()
                 self.followTheGreens = None
                 if self.trace:
-                    print(self.Name, "PI::XPluginStop: stopped.")
+                    print(self.Info, "PI::XPluginStop: stopped.")
             except:
                 if self.trace:
-                    print(self.Name, "PI::XPluginStop: exception.")
+                    print(self.Info, "PI::XPluginStop: exception.")
                 print_exc()
         return None
 
@@ -57,11 +58,11 @@ class PythonInterface:
             self.followTheGreens = FollowTheGreens(self)
             self.enabled = True
             if self.trace:
-                print(self.Name, "PI::XPluginEnable: enabled.")
+                print(self.Info, "PI::XPluginEnable: enabled.")
             return 1
         except:
             if self.trace:
-                print(self.Name, "PI::XPluginEnable: exception.")
+                print(self.Info, "PI::XPluginEnable: exception.")
             print_exc()
         return 0
 
@@ -73,11 +74,11 @@ class PythonInterface:
 
             self.enabled = False
             if self.trace:
-                print(self.Name, "PI::XPluginDisable: disabled.")
+                print(self.Info, "PI::XPluginDisable: disabled.")
             return None
         except:
             if self.trace:
-                print(self.Name, "PI::XPluginDisable: exception.")
+                print(self.Info, "PI::XPluginDisable: exception.")
             print_exc()
             self.enabled = False
             return None
@@ -91,7 +92,7 @@ class PythonInterface:
     def followTheGreensCmd(self, *args, **kwargs):
         # pylint: disable=unused-argument
         if not self.enabled:
-            print(self.Name, "PI::followTheGreensCmd: not enabled.")
+            print(self.Info, "PI::followTheGreensCmd: not enabled.")
             return 0
 
         # When mapped on a keystroke, followTheGreen only starts on begin of command (phase=0).
@@ -101,35 +102,35 @@ class PythonInterface:
         if len(args) > 2:
             commandPhase = args[1]
             if self.trace:
-                print(self.Name, "PI::followTheGreensCmd: COMMAND PHASE", commandPhase)
+                print(self.Info, "PI::followTheGreensCmd: COMMAND PHASE", commandPhase)
         else:
-            print(self.Name, "PI::followTheGreensCmd: NO COMMAND PHASE", len(args))
+            print(self.Info, "PI::followTheGreensCmd: NO COMMAND PHASE", len(args))
 
         if not self.followTheGreens:
             try:
                 self.followTheGreens = FollowTheGreens(self)
                 if self.trace:
-                    print(self.Name, "PI::followTheGreensCmd: created.")
+                    print(self.Info, "PI::followTheGreensCmd: created.")
             except:
                 if self.trace:
-                    print(self.Name, "PI::followTheGreensCmd: exception.")
+                    print(self.Info, "PI::followTheGreensCmd: exception.")
                 print_exc()
                 return 0
 
         if self.followTheGreens and commandPhase == 0:
             if self.trace:
-                print(self.Name, "PI::followTheGreensCmd: available.")
+                print(self.Info, "PI::followTheGreensCmd: available.")
             try:
                 self.followTheGreens.start()
                 if self.trace:
-                    print(self.Name, "PI::followTheGreensCmd: started.")
+                    print(self.Info, "PI::followTheGreensCmd: started.")
                 return 1
             except:
                 if self.trace:
-                    print(self.Name, "PI::followTheGreensCmd: exception(2).")
+                    print(self.Info, "PI::followTheGreensCmd: exception(2).")
                 print_exc()
                 return 0
         elif not self.followTheGreens:
-            print(self.Name, "PI::followTheGreensCmd: Error: could not create FollowTheGreens.")
+            print(self.Info, "PI::followTheGreensCmd: Error: could not create FollowTheGreens.")
 
         return 0

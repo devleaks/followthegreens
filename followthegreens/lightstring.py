@@ -459,7 +459,7 @@ class LightString:
             if len(self.stopbars) > 0 and segment < len(self.stopbars):
                 for light in sbend.lights:
                     light.on()
-                    logging.debug('LightString::illuminateSegment: illuminating stop light.', i)
+                    logging.debug(f'LightString::illuminateSegment: illuminating stop light.')
                 # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
             logging.debug('LightString::illuminateSegment: no light ahead: instanciate(stop): done.')
         # else, lights will be turned on in front of rabbit

@@ -147,12 +147,14 @@ class Airport:
         scenery = scenery_packs.readline()
         scenery = scenery.strip()
 
+        logging.debug(f"Airport::load: scenery pack {SCENERY_PACKS}..")
+
         while not self.loaded and scenery:  # while we have not found our airport and there are more scenery packs
             if re.match("^SCENERY_PACK", scenery, flags=0):
                 # logging.debug("SCENERY_PACK %s", scenery.rstrip())
                 scenery_pack_dir = scenery[13:-1]
                 scenery_pack_apt = os.path.join(scenery_pack_dir, "Earth nav data", "apt.dat")
-                # logging.debug("APT.DAT %s", scenery_pack_apt)
+                logging.debug(f"Airport::load: trying {scenery_pack_apt}..")
 
                 if os.path.isfile(scenery_pack_apt):
                     apt_dat = open(scenery_pack_apt, "r", encoding="utf-8", errors="ignore")
@@ -189,6 +191,52 @@ class Airport:
             scenery = scenery_packs.readline()
 
         scenery_packs.close()
+        if not self.loaded:
+            logging.info("Airport::load: airport not found in Custom Scenery")
+            self.loaded = self.load_default()
+
+        return self.loaded
+
+
+    def load_default(self):
+        DEFAULT_AIRPORTS = os.path.join(SYSTEM_DIRECTORY, "Global Scenery", "Global Airports", "Earth nav data", "apt.dat")
+        if not os.path.exists(DEFAULT_AIRPORTS):
+            logging.error(f"Airport::load_default: default airport file {DEFAULT_AIRPORTS} not found")
+            return
+
+        logging.debug(f"Airport::load: trying default airports {DEFAULT_AIRPORTS}..")
+
+        apt_dat = open(DEFAULT_AIRPORTS, "r", encoding="utf-8", errors="ignore")
+        line = apt_dat.readline()
+
+        while not self.loaded and line:  # while we have not found our airport and there are more lines in this pack
+            if re.match("^1 ", line, flags=0):  # if it is a "startOfAirport" line
+                newparam = line.split()  # if no characters supplied to split(), multiple space characters as one
+                # logging.debug("airport: %s" % newparam[4])
+                if newparam[4] == self.icao:  # it is the airport we are looking for
+                    self.name = " ".join(newparam[5:])
+                    self.altitude = newparam[1]
+                    # Info 4.a
+                    logging.info("Airport::load_default: Found airport %s '%s' in '%s'.", newparam[4], self.name, DEFAULT_AIRPORTS)
+                    self.scenery_pack = DEFAULT_AIRPORTS  # remember where we found it
+                    self.lines.append(AptLine(line))  # keep first line
+                    line = apt_dat.readline()  # next line in apt.dat
+                    while line and not re.match("^1 ", line, flags=0):  # while we do not encounter a line defining a new airport...
+                        testline = AptLine(line)
+                        if testline.linecode() is not None:
+                            self.lines.append(testline)
+                        else:
+                            logging.debug("Airport::load_default: did not load empty line '%s'" % line)
+                        line = apt_dat.readline()  # next line in apt.dat
+                    # Info 4.b
+                    logging.info("Airport::load_default: Read %d lines for %s." % (len(self.lines), self.name))
+                    self.loaded = True
+
+            if line:  # otherwize we reached the end of file
+                line = apt_dat.readline()  # next line in apt.dat
+
+        apt_dat.close()
+
         return self.loaded
 
 

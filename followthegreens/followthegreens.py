@@ -158,10 +158,10 @@ class FollowTheGreens:
         pos = self.aircraft.position()
         hdg = self.aircraft.heading()
         if pos is None:
-            logging.debug("FollowTheGreen::getAirport: no plane position")
+            logging.debug("FollowTheGreen::followTheGreen: no plane position")
             return self.ui.sorry("We could not locate your plane.")
         if pos[0] == 0 and pos[1] == 0:
-            logging.debug("FollowTheGreen::getAirport: no plane position")
+            logging.debug("FollowTheGreen::followTheGreen: no plane position")
             return self.ui.sorry("We could not locate your plane.")
 
         if newGreen:  # We had a green, and we found a new one.
