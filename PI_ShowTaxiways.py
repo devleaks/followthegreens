@@ -2,17 +2,16 @@
 #
 from traceback import print_exc
 import xp
-from followthegreens import ShowTaxiways
+from followthegreens import ShowTaxiways, __VERSION__
 
-RELEASE = "1.0.2"
 
 class PythonInterface:
 
     def __init__(self):
         self.Name = "Show taxiways"
         self.Sig = "showtaxiways.xppython3"
-        self.Desc = "Show taxiways, highlight taxiway network. (Rel. " + RELEASE + ")"
-        self.Info = self.Name + f" (rel. {RELEASE})"
+        self.Desc = "Show taxiways, highlight taxiway network. (Rel. " + __VERSION__ + ")"
+        self.Info = self.Name + f" (rel. {__VERSION__})"
         self.enabled = False
         self.trace = True  # produces extra debugging in XPPython3.log for this class
         self.menuIdx = None

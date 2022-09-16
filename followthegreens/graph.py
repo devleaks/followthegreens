@@ -1,6 +1,7 @@
 # Graph (vertices and edges) manipulation class.
 # Vertex and Edge definition customized for our need.
 # Dijkstra stolen at https://www.bogotobogo.com/python/python_graph_data_structures.php
+# AStar implemented by myself.
 #
 import logging
 import math
@@ -36,13 +37,14 @@ class Vertex(Point):  ## Vertex(Point)
         self.setProp("marker-size", "small")
         return self.properties
 
-
     def add_neighbor(self, neighbor, weight=0):
         self.adjacent[neighbor] = weight
 
-
     def get_connections(self, graph, options = {}):
         return self.adjacent.keys()
+
+    def get_neighbors(self):
+        return list(map(lambda a: (a, self.adjacent[a]), self.adjacent))
 
 
 class Active:
@@ -115,17 +117,14 @@ class Graph:  # Graph(FeatureCollection)?
         self.vert_dict = {}
         self.edges_arr = []
 
-
     def __str__(self):
         return json.dumps({
             "type": "FeatureCollection",
             "features": self.features()
         })
 
-
     def __iter__(self):
         return iter(self.vert_dict.values())
-
 
     def features(self):
         def add(arr, v):
@@ -133,19 +132,16 @@ class Graph:  # Graph(FeatureCollection)?
             return arr
         return reduce(add, self.edges_arr, [])
 
-
     def add_vertex(self, node, point, usage, name = ""):
         new_vertex = Vertex(node, point, usage, name = "")
         self.vert_dict[node] = new_vertex
         return new_vertex
-
 
     def get_vertex(self, n):
         if n in self.vert_dict:
             return self.vert_dict[n]
         else:
             return None
-
 
     # Options taxiwayOnly = True|False, minSizeCode = {A,B,C,D,E,F}
     def get_connections(self, src, options={}):
@@ -164,7 +160,6 @@ class Graph:  # Graph(FeatureCollection)?
 
         return src.adjacent.keys()
 
-
     def add_edge(self, edge):
         if edge.start.id in self.vert_dict and edge.end.id in self.vert_dict:
             self.edges_arr.append(edge)
@@ -174,7 +169,6 @@ class Graph:  # Graph(FeatureCollection)?
                 self.vert_dict[edge.end.id].add_neighbor(self.vert_dict[edge.start.id].id, edge.cost)
         else:
             logging.critical("Graph::add_edge: vertex not found when adding edges %s,%s", edge.src, edge.dst)
-
 
     def get_edge(self, src, dst):
         arr = list(filter(lambda x: x.start.id == src and x.end.id == dst, self.edges_arr))
@@ -187,10 +181,8 @@ class Graph:  # Graph(FeatureCollection)?
 
         return None
 
-
     def get_vertices(self):
         return self.vert_dict.keys()
-
 
     def get_connected_vertices(self, options={}):
         # List of vertices may contain unconnected vertices.
@@ -210,10 +202,8 @@ class Graph:  # Graph(FeatureCollection)?
 
         return connected
 
-
     def findClosestPointOnEdges(self, point):  # @todo: construct array of lines on "add_edge"
         return nearestPointToLines(point, self.edges_arr)
-
 
     def findClosestVertex(self, point):
         closest = None
@@ -227,15 +217,12 @@ class Graph:  # Graph(FeatureCollection)?
         logging.debug("Graph::findClosestVertex: %s at %f", closest, shortest)
         return [closest, shortest]
 
-
     def findVertexInPolygon(self, polygon):
         vertices = []
         for n, v in self.vert_dict.items():
             if pointInPolygon(v, polygon):
                 vertices.append(v)
         return vertices
-
-
 
     def findClosestVertexAheadGuess(self, point, brng, speed):
         MAX_AHEAD = 500     # m, we could make algorithm grow these until vertex found "ahead"
@@ -256,7 +243,6 @@ class Graph:  # Graph(FeatureCollection)?
             lateral = LATERAL_START
         logging.debug("Graph::findClosestVertexAheadGuess: found at ahead=%d, lateral=%d.", ahead, lateral)
         return found
-
 
     def findClosestVertexAhead(self, point, brng, speed, ahead=200, lateral=100):
         # We draw a triangle in front of the plane, plane is at apex, base is AHEAD meters in front (bearing)
@@ -286,7 +272,6 @@ class Graph:  # Graph(FeatureCollection)?
         if v:
             return [v.id, d]
         return [None, d]
-
 
     def Dijkstra(self, source, target, options={}):
         # This will store the Shortest path between source and target node
@@ -371,3 +356,100 @@ class Graph:  # Graph(FeatureCollection)?
             route.insert(0, source)
             logging.debug("Graph::Dijkstra: route: %s", "-".join(route))
             return route
+
+    def heuristic(self, a, b):  # On demand
+        """
+        Heuristic function is straight distance (to goal)
+        """
+        va = self.get_vertex(a)
+        if va is None:
+            logging.warning(f":heuristic: invalid vertex id a={a}")
+            return math.inf
+        vb = self.get_vertex(b)
+        if vb is None:
+            logging.warning(f":heuristic: invalid vertex id b={b}")
+            return math.inf
+        return distance(va, vb)
+
+    def get_neighbors(self, a):
+        """
+        Returns a vertex's neighbors with weight to reach.
+        """
+        return self.get_vertex(a).get_neighbors()
+
+    def AStar(self, start_node, stop_node):
+        # open_list is a list of nodes which have been visited, but who's neighbors
+        # haven't all been inspected, starts off with the start node
+        # closed_list is a list of nodes which have been visited
+        # and who's neighbors have been inspected
+        #
+        # Stolen here: https://stackabuse.com/basic-ai-concepts-a-search-algorithm/
+        # Heuristics adjusted for geography (direct distance to target, necessarily smaller or equal to goal)
+        #
+        # Returns list of vertices (path) or None
+        #
+        open_list = set([start_node])
+        closed_list = set([])
+
+        # g contains current distances from start_node to all other nodes
+        # the default value (if it's not found in the map) is +infinity
+        g = {}
+
+        g[start_node] = 0
+
+        # parents contains an adjacency map of all nodes
+        parents = {}
+        parents[start_node] = start_node
+
+        while len(open_list) > 0:
+            n = None
+
+            # find a node with the lowest value of f() - evaluation function
+            for v in open_list:
+                if n == None or g[v] + self.heuristic(v, stop_node) < g[n] + self.heuristic(n, stop_node):
+                    n = v
+
+            if n == None:
+                logging.warning(":AStart: route not found")
+                return None
+
+            # if the current node is the stop_node
+            # then we begin reconstructin the path from it to the start_node
+            if n == stop_node:
+                reconst_path = []
+                while parents[n] != n:
+                    reconst_path.append(n)
+                    n = parents[n]
+                reconst_path.append(start_node)
+                reconst_path.reverse()
+
+                return reconst_path
+
+            # for all neighbors of the current node do
+            for (m, weight) in self.get_neighbors(n):
+                # if the current node isn't in both open_list and closed_list
+                # add it to open_list and note n as it's parent
+                if m not in open_list and m not in closed_list:
+                    open_list.add(m)
+                    parents[m] = n
+                    g[m] = g[n] + weight
+
+                # otherwise, check if it's quicker to first visit n, then m
+                # and if it is, update parent data and g data
+                # and if the node was in the closed_list, move it to open_list
+                else:
+                    if g[m] > g[n] + weight:
+                        g[m] = g[n] + weight
+                        parents[m] = n
+
+                        if m in closed_list:
+                            closed_list.remove(m)
+                            open_list.add(m)
+
+            # remove n from the open_list, and add it to closed_list
+            # because all of his neighbors were inspected
+            open_list.remove(n)
+            closed_list.add(n)
+
+        logging.warning(":AStart: route not found")
+        return None

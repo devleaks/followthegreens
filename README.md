@@ -1,5 +1,14 @@
-# followthegreen
-Follow the green, an X-Plane ATC A-SMGCS experience
+# Follow The Green
+
+[Follow the greens](http://followthegreens.com) is an X-Plane ATC A-SMGCS experience.
+
+[more information](https://github.com/devleaks/followthegreens/blob/main/followthegreens/README.md)
+
+### Branches
+
+Branch aynchloading contains asynchronous file loading and a few refinements that have not been ported to XP12.
+
+
 Additions by Gunduran (Detlev Hoffmann)
 
 Recent changes:

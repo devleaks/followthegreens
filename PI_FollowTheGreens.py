@@ -2,9 +2,7 @@
 #
 from traceback import print_exc
 import xp
-from followthegreens import FollowTheGreens
-
-RELEASE = "1.4.0"
+from followthegreens import FollowTheGreens, __VERSION__
 
 
 class PythonInterface:
@@ -12,8 +10,8 @@ class PythonInterface:
     def __init__(self):
         self.Name = "Follow the Greens"
         self.Sig = "followthegreens.xppython3"
-        self.Desc = "Follow the Greens, an X-Plane ATC A-SMGCS experience. (Rel. " + RELEASE + ")"
-        self.Info = self.Name + f" (rel. {RELEASE})"
+        self.Desc = "Follow the Greens, an X-Plane ATC A-SMGCS experience. (Rel. " + __VERSION__ + ")"
+        self.Info = self.Name + f" (rel. {__VERSION__})"
         self.enabled = False
         self.trace = True  # produces extra debugging in XPPython3.log for this class
         self.menuIdx = None

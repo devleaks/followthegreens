@@ -1,4 +1,4 @@
-__VERSION__ = '1.3'
+__VERSION__ = '1.4.1'
 __NAME__ = "followthegreens"
 __SIGNATURE__ = "followthegreens.xppython3"
 __DESCRIPTION__ = "Follow the greens, an X-Plane ATC A-SMGCS experience."
