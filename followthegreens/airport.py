@@ -144,29 +144,31 @@ class Airport:
     def load(self):
         APT_FILES = {}
 
+        # Add scenery packs, which include Global Airports scenery in XP11
         scenery_packs_file = os.path.join(SYSTEM_DIRECTORY, "Custom Scenery", "scenery_packs.ini")
         if os.path.exists(scenery_packs_file):
             scenery_packs = open(scenery_packs_file, "r")
             scenery = scenery_packs.readline()
             scenery = scenery.strip()
+            while scenery:
+                if re.match("^SCENERY_PACK", scenery, flags=0):
+                    logging.debug("SCENERY_PACK %s", scenery.rstrip())
+                    scenery_pack_dir = scenery[13:-1]
+                    scenery_pack_apt = os.path.join(scenery_pack_dir, "Earth nav data", "apt.dat")
+                    # logging.debug("APT.DAT %s", scenery_pack_apt)
+                    if os.path.exists(scenery_pack_apt) and os.path.isfile(scenery_pack_apt):
+                        logging.debug("Added apt.dat %s", scenery_pack_apt)
+                        APT_FILES[scenery] = scenery_pack_apt
+                scenery = scenery_packs.readline()
+            scenery_packs.close()
 
-            if re.match("^SCENERY_PACK", scenery, flags=0):
-                # logging.debug("SCENERY_PACK %s", scenery.rstrip())
-                scenery_pack_dir = scenery[13:-1]
-                scenery_pack_apt = os.path.join(scenery_pack_dir, "Earth nav data", "apt.dat")
-                # logging.debug("APT.DAT %s", scenery_pack_apt)
-                if os.path.exists(scenery_pack_apt) and os.path.isfile(scenery_pack_apt):
-                    APT_FILES[scenery] = scenery_pack_apt
-            scenery = scenery_packs.readline()
-        scenery_packs.close()
-
-        # Add XP 12 location
+        # Add XP 12 location for Global Airports
         default_airports_file = os.path.join(SYSTEM_DIRECTORY, "Global Scenery", "Global Airports", "Earth nav data", "apt.dat")
         if os.path.exists(default_airports_file) and os.path.isfile(default_airports_file):
             APT_FILES["default airports"] = default_airports_file
         # else:
         #     logging.warning(f"Airport::load: default airport file {DEFAULT_AIRPORTS} not found")
-        # logging.debug(f"APT files: {APT_FILES}")
+        logging.debug(f"APT files: {APT_FILES}")
 
         for scenery, filename in APT_FILES.items():
             if self.loaded:
