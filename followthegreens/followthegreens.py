@@ -41,6 +41,7 @@ class FollowTheGreens:
         self.airport = None
         self.aircraft = None
         self.lights = None
+        self.taxiway = {}
         self.segment = 0            # counter for green segments currently lit -0-----|-1-----|-2---------|-3---
         self.move = None            # departure or arrival, guessed first, can be changed by pilot.
         self.destination = None     # Handy
@@ -135,6 +136,46 @@ class FollowTheGreens:
         return self.followTheGreen(destination, True)
 
 
+    def printTaxiInstructions(self, route):
+        """Assuming a route has been found
+        first only for debugging the Taxiway in clear letters"""
+        # Example Cologne if you come from W and need to go to 24 you will taxi via
+        # T D A A3 and D
+        # so, D will be in 2 times.
+        graph = route.graph
+        currVertex = graph.get_vertex(route.route[0])
+        stopVertexes = []
+        logging.debug("FollowTheGreen::printTaxiInstructions: Stoppbars %s", len(self.lights.stopbars))
+        # if len(self.lights.stopbars) > 0:
+        #     for stopVertex in self.lights.stopbars:
+        #         logging.debug("FollowTheGreen::printTaxiInstructions: Stoppbar at position %s", vars(stopVertex))
+        #         # stopVertexes.add(stopVertex["position"])
+        taxiway = {}
+        key = 1
+        for i in range(1, len(route.route)):
+            nextVertex = graph.get_vertex(route.route[i])
+            thisEdge = graph.get_edge(currVertex.id, nextVertex.id)
+            if nextVertex in stopVertexes:
+                key += 1
+                taxiway[key] = [thisEdge.name, currVertex.id, nextVertex.id, ""]
+            if "taxiway" in thisEdge.usage:
+                taxiway_type = thisEdge.usage.removeprefix("taxiway_")
+                if len(taxiway) > 0:
+                    # logging.debug("FollowTheGreen::printTaxiInstructions: Key: %s", taxiway[key])
+                    if thisEdge.name != taxiway[key][0]:
+                        key += 1
+                        taxiway[key] = [thisEdge.name, currVertex.id, nextVertex.id, taxiway_type]
+                    else:
+                        taxiway[key] = [thisEdge.name, taxiway[key][1], nextVertex.id, taxiway_type]
+                else:
+                    taxiway[key] = [thisEdge.name, currVertex.id, nextVertex.id, taxiway_type]
+                    # logging.debug("FollowTheGreen::printTaxiInstructions: Taxiway %s", taxiway)
+                    # logging.debug("FollowTheGreen::printTaxiInstructions: Taxiway 1st %s", taxiway[1][0])
+            currVertex = nextVertex
+        if len(taxiway) > 0:
+            logging.debug("FollowTheGreen::printTaxiInstructions: Taxiway %s", taxiway)
+
+
     def followTheGreen(self, destination, newGreen=False):
         # Destination is either
         #   the name of a runway for departure, or
@@ -152,6 +193,7 @@ class FollowTheGreens:
         if not rerr:
             logging.info("FollowTheGreen::getDestination: No route %s", route)
             return self.ui.tryAgain(route)
+
 
         # Info 12
         pos = self.aircraft.position()
@@ -196,6 +238,8 @@ class FollowTheGreens:
         self.__status = FollowTheGreens.STATUS["ACTIVE"]
         # Info 14
         logging.info("FollowTheGreen::followTheGreen: Flightloop started.")
+
+        self.printTaxiInstructions(route)  # DH - Test
 
         # Hint: distance and heading to first light
         if initdiff > 20 or initdist > 200:

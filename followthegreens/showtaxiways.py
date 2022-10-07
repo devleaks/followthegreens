@@ -1,13 +1,13 @@
-# Follow the greens mission container Class
+# Follow The Green mission container Class
 # Keeps all information handy. Dispatches intruction to do things.
 #
-# Cannot use Follow the greens.
-# We are sorry. We cannot provide Follow the greens service at this airport.
+# Cannot use Follow the green.
+# We are sorry. We cannot provide Follow The Green service at this airport.
 # Reasons:
 # This airport does not have a routing network of taxiway.
 #
-# Can use Follow the greens, but other issue:
-# We are sorry. We cannot provide Follow the greens service now.
+# Can use Follow the green, but other issue:
+# We are sorry. We cannot provide Follow The Green service now.
 # Reasons:
 # You are too far from the taxiways.
 # We could not find a suitable route to your destination.
@@ -65,7 +65,7 @@ class ShowTaxiways:
         # Search for airport or prompt for one.
         # If airport is not equiped, we loop here until we get a suitable airport.
         # When one is given and satisfies the condition for FTG
-        # we go to next step: Find the end point of Follow the greens.
+        # we go to next step: Find the end point of follow the green.
         # @todo: We need to guess those from dataref
         # Note: Aircraft should be "created" outside of FollowTheGreen
         # and passed to start or getAirport. That way, we can instanciate
@@ -100,7 +100,7 @@ class ShowTaxiways:
     def showTaxiways(self, airport):
         if not self.airport:
             self.airport = Airport(airport)
-            status = self.airport.prepare()  # [ok, errmsg]
+            status = self.airport.prepare_old()  # [ok, errmsg]
             if not status[0]:
                 logging.debug("ShowTaxiways::showTaxiways: airport not ready: %s" % (status[1]))
                 return self.ui.sorry(status[1])
@@ -117,7 +117,6 @@ class ShowTaxiways:
 
         # Info 13
         logging.info("ShowTaxiways::showTaxiways: Added %d lights.", len(self.lights.lights))
-
         if self.pi is not None and self.pi.menuIdx is not None and self.pi.menuIdx >= 0:
             xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Checked)
             logging.debug(f"ShowTaxiways::showTaxiways: menu checked ({self.pi.menuIdx})")
@@ -125,7 +124,10 @@ class ShowTaxiways:
             logging.debug(f"ShowTaxiways::showTaxiways: menu not checked ({self.pi.menuIdx})")
 
         return self.ui.enjoy()
-        # return self.ui.sorry("Follow the greens is not completed yet.")  # development
+
+
+        return self.ui.enjoy()
+        # return self.ui.sorry("Follow the green is not completed yet.")  # development
 
 
     def cancel(self, reason=""):
