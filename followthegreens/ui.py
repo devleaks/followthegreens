@@ -3,9 +3,15 @@
 #
 import logging
 from random import random
+
 import xp
 from XPWidgets import XPGetWidgetDescriptor
-from .globals import ARRIVAL, DEPARTURE, MAINWINDOW_AUTOHIDE, GOOD
+
+from .globals import ARRIVAL, DEPARTURE, GOOD
+from .globals import MAINWINDOW_AUTOHIDE, MAINWINDOW_DISPLAY_TIME
+from .globals import MAINWINDOW_WIDTH, MAINWINDOW_HEIGHT
+from .globals import MAINWINDOW_FROM_LEFT, MAINWINDOW_FROM_BOTTOM
+
 
 # Some texts we need to recognize. May be later translated.
 CLOSE_TEXT = "Close"
@@ -16,8 +22,6 @@ CANCELSHORT_TEXT = "Cancel"
 CONTINUE_TEXT = "Continue"
 IAMLOST_TEXT = "New green please"
 NEWDEST_TEXT = "New destination"
-
-WINDOW_DISPLAY_TIME = 30 # secs
 
 
 class UIUtil:
@@ -51,10 +55,10 @@ class UIUtil:
         self.strHeight = strHeight
         linespace = 2.0
 
-        self.wLeft = 100
-        self.wTop = 160 + len(strings) * int(linespace * self.strHeight)
-        self.wRight = 600
-        self.wBottom = 80
+        self.wLeft = MAINWINDOW_FROM_LEFT
+        self.wTop = MAINWINDOW_FROM_BOTTOM + MAINWINDOW_HEIGHT + len(strings) * int(linespace * self.strHeight)
+        self.wRight = MAINWINDOW_FROM_LEFT + MAINWINDOW_WIDTH
+        self.wBottom = MAINWINDOW_FROM_BOTTOM
         widgetCenter = int(self.wLeft + (self.wRight - self.wLeft) / 2)
 
         widgetWindow['widgetID'] = xp.createWidget(self.wLeft, self.wTop, self.wRight, self.wBottom, 0, "Follow the Green",
@@ -138,7 +142,7 @@ class UIUtil:
     def hideMainWindowIfOk(self, elapsed=0):
         # We always hide it on request, even if canHide is False
         self.displayTime += elapsed
-        if MAINWINDOW_AUTOHIDE and self.mainWindowExists() and self.displayTime > WINDOW_DISPLAY_TIME and self.canHide:
+        if MAINWINDOW_AUTOHIDE and self.mainWindowExists() and self.displayTime > MAINWINDOW_DISPLAY_TIME and self.canHide:
             xp.hideWidget(self.mainWindow['widgetID'])
 
 
