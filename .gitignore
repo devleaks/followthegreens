@@ -125,3 +125,4 @@ dmypy.json
 .pyre/
 
 .gitattributes
+followthegreens/.DS_Store

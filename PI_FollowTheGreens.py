@@ -1,4 +1,4 @@
-# Follow The Green XP Python3 Plugin Interface
+# Follow the greens XP Python3 Plugin Interface
 #
 from traceback import print_exc
 import xp
@@ -8,9 +8,9 @@ from followthegreens import FollowTheGreens, __VERSION__
 class PythonInterface:
 
     def __init__(self):
-        self.Name = "Follow the Greens"
+        self.Name = "Follow the greens"
         self.Sig = "followthegreens.xppython3"
-        self.Desc = "Follow the Greens, an X-Plane ATC A-SMGCS experience. (Rel. " + __VERSION__ + ")"
+        self.Desc = "Follow the greens, an X-Plane ATC A-SMGCS experience. (Rel. " + __VERSION__ + ")"
         self.Info = self.Name + f" (rel. {__VERSION__})"
         self.enabled = False
         self.trace = True  # produces extra debugging in XPPython3.log for this class
@@ -22,8 +22,11 @@ class PythonInterface:
         self.followTheGreensCmdRef = xp.createCommand('XPPython3/followthegreens/main_windown_toggle', 'Open or close Follow the Greens window')
         xp.registerCommandHandler(self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None)
         self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), self.Name, self.followTheGreensCmdRef)
-        if self.trace:
-            print(self.Info, "PI::XPluginStart: menu added.")
+        if self.menuIdx is None or (self.menuIdx is not None and self.menuIdx < 0):
+            print(self.Info, "PI::XPluginStart: menu not added.")
+        else:
+            if self.trace:
+                print(self.Info, "PI::XPluginStart: menu added.", self.menuIdx)
         if self.trace:
             print(self.Info, "PI::XPluginStart: started.")
         return self.Name, self.Sig, self.Desc
@@ -34,11 +37,15 @@ class PythonInterface:
                                         self.followTheGreensCmd,
                                         1, None)
             self.followTheGreensCmdRef = None
-        if self.menuIdx:
+        if self.menuIdx is not None and self.menuIdx >= 0:
+            oldidx = self.menuIdx
             xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx)
             self.menuIdx = None
             if self.trace:
-                print(self.Info, "PI::XPluginStop: menu removed.")
+                print(self.Info, "PI::XPluginStop: menu removed.", oldidx)
+        else:
+            if self.trace:
+                print(self.Info, "PI::XPluginStop: menu not removed.")
         if self.followTheGreens:
             try:
                 self.followTheGreens.stop()

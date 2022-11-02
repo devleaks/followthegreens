@@ -34,7 +34,7 @@ TAXIWAY_ACTIVE_ARRIVAL = "arrival"
 TAXIWAY_ACTIVE_ILS = "ils"
 
 
-# Follow The Green general constants and keywords
+# Follow the greens general constants and keywords
 #
 ARRIVAL = TAXIWAY_ACTIVE_ARRIVAL
 DEPARTURE = TAXIWAY_ACTIVE_DEPARTURE
@@ -53,7 +53,7 @@ ADDLIGHTATLASTVERTEX = False        # Add a light at the last vertex, even if it
 ADDSTOPBARATLASTVERTEX = False      # Add a stop bar at the end (artificial)
 
 
-# Follow The Green lighting constants
+# Follow the greens lighting constants
 #
 DISTANCEBETWEENTNLIGHTS = 5
 

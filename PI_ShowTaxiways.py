@@ -1,4 +1,4 @@
-# Follow The Green XP Python3 Plugin Interface
+# Follow the greens XP Python3 Plugin Interface
 #
 from traceback import print_exc
 import xp
@@ -22,8 +22,11 @@ class PythonInterface:
         self.showTaxiwaysCmdRef = xp.createCommand('XPPython3/followthegreens/highlight_taxiways_toggle', 'Show / hide taxiway network')
         xp.registerCommandHandler(self.showTaxiwaysCmdRef, self.showTaxiwaysCmd, 1, None)
         self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), self.Name, self.showTaxiwaysCmdRef)
-        if self.trace:
-            print(self.Info, "PI::XPluginStart: menu added.")
+        if self.menuIdx is None or (self.menuIdx is not None and self.menuIdx < 0):
+            print(self.Info, "PI::XPluginStart: menu not added.")
+        else:
+            if self.trace:
+                print(self.Info, "PI::XPluginStart: menu added.", self.menuIdx)
         if self.trace:
             print(self.Info, "PI::XPluginStart: started.")
         return self.Name, self.Sig, self.Desc
@@ -34,11 +37,15 @@ class PythonInterface:
                                         self.showTaxiwaysCmd,
                                         1, None)
             self.showTaxiwaysCmdRef = None
-        if self.menuIdx:
+        if self.menuIdx is not None and self.menuIdx >= 0:
+            oldidx = self.menuIdx
             xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx)
             self.menuIdx = None
             if self.trace:
-                print(self.Info, "PI::XPluginStop: menu removed.")
+                print(self.Info, "PI::XPluginStop: menu removed.", oldidx)
+        else:
+            if self.trace:
+                print(self.Info, "PI::XPluginStop: menu not removed.", oldidx)
         if self.showTaxiways:
             try:
                 self.showTaxiways.stop()

@@ -15,7 +15,7 @@ from .globals import MAINWINDOW_FROM_LEFT, MAINWINDOW_FROM_BOTTOM
 
 # Some texts we need to recognize. May be later translated.
 CLOSE_TEXT = "Close"
-CANCEL_TEXT = "Cancel follow the green"
+CANCEL_TEXT = "Cancel Follow the greens"
 FINISH_TEXT = "Finish"
 CLEARANCE_TEXT = "Clearance received"
 CANCELSHORT_TEXT = "Cancel"
@@ -61,7 +61,7 @@ class UIUtil:
         self.wBottom = MAINWINDOW_FROM_BOTTOM
         widgetCenter = int(self.wLeft + (self.wRight - self.wLeft) / 2)
 
-        widgetWindow['widgetID'] = xp.createWidget(self.wLeft, self.wTop, self.wRight, self.wBottom, 0, "Follow the Green",
+        widgetWindow['widgetID'] = xp.createWidget(self.wLeft, self.wTop, self.wRight, self.wBottom, 0, "Follow the greens",
                                                    1, 0, xp.WidgetClass_MainWindow)
 
         xp.addWidgetCallback(widgetWindow['widgetID'], self.cbMainWindow)
@@ -188,7 +188,7 @@ class UIUtil:
             "Welcome. We could not find the airport where you are located.",
             prompt
         ], {
-            "Follow the green": self.cbAirport,
+            "Follow the greens": self.cbAirport,
             CANCELSHORT_TEXT: self.cbCancel
         })
 
@@ -236,7 +236,7 @@ class UIUtil:
             prompt,
             "Click inside the text box and use UP and DOWN arrow to cycle through values."
         ], {
-            "Follow the green": self.cbDestination,
+            "Follow the greens": self.cbDestination,
             CANCELSHORT_TEXT: self.cbCancel
         })
 
@@ -272,7 +272,7 @@ class UIUtil:
         if self.dest:
             btns[IAMLOST_TEXT] = self.cbNewGreen
         return self.window([
-            "Follow the green.",
+            "Follow the greens.",
             "(You can close this window with the little x in the above window title bar.)"
         ], btns)
 
@@ -286,7 +286,7 @@ class UIUtil:
         if self.dest:
             btns[IAMLOST_TEXT] = self.cbNewGreen
         return self.window([
-            "Follow the green until you encounter a line of red stop lights.",
+            "Follow the greens until you encounter a line of red stop lights.",
             "At the stop lights, contact TOWER for clearance. Press Continue when cleared."
         ], btns)
 
@@ -308,7 +308,7 @@ class UIUtil:
     def promptForDeparture(self):
         # In front of the last stopbar, ask to ask for clearance for departure and press continue when clearance obtained.
         return self.window([
-            "Follow the green until you encounter a line of red stop lights at departure runway.",
+            "Follow the greens until you encounter a line of red stop lights at departure runway.",
             "Press Continue when cleared for runway."
         ], {
             CLEARANCE_TEXT: self.cbClearance,
@@ -325,7 +325,7 @@ class UIUtil:
             btns[IAMLOST_TEXT] = self.cbNewGreen
         # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
         return self.window([
-            "Follow the green to the designated parking area.",
+            "Follow the greens to the designated parking area.",
             "Press Continue when parked."
         ], btns)
 
@@ -351,7 +351,7 @@ class UIUtil:
     def sorry(self, message):
         # Open a window with explanation.
         return self.window([
-            "We are sorry. We cannot provide Follow The Green service at this airport.",
+            "We are sorry. We cannot provide Follow the greens service at this airport.",
             message
         ], {
             CLOSE_TEXT: self.cbClose

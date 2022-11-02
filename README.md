@@ -1,21 +1,21 @@
-Follow The Green
-================
+Follow the greens
+=================
 
-Follow The Green is a recent enhancement to the busiest airport infrastructure to ease ground operations.
-In a nutshell, whenever a plane request taxi instruction, it solely receive "Callsign, please follow the green".
+Follow the greens is a recent enhancement to the busiest airport infrastructure to ease ground operations.
+In a nutshell, whenever a plane request taxi instruction, it solely receive "Callsign, please Follow the greens".
 Ground operators dim all taxi lights visible to the crew, except those for the taxi path to be followed.
 A red line across the taxiway indicates the plane has to hold and wait the the red light to clear. Very much like car traffic lights.
 
-Follow the green is part of the serious Advanced Surface Movement Guidance and Control System (A-SMGCS).
-Please have a look at the following video (https://vimeo.com/101564135) and search for "airport follow the green"
+Follow the greens is part of the serious Advanced Surface Movement Guidance and Control System (A-SMGCS).
+Please have a look at the following video (https://vimeo.com/101564135) and search for "airport Follow the greens"
 to get more information (http://followthegreens.com).
 
-Follow the green has numerous advantages discussed in the above videos, ranking to ease of use, to smoother taxi rides,
+Follow the greens has numerous advantages discussed in the above videos, ranking to ease of use, to smoother taxi rides,
 to lower interaction with ground control.
 
-I found amusing to bring Follow the green concept to X-Plane as ATC and "AI" (I hate that word) struggle to guide you on the ground.
-Yellow painted coach arrows are useful but look too artificial. Follow the green is an existing system used at
-a handful airports. But now, thanks to this plugin, even your local muni can get Follow the green (at no cost).
+I found amusing to bring Follow the greens concept to X-Plane as ATC and "AI" (I hate that word) struggle to guide you on the ground.
+Yellow painted coach arrows are useful but look too artificial. Follow the greens is an existing system used at
+a handful airports. But now, thanks to this plugin, even your local muni can get Follow the greens (at no cost).
 
 
 Constrains are:
@@ -23,16 +23,16 @@ Constrains are:
  - Airport must have a network of taxiways.
  - You must manually enter information the plugin need and cannot find.
 
- Technically speaking, Follow The Green is a XPPython3 plugin, so you need XPPython3 installed and working.
+ Technically speaking, Follow the greens is a XPPython3 plugin, so you need XPPython3 installed and working.
 
 
 ## Installation
 
 Requirement: Have XPPython3 installed and working.
 
-Unzip Follow the green distribution file.
+Unzip Follow the greens distribution file.
 Copy PI_followthegreen.py file and followthegreen folder to your Resources/plugin/PythonPlugin folder.
-Reload scripts as needed in XPPython3. Follow the green should now be a menu entry in your Plugins menu.
+Reload scripts as needed in XPPython3. Follow the greens should now be a menu entry in your Plugins menu.
 Select it to start it.
 
 
@@ -44,13 +44,13 @@ You must change all parameters in a plugin file.
 In file X-Plane Home Directory/Resources/Plugins/PythonPlugins/followthegreen/globals.py you can adjust the following parameters.
 
 
-| parameter                 | Typical/default | Acceptable range   | Meaning                                                       |
-|---------------------------|-----------------|--------------------|---------------------------------------------------------------|
-| LIGHTS_AHEAD              |       10        |  0 - 20            | Number of light after the rabbit. If 0, lights till stopbar   |
-| RABBIT_LENGTH             |       10        |  2 - 16            | Length of the the rabbit (in number of lights)                |
-| RABBIT_DURATION           |       0.5       |  0.5 - 0.03        | Duration of a "off" light in rabitt. Low value impacts FPS    |
-| DISTANCEBETWEENGREENLIGHTS|       20        |  5 - 40            | Distance between green lights (in meter)                      |
-| WARNINGDISTANCE           |       150       |  100-300           | Distance to stop light before Follow the green window pops up |
+| parameter                 | Typical/default | Acceptable range   | Meaning                                                        |
+|---------------------------|-----------------|--------------------|----------------------------------------------------------------|
+| LIGHTS_AHEAD              |       10        |  0 - 20            | Number of light after the rabbit. If 0, lights till stopbar    |
+| RABBIT_LENGTH             |       10        |  2 - 16            | Length of the the rabbit (in number of lights)                 |
+| RABBIT_DURATION           |       0.5       |  0.5 - 0.03        | Duration of a "off" light in rabitt. Low value impacts FPS     |
+| DISTANCEBETWEENGREENLIGHTS|       20        |  5 - 40            | Distance between green lights (in meter)                       |
+| WARNINGDISTANCE           |       150       |  100-300           | Distance to stop light before Follow the greens window pops up |
 
 
 Watch out. Changing other parameter may crash the plugin and X-Plane.
@@ -83,7 +83,7 @@ The plane must be within 1/4 mile of the taxiway.
 So if it complains that it cannot find a route to your destination, move a bit closer to taxiway
 network and try again.
 
-Otherwise, you're all set. Just " Follow the green ". The plug in will tell you in which direction
+Otherwise, you're all set. Just " Follow the greens ". The plug in will tell you in which direction
 you should head to reach the first taxiway leg.
 
 If you missed a turn, just ask a new "green path" and the plugin will re-route you.
@@ -96,12 +96,12 @@ leg of green to your destination.
 
 A final popup will tell you when you reached your destination.
 
-The main Follow the green window hides itself after a fe seconds. Simply select the menu entry
+The main Follow the greens window hides itself after a fe seconds. Simply select the menu entry
 to reveal it again.
 
 
 
-The orignal Follow The Green system does not have a rabbit running in front of the plane.
+The orignal Follow the greens system does not have a rabbit running in front of the plane.
 However, I witnessed it when taxiing at Dubaï airport on a foggy morning. We could clearly
 see the rabbit with the camera in the nose of the plane (777). (Could a pilot confirm this,
 or may be a Dubai ground controller?) I found it a nice addition anyway.
@@ -126,7 +126,7 @@ to make smoother turns.
 
 
 BTW: With a little hiccup on start (to find your airport and load its network of taxiway)
-and for route computation and light instanciation, Follow the green is FPS friendly.
+and for route computation and light instanciation, Follow the greens is FPS friendly.
 Rabbit runs about 2 to 10 times a second, and plane position is adjusted every 10 seconds or so.
 All these parameters are globals and can be adjusted to your need, preferences, or requirements.
 You usually taxi at reasonably slow speed, FPS is not as critical as when approaching.
@@ -147,10 +147,11 @@ Currently, it's all done manually.
 Code is on github. Feel free to bring your own enhancements.
 
 
-I hope you will enjoy the eye candy Follow the Green.
+I hope you will enjoy the eye candy Follow the greens.
 
 
-Happy flying.
+Taxi safely.
+
 
 Otto Pilot
 
@@ -160,16 +161,21 @@ Otto Pilot
 
 Dear Laminar,
 
-Rather than artificial yellow "coach" arrows to show the way to taxi, would it be possible to provide a killing eye candy "Follow the green"?
-Follow the green is a fairly recent Advanced Surface Movement Guidance and Control System (A-SMGCS). It is used at a couple of the busiest airports.
+Rather than artificial yellow "coach" arrows to show the way to taxi,
+would it be possible to provide a killing eye candy "Follow the greens"?
+
+Follow the greens is a fairly recent Advanced Surface Movement Guidance and Control System (A-SMGCS).
+It is used at a couple of the busiest airports.
 In other words, that system do exist.
 
-As far as realism goes, let's say that the simplest local muni airfield can now have "follow the green", provided it has a network of taxi route.
-But brighter taxiway centerline lights is not as artifical as the yellow coach arrows. Following the green works in all weather and day time conditions.
+As far as realism goes, let's say that the simplest local muni airfield can now have "Follow the greens",
+provided it has a network of taxi route.
+But brighter taxiway centerline lights is not as artifical as the yellow coach arrows.
+Following the green works in all weather and day time conditions.
 
 I have seen this in action (Dubai airport, arrival with heavy fog, camera in the nose of the plane.)
 All taxilights were lit, the pilot was shown the way to follow with a rabbit of a few taxiway centerline lights (about 3-6 lights, fairly fast and dynamic rabbit).
-It was awesome to see. Please search for "follow the green" and look at a few videos.
+It was awesome to see. Please search for "Follow the greens" and look at a few videos.
 
 Thanks a lot for X-Plane. We have a lot of fun.
 Keep it open, so we can add our fantasies to your world.

@@ -1,13 +1,13 @@
-# Follow The Green mission container Class
+# Follow the greens mission container Class
 # Keeps all information handy. Dispatches intruction to do things.
 #
-# Cannot use Follow the green.
-# We are sorry. We cannot provide Follow The Green service at this airport.
+# Cannot use Follow the greens.
+# We are sorry. We cannot provide Follow the greens service at this airport.
 # Reasons:
 # This airport does not have a routing network of taxiway.
 #
-# Can use Follow the green, but other issue:
-# We are sorry. We cannot provide Follow The Green service now.
+# Can use Follow the greens, but other issue:
+# We are sorry. We cannot provide Follow the greens service now.
 # Reasons:
 # You are too far from the taxiways.
 # We could not find a suitable route to your destination.
@@ -65,7 +65,7 @@ class ShowTaxiways:
         # Search for airport or prompt for one.
         # If airport is not equiped, we loop here until we get a suitable airport.
         # When one is given and satisfies the condition for FTG
-        # we go to next step: Find the end point of follow the green.
+        # we go to next step: Find the end point of Follow the greens.
         # @todo: We need to guess those from dataref
         # Note: Aircraft should be "created" outside of FollowTheGreen
         # and passed to start or getAirport. That way, we can instanciate
@@ -118,14 +118,26 @@ class ShowTaxiways:
         # Info 13
         logging.info("ShowTaxiways::showTaxiways: Added %d lights.", len(self.lights.lights))
 
+        # if self.pi is not None and self.pi.menuIdx >= 0:
+        #     xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Checked)
+        #     logging.debug(f"ShowTaxiways::showTaxiways: menu enabled ({self.pi.menuIdx})")
+        # else:
+        #     logging.debug(f"ShowTaxiways::showTaxiways: menu NOT enabled ({self.pi.menuIdx})")
+
         return self.ui.enjoy()
-        # return self.ui.sorry("Follow the green is not completed yet.")  # development
+        # return self.ui.sorry("Follow the greens is not completed yet.")  # development
 
 
     def cancel(self, reason=""):
         if self.lights:
             self.lights.destroy()
             self.lights = None
+            # if self.pi is not None and self.pi.menuIdx is not None and self.pi.menuIdx >= 0:
+            #     try:
+            #         xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Unchecked)
+            #         logging.debug(f"ShowTaxiways::cancel: menu disabled ({self.pi.menuIdx})")
+            #     except:
+            #         logging.debug(f"ShowTaxiways::cancel: menu NOT disabled ({self.pi.menuIdx}, {xp.Menu_Unchecked})", exc_info=True)
 
         if self.ui.mainWindowExists():
             self.ui.destroyMainWindow()

@@ -1,13 +1,13 @@
-# Follow The Green mission container Class
+# Follow the greens mission container Class
 # Keeps all information handy. Dispatches intruction to do things.
 #
-# Cannot use Follow the green.
-# We are sorry. We cannot provide Follow The Green service at this airport.
+# Cannot use Follow the greens.
+# We are sorry. We cannot provide Follow the greens service at this airport.
 # Reasons:
 # This airport does not have a routing network of taxiway.
 #
-# Can use Follow the green, but other issue:
-# We are sorry. We cannot provide Follow The Green service now.
+# Can use Follow the greens, but other issue:
+# We are sorry. We cannot provide Follow the greens service now.
 # Reasons:
 # You are too far from the taxiways.
 # We could not find a suitable route to your destination.
@@ -76,7 +76,7 @@ class FollowTheGreens:
         # Search for airport or prompt for one.
         # If airport is not equiped, we loop here until we get a suitable airport.
         # When one is given and satisfies the condition for FTG
-        # we go to next step: Find the end point of follow the green.
+        # we go to next step: Find the end point of Follow the greens.
         # @todo: We need to guess those from dataref
         # Note: Aircraft should be "created" outside of FollowTheGreen
         # and passed to start or getAirport. That way, we can instanciate
@@ -200,9 +200,9 @@ class FollowTheGreens:
 
         # Hint: distance and heading to first light
         if initdiff > 20 or initdist > 200:
-            XPLMSpeakString("Follow the green. Taxiway is at about %d meters heading %d." % (initdist, initbrgn))
+            XPLMSpeakString("Follow the greens. Taxiway is at about %d meters heading %d." % (initdist, initbrgn))
         else:
-            XPLMSpeakString("Follow the green.")
+            XPLMSpeakString("Follow the greens.")
 
         # self.segment = 0
         if self.lights.segments == 0:  # just one segment
@@ -220,7 +220,7 @@ class FollowTheGreens:
                     return self.ui.promptForDeparture()
 
         return self.ui.promptForClearance()
-        # return self.ui.sorry("Follow the green is not completed yet.")  # development
+        # return self.ui.sorry("Follow the greens is not completed yet.")  # development
 
 
     def nextLeg(self):

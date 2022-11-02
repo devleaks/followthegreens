@@ -65,7 +65,7 @@ class FlightLoop:
     def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
         # show rabbit in front of plane.
-        # plane is supposed to follow the green and it close to green light index self.lastLit.
+        # plane is supposed to Follow the greens and it close to green light index self.lastLit.
         # We cannot use XP's counter because it does not increment by 1 just for us.
         return self.ftg.lights.rabbit(self.lastLit)
 
