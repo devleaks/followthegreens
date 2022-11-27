@@ -182,4 +182,4 @@ Keep it open, so we can add our fantasies to your world.
 
 Best regards.
 
-PS: And if you want to call the rabbit a lamb instead (https://twitter.com/XPlaneOfficial/status/1357051101581877248), that's fine with me.
+PS: And if you want to call the rabbit a [lamb instead](https://twitter.com/XPlaneOfficial/status/1357051101581877248), that's fine with me.
