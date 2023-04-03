@@ -5,7 +5,6 @@ import logging
 from random import random
 
 import xp
-from XPWidgets import XPGetWidgetDescriptor
 
 from .globals import ARRIVAL, DEPARTURE, GOOD
 from .globals import MAINWINDOW_AUTOHIDE, MAINWINDOW_DISPLAY_TIME
@@ -135,6 +134,11 @@ class UIUtil:
     def showMainWindow(self, canHide=True):
         if self.mainWindowExists():
             xp.showWidget(self.mainWindow['widgetID'])
+            if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
+                xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Checked)
+                logging.debug(f"showMainWindow: menu checked ({self.ftg.pi.menuIdx})")
+            else:
+                logging.debug(f"showMainWindow: menu not checked ({self.ftg.pi.menuIdx})")
             self.canHide = canHide
             self.displayTime = 0
 
@@ -142,14 +146,19 @@ class UIUtil:
     def hideMainWindowIfOk(self, elapsed=0):
         # We always hide it on request, even if canHide is False
         self.displayTime += elapsed
-        if MAINWINDOW_AUTOHIDE and self.mainWindowExists() and self.displayTime > MAINWINDOW_DISPLAY_TIME and self.canHide:
-            xp.hideWidget(self.mainWindow['widgetID'])
+        if MAINWINDOW_AUTOHIDE and self.displayTime > MAINWINDOW_DISPLAY_TIME and self.canHide:
+            self.hideMainWindow()
 
 
     def hideMainWindow(self):
         # We always hide it on request, even if canHide is False
         if self.mainWindowExists():
             xp.hideWidget(self.mainWindow['widgetID'])
+            if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
+                xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Unchecked)
+                logging.debug(f"hideMainWindowIfOk: menu checked ({self.ftg.pi.menuIdx})")
+            else:
+                logging.debug(f"hideMainWindowIfOk: menu not checked ({self.ftg.pi.menuIdx})")
 
 
     def toggleVisibilityMainWindow(self):
@@ -373,7 +382,7 @@ class UIUtil:
         # pylint: disable=unused-argument
         if inMessage == xp.Msg_PushButtonPressed:
             if 'icao' in self.mainWindow['widgets'].keys():
-                self.icao = XPGetWidgetDescriptor(self.mainWindow['widgets']['icao'])
+                self.icao = xp.getWidgetDescriptor(self.mainWindow['widgets']['icao'])
                 logging.debug("UIUtil::cbAirport:airport: %s", self.icao)
                 xp.hideWidget(self.mainWindow['widgetID'])
                 nextWindow = self.ftg.getDestination(self.icao)
@@ -412,7 +421,7 @@ class UIUtil:
         # pylint: disable=unused-argument
         if inMessage == xp.Msg_PushButtonPressed:
             if 'dest' in self.mainWindow['widgets'].keys():
-                self.dest = XPGetWidgetDescriptor(self.mainWindow['widgets']['dest'])
+                self.dest = xp.getWidgetDescriptor(self.mainWindow['widgets']['dest'])
                 logging.debug("UIUtil::cbDestination:destination: %s", self.dest)
                 xp.hideWidget(self.mainWindow['widgetID'])
                 nextWindow = self.ftg.followTheGreen(self.dest)

@@ -3,8 +3,7 @@
 #
 from decimal import Decimal as D
 
-from XPLMDataAccess import *
-from XPLMPlugin import *
+import xp
 
 MSG_ADD_DATAREF = 0x01000000
 
@@ -12,10 +11,10 @@ MSG_ADD_DATAREF = 0x01000000
 class XPCustomDRef(object):
 
     xplm_types = {
-        'int': xplmType_Int,
-        'float': xplmType_Float,
-        'double': xplmType_Double,
-        'int_array': xplmType_IntArray,
+        'int': xp.Type_Int,
+        'float': xp.Type_Float,
+        'double': xp.Type_Double,
+        'int_array': xp.Type_IntArray,
     }
 
     dref = None
@@ -80,7 +79,7 @@ class XPCustomDRef(object):
 
     def register(self):
 
-        self.dref = XPLMRegisterDataAccessor(
+        self.dref = xp.registerDataAccessor(
             self.signature,  # inDataName
             self.xplm_types[self.data_type],  # inDataType
             1 if self.writeable else 0,  # inIsWritable
@@ -104,7 +103,7 @@ class XPCustomDRef(object):
 
     def unregister(self):
         if self.dref:
-            XPLMUnregisterDataAccessor(self.dref)
+            xp.unregisterDataAccessor(self.dref)
 
     def read_value_cb(self, inRefCon):
         print(f"read_value_cb={inRefCon}")
@@ -118,7 +117,7 @@ class XPCustomDRef(object):
 
     def notify_datarefeditor(self, plugin_id):
         if self.notify_dre:
-            XPLMSendMessageToPlugin(plugin_id, MSG_ADD_DATAREF, self.signature)
+            xp.sendMessageToPlugin(plugin_id, MSG_ADD_DATAREF, self.signature)
 
     def __repr__(self):
         return 'sig:{} - value:{} - dref:{} - data_type:{}'.format(
@@ -192,41 +191,41 @@ class XPDref:
 
     dref_mapping = {
         'int': {
-            'dr_get': XPLMGetDatai,
-            'dr_set': XPLMSetDatai,
+            'dr_get': xp.getDatai,
+            'dr_set': xp.setDatai,
             'dr_cast': int,
         },
         'float': {
-            'dr_get': XPLMGetDataf,
-            'dr_set': XPLMSetDataf,
+            'dr_get': xp.getDataf,
+            'dr_set': xp.setDataf,
             'dr_cast': float,
         },
         'double': {
-            'dr_get': XPLMGetDatad,
-            'dr_set': XPLMSetDatad,
+            'dr_get': xp.getDatad,
+            'dr_set': xp.setDatad,
             'dr_cast': float,
         },
     }
 
     dref_mapping_array = {
         'int': {
-            'dr_get': XPLMGetDatavi,
-            'dr_set': XPLMSetDatavi,
+            'dr_get': xp.getDatavi,
+            'dr_set': xp.setDatavi,
             'dr_cast': int,
         },
         'float': {
-            'dr_get': XPLMGetDatavf,
-            'dr_set': XPLMSetDatavf,
+            'dr_get': xp.getDatavf,
+            'dr_set': xp.setDatavf,
             'dr_cast': float,
         },
         'byte': {
-            'dr_get': XPLMGetDatab,
-            'dr_set': XPLMSetDatab,
+            'dr_get': xp.getDatab,
+            'dr_set': xp.setDatab,
             'dr_cast': bytearray,
         },
         'string': {
-            'dr_get': XPLMGetDatab,
-            'dr_set': XPLMSetDatab,
+            'dr_get': xp.getDatab,
+            'dr_set': xp.setDatab,
             'dr_cast': bytearray,
         },
     }
@@ -263,7 +262,7 @@ class XPDref:
         self.dr_set = dref_mapping[dref_type]['dr_set']
         self.dr_cast = dref_mapping[dref_type]['dr_cast']
 
-        self.dref = XPLMFindDataRef(signature)
+        self.dref = xp.findDataRef(signature)
         if not self.dref:
             print("Can't find DataRef " + signature)
             return

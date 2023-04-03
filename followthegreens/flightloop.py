@@ -3,10 +3,11 @@
 #
 import logging
 
-from XPLMProcessing import XPLMCreateFlightLoop, XPLMScheduleFlightLoop, XPLMDestroyFlightLoop
-from XPLMProcessing import xplm_FlightLoop_Phase_AfterFlightModel
+import xp
+
 from .globals import PLANE_MONITOR_DURATION, DISTANCEBETWEENGREENLIGHTS, WARNINGDISTANCE
 
+EARTH = 39940653000  # Earth circumference, in meter :-)
 
 class FlightLoop:
 
@@ -20,27 +21,27 @@ class FlightLoop:
         self.planeRunning = False
         self.nextIter = PLANE_MONITOR_DURATION  # seconds
         self.lastLit = 0
-        self.distance = 39940653000  # Earth circumference, in meter :-)
+        self.distance = EARTH
         self.diftingLimit = 5 * DISTANCEBETWEENGREENLIGHTS  # After that, we send a warning, and we may cancel FTG.
 
 
     def startFlightLoop(self):
         # @todo schedule/unschedule without destroying
-        phase = xplm_FlightLoop_Phase_AfterFlightModel
+        phase = xp.FlightLoop_Phase_AfterFlightModel
         # @todo: make function to reset lastLit counter
         self.lastLit = 0
         if not self.rabbitRunning:
             params = [phase, self.rabbitFLCB, self.refrabbit]
-            self.flrabbit = XPLMCreateFlightLoop(params)
-            XPLMScheduleFlightLoop(self.flrabbit, 1.0, 1)
+            self.flrabbit = xp.createFlightLoop(params)
+            xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)
             self.rabbitRunning = True
             logging.debug("FlightLoop::startFlightLoop: rabbit started.")
         else:
             logging.debug("FlightLoop::startFlightLoop: rabbit running.")
         if not self.planeRunning:
             params = [phase, self.planeFLCB, self.refplane]
-            self.flplane = XPLMCreateFlightLoop(params)
-            XPLMScheduleFlightLoop(self.flplane, 10.0, 1)
+            self.flplane = xp.createFlightLoop(params)
+            xp.scheduleFlightLoop(self.flplane, 10.0, 1)
             self.planeRunning = True
             logging.debug("FlightLoop::startFlightLoop: plane tracking started.")
         else:
@@ -49,13 +50,13 @@ class FlightLoop:
 
     def stopFlightLoop(self):
         if self.rabbitRunning:
-            XPLMDestroyFlightLoop(self.flrabbit)
+            xp.destroyFlightLoop(self.flrabbit)
             self.rabbitRunning = False
             logging.debug("FlightLoop::stopFlightLoop: rabbit stopped.")
         else:
             logging.debug("FlightLoop::stopFlightLoop: rabbit not running.")
         if self.planeRunning:
-            XPLMDestroyFlightLoop(self.flplane)
+            xp.destroyFlightLoop(self.flplane)
             self.planeRunning = False
             logging.debug("FlightLoop::stopFlightLoop: plane tracking stopped.")
         else:

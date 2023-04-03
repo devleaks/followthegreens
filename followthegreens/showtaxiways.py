@@ -118,11 +118,11 @@ class ShowTaxiways:
         # Info 13
         logging.info("ShowTaxiways::showTaxiways: Added %d lights.", len(self.lights.lights))
 
-        # if self.pi is not None and self.pi.menuIdx >= 0:
-        #     xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Checked)
-        #     logging.debug(f"ShowTaxiways::showTaxiways: menu enabled ({self.pi.menuIdx})")
-        # else:
-        #     logging.debug(f"ShowTaxiways::showTaxiways: menu NOT enabled ({self.pi.menuIdx})")
+        if self.pi is not None and self.pi.menuIdx is not None and self.pi.menuIdx >= 0:
+            xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Checked)
+            logging.debug(f"ShowTaxiways::showTaxiways: menu checked ({self.pi.menuIdx})")
+        else:
+            logging.debug(f"ShowTaxiways::showTaxiways: menu not checked ({self.pi.menuIdx})")
 
         return self.ui.enjoy()
         # return self.ui.sorry("Follow the greens is not completed yet.")  # development
@@ -132,12 +132,12 @@ class ShowTaxiways:
         if self.lights:
             self.lights.destroy()
             self.lights = None
-            # if self.pi is not None and self.pi.menuIdx is not None and self.pi.menuIdx >= 0:
-            #     try:
-            #         xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Unchecked)
-            #         logging.debug(f"ShowTaxiways::cancel: menu disabled ({self.pi.menuIdx})")
-            #     except:
-            #         logging.debug(f"ShowTaxiways::cancel: menu NOT disabled ({self.pi.menuIdx}, {xp.Menu_Unchecked})", exc_info=True)
+            if self.pi is not None and self.pi.menuIdx is not None and self.pi.menuIdx >= 0:
+                try:
+                    xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Unchecked)
+                    logging.debug(f"ShowTaxiways::cancel: menu unchecked ({self.pi.menuIdx})")
+                except:
+                    logging.debug(f"ShowTaxiways::cancel: menu not unchecked ({self.pi.menuIdx}, {xp.Menu_Unchecked})", exc_info=True)
 
         if self.ui.mainWindowExists():
             self.ui.destroyMainWindow()

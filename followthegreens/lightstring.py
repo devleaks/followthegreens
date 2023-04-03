@@ -7,15 +7,6 @@ import json
 import os.path
 
 import xp
-# definitions
-from XPLMScenery import xplm_ProbeY
-from XPLMScenery import xplm_ProbeHitTerrain, xplm_ProbeError
-from XPLMScenery import xplm_ProbeMissed
-# functions, tested
-from XPLMScenery import XPLMCreateProbe, XPLMDestroyProbe, XPLMProbeTerrainXYZ
-from XPLMScenery import XPLMLoadObject, XPLMUnloadObject
-from XPLMGraphics import XPLMWorldToLocal
-from XPLMInstance import XPLMCreateInstance, XPLMDestroyInstance, XPLMInstanceSetPosition
 
 from .geo import Point, distance, bearing, destination, convertAngleTo360
 from .globals import DISTANCEBETWEENGREENLIGHTS, ADDLIGHTATVERTEX, ADDLIGHTATLASTVERTEX, DISTANCEBETWEENSTOPLIGHTS, MINSEGMENTSBEFOREHOLD, DISTANCEBETWEENTNLIGHTS
@@ -54,12 +45,12 @@ class LightType:
         if not self.obj:
             curr_dir = os.path.dirname(os.path.realpath(__file__))
             real_path = os.path.join(curr_dir, 'lights', self.filename)
-            self.obj = XPLMLoadObject(real_path)
-            logging.debug('LightType::load: XPLMLoadObject loaded %s.', self.filename)
+            self.obj = xp.loadObject(real_path)
+            logging.debug('LightType::load: LoadObject loaded %s.', self.filename)
 
     def unload(self):
         if self.obj:
-            XPLMUnloadObject(self.obj)
+            xp.unloadObject(self.obj)
             self.obj = None
             logging.debug('LightType::unload: object unloaded %s.', self.name)
 
@@ -81,22 +72,22 @@ class Light:
 
     def groundXYZ(self, latstr, lonstr, altstr):
         lat, lon, alt = (float(latstr), float(lonstr), float(altstr))
-        (x, y, z) = XPLMWorldToLocal(lat, lon, alt)  # this return proper altitude
-        probe = XPLMCreateProbe(xplm_ProbeY)
-        info = XPLMProbeTerrainXYZ(probe, x, y, z)
-        if info.result == xplm_ProbeError:
+        (x, y, z) = xp.worldToLocal(lat, lon, alt)  # this return proper altitude
+        probe = xp.createProbe(xp.ProbeY)
+        info = xp.probeTerrainXYZ(probe, x, y, z)
+        if info.result == xp.ProbeError:
             logging.debug("Terrain error")
-            (x, y, z) = XPLMWorldToLocal(lat, lon, alt)
-        elif info.result == xplm_ProbeMissed:
+            (x, y, z) = xp.worldToLocal(lat, lon, alt)
+        elif info.result == xp.ProbeMissed:
             logging.debug("Terrain Missed")
-            (x, y, z) = XPLMWorldToLocal(lat, lon, alt)
-        elif info.result == xplm_ProbeHitTerrain:
+            (x, y, z) = xp.worldToLocal(lat, lon, alt)
+        elif info.result == xp.ProbeHitTerrain:
             # logging.debug("Terrain info is [{}] {}".format(info.result, info))
             (x, y, z) = (info.locationX, info.locationY, info.locationZ)
-            # (lat, lng, alt) = XPLMLocalToWorld(info.locationX, info.locationY, info.locationZ)
+            # (lat, lng, alt) = xp.localToWorld(info.locationX, info.locationY, info.locationZ)
             # logging.debug('lat, lng, alt is {} feet'.format((lat, lng, alt * 3.28)))
-        XPLMDestroyProbe(probe)
-        # (x, y, z) = XPLMWorldToLocal(float(light.position.lat), float(light.position.lon), alt)
+        xp.destroyProbe(probe)
+        # (x, y, z) = xp.worldToLocal(float(light.position.lat), float(light.position.lon), alt)
         return (x, y, z)
 
     def place(self, lightType, lightTypeOff=None):
@@ -105,8 +96,8 @@ class Light:
         (x, y, z) = self.groundXYZ(self.position.lat, self.position.lon, alt)
         self.xyz = (x, y, z, pitch, self.heading, roll)
         if lightTypeOff and not self.instanceOff:
-            self.instanceOff = XPLMCreateInstance(lightTypeOff.obj, self.drefs)
-            XPLMInstanceSetPosition(self.instanceOff, self.xyz, self.params)
+            self.instanceOff = xp.createInstance(lightTypeOff.obj, self.drefs)
+            xp.instanceSetPosition(self.instanceOff, self.xyz, self.params)
             # logging.debug("LightString::place: light off placed")
 
     def on(self):
@@ -114,18 +105,18 @@ class Light:
             logging.debug("LightString::on: light not placed")
             return
         if self.lightObject and not self.instance:
-            self.instance = XPLMCreateInstance(self.lightObject, self.drefs)
-            XPLMInstanceSetPosition(self.instance, self.xyz, self.params)
+            self.instance = xp.createInstance(self.lightObject, self.drefs)
+            xp.instanceSetPosition(self.instance, self.xyz, self.params)
 
     def off(self):
         if self.instance:
-            XPLMDestroyInstance(self.instance)
+            xp.destroyInstance(self.instance)
             self.instance = None
 
     def destroy(self):
         self.off()
         if self.instanceOff:
-            XPLMDestroyInstance(self.instanceOff)
+            xp.destroyInstance(self.instanceOff)
             self.instanceOff = None
 
 class Stopbar:

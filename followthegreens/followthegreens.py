@@ -14,7 +14,6 @@
 #
 import logging
 import xp
-from XPLMUtilities import XPLMSpeakString
 
 from .aircraft import Aircraft
 from .airport import Airport
@@ -200,9 +199,9 @@ class FollowTheGreens:
 
         # Hint: distance and heading to first light
         if initdiff > 20 or initdist > 200:
-            XPLMSpeakString("Follow the greens. Taxiway is at about %d meters heading %d." % (initdist, initbrgn))
+            xp.speakString("Follow the greens. Taxiway is at about %d meters heading %d." % (initdist, initbrgn))
         else:
-            XPLMSpeakString("Follow the greens.")
+            xp.speakString("Follow the greens.")
 
         # self.segment = 0
         if self.lights.segments == 0:  # just one segment
