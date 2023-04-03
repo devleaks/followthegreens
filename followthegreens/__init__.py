@@ -1,7 +1,7 @@
-__VERSION__ = "1.4.4"
-__NAME__ = "followthegreens"
-__SIGNATURE__ = "followthegreens.xppython3"
+__NAME__ = "Follow the greens"
+__SIGNATURE__ = "xppython3.followthegreens"
 __DESCRIPTION__ = "Follow the greens, an X-Plane ATC A-SMGCS experience."
+__VERSION__ = "1.5.0"
 
 
 from .followthegreens import FollowTheGreens
@@ -16,3 +16,4 @@ from .graph import Graph, Edge, Vertex
 from .lightstring import LightString
 from .ui import UIUtil
 from .XPDref import XPDref
+from .globals import FOLLOW_THE_GREENS_IS_RUNNING, XP_FTG_COMMAND, XP_FTG_COMMAND_DESC, XP_STW_COMMAND, XP_STW_COMMAND_DESC

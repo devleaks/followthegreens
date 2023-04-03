@@ -1,16 +1,24 @@
 # Follow the greens XP Python3 Plugin Interface
 #
+# See README file in followhtegreens folder.
+# Enjoy.
+#
+#
 from traceback import print_exc
+
 import xp
-from followthegreens import ShowTaxiways, __VERSION__
+
+from followthegreens import __VERSION__
+from followthegreens import XP_STW_COMMAND, XP_STW_COMMAND_DESC
+from followthegreens import ShowTaxiways
 
 
 class PythonInterface:
 
     def __init__(self):
         self.Name = "Show taxiways"
-        self.Sig = "showtaxiways.xppython3"
-        self.Desc = "Show taxiways, highlight taxiway network. (Rel. " + __VERSION__ + ")"
+        self.Sig = "xppython3.showtaxiways"
+        self.Desc = "Show taxiways, highlight taxiway network" + " (Rel. " + __VERSION__ + ")"
         self.Info = self.Name + f" (rel. {__VERSION__})"
         self.enabled = False
         self.trace = True  # produces extra debugging in XPPython3.log for this class
@@ -19,7 +27,7 @@ class PythonInterface:
         self.showTaxiwaysCmdRef = None
 
     def XPluginStart(self):
-        self.showTaxiwaysCmdRef = xp.createCommand('XPPython3/followthegreens/highlight_taxiways_toggle', 'Show / hide taxiway network')
+        self.showTaxiwaysCmdRef = xp.createCommand(XP_STW_COMMAND, XP_STW_COMMAND_DESC)
         xp.registerCommandHandler(self.showTaxiwaysCmdRef, self.showTaxiwaysCmd, 1, None)
         self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), self.Name, self.showTaxiwaysCmdRef)
         if self.menuIdx is None or (self.menuIdx is not None and self.menuIdx < 0):

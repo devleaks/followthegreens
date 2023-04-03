@@ -1,3 +1,4 @@
+1.5.0 - 30-MAR-2023 - Added custom dataref to know whether it is running or not.
 1.4.4 - 02-NOV-2022 - Uniform Follow the green_S_ program name.
 1.4.3 - 26-OCT-2022 - Isolated a few configuration parameters for easier customization.
 1.4.2 - 17-SEP-2022 - Corrected issue with scenery_packs file scan.

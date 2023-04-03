@@ -2,6 +2,15 @@
 #
 SYSTEM_DIRECTORY = "."
 
+# X-Plane Interface
+FOLLOW_THE_GREENS_IS_RUNNING = "XPPython3/followthegreens/is_running"
+
+XP_FTG_COMMAND = "XPPython3/followthegreens/main_windown_toggle"
+XP_FTG_COMMAND_DESC = "Open or close Follow the Greens window"
+
+XP_STW_COMMAND = "XPPython3/followthegreens/highlight_taxiways_toggle"
+XP_STW_COMMAND_DESC = "Show / hide taxiway network"
+
 # Main UI Window display and position
 #
 MAINWINDOW_AUTOHIDE = True          # If false, main UI window will always remain visible.
