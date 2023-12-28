@@ -1,0 +1,15 @@
+I
+800
+OBJ
+
+TEXTURE lights.png
+TEXTURE_LIT lights.png
+
+POINT_COUNTS    0 0 0 0
+
+# NAME             X   Y   Z    R   G   B   A   size <s1> <t1> <s2> <t2> dataref
+LIGHT_CUSTOM       0   0   0    0.7 0.7 0.0 1   0.3  0.0  1.0  0.5  0.5  UNUSED
+LIGHT_CUSTOM       0   0   0    0.7 0.7 0.0 1   0.3  0.0  1.0  0.5  0.5  UNUSED
+LIGHT_CUSTOM       0   0   0    0.7 0.7 0.0 1   0.3  0.0  1.0  0.5  0.5  UNUSED
+LIGHT_CUSTOM       0   0   0    0.7 0.7 0.0 1   0.3  0.0  1.0  0.5  0.5  UNUSED
+LIGHT_CUSTOM       0   0   0    0.7 0.7 0.0 1   0.3  0.0  1.0  0.5  0.5  UNUSED

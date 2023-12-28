@@ -1,3 +1,4 @@
+1.6.0 - 28-DEC-2023 - Changed named lights to custom lights.
 1.5.1 - 03-APR-2023 - Uniformized XPLM_ to xp.
 1.5.0 - 30-MAR-2023 - Added custom dataref to know whether it is running or not.
 1.4.4 - 02-NOV-2022 - Uniform Follow the green_S_ program name.

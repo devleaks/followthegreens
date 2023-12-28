@@ -9,7 +9,14 @@ import os.path
 import xp
 
 from .geo import Point, distance, bearing, destination, convertAngleTo360
-from .globals import DISTANCEBETWEENGREENLIGHTS, ADDLIGHTATVERTEX, ADDLIGHTATLASTVERTEX, DISTANCEBETWEENSTOPLIGHTS, MINSEGMENTSBEFOREHOLD, DISTANCEBETWEENTNLIGHTS
+from .globals import (
+    DISTANCEBETWEENGREENLIGHTS,
+    ADDLIGHTATVERTEX,
+    ADDLIGHTATLASTVERTEX,
+    DISTANCEBETWEENSTOPLIGHTS,
+    MINSEGMENTSBEFOREHOLD,
+    DISTANCEBETWEENTNLIGHTS,
+)
 from .globals import RABBIT_LENGTH, RABBIT_DURATION, LIGHTS_AHEAD
 from .globals import AIRCRAFT_TYPES as TAXIWAY_WIDTH
 from .globals import DEPARTURE, ARRIVAL
@@ -24,12 +31,12 @@ LIGHT_TYPE_LAST = "LIGHT_TYPE_LAST"
 
 LIGHT_TYPES_OBJFILES = {
     LIGHT_TYPE_OFF: "off_light.obj",  # off_light_alt
-    LIGHT_TYPE_DEFAULT: "fast_greenlight.obj",
-    LIGHT_TYPE_FIRST: "fast_greenlight.obj",
-    LIGHT_TYPE_TAXIWAY: "fast_greenlight.obj",
-    LIGHT_TYPE_TAXIWAY_ALT: "fast_yellowlight.obj",
-    LIGHT_TYPE_STOP: "fast_redlight.obj",
-    LIGHT_TYPE_LAST: "fast_greenlight.obj"
+    LIGHT_TYPE_DEFAULT: "green.obj",
+    LIGHT_TYPE_FIRST: "green.obj",
+    LIGHT_TYPE_TAXIWAY: "green.obj",
+    LIGHT_TYPE_TAXIWAY_ALT: "amber.obj",
+    LIGHT_TYPE_STOP: "red.obj",
+    LIGHT_TYPE_LAST: "green.obj",
 }
 
 
@@ -44,15 +51,15 @@ class LightType:
     def load(self):
         if not self.obj:
             curr_dir = os.path.dirname(os.path.realpath(__file__))
-            real_path = os.path.join(curr_dir, 'lights', self.filename)
+            real_path = os.path.join(curr_dir, "lights", self.filename)
             self.obj = xp.loadObject(real_path)
-            logging.debug('LightType::load: LoadObject loaded %s.', self.filename)
+            logging.debug("LightType::load: LoadObject loaded %s.", self.filename)
 
     def unload(self):
         if self.obj:
             xp.unloadObject(self.obj)
             self.obj = None
-            logging.debug('LightType::unload: object unloaded %s.', self.name)
+            logging.debug("LightType::unload: object unloaded %s.", self.name)
 
 
 class Light:
@@ -62,8 +69,8 @@ class Light:
         self.lightType = lightType
         self.index = index
         self.position = position
-        self.heading = heading      # this should be the heading to the previous light
-        self.params = []            # LIGHT_PARAM_DEF       full_custom_halo        9   R   G   B   A   S       X   Y   Z   F
+        self.heading = heading  # this should be the heading to the previous light
+        self.params = []  # LIGHT_PARAM_DEF       full_custom_halo        9   R   G   B   A   S       X   Y   Z   F
         self.drefs = []
         self.lightObject = None
         self.xyz = None
@@ -118,6 +125,7 @@ class Light:
         if self.instanceOff:
             xp.destroyInstance(self.instanceOff)
             self.instanceOff = None
+
 
 class Stopbar:
     # A set of red lights perpendicular to the taxiway direction (=heading).
@@ -181,7 +189,7 @@ class LightString:
         self.route = None  # route as returned by graph.Dijkstra, i.e. a list of vertex indices.
         # g_ and r_ are for graphic objects (lights, green and red)
         self.drefs = []
-        self.params = []           # LIGHT_PARAM_DEF       full_custom_halo        9   R   G   B   A   S       X   Y   Z   F
+        self.params = []  # LIGHT_PARAM_DEF       full_custom_halo        9   R   G   B   A   S       X   Y   Z   F
         self.txy_light_obj = None
         self.stp_light_obj = None
         self.xyzPlaced = False
@@ -189,13 +197,8 @@ class LightString:
         self.lastLit = 0
         self.lightTypes = None
 
-
     def __str__(self):
-        return json.dumps({
-            "type": "FeatureCollection",
-            "features": self.features()
-        })
-
+        return json.dumps({"type": "FeatureCollection", "features": self.features()})
 
     def features(self):
         fc = []
@@ -210,7 +213,6 @@ class LightString:
                 fc.append(light.position.feature())
         return fc
 
-
     def closestEnd(self, light, edge):
         # When edges are not oriented, we take the extremity
         # that is closest to last light.
@@ -219,7 +221,6 @@ class LightString:
         if dsrc < ddst:
             return edge.start
         return edge.end
-
 
     def populate(self, route, onRunway=False):
         # @todo: If already populated, must delete lights first
@@ -264,7 +265,7 @@ class LightString:
                 lightAtStopbar = len(thisLights)
                 if onILS:
                     stopbarAt = graph.get_vertex(onILS.start.id)
-                    lightAtStopbar = onILSidx    # we also remember the light# where we should place the stopbar.
+                    lightAtStopbar = onILSidx  # we also remember the light# where we should place the stopbar.
                     onILS = False
                     logging.debug("LightString::populate: potential stop bar on departure before ils at edge %d, %d", i, lightAtStopbar)
                 else:
@@ -278,7 +279,13 @@ class LightString:
                     self.segments += 1
                     onRwy = True  # We assume that we a setting a stopbar before a runway crossing.
                 else:
-                    logging.debug("LightString::populate: departure: on runway #=%d, usage=%s, dept?=%s, %s.", i, thisEdge.usage, thisEdge.has_active(DEPARTURE), thisEdge.mkActives())
+                    logging.debug(
+                        "LightString::populate: departure: on runway #=%d, usage=%s, dept?=%s, %s.",
+                        i,
+                        thisEdge.usage,
+                        thisEdge.has_active(DEPARTURE),
+                        thisEdge.mkActives(),
+                    )
                     if thisEdge.usage != "runway" and not thisEdge.has_active(DEPARTURE):  # if consecutive active departure segments, do not stop for them
                         logging.debug("LightString::populate: departure: no longer on runway at edge %d.", i)
                         onRwy = False
@@ -287,7 +294,7 @@ class LightString:
             # the criteria here should be refined. test for active=arrival, and runway=runway where we landed. @todo.
             # @todo: check also for hasActive(ARRIVAL)? Or either or both?
             if route.move == ARRIVAL and thisEdge.has_active(DEPARTURE) and i > MINSEGMENTSBEFOREHOLD:  # must place a stop bar
-                stopbarAt = currVertex                                              # but should avoid placing one as plane exits runway...
+                stopbarAt = currVertex  # but should avoid placing one as plane exits runway...
                 lightAtStopbar = len(thisLights)
                 if onILS:
                     stopbarAt = graph.get_vertex(onILS.start.id)
@@ -316,7 +323,6 @@ class LightString:
             if distToNextVertex < distanceBeforeNextLight:  # we don't insert a light, we go to next leg  # noqa: E501
                 distanceBeforeNextLight = distanceBeforeNextLight - distToNextVertex
             else:  # we insert a light until we reach the next point
-
                 while distanceBeforeNextLight < distToNextVertex:
                     nextLightPos = destination(currPoint, brng, distanceBeforeNextLight)
                     brgn = bearing(lastLight, nextLightPos)
@@ -346,7 +352,6 @@ class LightString:
             lastLight = lastPoint
             logging.debug("LightString::populate: added light at last vertex %s", route.route[len(route.route) - 1].id)
 
-
         last = 0
         for i in range(len(self.stopbars)):
             sb = self.stopbars[i]
@@ -356,7 +361,6 @@ class LightString:
         self.lights = thisLights
 
         return thisLights
-
 
     # We make a stopbar after the green light index lightIndex
     def mkStopBar(self, lightIndex, src, dst, extremity="end", size="E"):
@@ -373,22 +377,19 @@ class LightString:
 
         return stopbar.lights
 
-
     def initial(self, coord, heading):
         start = Point(coord[0], coord[1])
         brng = bearing(start, self.lights[0].position)
         dist = distance(start, self.lights[0].position)
         return [10 * round(brng / 10), 10 * round(dist / 10), abs(brng - convertAngleTo360(heading))]
 
-
     def loadObjects(self):
         self.lightTypes = {}
         for k, f in LIGHT_TYPES_OBJFILES.items():
             self.lightTypes[k] = LightType(k, f)
             self.lightTypes[k].load()
-        logging.debug('LightString::loadObjects: loaded.')
+        logging.debug("LightString::loadObjects: loaded.")
         return True
-
 
     def placeLights(self):
         for light in self.lights:
@@ -398,16 +399,14 @@ class LightString:
             sb.place(self.lightTypes)
 
         self.xyzPlaced = True
-        logging.debug('LightString::placeLights: placed.')
+        logging.debug("LightString::placeLights: placed.")
         return True
-
 
     def blackenSegment(self, segment):
         if segment >= len(self.stopbars):
             return
         self.stopbars[segment].off()
-        logging.debug('LightString::blackenSegment(stop): done.')
-
+        logging.debug("LightString::blackenSegment(stop): done.")
 
     def illuminateSegment(self, segment):
         # Lights up a segment of lights between 2 stop bars
@@ -423,13 +422,13 @@ class LightString:
         start = 0
         end = 0
         if segment >= len(self.stopbars):  # there might be more green lights after the last stopbars
-            segment = len(self.stopbars)   # can't be larger
+            segment = len(self.stopbars)  # can't be larger
             if segment > 0:
                 self.blackenSegment(segment - 1)
                 lastSb = self.stopbars[segment - 1]
                 start = lastSb.lightStringIndex
             end = len(self.lights)
-            logging.debug('LightString::illuminateSegment: will instanciate(green): last segment %d between %d and %d.', segment, start, end)
+            logging.debug("LightString::illuminateSegment: will instanciate(green): last segment %d between %d and %d.", segment, start, end)
         else:
             sbend = self.stopbars[segment]
             if segment > 0:
@@ -437,22 +436,22 @@ class LightString:
                 sbbeging = self.stopbars[segment - 1]
                 start = sbbeging.lightStringIndex
             end = sbend.lightStringIndex
-            logging.debug('LightString::illuminateSegment: will instanciate(green): segment %d between %d and %d.', segment, start, end)
+            logging.debug("LightString::illuminateSegment: will instanciate(green): segment %d between %d and %d.", segment, start, end)
 
         if LIGHTS_AHEAD is None or LIGHTS_AHEAD == 0:
             # Instanciate for each green light in segment and stop bar
             for i in range(start, end):
                 self.lights[i].on()
             # map(lambda x: x.on(self.txy_light_obj), self.lights[start:end])
-            logging.debug('LightString::illuminateSegment: no light ahead: instanciate(green): done.')
+            logging.debug("LightString::illuminateSegment: no light ahead: instanciate(green): done.")
             # Instanciate for each stop light
             # for sb in self.stopbars:
             if len(self.stopbars) > 0 and segment < len(self.stopbars):
                 for light in sbend.lights:
                     light.on()
-                    logging.debug(f'LightString::illuminateSegment: illuminating stop light.')
+                    logging.debug(f"LightString::illuminateSegment: illuminating stop light.")
                 # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
-            logging.debug('LightString::illuminateSegment: no light ahead: instanciate(stop): done.')
+            logging.debug("LightString::illuminateSegment: no light ahead: instanciate(stop): done.")
         # else, lights will be turned on in front of rabbit
 
         if not self.rabbitCanRun:
@@ -460,13 +459,11 @@ class LightString:
 
         return [True, "green is set"]
 
-
     def nextStop(self):
         # index of light where should stop next
         if self.currentSegment < len(self.stopbars):
             return self.stopbars[self.currentSegment].lightStringIndex
         return len(self.lights) - 1
-
 
     def closest(self, position, after=0):
         # Find closest light to position (often plane)
@@ -482,7 +479,6 @@ class LightString:
 
         return [idx, dist]
 
-
     def toNextStop(self, position):
         # ilight index of next stop position and distance to it
         ns = self.nextStop()
@@ -490,7 +486,6 @@ class LightString:
         point = Point(position[0], position[1])
         d = distance(point, light.position)
         return [ns, d]
-
 
     def offToIndex(self, idx):
         if idx < len(self.lights):
@@ -500,14 +495,12 @@ class LightString:
             logging.debug("LightString::offToIndex: turned off %d -> %d.", idx, self.lastLit)
         # else: idx out of range?
 
-
     def onToIndex(self, idx):
         last = min(idx, len(self.lights))
         for i in range(self.lastLit, last):
             self.lights[i].on()
         # warning, verbose, since called at each rabbit flightloop
         # logging.debug("LightString::onToIndex: turned on %d -> %d.", self.lastLit, last)
-
 
     def rabbit(self, start):
         if not self.rabbitCanRun:
@@ -539,7 +532,7 @@ class LightString:
                         for redlight in sb.lights:
                             redlight.on()
                         # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
-                        logging.debug('LightString::rabbit: light ahead: instanciate stopbar %d: done.', self.currentSegment)
+                        logging.debug("LightString::rabbit: light ahead: instanciate stopbar %d: done.", self.currentSegment)
 
         else:  # restore previous
             restore(start, self.rabbitIdx, rabbitNose)
@@ -550,7 +543,6 @@ class LightString:
 
         self.rabbitIdx += 1
         return RABBIT_DURATION
-
 
     def showAll(self, airport):
         def showSegment(s, cnt):
@@ -576,7 +568,6 @@ class LightString:
         for e in airport.graph.edges_arr:
             lightcount = showSegment(e, lightcount)
 
-
         # Lights up a segment of lights between 2 stop bars
         if not self.lightTypes:
             if not self.loadObjects():
@@ -586,12 +577,10 @@ class LightString:
             if not self.placeLights():
                 return [False, "Could not place light objects."]
 
-
         for light in self.lights:
             light.on()
 
         return lightcount
-
 
     def destroy(self):
         # Destroy each green light
@@ -599,17 +588,17 @@ class LightString:
         if self.lights:
             for light in self.lights:
                 light.destroy()
-            logging.debug('LightString::destroy(green): done.')
+            logging.debug("LightString::destroy(green): done.")
 
         # Destroy each stopbar
         if self.stopbars:
             for sb in self.stopbars:
                 sb.destroy()
-            logging.debug('LightString::destroy(stop): done.')
+            logging.debug("LightString::destroy(stop): done.")
 
         # Unload light objects
         if self.lightTypes:
             for k, f in self.lightTypes.items():
                 f.unload()
             self.lightTypes = None
-            logging.debug('LightString::destroy: unloaded.')
+            logging.debug("LightString::destroy: unloaded.")

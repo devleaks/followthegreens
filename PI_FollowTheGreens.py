@@ -72,7 +72,7 @@ class PythonInterface:
 
     def XPluginStop(self):
         if self.trace:
-            print(self.Info, "PI::XPluginStart: stopping..")
+            print(self.Info, "PI::XPluginStop: stopping..")
 
         if self.followTheGreensCmdRef:
             xp.unregisterCommandHandler(self.followTheGreensCmdRef,
