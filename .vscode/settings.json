@@ -1,0 +1,9 @@
+{
+    "python.defaultInterpreterPath": "C:/Python310",
+    "python.analysis.extraPaths": [
+      ".",
+      "E:/dev/XPlane-Stubs",
+      "D:/X-Plane 12/Resources/plugins/XPPython3",
+      "D:/X-Plane 12/Resources/plugins/"
+     ]
+ }
