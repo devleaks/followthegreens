@@ -366,6 +366,7 @@ class Airport:
                 polygon = rwy.polygon
             else:  # make a larger area around/along runway (larger than runway width)
                 polygon = Polygon.mkPolygon(rwy.start.lat, rwy.start.lon, rwy.end.lat, rwy.end.lon, float(width))
+            # logging.debug("Airport::onRunway - Tested Polygon: %s ", polygon)
             if pointInPolygon(point, polygon):
                 if width:
                     logging.debug("Airport::onRunway: on %s (buffer=%dm)", name, width)

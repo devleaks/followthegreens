@@ -1,19 +1,20 @@
-# Follow the greens mission container Class
+# Follow The Green mission container Class
 # Keeps all information handy. Dispatches intruction to do things.
 #
-# Cannot use Follow the greens.
-# We are sorry. We cannot provide Follow the greens service at this airport.
+# Cannot use Follow the green.
+# We are sorry. We cannot provide Follow The Green service at this airport.
 # Reasons:
 # This airport does not have a routing network of taxiway.
 #
-# Can use Follow the greens, but other issue:
-# We are sorry. We cannot provide Follow the greens service now.
+# Can use Follow the green, but other issue:
+# We are sorry. We cannot provide Follow The Green service now.
 # Reasons:
 # You are too far from the taxiways.
 # We could not find a suitable route to your destination.
 #
 import logging
 import xp
+from XPLMUtilities import XPLMSpeakString
 
 from .aircraft import Aircraft
 from .airport import Airport
@@ -22,10 +23,10 @@ from .globals import ARRIVAL, DEPARTURE
 from .lightstring import LightString
 from .ui import UIUtil
 
-logging.basicConfig(level=logging.DEBUG)  # filename=('FTG_log.txt')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - Follow The Green - %(levelname)s - %(message)s')  # filename=('FTG_log.txt')
 
 
-class FollowTheGreens:
+class FollowTheGreen:
 
     # Internal status
     STATUS = {
@@ -36,7 +37,7 @@ class FollowTheGreens:
     }
 
     def __init__(self, pi):
-        self.__status = FollowTheGreens.STATUS["NEW"]
+        self.__status = FollowTheGreen.STATUS["NEW"]
         self.pi = pi
         self.airport = None
         self.aircraft = None
@@ -53,7 +54,7 @@ class FollowTheGreens:
         # Toggles visibility of main window.
         # If it was simply closed for hiding, show it again as it was.
         # If it does not exist, creates it from start of process.
-        # if self.__status = FollowTheGreens.STATUS["ACTIVE"]:
+        # if self.__status = FollowTheGreen.STATUS["ACTIVE"]:
         logging.info("FollowTheGreen::status: %s, %s.", self.__status, self.ui.mainWindowExists())
         if self.ui.mainWindowExists():
             logging.debug("FollowTheGreen::start: mainWindow exists, changing visibility %s.", self.ui.isMainWindowVisible())
@@ -76,12 +77,17 @@ class FollowTheGreens:
         # Search for airport or prompt for one.
         # If airport is not equiped, we loop here until we get a suitable airport.
         # When one is given and satisfies the condition for FTG
-        # we go to next step: Find the end point of Follow the greens.
+        # we go to next step: Find the end point of follow the green.
         # @todo: We need to guess those from dataref
         # Note: Aircraft should be "created" outside of FollowTheGreen
         # and passed to start or getAirport. That way, we can instanciate
         # individual FollowTheGreen for numerous aircrafts.
-        self.aircraft = Aircraft("A321", "D", "OO-123", "PO-123")
+        # DH: List of Aircrafts and icao categories available here:
+        # https://www.faa.gov/airports/engineering/aircraft_char_database/
+        # converted simply into a csv and using only the filds
+        # ICAO code and AAC, implemented in aircraft module, simplified __init__ for
+        # callsign only, rest comes from X-Plane dataref
+        self.aircraft = Aircraft("PO-123")
 
         pos = self.aircraft.position()
         if pos is None:
@@ -109,6 +115,26 @@ class FollowTheGreens:
 
 
     def getDestination(self, airport):
+        # Prompt for local destination at airport.
+        # Either a runway for departure or a parking for arrival.
+        if not self.airport or (self.airport.icao != airport):  # we may have changed airport since last call
+            self.airport = Airport(airport)
+            # Info 4 to 8 in airport.prepare()
+            status = self.airport.prepare_new(self.ui)  # [ok, errmsg] ==> loading in flight loop!
+        else:
+            return self.getDestination_cont(self.airport)
+        return self.ui.promptForWindow()
+
+    def getDestination_cont(self, airport):
+        self.airport = airport
+        logging.debug("FollowTheGreen::getDestination: airport ready")
+        self.move = self.airport.guessMove(self.aircraft.position())
+        # Info 10
+        logging.info("FollowTheGreen::getDestination: Guessing %s", self.move)
+
+        return self.ui.promptForDestination()
+
+    def getDestination_old(self, airport):
         # Prompt for local destination at airport.
         # Either a runway for departure or a parking for arrival.
         if not self.airport or (self.airport.icao != airport):  # we may have changed airport since last call
@@ -199,10 +225,10 @@ class FollowTheGreens:
         pos = self.aircraft.position()
         hdg = self.aircraft.heading()
         if pos is None:
-            logging.debug("FollowTheGreen::followTheGreen: no plane position")
+            logging.debug("FollowTheGreen::getAirport: no plane position")
             return self.ui.sorry("We could not locate your plane.")
         if pos[0] == 0 and pos[1] == 0:
-            logging.debug("FollowTheGreen::followTheGreen: no plane position")
+            logging.debug("FollowTheGreen::getAirport: no plane position")
             return self.ui.sorry("We could not locate your plane.")
 
         if newGreen:  # We had a green, and we found a new one.
@@ -235,7 +261,7 @@ class FollowTheGreens:
 
         logging.info("FollowTheGreen::followTheGreen: first light at %d m, heading %d DEG.", initdist, initbrgn)
         self.flightLoop.startFlightLoop()
-        self.__status = FollowTheGreens.STATUS["ACTIVE"]
+        self.__status = FollowTheGreen.STATUS["ACTIVE"]
         # Info 14
         logging.info("FollowTheGreen::followTheGreen: Flightloop started.")
 
@@ -243,9 +269,9 @@ class FollowTheGreens:
 
         # Hint: distance and heading to first light
         if initdiff > 20 or initdist > 200:
-            xp.speakString("Follow the greens. Taxiway is at about %d meters heading %d." % (initdist, initbrgn))
+            XPLMSpeakString("Follow the green. Taxiway is at about %d meters heading %d." % (initdist, initbrgn))
         else:
-            xp.speakString("Follow the greens.")
+            XPLMSpeakString("Follow the green.")
 
         # self.segment = 0
         if self.lights.segments == 0:  # just one segment
@@ -263,7 +289,7 @@ class FollowTheGreens:
                     return self.ui.promptForDeparture()
 
         return self.ui.promptForClearance()
-        # return self.ui.sorry("Follow the greens is not completed yet.")  # development
+        # return self.ui.sorry("Follow the green is not completed yet.")  # development
 
 
     def nextLeg(self):

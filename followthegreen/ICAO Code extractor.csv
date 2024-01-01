@@ -1,0 +1,1246 @@
+﻿ICAO Code;ADG
+A1;No Value
+A10;No Value
+A10*;II
+A109;No Value
+A119;No Value
+A124;VI
+A129;No Value
+A139;No Value
+A140;III
+A148;No Value
+A20;No Value
+A225;No Value
+A270;No Value
+A2RT;No Value
+A3;No Value
+A306;IV
+A30B;IV
+A310;IV
+A318;III
+A319;III
+A320;III
+A321;III
+A332;V
+A333;V
+A342;V
+A343;V
+A345;V
+A346;V
+A358;V
+A359;V
+A37;I
+A388;VI
+A38F;VI
+A3ST;IV
+A4;No Value
+A4*;I
+A50;No Value
+A500;I
+A504;No Value
+A6;No Value
+A660;No Value
+A7;No Value
+A700;I
+A743;No Value
+A748;No Value
+A9;No Value
+AA1;I
+AA5;I
+AB11;I
+AB15;I
+AB18;I
+AB95;I
+AC11;No Value
+AC50;II
+AC52;II
+AC56;II
+AC68;II
+AC6L;Greater than 262' WS
+AC72;II
+AC80;I
+AC90;I
+AC95;II
+ACAR;No Value
+ACR2;I
+ACRO;I
+ACSR;No Value
+ADVE;No Value
+AE45;I
+AEST;I
+AIGT;No Value
+AIRD;I
+AJ27;III
+AJET;I
+ALH;No Value
+ALIZ;No Value
+ALO2;No Value
+ALO3;No Value
+ALPI;No Value
+AM3;I
+AMX;No Value
+AN12;IV
+AN2;No Value
+AN22;No Value
+AN24;No Value
+AN26;III
+AN28;No Value
+AN3;No Value
+AN30;No Value
+AN32;No Value
+AN38;No Value
+AN70;No Value
+AN72;III
+AN8;No Value
+ANSN;No Value
+ANST;No Value
+AR11;I
+AR15;I
+AR79;No Value
+ARON;No Value
+ARVA;II
+AS02;No Value
+AS2T;No Value
+AS32;No Value
+AS3B;No Value
+AS50;No Value
+AS55;No Value
+AS65;No Value
+ASTR;II
+AT3;No Value
+AT3P;I
+AT3T;I
+AT43;III
+AT44;III
+AT45;III
+AT5T;II
+AT6T;II
+AT72;III
+AT8T;II
+ATLA;IV
+ATP;No Value
+AU11;No Value
+AUJ2;No Value
+AUJ4;No Value
+AUS3;No Value
+AUS4;No Value
+AUS5;No Value
+AUS6;No Value
+AUS7;No Value
+AUS9;No Value
+AVIN;No Value
+B06;No Value
+B06T;No Value
+B1;No Value
+B1*;IV
+B103;No Value
+B105;No Value
+B14A;No Value
+B14C;No Value
+B17;No Value
+B18T;I
+B190;II
+B2;V
+B209;No Value
+B212;No Value
+B214;No Value
+B222;No Value
+B23;No Value
+B230;No Value
+B24;No Value
+B25;No Value
+B26;No Value
+B26M;No Value
+B29;No Value
+B350;II
+B36T;No Value
+B407;No Value
+B412;No Value
+B427;No Value
+B429;No Value
+B430;No Value
+B461;No Value
+B462;No Value
+B463;No Value
+B47G;No Value
+B47J;No Value
+B52;V
+B609;No Value
+B701;No Value
+B703;No Value
+B712;III
+B720;No Value
+B721;III
+B722;III
+B731;III
+B732;III
+B733;III
+B734;III
+B735;III
+B736;III
+B737;III
+B738;III
+B739;III
+B741;V
+B742;V
+B743;V
+B744;V
+B748;VI
+B74R;No Value
+B74S;V
+B752;IV
+B753;IV
+B754;No Value
+B762;IV
+B763;IV
+B764;No Value
+B772;V
+B773;V
+B774;No Value
+B77L;No Value
+B77W;V
+B788;V
+B789;V
+BA11;No Value
+BABY;No Value
+BASS;II
+BCAT;No Value
+BCS1;III
+BCS3;III
+BDOG;No Value
+BE10;I
+BE12;No Value
+BE17;No Value
+BE18;II
+BE20;No Value
+BE23;No Value
+BE24;No Value
+BE26;No Value
+BE30;II
+BE32;No Value
+BE33;I
+BE35;I
+BE36;I
+BE40;I
+BE50;No Value
+BE55;I
+BE56;I
+BE58;I
+BE60;I
+BE65;I
+BE70;II
+BE76;I
+BE77;I
+BE80;I
+BE88;II
+BE95;I
+BE99;I
+BE9L;I
+BE9T;II
+BELF;No Value
+BER2;No Value
+BER4;No Value
+BFIT;No Value
+BK17;No Value
+BL11;No Value
+BL17;I
+BL19;No Value
+BL8;I
+BLCF;No Value
+BLEN;No Value
+BN2P;No Value
+BN2T;II
+BR14;No Value
+BRB2;No Value
+BROU;No Value
+BSCA;No Value
+BSTP;No Value
+BU31;I
+BU33;I
+BU81;I
+BUC;No Value
+C02T;I
+C04T;No Value
+C06T;I
+C1;No Value
+C101;No Value
+C119;No Value
+C123;No Value
+C125;No Value
+C130;IV
+C133;No Value
+C135;No Value
+C141;No Value
+C14T;No Value
+C150;I
+C152;I
+C160;No Value
+C162;I
+C17;No Value
+C170;I
+C172;I
+C175;I
+C177;I
+C180;I
+C182;No Value
+C185;I
+C188;I
+C2;No Value
+C205;I
+C206;I
+C207;III
+C208;II
+C212;II
+C21T;No Value
+C25A;II
+C25B;II
+C25C;II
+C25M;I
+C270;No Value
+C27J;No Value
+C295;No Value
+C303;I
+C310;I
+C320;I
+C335;No Value
+C336;No Value
+C337;I
+C340;I
+C365;No Value
+C402;I
+C404;I
+C411;I
+C414;I
+C421;I
+C425;I
+C441;II
+C46;No Value
+C5;VI
+C510;I
+C525;I
+C526;I
+C560;II
+C56X;II
+C650;II
+C680;II
+C68A;II
+C750;II
+C77R;I
+C82;No Value
+C919;III
+C97;IV
+CA19;No Value
+CA25;No Value
+CAML;No Value
+CARV;No Value
+CAT;No Value
+CE43;No Value
+CG3;No Value
+CH1;No Value
+CH2T;No Value
+CH40;No Value
+CH7A;I
+CH7B;I
+CH80;No Value
+CJ6;No Value
+CKUO;No Value
+CL2P;No Value
+CL2T;No Value
+CL30;II
+CL41;No Value
+CL44;No Value
+CL4G;No Value
+CL60;II
+CLB1;I
+CMAS;No Value
+CN35;No Value
+CNBR;No Value
+COL3;I
+COL4;I
+CONI;No Value
+CORS;No Value
+COUG;I
+COUR;No Value
+COZY;No Value
+CP10;No Value
+CP13;No Value
+CP20;No Value
+CP21;No Value
+CP22;No Value
+CP23;No Value
+CP30;No Value
+CP32;No Value
+CP60;No Value
+CP75;No Value
+CP80;No Value
+CP90;No Value
+CRES;No Value
+CRJ1;No Value
+CRJ2;II
+CRJ7;II
+CRJ9;No Value
+CT4;No Value
+CVLP;No Value
+CVLT;No Value
+CYGT;No Value
+D11;No Value
+D140;No Value
+D150;No Value
+D18;No Value
+D228;II
+D250;No Value
+D253;No Value
+D28D;No Value
+D28T;No Value
+D328;II
+D4;No Value
+D5;No Value
+D6;No Value
+D7;No Value
+D8;No Value
+DA20;I
+DA40;I
+DA42;I
+DA50;I
+DA62;I
+DC10;IV
+DC2;No Value
+DC3;III
+DC3S;No Value
+DC3T;III
+DC4;III
+DC6;No Value
+DC7;No Value
+DC85;IV
+DC86;No Value
+DC87;No Value
+DC91;Greater than 262' WS
+DC92;Greater than 262' WS
+DC93;III
+DC94;III
+DC95;III
+DH2T;No Value
+DH3T;No Value
+DH60;No Value
+DH80;No Value
+DH82;No Value
+DH83;No Value
+DH85;No Value
+DH87;No Value
+DH88;No Value
+DH89;No Value
+DH8A;III
+DH8B;III
+DH8C;III
+DH8D;III
+DH90;No Value
+DH94;No Value
+DHA3;No Value
+DHC1;No Value
+DHC2;I
+DHC3;No Value
+DHC4;III
+DHC5;III
+DHC6;II
+DHC7;III
+DJET;No Value
+DJIN;No Value
+DO27;No Value
+DO28;No Value
+DOVE;No Value
+DR1;No Value
+DR10;No Value
+DV20;No Value
+DWD2;No Value
+E110;II
+E111;No Value
+E120;II
+E121;I
+E135;II
+E145;II
+E170;III
+E190;III
+E2;No Value
+E200;No Value
+E230;No Value
+E300;No Value
+E314;I
+E35L;II
+E3CF;No Value
+E3TF;No Value
+E400;No Value
+E45X;II
+E500;No Value
+E50P;I
+E55P;II
+E6;No Value
+EA50;I
+EAGL;No Value
+EC20;No Value
+EC25;No Value
+EC30;No Value
+EC35;No Value
+EC45;No Value
+EC55;No Value
+EDGE;Greater than 262' WS
+EH10;No Value
+ELST;No Value
+EN28;No Value
+EN48;No Value
+ERCO;No Value
+ETAR;No Value
+EUFI;No Value
+EVSS;No Value
+EXPL;No Value
+F1;No Value
+F100;No Value
+F104;No Value
+F106;No Value
+F111;No Value
+F117;No Value
+F14;No Value
+F15;No Value
+F156;No Value
+F16;No Value
+F18;No Value
+F2;No Value
+F22;No Value
+F260;I
+F26T;No Value
+F27;No Value
+F28;No Value
+F2TH;II
+F35;No Value
+F3F;No Value
+F4;No Value
+F406;No Value
+F5;No Value
+F50;No Value
+F60;No Value
+F600;No Value
+F70;No Value
+F8;No Value
+F86;No Value
+F8L;No Value
+F900;II
+F9F;No Value
+FA10;No Value
+FA11;No Value
+FA20;No Value
+FA24;No Value
+FA50;II
+FA62;No Value
+FA7X;III
+FALM;No Value
+FANT;No Value
+FC1;No Value
+FFLY;No Value
+FH11;No Value
+FLAM;No Value
+FN33;No Value
+FOUG;No Value
+FREL;No Value
+FU24;No Value
+FURY;No Value
+FW44;No Value
+FW90;No Value
+G109;No Value
+G115;No Value
+G120;No Value
+G140;No Value
+G150;II
+G159;No Value
+G15T;No Value
+G160;No Value
+G164;No Value
+G21;No Value
+G222;III
+G280;II
+G2GL;No Value
+G44;No Value
+G46;No Value
+G4SG;No Value
+G59;No Value
+G64T;No Value
+G73;No Value
+G73T;No Value
+G96;No Value
+GA20;No Value
+GA6C;III
+GA7;I
+GA8;No Value
+GALX;II
+GANT;No Value
+GAUN;No Value
+GAZL;No Value
+GC1;No Value
+GEMI;No Value
+GF20;No Value
+GL5T;III
+GLAD;No Value
+GLAS;I
+GLEX;III
+GLF2;No Value
+GLF3;II
+GLF4;II
+GLF5;III
+GLF6;III
+GLST;I
+GNAT;No Value
+GSPN;No Value
+GY80;No Value
+H111;II
+H12T;No Value
+H2;No Value
+H25A;No Value
+H25B;No Value
+H25C;No Value
+H269;No Value
+H43A;No Value
+H43B;No Value
+H46;No Value
+H47;No Value
+H500;No Value
+H53;No Value
+H53S;No Value
+H60;No Value
+H64;No Value
+H66;No Value
+HA31;No Value
+HA4T;II
+HAR;No Value
+HAWK;No Value
+HCAT;No Value
+HDJT;No Value
+HERN;No Value
+HF20;No Value
+HI27;No Value
+HIND;No Value
+HR10;No Value
+HR20;No Value
+HT16;No Value
+HT2;No Value
+HT32;No Value
+HT36;No Value
+HUCO;No Value
+HUNT;No Value
+HURI;No Value
+HUSK;No Value
+I103;No Value
+I114;No Value
+I153;No Value
+I15B;No Value
+I16;No Value
+I23;No Value
+I3;No Value
+IA46;No Value
+IA50;No Value
+IA51;No Value
+IA58;No Value
+IA63;No Value
+IL14;No Value
+IL18;IV
+IL28;No Value
+IL38;No Value
+IL62;IV
+IL76;IV
+IL86;IV
+IL96;No Value
+IPAN;I
+IR27;No Value
+IR46;No Value
+IS28;No Value
+J1;No Value
+J10;No Value
+J2;No Value
+J3;I
+J328;No Value
+J4;No Value
+J5;No Value
+J8A;No Value
+J8B;No Value
+JACE;I
+JAGR;No Value
+JAST;No Value
+JCOM;I
+JN76;No Value
+JP10;No Value
+JPRO;No Value
+JS1;No Value
+JS20;No Value
+JS31;No Value
+JS32;No Value
+JS41;No Value
+JU52;No Value
+JUNR;No Value
+K126;No Value
+K226;No Value
+K35A;No Value
+K35E;No Value
+K35R;No Value
+K50;No Value
+K8;No Value
+KA25;No Value
+KA26;No Value
+KA27;No Value
+KA50;No Value
+KA52;No Value
+KA62;No Value
+KE3;No Value
+KFIR;No Value
+KH4;No Value
+KL07;No Value
+KL25;No Value
+KL35;No Value
+KM2;No Value
+KMAX;No Value
+KODI;No Value
+KR34;No Value
+KRAG;No Value
+KT1;No Value
+L10;No Value
+L101;IV
+L11;No Value
+L12;No Value
+L13;No Value
+L14;No Value
+L159;No Value
+L200;No Value
+L29;I
+L29A;II
+L29B;No Value
+L37;No Value
+L39;I
+L40;No Value
+L410;No Value
+L5;No Value
+L59;I
+L60;I
+L610;No Value
+L8;No Value
+L90;I
+LA25;I
+LA4;I
+LA60;I
+LAMA;No Value
+LANC;No Value
+LARK;No Value
+LJ24;I
+LJ25;I
+LJ31;I
+LJ35;I
+LJ40;I
+LJ45;I
+LJ55;I
+LJ60;I
+LJ75;II
+LTNG;No Value
+LYNX;No Value
+LYSA;No Value
+M10;I
+M101;No Value
+M110;No Value
+M15;No Value
+M17;No Value
+M18;No Value
+M18T;No Value
+M200;No Value
+M203;No Value
+M20P;I
+M20T;I
+M22;I
+M28;No Value
+M2HK;No Value
+M308;I
+M326;I
+M339;I
+M346;I
+M404;No Value
+M55;No Value
+M7;No Value
+MAGI;No Value
+MARS;No Value
+MD11;No Value
+MD52;No Value
+MD60;No Value
+MD81;No Value
+MD82;III
+MD83;III
+MD87;No Value
+MD88;III
+MD90;III
+ME08;No Value
+ME09;No Value
+ME62;No Value
+MESS;No Value
+METR;No Value
+MF17;No Value
+MG15;No Value
+MG17;No Value
+MG19;No Value
+MG21;No Value
+MG23;No Value
+MG25;No Value
+MG29;No Value
+MG31;No Value
+MG44;No Value
+MGAT;No Value
+MH20;No Value
+MI10;No Value
+MI14;No Value
+MI2;No Value
+MI24;No Value
+MI26;No Value
+MI28;No Value
+MI34;No Value
+MI38;No Value
+MI4;No Value
+MI6;No Value
+MI8;No Value
+MIR2;I
+MIR4;No Value
+MIRA;No Value
+MITE;I
+MONA;No Value
+MOSQ;No Value
+MRF1;No Value
+MS18;No Value
+MS23;No Value
+MS25;No Value
+MS30;No Value
+MS31;No Value
+MS73;No Value
+MS76;No Value
+MSAI;No Value
+MT2;No Value
+MU2;No Value
+MU30;No Value
+MYA4;No Value
+MYS4;No Value
+N110;No Value
+N120;No Value
+N260;No Value
+N262;II
+N320;No Value
+N340;No Value
+N5;No Value
+NAVI;I
+NC85;No Value
+NI28;No Value
+NIBB;No Value
+NIM;No Value
+NIPR;No Value
+NOMA;II
+NORA;No Value
+NORS;No Value
+O1;No Value
+OH1;No Value
+OPCA;No Value
+OSCR;No Value
+P136;No Value
+P148;No Value
+P149;No Value
+P180;I
+P19;No Value
+P2;No Value
+P28A;No Value
+P28B;No Value
+P28R;No Value
+P28T;No Value
+P3;No Value
+P32A;No Value
+P32R;No Value
+P32T;No Value
+P337;No Value
+P38;No Value
+P39;No Value
+P40;No Value
+P46T;I
+P47;No Value
+P4Y;No Value
+P51;No Value
+P57;No Value
+P61;No Value
+P63;No Value
+P66P;No Value
+P66T;No Value
+P68;No Value
+P68T;No Value
+P750;No Value
+P808;No Value
+P82;No Value
+PA11;No Value
+PA12;No Value
+PA14;No Value
+PA15;No Value
+PA16;No Value
+PA17;No Value
+PA18;I
+PA20;No Value
+PA22;No Value
+PA23;No Value
+PA24;I
+PA25;No Value
+PA27;No Value
+PA30;No Value
+PA31;No Value
+PA32;No Value
+PA34;No Value
+PA36;No Value
+PA38;No Value
+PA44;I
+PA46;I
+PAT4;I
+PAY1;I
+PAY2;I
+PAY3;I
+PAY4;I
+PC12;II
+PC21;No Value
+PC6P;II
+PC6T;No Value
+PC7;No Value
+PC9;No Value
+PEGA;No Value
+PEMB;No Value
+PICO;No Value
+PILL;No Value
+PINO;No Value
+PLUS;No Value
+PO2;No Value
+PO60;No Value
+PP2;No Value
+PP3;No Value
+PPRO;No Value
+PRCE;No Value
+PREN;No Value
+PRM1;I
+PROC;No Value
+PSW4;No Value
+PT22;No Value
+PTMS;No Value
+PTS1;No Value
+PTS2;No Value
+PTSS;No Value
+PUMA;No Value
+PUP;I
+PZ01;No Value
+PZ02;No Value
+PZ04;No Value
+PZ05;No Value
+PZ06;No Value
+PZ12;No Value
+PZ26;No Value
+PZ3T;No Value
+PZ4M;No Value
+PZ6T;No Value
+Q5;No Value
+R100;No Value
+R135;No Value
+R200;No Value
+R300;No Value
+R721;No Value
+R722;No Value
+R90F;No Value
+R90R;No Value
+R90T;No Value
+RALL;No Value
+RC3;No Value
+RC70;No Value
+RELI;No Value
+RF10;No Value
+RF4;No Value
+RF47;No Value
+RF5;No Value
+RF6;No Value
+RF9;No Value
+RFAL;No Value
+RJ1H;No Value
+RJ70;No Value
+RJ85;No Value
+ROND;No Value
+RP1;No Value
+RS18;No Value
+RV10;No Value
+RV3;No Value
+RV4;No Value
+RV4T;No Value
+RV6;No Value
+RV7;No Value
+RV8;No Value
+RV9;No Value
+RVAL;No Value
+RYST;No Value
+S05F;No Value
+S05R;No Value
+S10;No Value
+S108;No Value
+S11;No Value
+S208;No Value
+S210;III
+S211;No Value
+S223;No Value
+S278;No Value
+S2P;No Value
+S2T;No Value
+S3;No Value
+S330;No Value
+S360;No Value
+S37;No Value
+S38;No Value
+S39;No Value
+S51;No Value
+S52;No Value
+S550;II
+S55P;No Value
+S55T;No Value
+S58P;No Value
+S58T;No Value
+S601;I
+S61;No Value
+S61R;No Value
+S62;No Value
+S64;No Value
+S65C;No Value
+S76;No Value
+S92;No Value
+SA20;No Value
+SA37;No Value
+SACE;I
+SAND;No Value
+SAPH;No Value
+SASP;No Value
+SATA;No Value
+SAVG;No Value
+SB05;No Value
+SB20;III
+SB29;No Value
+SB32;No Value
+SB35;No Value
+SB37;No Value
+SB39;No Value
+SB91;No Value
+SBD;No Value
+SBR1;No Value
+SBR2;No Value
+SC7;No Value
+SCOU;No Value
+SE5R;No Value
+SF34;II
+SF50;I
+SG92;No Value
+SGUP;IV
+SH33;II
+SH36;II
+SH5;No Value
+SHAC;No Value
+SHAW;No Value
+SJ30;No Value
+SKIM;I
+SL90;No Value
+SM19;No Value
+SM20;No Value
+SM60;No Value
+SM92;No Value
+SMB2;No Value
+SOKL;No Value
+SP18;No Value
+SP55;No Value
+SP91;No Value
+SP95;No Value
+SPIT;No Value
+SR20;I
+SR22;I
+SR71;No Value
+SS2P;No Value
+SS2T;I
+SSAB;No Value
+ST10;No Value
+ST75;No Value
+STAR;No Value
+STLN;No Value
+STRI;No Value
+SU15;No Value
+SU17;No Value
+SU24;No Value
+SU25;No Value
+SU26;No Value
+SU27;No Value
+SU29;No Value
+SU31;No Value
+SU38;No Value
+SU7;No Value
+SU80;No Value
+SUBA;No Value
+SUCO;No Value
+SV4;No Value
+SW2;No Value
+SW3;No Value
+SW4;No Value
+SWIF;No Value
+SWOR;No Value
+SYCA;No Value
+T1;No Value
+T134;No Value
+T144;No Value
+T154;No Value
+T160;No Value
+T2;No Value
+T204;No Value
+T22M;No Value
+T250;No Value
+T28;No Value
+T33;No Value
+T334;No Value
+T34P;No Value
+T34T;No Value
+T37;No Value
+T38;No Value
+T4;No Value
+T5;No Value
+T6;No Value
+T7;No Value
+TA15;No Value
+TA20;No Value
+TAMP;No Value
+TAYA;No Value
+TAYB;No Value
+TAYD;No Value
+TB20;No Value
+TB30;No Value
+TB31;No Value
+TBM;No Value
+TBM7;I
+TBM8;I
+TBM9;I
+TCAT;No Value
+TCOU;No Value
+TEX2;No Value
+TF19;No Value
+TF21;No Value
+TF22;No Value
+TIGR;No Value
+TIJU;No Value
+TIPB;No Value
+TNAV;I
+TOBA;No Value
+TOR;No Value
+TOUR;No Value
+TPIN;No Value
+TRF1;No Value
+TRID;No Value
+TRIM;No Value
+TRIN;No Value
+TRIS;II
+TRMA;No Value
+TS11;No Value
+TS8;No Value
+TU16;No Value
+TU22;No Value
+TU4;No Value
+TU95;No Value
+TUCA;I
+TUTR;No Value
+U16;No Value
+U2;No Value
+U21;No Value
+UH1;No Value
+UH12;No Value
+UH1Y;No Value
+US1;No Value
+UT60;No Value
+UT65;No Value
+UT66;No Value
+UT75;No Value
+UU12;No Value
+V1;No Value
+V10;No Value
+V22;No Value
+VALI;No Value
+VAMP;No Value
+VAUT;No Value
+VC10;No Value
+VF14;No Value
+VF35;No Value
+VGUL;No Value
+VIMY;No Value
+VISC;No Value
+VMT;No Value
+VNOM;No Value
+VO10;No Value
+VP2;No Value
+VTOR;No Value
+W3;No Value
+WA40;No Value
+WA41;No Value
+WA42;No Value
+WA50;No Value
+WA80;No Value
+WAC9;No Value
+WACA;No Value
+WACC;No Value
+WACD;No Value
+WACE;No Value
+WACF;No Value
+WACG;No Value
+WACM;No Value
+WACN;No Value
+WACO;No Value
+WACT;No Value
+WASP;No Value
+WCAT;No Value
+WESX;No Value
+WG30;No Value
+WHIT;No Value
+WIRR;No Value
+WW23;I
+WW24;I
+Y11;No Value
+Y112;No Value
+Y12;No Value
+Y130;No Value
+Y141;No Value
+Y18T;No Value
+YAK3;No Value
+YAK9;No Value
+YALE;No Value
+YK11;No Value
+YK12;No Value
+YK18;No Value
+YK28;No Value
+YK38;No Value
+YK40;No Value
+YK42;No Value
+YK50;No Value
+YK52;No Value
+YK53;No Value
+YK54;No Value
+YK55;No Value
+YK58;No Value
+YS11;No Value
+YURO;No Value
+Z22;No Value
+Z26;No Value
+Z37P;No Value
+Z37T;No Value
+Z42;No Value
+Z43;No Value
+Z50;No Value
+ZERO;No Value
+C120;I
+C140;I
+C172;I
+C72R;I
+C182;I
+C82R;I
+C190;I
+C195;I
+C207;I
+C07T;I
+C210;I
+P210;I
+C10T;I
+C500;I
+C501;I
+C550;II
+C551;II

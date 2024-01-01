@@ -295,7 +295,7 @@ def nearestPointToLines(p, lines):
                 dist = d
                 nearest = intersect
 
-    return [nearest, distance]
+    return [nearest, distance]  # might need to be changed to "d" as distance returns a function
 
 
 def pointInPolygon(point, polygon):

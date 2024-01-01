@@ -2,7 +2,9 @@
 #
 from traceback import print_exc
 import xp
-from followthegreen import FollowTheGreen
+# from followthegreen import FollowTheGreen
+import followthegreen   # for reloading optimization
+
 """
      if running on xppython3 3.1.3 or later the reload of the modules will not work like it woked with 3.1.2
      the reload() from the import lib might work for some cases, but as the __init__() will not be reloaded
@@ -65,8 +67,9 @@ class PythonInterface:
 
     def XPluginEnable(self):
         try:
-            self.followTheGreen = FollowTheGreen(self)
+            self.followTheGreen = followthegreen.FollowTheGreen(self)
             self.enabled = True
+            xp.debugString("XXXX Test")
             if self.trace:
                 print(self.Name, "PI::XPluginEnable: enabled.")
             return 1
@@ -118,7 +121,7 @@ class PythonInterface:
 
         if not self.followTheGreen:
             try:
-                self.followTheGreen = FollowTheGreen(self)
+                self.followTheGreen = followthegreen.FollowTheGreen(self)
                 if self.trace:
                     print(self.Name, "PI::followTheGreenCmd: created.")
             except:
