@@ -4,6 +4,7 @@
 # Enjoy.
 #
 #
+import logging
 from traceback import print_exc
 
 import xp
@@ -12,9 +13,11 @@ from followthegreens import __VERSION__, __NAME__, __SIGNATURE__, __DESCRIPTION_
 from followthegreens import XP_FTG_COMMAND, XP_FTG_COMMAND_DESC, FOLLOW_THE_GREENS_IS_RUNNING
 from followthegreens import FollowTheGreens
 
+FORMAT = "%(levelname)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
+logging.basicConfig(level=logging.INFO, format=FORMAT)
+
 
 class PythonInterface:
-
     def __init__(self):
         self.Name = __NAME__
         self.Sig = __SIGNATURE__
@@ -45,19 +48,27 @@ class PythonInterface:
             print(self.Info, "PI::XPluginStart: menu not added.")
         else:
             if self.trace:
-                print(self.Info, "PI::XPluginStart: menu added.")
+                print(self.Info, f"PI::XPluginStart: menu added, index {self.menuIdx}.")
 
         self.isRunningRef = xp.registerDataAccessor(
             FOLLOW_THE_GREENS_IS_RUNNING,
             xp.Type_Int,  # The types we support
-            0,            # Read-Only
-            self.getRunningStatusCallback, 0, # Accessors for ints, read-only, no write.
-            0, 0,   # No accessors for floats
-            0, 0,   # No accessors for doubles
-            0, 0,   # No accessors for int arrays
-            0, 0,   # No accessors for float arrays
-            0, 0,   # No accessors for raw data
-            0, 0)   # Refcons not used
+            0,  # Read-Only
+            self.getRunningStatusCallback,
+            0,  # Accessors for ints, read-only, no write.
+            0,
+            0,  # No accessors for floats
+            0,
+            0,  # No accessors for doubles
+            0,
+            0,  # No accessors for int arrays
+            0,
+            0,  # No accessors for float arrays
+            0,
+            0,  # No accessors for raw data
+            0,
+            0,
+        )  # Refcons not used
         if self.isRunningRef is not None:
             xp.shareData(FOLLOW_THE_GREENS_IS_RUNNING, xp.Type_Int, self.runningStatusChangedCallback, 0)
             if self.trace:
@@ -75,9 +86,7 @@ class PythonInterface:
             print(self.Info, "PI::XPluginStop: stopping..")
 
         if self.followTheGreensCmdRef:
-            xp.unregisterCommandHandler(self.followTheGreensCmdRef,
-                                        self.followTheGreensCmd,
-                                        1, None)
+            xp.unregisterCommandHandler(self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None)
             self.followTheGreensCmdRef = None
             if self.trace:
                 print(self.Info, "PI::XPluginStop: command unregistered.")
@@ -90,12 +99,12 @@ class PythonInterface:
             xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx)
             self.menuIdx = None
             if self.trace:
-                print(self.Info, "PI::XPluginStop: menu removed.")
+                print(self.Info, f"PI::XPluginStop: menu removed (index was {self.menuIdx}).")
         else:
             if self.trace:
                 print(self.Info, "PI::XPluginStop: menu not removed.")
 
-        if self.isRunningRef is not None: # and self.isRunningRef > 0?
+        if self.isRunningRef is not None:  # and self.isRunningRef > 0?
             xp.unshareData(FOLLOW_THE_GREENS_IS_RUNNING, xp.Type_Int, self.runningStatusChangedCallback, 0)
             xp.unregisterDataAccessor(self.isRunningRef)
             if self.trace:
@@ -229,4 +238,3 @@ class PythonInterface:
         get a callback like this -- instead, our Accessors are called: MySetData(f|d)Callback.
         """
         pass
-

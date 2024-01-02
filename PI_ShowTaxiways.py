@@ -4,6 +4,7 @@
 # Enjoy.
 #
 #
+import logging
 from traceback import print_exc
 
 import xp
@@ -12,9 +13,11 @@ from followthegreens import __VERSION__
 from followthegreens import XP_STW_COMMAND, XP_STW_COMMAND_DESC
 from followthegreens import ShowTaxiways
 
+FORMAT = "%(levelname)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
+logging.basicConfig(level=logging.INFO, format=FORMAT)
+
 
 class PythonInterface:
-
     def __init__(self):
         self.Name = "Show taxiways"
         self.Sig = "xppython3.showtaxiways"
@@ -41,9 +44,7 @@ class PythonInterface:
 
     def XPluginStop(self):
         if self.showTaxiwaysCmdRef:
-            xp.unregisterCommandHandler(self.showTaxiwaysCmdRef,
-                                        self.showTaxiwaysCmd,
-                                        1, None)
+            xp.unregisterCommandHandler(self.showTaxiwaysCmdRef, self.showTaxiwaysCmd, 1, None)
             self.showTaxiwaysCmdRef = None
         if self.menuIdx is not None and self.menuIdx >= 0:
             oldidx = self.menuIdx
@@ -100,7 +101,6 @@ class PythonInterface:
 
     def XPluginReceiveMessage(self, inFromWho, inMessage, inParam):
         pass
-
 
     def showTaxiwaysCmd(self, *args, **kwargs):
         # pylint: disable=unused-argument

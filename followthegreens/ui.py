@@ -11,6 +11,8 @@ from .globals import MAINWINDOW_AUTOHIDE, MAINWINDOW_DISPLAY_TIME
 from .globals import MAINWINDOW_WIDTH, MAINWINDOW_HEIGHT
 from .globals import MAINWINDOW_FROM_LEFT, MAINWINDOW_FROM_BOTTOM
 
+logger = logging.getLogger(__name__)
+
 
 # Some texts we need to recognize. May be later translated.
 CLOSE_TEXT = "Close"
@@ -123,11 +125,12 @@ class UIUtil:
     def showMainWindow(self, canHide=True):
         if self.mainWindowExists():
             xp.showWidget(self.mainWindow["widgetID"])
-            # if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
-            #     xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Checked)
-            #     logging.debug(f"showMainWindow: menu checked ({self.ftg.pi.menuIdx})")
-            # else:
-            #     logging.debug(f"showMainWindow: menu not checked ({self.ftg.pi.menuIdx})")
+            if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
+                logger.debug(f"Checking menu {self.ftg.pi.menuIdx}..")
+                xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Checked)
+                logger.debug(f"..checked")
+            else:
+                logger.debug(f"menu not checked (index {self.ftg.pi.menuIdx})")
             self.canHide = canHide
             self.displayTime = 0
 
@@ -141,15 +144,16 @@ class UIUtil:
         # We always hide it on request, even if canHide is False
         if self.mainWindowExists():
             xp.hideWidget(self.mainWindow["widgetID"])
-            # if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
-            #     xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Unchecked)
-            #     logging.debug(f"hideMainWindowIfOk: menu checked ({self.ftg.pi.menuIdx})")
-            # else:
-            #     logging.debug(f"hideMainWindowIfOk: menu not checked ({self.ftg.pi.menuIdx})")
+            if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
+                logger.debug(f"Unchecking menu {self.ftg.pi.menuIdx}..")
+                xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Unchecked)
+                logger.debug(f"..unchecked")
+            else:
+                logger.debug(f"menu not checked (index {self.ftg.pi.menuIdx})")
 
     def toggleVisibilityMainWindow(self):
         if self.mainWindowExists():
-            logging.debug("UIUtil::toggleVisibilityMainWindow: isMainWindowVisible(): %d.", self.isMainWindowVisible())
+            logger.debug(f"isMainWindowVisible(): {self.isMainWindowVisible()}.")
             if self.isMainWindowVisible():
                 self.hideMainWindow()
             else:
@@ -167,7 +171,7 @@ class UIUtil:
     #
     def greetings(self, text="Good %s."):
         h = self.ftg.aircraft.hourOfDay()
-        logging.debug("UIUtil::nextLeg: bye: %d.", h)
+        logger.debug(f"bye: {h}.")
         ss = list(GOOD.keys())[-1]
         for k, v in GOOD.items():
             if h > v:
@@ -310,7 +314,7 @@ class UIUtil:
         if inMessage == xp.Msg_PushButtonPressed:
             if "icao" in self.mainWindow["widgets"].keys():
                 self.icao = xp.getWidgetDescriptor(self.mainWindow["widgets"]["icao"])
-                logging.debug("UIUtil::cbAirport:airport: %s", self.icao)
+                logger.debug(f"airport: {self.icao}")
                 xp.hideWidget(self.mainWindow["widgetID"])
                 nextWindow = self.ftg.getDestination(self.icao)
                 xp.showWidget(nextWindow)
@@ -349,7 +353,7 @@ class UIUtil:
         if inMessage == xp.Msg_PushButtonPressed:
             if "dest" in self.mainWindow["widgets"].keys():
                 self.dest = xp.getWidgetDescriptor(self.mainWindow["widgets"]["dest"])
-                logging.debug("UIUtil::cbDestination:destination: %s", self.dest)
+                logger.debug(f"destination: {self.dest}")
                 xp.hideWidget(self.mainWindow["widgetID"])
                 nextWindow = self.ftg.followTheGreen(self.dest)
                 xp.showWidget(nextWindow)

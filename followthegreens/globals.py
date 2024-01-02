@@ -13,16 +13,16 @@ XP_STW_COMMAND_DESC = "Show / hide taxiway network"
 
 # Main UI Window display and position
 #
-MAINWINDOW_AUTOHIDE = True          # If false, main UI window will always remain visible.
-MAINWINDOW_DISPLAY_TIME = 30        # If above true, main UI window will disappear after that amount seconds of inactivity
+MAINWINDOW_AUTOHIDE = True  # If false, main UI window will always remain visible.
+MAINWINDOW_DISPLAY_TIME = 30  # If above true, main UI window will disappear after that amount seconds of inactivity
 
 # you may carefully adjust those:
-MAINWINDOW_FROM_LEFT = 100          # Distance of main UI window from left of screen
-MAINWINDOW_FROM_BOTTOM = 80         # Distance of the bottom of the main window from the bottom of the screen
+MAINWINDOW_FROM_LEFT = 100  # Distance of main UI window from left of screen
+MAINWINDOW_FROM_BOTTOM = 80  # Distance of the bottom of the main window from the bottom of the screen
 
 # don't touch those:
-MAINWINDOW_WIDTH = 500              # Normal main window width. May need adjustment if font size is changed
-MAINWINDOW_HEIGHT = 80              # Additional main window height to accommodate from space and title bar
+MAINWINDOW_WIDTH = 500  # Normal main window width. May need adjustment if font size is changed
+MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from space and title bar
 
 
 # X-Plane APT files constants and keywords
@@ -48,52 +48,39 @@ TAXIWAY_ACTIVE_ILS = "ils"
 ARRIVAL = TAXIWAY_ACTIVE_ARRIVAL
 DEPARTURE = TAXIWAY_ACTIVE_DEPARTURE
 
-DISTANCE_TO_RAMPS = 100             # meters, if closer that this to a ramp, assume departure, otherwise, assume arrival
-TOO_FAR = 500                       # meters, if further than this from a taxiway, does not kick in.
-WARNINGDISTANCE = 150               # When getting close to a STOP BAR, show main window.
+DISTANCE_TO_RAMPS = 100  # meters, if closer that this to a ramp, assume departure, otherwise, assume arrival
+TOO_FAR = 500  # meters, if further than this from a taxiway, does not kick in.
+WARNING_DISTANCE = 150  # When getting close to a STOP BAR, show main window.
 
-PLANE_MONITOR_DURATION = 3          # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
+PLANE_MONITOR_DURATION = 3  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
 
-MINSEGMENTSBEFOREHOLD = 3           # on arrival, number of segments to travel before getting potential stop bar
-DISTANCEBETWEENGREENLIGHTS = 20     # 20 meter, distance between lights on ground. I *think* that the standard for taxi cetner line lights is 60 meters.
-DISTANCEBETWEENSTOPLIGHTS = 2       # meter, distance between lights on ground.
-ADDLIGHTATVERTEX = False            # Add a light at each taxiway network vertex on the path
-ADDLIGHTATLASTVERTEX = False        # Add a light at the last vertex, even if it is closer than DISTANCEBETWEENGREENLIGHTS
-ADDSTOPBARATLASTVERTEX = False      # Add a stop bar at the end (artificial)
+MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before getting potential stop bar
+DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # 20 meter, distance between lights on ground. I *think* that the standard for taxi cetner line lights is 60 meters.
+DISTANCE_BETWEEN_STOPLIGHTS = 2  # meter, distance between lights on ground.
+ADD_LIGHT_AT_VERTEX = False  # Add a light at each taxiway network vertex on the path
+ADD_LIGHT_AT_LAST_VERTEX = False  # Add a light at the last vertex, even if it is closer than DISTANCE_BETWEEN_GREEN_LIGHTS
+ADD_STOPBAR_AT_LAST_VERTEX = False  # Add a stop bar at the end (artificial)
 
 
 # Follow the greens lighting constants
 #
-DISTANCEBETWEENTNLIGHTS = 5
+DISTANCE_BETWEEN_LIGHTS = 5  # in ~ meter
 
-LIGHTS_AHEAD = 0                    # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
-RABBIT_TIMEON = 0.4                 # sec, set to 0 to cancel rabbit
-RABBIT_TIMEOFF = 2                  # sec
-RABBIT_PHASE = 0.3                  # sec
-RABBIT_INTENSITY = 2.0              # ratio to current value
-RABBIT_LENGTH = 12                  # number of lights
-RABBIT_DURATION = 0.10              # sec
+LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
+RABBIT_TIMEON = 0.4  # sec, set to 0 to cancel rabbit
+RABBIT_TIMEOFF = 2  # sec
+RABBIT_PHASE = 0.3  # sec
+RABBIT_INTENSITY = 2.0  # ratio to current value
+RABBIT_LENGTH = 12  # number of lights
+RABBIT_DURATION = 0.10  # sec
 
 # ATC related constants
 #
-ATC = {
-    "None",
-    "Delivery",
-    "Ground",
-    "Tower",
-    "Tracon",
-    "Center"
-}
+ATC = {"None", "Delivery", "Ground", "Tower", "Tracon", "Center"}
 
-GOOD = {
-    "morning": 4,
-    "day": 9,
-    "afternoon": 12,
-    "evening": 17,
-    "night": 20
-}
+GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}
 
-# Aeronautics constant
+# Aeronautics constant (notes)
 #
 # ICAO Annex 14 - Aerodrome Reference Code Element 2, Table 1-1
 # (Aeroplane Wingspan; Outer Main Gear Wheel Span)
@@ -115,10 +102,10 @@ GOOD = {
 # Aicraft type/class (size) is used to estimate minimal taxiway width
 #
 AIRCRAFT_TYPES = {  # Half width of taxiway in meters
-    'A': 4,     # 7.5m
-    'B': 6,     # 10.5m
-    'C': 8,     # 15m or 18m
-    'D': 9,     # 18m or 23m
-    'E': 12,    # 23m
-    'F': 15     # 30m
+    "A": 4,  # 7.5m
+    "B": 6,  # 10.5m
+    "C": 8,  # 15m or 18m
+    "D": 9,  # 18m or 23m
+    "E": 12,  # 23m
+    "F": 15,  # 30m
 }

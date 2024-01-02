@@ -5,7 +5,7 @@ from .XPDref import XPDref
 
 
 class Aircraft:
-    def __init__(self, icaomodel, icaocategory, tailsign, callsign):
+    def __init__(self, icaomodel="A321", icaocategory="D", tailsign="OO-PMA", callsign="FG-001"):
         self.icaomodel = XPDref("sim/aircraft/view/acf_ICAO")
         self.tailsign = XPDref("sim/aircraft/view/acf_tailnum")
         self.lat = XPDref("sim/flightmodel/position/latitude")
@@ -15,7 +15,6 @@ class Aircraft:
         self.localTime = XPDref("sim/time/local_time_sec")
         self.callsign = callsign
         self.icaocat = icaocategory
-
 
     def position(self):
         return [self.lat.value, self.lon.value]

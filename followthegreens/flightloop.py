@@ -5,25 +5,26 @@ import logging
 
 import xp
 
-from .globals import PLANE_MONITOR_DURATION, DISTANCEBETWEENGREENLIGHTS, WARNINGDISTANCE
+from .globals import PLANE_MONITOR_DURATION, DISTANCE_BETWEEN_GREEN_LIGHTS, WARNING_DISTANCE
+
+logger = logging.getLogger(__name__)
 
 EARTH = 39940653000  # Earth circumference, in meter :-)
 
-class FlightLoop:
 
+class FlightLoop:
     def __init__(self, ftg):
         self.ftg = ftg
-        self.refrabbit = 'FollowTheGreen:rabbit'
+        self.refrabbit = "FollowTheGreen:rabbit"
         self.flrabbit = None
         self.rabbitRunning = False
-        self.refplane = 'FollowTheGreen:plane'
+        self.refplane = "FollowTheGreen:plane"
         self.flplane = None
         self.planeRunning = False
         self.nextIter = PLANE_MONITOR_DURATION  # seconds
         self.lastLit = 0
         self.distance = EARTH
-        self.diftingLimit = 5 * DISTANCEBETWEENGREENLIGHTS  # After that, we send a warning, and we may cancel FTG.
-
+        self.diftingLimit = 5 * DISTANCE_BETWEEN_GREEN_LIGHTS  # After that, we send a warning, and we may cancel FTG.
 
     def startFlightLoop(self):
         # @todo schedule/unschedule without destroying
@@ -35,33 +36,31 @@ class FlightLoop:
             self.flrabbit = xp.createFlightLoop(params)
             xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)
             self.rabbitRunning = True
-            logging.debug("FlightLoop::startFlightLoop: rabbit started.")
+            logger.debug("rabbit started.")
         else:
-            logging.debug("FlightLoop::startFlightLoop: rabbit running.")
+            logger.debug("rabbit running.")
         if not self.planeRunning:
             params = [phase, self.planeFLCB, self.refplane]
             self.flplane = xp.createFlightLoop(params)
             xp.scheduleFlightLoop(self.flplane, 10.0, 1)
             self.planeRunning = True
-            logging.debug("FlightLoop::startFlightLoop: plane tracking started.")
+            logger.debug("plane tracking started.")
         else:
-            logging.debug("FlightLoop::startFlightLoop: plane tracked.")
-
+            logger.debug("plane tracked.")
 
     def stopFlightLoop(self):
         if self.rabbitRunning:
             xp.destroyFlightLoop(self.flrabbit)
             self.rabbitRunning = False
-            logging.debug("FlightLoop::stopFlightLoop: rabbit stopped.")
+            logger.debug("rabbit stopped.")
         else:
-            logging.debug("FlightLoop::stopFlightLoop: rabbit not running.")
+            logger.debug("rabbit not running.")
         if self.planeRunning:
             xp.destroyFlightLoop(self.flplane)
             self.planeRunning = False
-            logging.debug("FlightLoop::stopFlightLoop: plane tracking stopped.")
+            logger.debug("plane tracking stopped.")
         else:
-            logging.debug("FlightLoop::stopFlightLoop: plane not tracked.")
-
+            logger.debug("plane not tracked.")
 
     def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
@@ -70,38 +69,37 @@ class FlightLoop:
         # We cannot use XP's counter because it does not increment by 1 just for us.
         return self.ftg.lights.rabbit(self.lastLit)
 
-
     def planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
         # monitor progress of plane on the green. Turns lights off as it does no longer needs them.
-        # logging.debug('FlightLoop::flightLoopCallback %2f, %2f, %d', elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter)
+        # logger.debug('%2f, %2f, %d', elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter)
         self.ftg.ui.hideMainWindowIfOk(elapsedSinceLastCall)
 
         pos = self.ftg.aircraft.position()
         if not pos or (pos[0] == 0 and pos[1] == 0):
-            logging.debug("FlightLoop::planeFLCB: no position.")
+            logger.debug("no position.")
             return self.nextIter
 
         nextStop, warn = self.ftg.lights.toNextStop(pos)
-        if nextStop and warn < WARNINGDISTANCE:
-            logging.debug("FlightLoop::planeFLCB: closing to stop.")
+        if nextStop and warn < WARNING_DISTANCE:
+            logger.debug("closing to stop.")
             if not self.ftg.ui.isMainWindowVisible():
-                logging.debug("FlightLoop::planeFLCB: showing UI.")
+                logger.debug("showing UI.")
                 self.ftg.ui.showMainWindow(False)
 
         closestLight, distance = self.ftg.lights.closest(pos)
         if not closestLight:
-            logging.debug("FlightLoop::planeFLCB: no close light.")
+            logger.debug("no close light.")
             return self.nextIter
 
-        # logging.debug("FlightLoop::planeFLCB: closest %d %f", closestLight, distance)
+        # logger.debug("closest %d %f", closestLight, distance)
         if closestLight > self.lastLit and distance < self.diftingLimit:  # Progress OK
-            # logging.debug("FlightLoop::planeFLCB: moving %d %d", closestLight, self.lastLit)
+            # logger.debug("moving %d %d", closestLight, self.lastLit)
             self.lastLit = closestLight
             self.distance = distance
             return self.nextIter
 
-        if self.lastLit == closestLight and (abs(self.distance - distance) < DISTANCEBETWEENGREENLIGHTS):  # not moved enought, may even be stopped
+        if self.lastLit == closestLight and (abs(self.distance - distance) < DISTANCE_BETWEEN_GREEN_LIGHTS):  # not moved enought, may even be stopped
             return self.nextIter
 
         # @todo
