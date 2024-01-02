@@ -24,14 +24,8 @@ logging.basicConfig(level=logging.DEBUG)  # filename=('FTG_log.txt')
 
 
 class ShowTaxiways:
-
     # Internal status
-    STATUS = {
-        "NEW": "NEW",
-        "INITIALIZED": "INIT",
-        "READY": "READY",
-        "ACTIVE": "ACTIVE"
-    }
+    STATUS = {"NEW": "NEW", "INITIALIZED": "INIT", "READY": "READY", "ACTIVE": "ACTIVE"}
 
     def __init__(self, pi):
         self.__status = ShowTaxiways.STATUS["NEW"]
@@ -39,8 +33,7 @@ class ShowTaxiways:
         self.airport = None
         self.aircraft = None
         self.lights = None
-        self.ui = UIUtil(self)      # Where windows are built
-
+        self.ui = UIUtil(self)  # Where windows are built
 
     def start(self):
         logging.info("ShowTaxiways::status: %s, %s.", self.__status, self.ui.mainWindowExists())
@@ -59,7 +52,6 @@ class ShowTaxiways:
             logging.debug("ShowTaxiways::start: mainWindow shown")
         logging.info("ShowTaxiways::start: ..started.")
         return 1  # window displayed
-
 
     def getAirport(self):
         # Search for airport or prompt for one.
@@ -96,7 +88,6 @@ class ShowTaxiways:
         logging.info("ShowTaxiways::getAirport: At %s" % airport.name)
         return self.showTaxiways(airport.navAidID)
 
-
     def showTaxiways(self, airport):
         if not self.airport:
             self.airport = Airport(airport)
@@ -118,26 +109,25 @@ class ShowTaxiways:
         # Info 13
         logging.info("ShowTaxiways::showTaxiways: Added %d lights.", len(self.lights.lights))
 
-        if self.pi is not None and self.pi.menuIdx is not None and self.pi.menuIdx >= 0:
-            xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Checked)
-            logging.debug(f"ShowTaxiways::showTaxiways: menu checked ({self.pi.menuIdx})")
-        else:
-            logging.debug(f"ShowTaxiways::showTaxiways: menu not checked ({self.pi.menuIdx})")
+        # if self.pi is not None and self.pi.menuIdx is not None and self.pi.menuIdx >= 0:
+        #     xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Checked)
+        #     logging.debug(f"ShowTaxiways::showTaxiways: menu checked ({self.pi.menuIdx})")
+        # else:
+        #     logging.debug(f"ShowTaxiways::showTaxiways: menu not checked ({self.pi.menuIdx})")
 
         return self.ui.enjoy()
         # return self.ui.sorry("Follow the greens is not completed yet.")  # development
-
 
     def cancel(self, reason=""):
         if self.lights:
             self.lights.destroy()
             self.lights = None
-            if self.pi is not None and self.pi.menuIdx is not None and self.pi.menuIdx >= 0:
-                try:
-                    xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Unchecked)
-                    logging.debug(f"ShowTaxiways::cancel: menu unchecked ({self.pi.menuIdx})")
-                except:
-                    logging.debug(f"ShowTaxiways::cancel: menu not unchecked ({self.pi.menuIdx}, {xp.Menu_Unchecked})", exc_info=True)
+            # if self.pi is not None and self.pi.menuIdx is not None and self.pi.menuIdx >= 0:
+            #     try:
+            #         xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Unchecked)
+            #         logging.debug(f"ShowTaxiways::cancel: menu unchecked ({self.pi.menuIdx})")
+            #     except:
+            #         logging.debug(f"ShowTaxiways::cancel: menu not unchecked ({self.pi.menuIdx}, {xp.Menu_Unchecked})", exc_info=True)
 
         if self.ui.mainWindowExists():
             self.ui.destroyMainWindow()
@@ -147,11 +137,9 @@ class ShowTaxiways:
         logging.info("ShowTaxiways::cancel: cancelled: %s.", reason)
         return [True, ""]
 
-
     def disable(self):
         # alias to cancel
         return self.cancel("disabled")
-
 
     def stop(self):
         # alias to cancel
