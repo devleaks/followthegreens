@@ -36,7 +36,7 @@ Reload scripts as needed in XPPython3. Follow the greens should now be a menu en
 Select it to start it.
 
 
-## Options and Paramters
+## Options and Parameters
 
 X-Plane does not provide easy user interface construction. So there is no Settings or Options window.
 You must change all parameters in a plugin file.
@@ -55,6 +55,19 @@ In file X-Plane Home Directory/Resources/Plugins/PythonPlugins/followthegreen/gl
 
 Watch out. Changing other parameter may crash the plugin and X-Plane.
 
+## X-Plane Integration
+
+The `XPPython3/followthegreens/is_running` dataref is 1 if Follow the Greens is running.
+
+The command `XPPython3/followthegreens/main_windown_toggle` toggles the visibility of the main window of Follow the Greens.
+If it is already running, it show the current instructions and prompt.
+The main window of Follow the Greens disappears after a few seconds. Toggling its visibility shows it back.
+
+The command `XPPython3/followthegreens/send_clearance_ok` is meant to be used by external parties, ATC controllers and alike,
+to give you the clearance and allow you to progress on the greens.
+
+If ATC is not capable of calling the clearance for you, you need to either press the «Clearance Received» button on the main dialog box of Follow the Greens.
+Alternatively, you can assign the command to a keystroke or a joystick button to activate it when needed.
 
 ## More Information
 
