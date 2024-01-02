@@ -24,63 +24,72 @@ class PythonInterface:
         self.Desc = "Show taxiways, highlight taxiway network" + " (Rel. " + __VERSION__ + ")"
         self.Info = self.Name + f" (rel. {__VERSION__})"
         self.enabled = False
-        self.trace = True  # produces extra debugging in XPPython3.log for this class
+        self.trace = False  # produces extra debugging in XPPython3.log for this class
         self.menuIdx = None
         self.showTaxiways = None
         self.showTaxiwaysCmdRef = None
 
     def XPluginStart(self):
+        if self.trace:
+            print(self.Info, "XPluginStart: starting..")
+
         self.showTaxiwaysCmdRef = xp.createCommand(XP_STW_COMMAND, XP_STW_COMMAND_DESC)
         xp.registerCommandHandler(self.showTaxiwaysCmdRef, self.showTaxiwaysCmd, 1, None)
         self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), self.Name, self.showTaxiwaysCmdRef)
         if self.menuIdx is None or (self.menuIdx is not None and self.menuIdx < 0):
-            print(self.Info, "PI::XPluginStart: menu not added.")
+            print(self.Info, "XPluginStart: menu not added.")
         else:
             if self.trace:
-                print(self.Info, "PI::XPluginStart: menu added.", self.menuIdx)
-        if self.trace:
-            print(self.Info, "PI::XPluginStart: started.")
+                print(self.Info, "XPluginStart: menu added.", self.menuIdx)
+
+        print(self.Info, "XPluginStart: ..started.")
         return self.Name, self.Sig, self.Desc
 
     def XPluginStop(self):
+        if self.trace:
+            print(self.Info, "XPluginStop: stopping..")
+
         if self.showTaxiwaysCmdRef:
             xp.unregisterCommandHandler(self.showTaxiwaysCmdRef, self.showTaxiwaysCmd, 1, None)
             self.showTaxiwaysCmdRef = None
+        oldidx = self.menuIdx
         if self.menuIdx is not None and self.menuIdx >= 0:
-            oldidx = self.menuIdx
             xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx)
             self.menuIdx = None
             if self.trace:
-                print(self.Info, "PI::XPluginStop: menu removed.", oldidx)
+                print(self.Info, "XPluginStop: menu removed.", oldidx)
         else:
             if self.trace:
-                print(self.Info, "PI::XPluginStop: menu not removed.", oldidx)
+                print(self.Info, "XPluginStop: menu not removed.", oldidx)
         if self.showTaxiways:
             try:
                 self.showTaxiways.stop()
                 self.showTaxiways = None
-                if self.trace:
-                    print(self.Info, "PI::XPluginStop: stopped.")
             except:
-                if self.trace:
-                    print(self.Info, "PI::XPluginStop: exception.")
+                print(self.Info, "XPluginStop: exception")
                 print_exc()
+
+        print(self.Info, "XPluginStop: ..stopped.")
         return None
 
     def XPluginEnable(self):
+        if self.trace:
+            print(self.Info, "XPluginEnable: enabling..")
         try:
             self.showTaxiways = ShowTaxiways(self)
             self.enabled = True
             if self.trace:
-                print(self.Info, "PI::XPluginEnable: enabled.")
+                print(self.Info, "XPluginEnable: enabled.")
             return 1
         except:
-            if self.trace:
-                print(self.Info, "PI::XPluginEnable: exception.")
+            print(self.Info, "XPluginEnable: exception")
             print_exc()
+        print(self.Info, "XPluginEnable: not enabled.")
         return 0
 
     def XPluginDisable(self):
+        if self.trace:
+            print(self.Info, "XPluginEnable: disabling..")
         try:
             if self.enabled and self.showTaxiways:
                 self.showTaxiways.disable()
@@ -88,15 +97,13 @@ class PythonInterface:
 
             self.enabled = False
             if self.trace:
-                print(self.Info, "PI::XPluginDisable: disabled.")
+                print(self.Info, "XPluginDisable: ..disabled.")
             return None
         except:
-            if self.trace:
-                print(self.Info, "PI::XPluginDisable: exception.")
+            print(self.Info, "XPluginDisable: exception")
             print_exc()
-            self.enabled = False
-            return None
         self.enabled = False
+        print(self.Info, "XPluginEnable: ..disabled with issue.")
         return None
 
     def XPluginReceiveMessage(self, inFromWho, inMessage, inParam):
@@ -105,7 +112,7 @@ class PythonInterface:
     def showTaxiwaysCmd(self, *args, **kwargs):
         # pylint: disable=unused-argument
         if not self.enabled:
-            print(self.Info, "PI::showTaxiwaysCmd: not enabled.")
+            print(self.Info, "showTaxiwaysCmd: not enabled.")
             return 0
 
         # When mapped on a keystroke, showTaxiways only starts on begin of command (phase=0).
@@ -115,35 +122,33 @@ class PythonInterface:
         if len(args) > 2:
             commandPhase = args[1]
             if self.trace:
-                print(self.Info, "PI::showTaxiwaysCmd: COMMAND PHASE", commandPhase)
+                print(self.Info, "showTaxiwaysCmd: command phase", commandPhase)
         else:
-            print(self.Info, "PI::showTaxiwaysCmd: NO COMMAND PHASE", len(args))
+            print(self.Info, "showTaxiwaysCmd: no command phase", len(args))
 
         if not self.showTaxiways:
             try:
                 self.showTaxiways = ShowTaxiways(self)
                 if self.trace:
-                    print(self.Info, "PI::showTaxiwaysCmd: created.")
+                    print(self.Info, "showTaxiwaysCmd: created.")
             except:
-                if self.trace:
-                    print(self.Info, "PI::showTaxiwaysCmd: exception.")
+                print(self.Info, "showTaxiwaysCmd: exception")
                 print_exc()
                 return 0
 
         if self.showTaxiways and commandPhase == 0:
             if self.trace:
-                print(self.Info, "PI::showTaxiwaysCmd: available.")
+                print(self.Info, "showTaxiwaysCmd: available.")
             try:
                 self.showTaxiways.start()
                 if self.trace:
-                    print(self.Info, "PI::showTaxiwaysCmd: started.")
+                    print(self.Info, "showTaxiwaysCmd: started.")
                 return 1
             except:
-                if self.trace:
-                    print(self.Info, "PI::showTaxiwaysCmd: exception(2).")
+                print(self.Info, "showTaxiwaysCmd: exception(2).")
                 print_exc()
                 return 0
         elif not self.showTaxiways:
-            print(self.Info, "PI::showTaxiwaysCmd: Error: could not create ShowTaxiways.")
+            print(self.Info, "showTaxiwaysCmd: Error: could not create ShowTaxiways.")
 
         return 0

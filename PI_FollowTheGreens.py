@@ -24,7 +24,7 @@ class PythonInterface:
         self.Desc = __DESCRIPTION__ + " (Rel. " + __VERSION__ + ")"
         self.Info = self.Name + f" (rel. {__VERSION__})"
         self.enabled = False
-        self.trace = True  # produces extra debugging in XPPython3.log for this class
+        self.trace = False  # produces extra debugging in XPPython3.log for this class
         self.menuIdx = None
         self.followTheGreens = None
         self.followTheGreensCmdRef = None
@@ -32,23 +32,23 @@ class PythonInterface:
 
     def XPluginStart(self):
         if self.trace:
-            print(self.Info, "PI::XPluginStart: starting..")
+            print(self.Info, "XPluginStart: starting..")
 
         self.followTheGreensCmdRef = xp.createCommand(XP_FTG_COMMAND, XP_FTG_COMMAND_DESC)
         xp.registerCommandHandler(self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None)
         if self.followTheGreensCmdRef is not None:
             if self.trace:
-                print(self.Info, "PI::XPluginStart: command registered.")
+                print(self.Info, "XPluginStart: command registered.")
         else:
             if self.trace:
-                print(self.Info, "PI::XPluginStop: command not registered.")
+                print(self.Info, "XPluginStop: command not registered.")
 
         self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), self.Name, self.followTheGreensCmdRef)
         if self.menuIdx is None or (self.menuIdx is not None and self.menuIdx < 0):
-            print(self.Info, "PI::XPluginStart: menu not added.")
+            print(self.Info, "XPluginStart: menu not added.")
         else:
             if self.trace:
-                print(self.Info, f"PI::XPluginStart: menu added, index {self.menuIdx}.")
+                print(self.Info, f"XPluginStart: menu added, index {self.menuIdx}.")
 
         self.isRunningRef = xp.registerDataAccessor(
             FOLLOW_THE_GREENS_IS_RUNNING,
@@ -72,62 +72,60 @@ class PythonInterface:
         if self.isRunningRef is not None:
             xp.shareData(FOLLOW_THE_GREENS_IS_RUNNING, xp.Type_Int, self.runningStatusChangedCallback, 0)
             if self.trace:
-                print(self.Info, "PI::XPluginStart: data accessor registered.")
+                print(self.Info, "XPluginStart: data accessor registered.")
         else:
             if self.trace:
-                print(self.Info, "PI::XPluginStart: data accessor not registered.")
+                print(self.Info, "XPluginStart: data accessor not registered.")
 
-        if self.trace:
-            print(self.Info, "PI::XPluginStart: ..started.")
+        print(self.Info, "XPluginStart: ..started.")
         return self.Name, self.Sig, self.Desc
 
     def XPluginStop(self):
         if self.trace:
-            print(self.Info, "PI::XPluginStop: stopping..")
+            print(self.Info, "XPluginStop: stopping..")
 
         if self.followTheGreensCmdRef:
             xp.unregisterCommandHandler(self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None)
             self.followTheGreensCmdRef = None
             if self.trace:
-                print(self.Info, "PI::XPluginStop: command unregistered.")
+                print(self.Info, "XPluginStop: command unregistered.")
         else:
             if self.trace:
-                print(self.Info, "PI::XPluginStop: command not unregistered.")
+                print(self.Info, "XPluginStop: command not unregistered.")
 
+        oldidx = self.menuIdx
         if self.menuIdx is not None and self.menuIdx >= 0:
-            oldidx = self.menuIdx
             xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx)
             self.menuIdx = None
             if self.trace:
-                print(self.Info, f"PI::XPluginStop: menu removed (index was {self.menuIdx}).")
+                print(self.Info, f"XPluginStop: menu removed (index was {oldidx}).")
         else:
             if self.trace:
-                print(self.Info, "PI::XPluginStop: menu not removed.")
+                print(self.Info, f"XPluginStop: menu not removed (index {oldidx}).")
 
         if self.isRunningRef is not None:  # and self.isRunningRef > 0?
             xp.unshareData(FOLLOW_THE_GREENS_IS_RUNNING, xp.Type_Int, self.runningStatusChangedCallback, 0)
             xp.unregisterDataAccessor(self.isRunningRef)
             if self.trace:
-                print(self.Info, "PI::XPluginStop: data accessor unregistered.")
+                print(self.Info, "XPluginStop: data accessor unregistered.")
         else:
             if self.trace:
-                print(self.Info, "PI::XPluginStop: data accessor not unregistered.")
+                print(self.Info, "XPluginStop: data accessor not unregistered.")
 
         if self.followTheGreens:
             try:
                 self.followTheGreens.stop()
                 self.followTheGreens = None
-                if self.trace:
-                    print(self.Info, "PI::XPluginStop: ..stopped.")
             except:
-                if self.trace:
-                    print(self.Info, "PI::XPluginStop: ..exception.")
+                print(self.Info, "XPluginStop: exception")
                 print_exc()
+
+        print(self.Info, "XPluginStop: ..stopped.")
         return None
 
     def XPluginEnable(self):
         if self.trace:
-            print(self.Info, "PI::XPluginEnable: enabling..")
+            print(self.Info, "XPluginEnable: enabling..")
         try:
             self.followTheGreens = FollowTheGreens(self)
             self.enabled = True
@@ -138,41 +136,37 @@ class PythonInterface:
                     if dre != xp.NO_PLUGIN_ID:
                         xp.sendMessageToPlugin(dre, 0x01000000, FOLLOW_THE_GREENS_IS_RUNNING)
                         if self.trace:
-                            print(self.Info, f"PI::XPluginEnable: data accessor registered with {sig}.")
+                            print(self.Info, f"XPluginEnable: data accessor registered with {sig}.")
                     else:
                         if self.trace:
-                            print(self.Info, f"PI::XPluginEnable: dataref not created.")
+                            print(self.Info, f"XPluginEnable: dataref not created.")
             else:
                 if self.trace:
-                    print(self.Info, f"PI::XPluginEnable: plgin {sig} not found.")
+                    print(self.Info, f"XPluginEnable: plugin {sig} not found.")
 
-            if self.trace:
-                print(self.Info, "PI::XPluginEnable: ..enabled.")
+            print(self.Info, "XPluginEnable: ..enabled.")
             return 1
         except:
-            if self.trace:
-                print(self.Info, "PI::XPluginEnable: ..exception.")
+            print(self.Info, "XPluginEnable: ..exception")
             print_exc()
+        print(self.Info, "XPluginEnable: ..not enabled.")
         return 0
 
     def XPluginDisable(self):
         if self.trace:
-            print(self.Info, "PI::XPluginDisable: disabling..")
+            print(self.Info, "XPluginDisable: disabling..")
         try:
             if self.enabled and self.followTheGreens:
                 self.followTheGreens.disable()
                 self.followTheGreens = None
             self.enabled = False
-            if self.trace:
-                print(self.Info, "PI::XPluginDisable: disabled.")
+            print(self.Info, "XPluginDisable: ..disabled.")
             return None
         except:
-            if self.trace:
-                print(self.Info, "PI::XPluginDisable: exception.")
+            print(self.Info, "XPluginDisable: exception")
             print_exc()
-            self.enabled = False
-            return None
         self.enabled = False
+        print(self.Info, "XPluginDisable: ..disabled with issue.")
         return None
 
     def XPluginReceiveMessage(self, inFromWho, inMessage, inParam):
@@ -181,7 +175,7 @@ class PythonInterface:
     def followTheGreensCmd(self, *args, **kwargs):
         # pylint: disable=unused-argument
         if not self.enabled:
-            print(self.Info, "PI::followTheGreensCmd: not enabled.")
+            print(self.Info, "followTheGreensCmd: not enabled.")
             return 0
 
         # When mapped on a keystroke, followTheGreen only starts on begin of command (phase=0).
@@ -191,36 +185,34 @@ class PythonInterface:
         if len(args) > 2:
             commandPhase = args[1]
             if self.trace:
-                print(self.Info, "PI::followTheGreensCmd: COMMAND PHASE", commandPhase)
+                print(self.Info, "followTheGreensCmd: command phase", commandPhase)
         else:
-            print(self.Info, "PI::followTheGreensCmd: NO COMMAND PHASE", len(args))
+            print(self.Info, "followTheGreensCmd: no command phase", len(args))
 
         if not self.followTheGreens:
             try:
                 self.followTheGreens = FollowTheGreens(self)
                 if self.trace:
-                    print(self.Info, "PI::followTheGreensCmd: created.")
+                    print(self.Info, "followTheGreensCmd: created.")
             except:
-                if self.trace:
-                    print(self.Info, "PI::followTheGreensCmd: exception.")
+                print(self.Info, "followTheGreensCmd: exception")
                 print_exc()
                 return 0
 
         if self.followTheGreens and commandPhase == 0:
             if self.trace:
-                print(self.Info, "PI::followTheGreensCmd: available.")
+                print(self.Info, "followTheGreensCmd: available.")
             try:
                 self.followTheGreens.start()
                 if self.trace:
-                    print(self.Info, "PI::followTheGreensCmd: started.")
+                    print(self.Info, "followTheGreensCmd: started.")
                 return 1
             except:
-                if self.trace:
-                    print(self.Info, "PI::followTheGreensCmd: exception(2).")
+                print(self.Info, "followTheGreensCmd: exception(2).")
                 print_exc()
                 return 0
         elif not self.followTheGreens:
-            print(self.Info, "PI::followTheGreensCmd: Error: could not create FollowTheGreens.")
+            print(self.Info, "followTheGreensCmd: Error: could not create FollowTheGreens.")
 
         return 0
 
