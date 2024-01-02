@@ -132,22 +132,33 @@ class PythonInterface:
                 if self.trace:
                     print(self.Info, "showTaxiwaysCmd: created.")
             except:
-                print(self.Info, "showTaxiwaysCmd: exception")
+                print(self.Info, "showTaxiwaysCmd: exception at creation")
                 print_exc()
                 return 0
 
         if self.showTaxiways and commandPhase == 0:
             if self.trace:
                 print(self.Info, "showTaxiwaysCmd: available.")
+
+            if self.showTaxiways.ui.mainWindowExists():  # already running, we stop it...
+                try:
+                    self.showTaxiways.cancel()
+                    if self.trace:
+                        print(self.Info, "showTaxiwaysCmd: ended.")
+                    return 1
+                except:
+                    print(self.Info, "showTaxiwaysCmd: exception")
+                    print_exc()
+                return 0
+
             try:
                 self.showTaxiways.start()
                 if self.trace:
                     print(self.Info, "showTaxiwaysCmd: started.")
                 return 1
             except:
-                print(self.Info, "showTaxiwaysCmd: exception(2).")
+                print(self.Info, "showTaxiwaysCmd: exception")
                 print_exc()
-                return 0
         elif not self.showTaxiways:
             print(self.Info, "showTaxiwaysCmd: Error: could not create ShowTaxiways.")
 

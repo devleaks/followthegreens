@@ -11,7 +11,7 @@ from .globals import MAINWINDOW_AUTOHIDE, MAINWINDOW_DISPLAY_TIME
 from .globals import MAINWINDOW_WIDTH, MAINWINDOW_HEIGHT
 from .globals import MAINWINDOW_FROM_LEFT, MAINWINDOW_FROM_BOTTOM
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("follow_the_greens")
 
 
 # Some texts we need to recognize. May be later translated.
@@ -38,6 +38,7 @@ class UIUtil:
         self.strHeight = 0
         self.canHide = True
         self.displayTime = 0
+        self.waiting_for_clearance = False
 
     def window(self, strings, btns):
         if self.mainWindow and "widgetID" in self.mainWindow.keys():  # We create a new window each time we are called.
@@ -115,7 +116,7 @@ class UIUtil:
         return (buttons, prev["right"])  # total width of all buttons
 
     def mainWindowExists(self):
-        return self.mainWindow and "widgetID" in self.mainWindow.keys()
+        return self.mainWindow is not None and "widgetID" in self.mainWindow.keys()
 
     def isMainWindowVisible(self):
         if self.mainWindowExists():
@@ -125,12 +126,6 @@ class UIUtil:
     def showMainWindow(self, canHide=True):
         if self.mainWindowExists():
             xp.showWidget(self.mainWindow["widgetID"])
-            if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
-                logger.debug(f"Checking menu {self.ftg.pi.menuIdx}..")
-                xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Checked)
-                logger.debug(f"..checked")
-            else:
-                logger.debug(f"menu not checked (index {self.ftg.pi.menuIdx})")
             self.canHide = canHide
             self.displayTime = 0
 
@@ -144,12 +139,6 @@ class UIUtil:
         # We always hide it on request, even if canHide is False
         if self.mainWindowExists():
             xp.hideWidget(self.mainWindow["widgetID"])
-            if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
-                logger.debug(f"Unchecking menu {self.ftg.pi.menuIdx}..")
-                xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Unchecked)
-                logger.debug(f"..unchecked")
-            else:
-                logger.debug(f"menu not checked (index {self.ftg.pi.menuIdx})")
 
     def toggleVisibilityMainWindow(self):
         if self.mainWindowExists():
@@ -256,6 +245,7 @@ class UIUtil:
         btns = {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel}
         if self.dest:
             btns[IAMLOST_TEXT] = self.cbNewGreen
+        self.waiting_for_clearance = True
         return self.window(
             [
                 "Follow the greens until you encounter a line of red stop lights.",
@@ -273,6 +263,7 @@ class UIUtil:
 
     def promptForDeparture(self):
         # In front of the last stopbar, ask to ask for clearance for departure and press continue when clearance obtained.
+        self.waiting_for_clearance = True
         return self.window(
             ["Follow the greens until you encounter a line of red stop lights at departure runway.", "Press Continue when cleared for runway."],
             {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel},
@@ -397,10 +388,21 @@ class UIUtil:
         # pylint: disable=unused-argument
         if inMessage == xp.Msg_PushButtonPressed:
             xp.hideWidget(self.mainWindow["widgetID"])
+            self.waiting_for_clearance = False
             nextWindow = self.ftg.nextLeg()
             xp.showWidget(nextWindow)
             return 1
         return 0
+
+    def clearanceReceived(self):
+        logger.info(f"clearance command received")
+        if self.waiting_for_clearance:
+            xp.hideWidget(self.mainWindow["widgetID"])
+            self.waiting_for_clearance = False
+            nextWindow = self.ftg.nextLeg()
+            xp.showWidget(nextWindow)
+        else:
+            logger.info(f"not waiting for clearance, ignoring command")
 
     def cbClose(self, inMessage, inWidget, inParam1, inParam2):
         # pylint: disable=unused-argument

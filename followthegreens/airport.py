@@ -11,7 +11,7 @@ from .graph import Graph, Edge
 from .globals import SYSTEM_DIRECTORY, DISTANCE_TO_RAMPS, DEPARTURE, ARRIVAL, TOO_FAR
 from .globals import AIRCRAFT_TYPES as TAXIWAY_WIDTH
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("follow_the_greens")
 
 
 class AptLine:

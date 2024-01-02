@@ -49,8 +49,8 @@ In file X-Plane Home Directory/Resources/Plugins/PythonPlugins/followthegreen/gl
 | LIGHTS_AHEAD              |       10        |  0 - 20            | Number of light after the rabbit. If 0, lights till stopbar    |
 | RABBIT_LENGTH             |       10        |  2 - 16            | Length of the the rabbit (in number of lights)                 |
 | RABBIT_DURATION           |       0.5       |  0.5 - 0.03        | Duration of a "off" light in rabitt. Low value impacts FPS     |
-| DISTANCEBETWEENGREENLIGHTS|       20        |  5 - 40            | Distance between green lights (in meter)                       |
-| WARNINGDISTANCE           |       150       |  100-300           | Distance to stop light before Follow the greens window pops up |
+| DISTANCE_BETWEEN_GREEN_LIGHTS|    20.       |  5 - 40            | Distance between green lights (in meter)                       |
+| WARNING_DISTANCE          |       150       |  100-300           | Distance to stop light before Follow the greens window pops up |
 
 
 Watch out. Changing other parameter may crash the plugin and X-Plane.

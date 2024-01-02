@@ -10,7 +10,7 @@ from traceback import print_exc
 import xp
 
 from followthegreens import __VERSION__, __NAME__, __SIGNATURE__, __DESCRIPTION__
-from followthegreens import XP_FTG_COMMAND, XP_FTG_COMMAND_DESC, FOLLOW_THE_GREENS_IS_RUNNING
+from followthegreens import XP_FTG_COMMAND, XP_FTG_COMMAND_DESC, XP_FTG_CLEARANCE_COMMAND, XP_FTG_CLEARANCE_COMMAND_DESC, FOLLOW_THE_GREENS_IS_RUNNING
 from followthegreens import FollowTheGreens
 
 FORMAT = "%(levelname)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
@@ -24,7 +24,7 @@ class PythonInterface:
         self.Desc = __DESCRIPTION__ + " (Rel. " + __VERSION__ + ")"
         self.Info = self.Name + f" (rel. {__VERSION__})"
         self.enabled = False
-        self.trace = False  # produces extra debugging in XPPython3.log for this class
+        self.trace = True  # produces extra debugging in XPPython3.log for this class
         self.menuIdx = None
         self.followTheGreens = None
         self.followTheGreensCmdRef = None
@@ -36,6 +36,15 @@ class PythonInterface:
 
         self.followTheGreensCmdRef = xp.createCommand(XP_FTG_COMMAND, XP_FTG_COMMAND_DESC)
         xp.registerCommandHandler(self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None)
+        if self.followTheGreensCmdRef is not None:
+            if self.trace:
+                print(self.Info, "XPluginStart: command registered.")
+        else:
+            if self.trace:
+                print(self.Info, "XPluginStop: command not registered.")
+
+        self.clearanceCmdRef = xp.createCommand(XP_FTG_CLEARANCE_COMMAND, XP_FTG_CLEARANCE_COMMAND_DESC)
+        xp.registerCommandHandler(self.clearanceCmdRef, self.clearanceCmd, 1, None)
         if self.followTheGreensCmdRef is not None:
             if self.trace:
                 print(self.Info, "XPluginStart: command registered.")
@@ -69,13 +78,13 @@ class PythonInterface:
             0,
             0,
         )  # Refcons not used
-        if self.isRunningRef is not None:
-            xp.shareData(FOLLOW_THE_GREENS_IS_RUNNING, xp.Type_Int, self.runningStatusChangedCallback, 0)
-            if self.trace:
-                print(self.Info, "XPluginStart: data accessor registered.")
-        else:
-            if self.trace:
-                print(self.Info, "XPluginStart: data accessor not registered.")
+        # if self.isRunningRef is not None:
+        #     xp.shareData(FOLLOW_THE_GREENS_IS_RUNNING, xp.Type_Int, self.runningStatusChangedCallback, 0)
+        #     if self.trace:
+        #         print(self.Info, "XPluginStart: data accessor registered.")
+        # else:
+        #     if self.trace:
+        #         print(self.Info, "XPluginStart: data accessor not registered.")
 
         print(self.Info, "XPluginStart: ..started.")
         return self.Name, self.Sig, self.Desc
@@ -104,8 +113,9 @@ class PythonInterface:
                 print(self.Info, f"XPluginStop: menu not removed (index {oldidx}).")
 
         if self.isRunningRef is not None:  # and self.isRunningRef > 0?
-            xp.unshareData(FOLLOW_THE_GREENS_IS_RUNNING, xp.Type_Int, self.runningStatusChangedCallback, 0)
+            # xp.unshareData(FOLLOW_THE_GREENS_IS_RUNNING, xp.Type_Int, self.runningStatusChangedCallback, 0)
             xp.unregisterDataAccessor(self.isRunningRef)
+            self.isRunningRef = None
             if self.trace:
                 print(self.Info, "XPluginStop: data accessor unregistered.")
         else:
@@ -172,6 +182,39 @@ class PythonInterface:
     def XPluginReceiveMessage(self, inFromWho, inMessage, inParam):
         pass
 
+    def clearanceCmd(self, *args, **kwargs):
+        # pylint: disable=unused-argument
+        if not self.enabled:
+            print(self.Info, "clearanceCmd: not enabled.")
+            return 0
+
+        # When mapped on a keystroke, followTheGreen only starts on begin of command (phase=0).
+        # Phase=1 (continuous press) and phase=2 (release key) are ignored.
+        # If phase not found, report it in log and assume phase=0 (i.e. work will be done.)
+        commandPhase = 0
+        if len(args) > 2:
+            commandPhase = args[1]
+            if self.trace:
+                print(self.Info, "clearanceCmd: command phase", commandPhase)
+        else:
+            print(self.Info, "clearanceCmd: no command phase", len(args))
+
+        if self.followTheGreens and commandPhase == 0:
+            if self.trace:
+                print(self.Info, "clearanceCmd: available.")
+            try:
+                self.followTheGreens.ui.clearanceReceived()
+                if self.trace:
+                    print(self.Info, "clearanceCmd: executed.")
+                return 1
+            except:
+                print(self.Info, "clearanceCmd: exception")
+                print_exc()
+        elif not self.followTheGreens:
+            print(self.Info, "clearanceCmd: no FollowTheGreens running.")
+
+        return 0
+
     def followTheGreensCmd(self, *args, **kwargs):
         # pylint: disable=unused-argument
         if not self.enabled:
@@ -195,7 +238,7 @@ class PythonInterface:
                 if self.trace:
                     print(self.Info, "followTheGreensCmd: created.")
             except:
-                print(self.Info, "followTheGreensCmd: exception")
+                print(self.Info, "followTheGreensCmd: exception at creation")
                 print_exc()
                 return 0
 
@@ -208,7 +251,7 @@ class PythonInterface:
                     print(self.Info, "followTheGreensCmd: started.")
                 return 1
             except:
-                print(self.Info, "followTheGreensCmd: exception(2).")
+                print(self.Info, "followTheGreensCmd: exception")
                 print_exc()
                 return 0
         elif not self.followTheGreens:

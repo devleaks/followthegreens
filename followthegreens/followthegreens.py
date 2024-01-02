@@ -23,7 +23,7 @@ from .globals import ARRIVAL, DEPARTURE
 from .lightstring import LightString
 from .ui import UIUtil
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("follow_the_greens")
 
 
 class FollowTheGreens:
@@ -32,6 +32,8 @@ class FollowTheGreens:
 
     def __init__(self, pi):
         self.__status = FollowTheGreens.STATUS["NEW"]
+        if pi is not None and pi.trace:
+            logger.setLevel(logging.DEBUG)
         self.pi = pi
         self.airport = None
         self.aircraft = None
@@ -158,7 +160,7 @@ class FollowTheGreens:
             self.cancel("new green requested")
             # now create new ones
 
-        logger.info("Got route: %s.", route)
+        logger.debug("Got route: %s.", route)
         self.destination = destination
         onRwy = False
         if self.move == ARRIVAL:

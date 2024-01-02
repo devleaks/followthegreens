@@ -20,7 +20,7 @@ from .airport import Airport
 from .lightstring import LightString
 from .ui import UIUtil
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("show_taxiways")
 
 
 class ShowTaxiways:
@@ -109,11 +109,11 @@ class ShowTaxiways:
         # Info 13
         logger.info(f"Added {len(self.lights.lights)} lights.")
 
-        # if self.pi is not None and self.pi.menuIdx is not None and self.pi.menuIdx >= 0:
-        #     xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Checked)
-        #     logger.debug(f"menu checked ({self.pi.menuIdx})")
-        # else:
-        #     logger.debug(f"menu not checked ({self.pi.menuIdx})")
+        if self.pi is not None and self.pi.menuIdx is not None and self.pi.menuIdx >= 0:
+            xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Checked)
+            logger.debug(f"menu checked ({self.pi.menuIdx})")
+        else:
+            logger.debug(f"menu not checked ({self.pi.menuIdx})")
 
         return self.ui.enjoy()
         # return self.ui.sorry("Follow the greens is not completed yet.")  # development
@@ -122,12 +122,12 @@ class ShowTaxiways:
         if self.lights:
             self.lights.destroy()
             self.lights = None
-            # if self.pi is not None and self.pi.menuIdx is not None and self.pi.menuIdx >= 0:
-            #     try:
-            #         xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Unchecked)
-            #         logger.debug(f"menu unchecked ({self.pi.menuIdx})")
-            #     except:
-            #         logger.debug(f"menu not unchecked ({self.pi.menuIdx}, {xp.Menu_Unchecked})", exc_info=True)
+            if self.pi is not None and self.pi.menuIdx is not None and self.pi.menuIdx >= 0:
+                try:
+                    xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Unchecked)
+                    logger.debug(f"menu unchecked ({self.pi.menuIdx})")
+                except:
+                    logger.debug(f"menu not unchecked ({self.pi.menuIdx}, {xp.Menu_Unchecked})", exc_info=True)
 
         if self.ui.mainWindowExists():
             self.ui.destroyMainWindow()

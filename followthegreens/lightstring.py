@@ -21,7 +21,7 @@ from .globals import RABBIT_LENGTH, RABBIT_DURATION, LIGHTS_AHEAD
 from .globals import AIRCRAFT_TYPES as TAXIWAY_WIDTH
 from .globals import DEPARTURE, ARRIVAL
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("follow_the_greens")
 
 LIGHT_TYPE_OFF = "LIGHT_TYPE_OFF"
 LIGHT_TYPE_DEFAULT = "LIGHT_TYPE_DEFAULT"

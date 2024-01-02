@@ -7,7 +7,7 @@ import xp
 
 from .globals import PLANE_MONITOR_DURATION, DISTANCE_BETWEEN_GREEN_LIGHTS, WARNING_DISTANCE
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("follow_the_greens")
 
 EARTH = 39940653000  # Earth circumference, in meter :-)
 
@@ -45,6 +45,12 @@ class FlightLoop:
             xp.scheduleFlightLoop(self.flplane, 10.0, 1)
             self.planeRunning = True
             logger.debug("plane tracking started.")
+            # if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
+            #     logger.debug(f"Checking menu {self.ftg.pi.menuIdx}..")
+            #     xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Checked)
+            #     logger.debug(f"..checked")
+            # else:
+            #     logger.debug(f"menu not checked (index {self.ftg.pi.menuIdx})")
         else:
             logger.debug("plane tracked.")
 
@@ -59,6 +65,12 @@ class FlightLoop:
             xp.destroyFlightLoop(self.flplane)
             self.planeRunning = False
             logger.debug("plane tracking stopped.")
+            # if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
+            #     logger.debug(f"Unchecking menu {self.ftg.pi.menuIdx}..")
+            #     xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Unchecked)
+            #     logger.debug(f"..unchecked")
+            # else:
+            #     logger.debug(f"menu not checked (index {self.ftg.pi.menuIdx})")
         else:
             logger.debug("plane not tracked.")
 

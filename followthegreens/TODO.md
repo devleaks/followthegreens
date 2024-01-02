@@ -19,7 +19,7 @@
 ◯   Report alerts if crosses stop bar
 ◉   Better rabbit
 ◉   Better lights
-◯   Offer « API » so that someone else could « clear » current FTG when holder.
+◉   Offer « API » so that someone else could « clear » current FTG when holder.
 ◯   add greens from taxiway to ramp and vice-versa
 ◯   Add alt to aircraft position
 ◯   Smooth turns
@@ -42,6 +42,4 @@
 ◉   Stop bar # cleared.
 ◉   Terminated successfully. (One more happy pilot.)
 ◉   Cancelled by pilot.
-
-Made with Agenda. Get it for free at agenda.com
 

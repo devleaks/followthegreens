@@ -11,7 +11,7 @@ from functools import reduce
 from .geo import Point, Line, Polygon, distance, nearestPointToLines, destination, pointInPolygon
 from .globals import TAXIWAY_DIR_TWOWAY, DEPARTURE, ARRIVAL
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("follow_the_greens")
 
 
 class Vertex(Point):  ## Vertex(Point)
