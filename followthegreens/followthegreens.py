@@ -14,6 +14,7 @@
 #
 import logging
 import xp
+
 from XPLMUtilities import XPLMSpeakString
 
 from .aircraft import Aircraft
@@ -23,10 +24,10 @@ from .globals import ARRIVAL, DEPARTURE
 from .lightstring import LightString
 from .ui import UIUtil
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - Follow The Green - %(levelname)s - %(message)s')  # filename=('FTG_log.txt')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - Follow The Greens - %(levelname)s - %(message)s')  # filename=('FTG_log.txt')
 
 
-class FollowTheGreen:
+class FollowTheGreens:
 
     # Internal status
     STATUS = {
@@ -37,7 +38,7 @@ class FollowTheGreen:
     }
 
     def __init__(self, pi):
-        self.__status = FollowTheGreen.STATUS["NEW"]
+        self.__status = FollowTheGreens.STATUS["NEW"]
         self.pi = pi
         self.airport = None
         self.aircraft = None
@@ -261,7 +262,7 @@ class FollowTheGreen:
 
         logging.info("FollowTheGreen::followTheGreen: first light at %d m, heading %d DEG.", initdist, initbrgn)
         self.flightLoop.startFlightLoop()
-        self.__status = FollowTheGreen.STATUS["ACTIVE"]
+        self.__status = FollowTheGreens.STATUS["ACTIVE"]
         # Info 14
         logging.info("FollowTheGreen::followTheGreen: Flightloop started.")
 

@@ -4,6 +4,7 @@ import os
 import logging
 import multiprocessing
 import re
+import time
 
 try:
     import xp
@@ -64,6 +65,7 @@ class MultiProcessLoader:
         parent_conn, child_conn = multiprocessing.Pipe()
         logging.debug("mp_functions::MultiProcessLoader: start parent connection: " + str(parent_conn))
         logging.debug("mp_functions::MultiProcessLoader: start child connection: " + str(child_conn))
+        logging.debug("mp_functions::MultiProcessLoader: parameters: " + str(xp.getSystemPath()) + str(self.airport.icao))
         p = multiprocessing.Process(target=function_frame, args=(child_conn, xp.getSystemPath(), self.airport.icao, ))
         p.start()
         logging.debug("mp_functions::process started: PID: " + str(p.pid))
@@ -77,7 +79,6 @@ class MultiProcessLoader:
 
 def function_frame(conn, path, icao):
     """Calling function for status management of the reader"""
-
     x = Feedback()
     x.status = 'Reading data'
     conn.send(x)
@@ -96,7 +97,7 @@ def fileread(conn, path, icao, x):
     scenery = scenery.strip()
     x.loaded = False
     while not x.loaded and scenery:  # while we have not found our airport and there are more scenery packs
-        if re.match("^SCENERY_PACK", scenery, flags=0):
+        if re.match("^SCENERY_PACK ", scenery, flags=0):
             scenery_pack_dir = scenery[13:-1]
             if scenery_pack_dir == "*GLOBAL_AIRPORTS*":
                 scenery_pack_dir = os.path.join(path,"Global Scenery", "Global Airports")
@@ -109,6 +110,7 @@ def fileread(conn, path, icao, x):
                 while not x.loaded and line:  # while we have not found our airport and there are more lines in this pack
                     if re.match("^1 ", line, flags=0):  # if it is a "startOfAirport" line
                         newparam = line.split()  # if no characters supplied to split(), multiple space characters as one
+                        # logging.debug('mp_functions::fileread: New Airport detected ' + str(newparam[1]) + ' ' + str(newparam[2]) + ' ' + str(newparam[3]) + ' ' + str(newparam[4]) + ' ' + str(newparam[5]) + ' ')
                         if newparam[4] == icao:  # it is the airport we are looking for
                             x.name = " ".join(newparam[5:])
                             x.altitude = newparam[1]

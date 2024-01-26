@@ -10,6 +10,7 @@ from .geo import Point, Line, Polygon, distance, pointInPolygon
 from .graph import Graph, Edge
 from .globals import SYSTEM_DIRECTORY, DISTANCE_TO_RAMPS, DEPARTURE, ARRIVAL, TOO_FAR
 from .globals import AIRCRAFT_TYPES as TAXIWAY_WIDTH
+from .mp_functions import MultiProcessLoader
 
 
 class AptLine:
@@ -65,6 +66,7 @@ class Route:
         self.vertices = None
         self.edges = None
         self.smoothed = None
+        logging.debug("Airport::route:: {}".format(self.options))
 
     def __str__(self):
         if self.found():
@@ -85,7 +87,7 @@ class Route:
         for i in range(len(self.route) - 1):
             e = self.graph.get_edge(self.route[i], self.route[i + 1])
             v = self.graph.get_vertex(self.route[i])
-            v.setProp("taxiway-width", TAXIWAY_WIDTH[e.widthCode("D")])  # default to D
+            v.setProp("taxiway-width", TAXIWAY_WIDTH[e.widthCode("D")])  # default to D if not given
             v.setProp("ls", i)
             self.edges.append(e)
 
@@ -110,102 +112,109 @@ class Airport:
         self.holds = {}
         self.ramps = {}
 
+    def prepare_new(self, ui):
+        logging.debug("Airport::prepare_new: started")
+        # Multiprocessing insert
+        mpl = MultiProcessLoader(self, ui)
+        status = mpl.start()
+        return status
 
-    def prepare(self):
+    def prepare_old(self):
+        logging.debug("Airport::prepare_old: started")
         status = self.load()
         if not status:
             return [False, "We could not find airport named '%s'." % self.icao]
+        return self.prepare()
+
+    def prepare(self):
+        logging.debug("Airport::prepare: started")
+        # status = self.load()
+        # if not status:
+        #     return [False, "We could not find airport named '%s'." % self.icao]
 
         # Info 5
         logging.debug("Airport::prepare: Has ATC %s." % (self.hasATC()))  # actually, we don't care.
-
+        logging.debug("Airport::prepare: mkRountingNetwork started")
         status = self.mkRoutingNetwork()
         if not status:
             return [False, "We could not build taxiway network for %s." % self.icao]
-
+        logging.debug("Airport::prepare: mkRountingNetwork finished")
+        logging.debug("Airport::prepare: ldRunways started")
         status = self.ldRunways()
         if len(status) == 0:
             return [False, "We could not find runways for %s." % self.icao]
         # Info 7
+        logging.debug("Airport::prepare: ldRunways finished")
         logging.debug("Airport::prepare: runways: %s" % (status.keys()))
 
+        logging.debug("Airport::prepare: ldHolds started")
         status = self.ldHolds()
+        logging.debug("Airport::prepare: ldHolds finished")
         logging.debug("Airport::prepare: holding positions: %s" % (status.keys()))
 
+        logging.debug("Airport::prepare: ldRamps started")
         status = self.ldRamps()
         if len(status) == 0:
             return [False, "We could not find ramps/parking for %s." % self.icao]
         # Info 8
+        logging.debug("Airport::prepare: ldRamps finished")
         logging.debug("Airport::prepare: ramps: %s" % (status.keys()))
 
+        logging.debug("Airport::prepare: finished")
         return [True, "Airport ready"]
 
 
     def load(self):
-        APT_FILES = {}
+        logging.debug("Airport::load: started")
+        SCENERY_PACKS = os.path.join(SYSTEM_DIRECTORY, "Custom Scenery", "scenery_packs.ini")
+        scenery_packs = open(SCENERY_PACKS, "r")
+        scenery = scenery_packs.readline()
+        scenery = scenery.strip()
+        logging.debug("Airport::load: scenery_packs.ini read finished")
+        while not self.loaded and scenery:  # while we have not found our airport and there are more scenery packs
+            if re.match("^SCENERY_PACK", scenery, flags=0):
+                logging.debug("SCENERY_PACK %s", scenery.rstrip())
+                scenery_pack_dir = scenery[13:-1]
+                if scenery_pack_dir == "*GLOBAL_AIRPORTS*":
+                    scenery_pack_dir = os.path.join(SYSTEM_DIRECTORY, "Global Scenery", "Global Airports")
+                scenery_pack_apt = os.path.join(scenery_pack_dir, "Earth nav data", "apt.dat")
+                logging.debug("APT.DAT %s", scenery_pack_apt)
 
-        # Add scenery packs, which include Global Airports scenery in XP11
-        scenery_packs_file = os.path.join(SYSTEM_DIRECTORY, "Custom Scenery", "scenery_packs.ini")
-        if os.path.exists(scenery_packs_file):
-            scenery_packs = open(scenery_packs_file, "r")
-            scenery = scenery_packs.readline()
-            scenery = scenery.strip()
-            while scenery:
-                if re.match("^SCENERY_PACK", scenery, flags=0):
-                    logging.debug("SCENERY_PACK %s", scenery.rstrip())
-                    scenery_pack_dir = scenery[13:-1]
-                    scenery_pack_apt = os.path.join(scenery_pack_dir, "Earth nav data", "apt.dat")
-                    # logging.debug("APT.DAT %s", scenery_pack_apt)
-                    if os.path.exists(scenery_pack_apt) and os.path.isfile(scenery_pack_apt):
-                        logging.debug("Added apt.dat %s", scenery_pack_apt)
-                        APT_FILES[scenery] = scenery_pack_apt
-                scenery = scenery_packs.readline()
-            scenery_packs.close()
+                if os.path.isfile(scenery_pack_apt):
+                    apt_dat = open(scenery_pack_apt, "r", encoding="utf-8", errors="ignore")
+                    line = apt_dat.readline()
 
-        # Add XP 12 location for Global Airports
-        default_airports_file = os.path.join(SYSTEM_DIRECTORY, "Global Scenery", "Global Airports", "Earth nav data", "apt.dat")
-        if os.path.exists(default_airports_file) and os.path.isfile(default_airports_file):
-            APT_FILES["default airports"] = default_airports_file
-        # else:
-        #     logging.warning(f"Airport::load: default airport file {DEFAULT_AIRPORTS} not found")
-        logging.debug(f"APT files: {APT_FILES}")
+                    while not self.loaded and line:  # while we have not found our airport and there are more lines in this pack
+                        if re.match("^1 ", line, flags=0):  # if it is a "startOfAirport" line
+                            newparam = line.split()  # if no characters supplied to split(), multiple space characters as one
+                            # logging.debug("airport: %s" % newparam[4])
+                            if newparam[4] == self.icao:  # it is the airport we are looking for
+                                self.name = " ".join(newparam[5:])
+                                self.altitude = newparam[1]
+                                # Info 4.a
+                                logging.info("Airport::load: Found airport %s '%s' in '%s'.", newparam[4], self.name, scenery_pack_apt)
+                                self.scenery_pack = scenery_pack_apt  # remember where we found it
+                                self.lines.append(AptLine(line))  # keep first line
+                                line = apt_dat.readline()  # next line in apt.dat
+                                while line and not re.match("^1 ", line, flags=0):  # while we do not encounter a line defining a new airport...
+                                    testline = AptLine(line)
+                                    if testline.linecode() is not None:
+                                        self.lines.append(testline)
+                                    else:
+                                        logging.debug("Airport::load: did not load empty line '%s'" % line)
+                                    line = apt_dat.readline()  # next line in apt.dat
+                                # Info 4.b
+                                logging.info("Airport::load: Read %d lines for %s." % (len(self.lines), self.name))
+                                self.loaded = True
 
-        for scenery, filename in APT_FILES.items():
-            if self.loaded:
-                return self.loaded
-
-            logging.debug(f"Airport::load: scenery pack {scenery}..")
-            apt_dat = open(filename, "r", encoding="utf-8", errors="ignore")
-            line = apt_dat.readline()
-
-            while not self.loaded and line:  # while we have not found our airport and there are more lines in this pack
-                if re.match("^1 ", line, flags=0):  # if it is a "startOfAirport" line
-                    newparam = line.split()  # if no characters supplied to split(), multiple space characters as one
-                    # logging.debug("airport: %s" % newparam[4])
-                    if newparam[4] == self.icao:  # it is the airport we are looking for
-                        self.name = " ".join(newparam[5:])
-                        self.altitude = newparam[1]
-                        # Info 4.a
-                        logging.info("Airport::load: Found airport %s '%s' in '%s'.", newparam[4], self.name, filename)
-                        self.scenery_pack = filename  # remember where we found it
-                        self.lines.append(AptLine(line))  # keep first line
-                        line = apt_dat.readline()  # next line in apt.dat
-                        while line and not re.match("^1 ", line, flags=0):  # while we do not encounter a line defining a new airport...
-                            testline = AptLine(line)
-                            if testline.linecode() is not None:
-                                self.lines.append(testline)
-                            else:
-                                logging.debug("Airport::load: did not load empty line '%s'" % line)
+                        if line:  # otherwize we reached the end of file
                             line = apt_dat.readline()  # next line in apt.dat
-                        # Info 4.b
-                        logging.info("Airport::load: Read %d lines for %s." % (len(self.lines), self.name))
-                        self.loaded = True
+                    logging.debug("Airport::load: apt.dat loading finished")
+                    apt_dat.close()
 
-                if line:  # otherwize we reached the end of file
-                    line = apt_dat.readline()  # next line in apt.dat
+            scenery = scenery_packs.readline()
 
-            apt_dat.close()
-
+        scenery_packs.close()
         return self.loaded
 
 
@@ -234,6 +243,7 @@ class Airport:
         edgeCount = 0   # just for info
         edgeActiveCount = 0
         edge = False
+        taxiways = []
         for aptline in self.lines:
             if aptline.linecode() == 1202: # edge
                 args = aptline.content().split()
@@ -244,6 +254,8 @@ class Airport:
                     edge = None
                     if len(args) == 5:
                         edge = Edge(src, dst, cost, args[2], args[3], args[4])
+                        if "taxiway" in args[3]:
+                            taxiways.append(args[4])
                     else:
                         edge = Edge(src, dst, cost, args[2], args[3], "")
                     self.graph.add_edge(edge)
@@ -262,6 +274,8 @@ class Airport:
 
         # Info 6
         logging.info("Airport::mkRoutingNetwork: added %d nodes, %d edges (%d enhanced).", len(vertexlines), edgeCount, edgeActiveCount)
+        taxiways2 = sorted(list(set(taxiways)))
+        logging.debug("Airport::mkRoutingNetwork: {}".format(str(taxiways2)))
         return True
 
 
@@ -366,7 +380,6 @@ class Airport:
                 polygon = rwy.polygon
             else:  # make a larger area around/along runway (larger than runway width)
                 polygon = Polygon.mkPolygon(rwy.start.lat, rwy.start.lon, rwy.end.lat, rwy.end.lon, float(width))
-            # logging.debug("Airport::onRunway - Tested Polygon: %s ", polygon)
             if pointInPolygon(point, polygon):
                 if width:
                     logging.debug("Airport::onRunway: on %s (buffer=%dm)", name, width)
@@ -501,15 +514,25 @@ class Airport:
         logging.debug("Airport::mkRoute: got destination vertex %s", dst)
 
         # Try to find route (src and dst are vertex ids)
-        opts = {"taxiwayOnly": True}
+        opts = {"taxiwayOnly": True, "minSizeCode": aircraft.icaocat}
         route = Route(self.graph, src[0], dst[0], move, opts)
+        logging.debug("Airport::mkRoute: route options {}".format(route.options))
         route.find()
         if not route.found() and len(opts.keys()) > 0:  # if there were options, we try to find a route without option
-            logging.debug("Airport::mkRoute: route not found with options, trying without option.")
-            route.options = {}
+            logging.debug("Airport::mkRoute: route not found with options, trying without taxiway option.")
+            route.options = {"minSizeCode": aircraft.icaocat}
+            logging.debug("Airport::mkRoute: route options {}".format(route.options))
             route.find()
 
-        if route.found():  # second attempt may have worked
+        if not route.found() and len(opts.keys()) > 0:
+            # if there were options, we try to find a route without option
+            # @todo implement warning that the taxiway is to small!
+            logging.debug("Airport::mkRoute: route not found with options, trying without any option.")
+            route.options = {}
+            logging.debug("Airport::mkRoute: route options {}".format(route.options))
+            route.find()
+
+        if route.found():  # third attempt may have worked
             return (True, route)
 
         return (False, "We could not find a route to your destination.")
