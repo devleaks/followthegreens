@@ -1,0 +1,26 @@
+Umstellen auf eigene Entwicklung:
+PowerShell mit Administratorrechten aus einem bestehenden PowerShell: 
+
+Start-Process powershell -Verb runAs
+rm "C:\X-Plane 12\Resources\plugins\PythonPlugins\followthegreens"
+New-Item -ItemType SymbolicLink -Path "C:\X-Plane 12\Resources\plugins\PythonPlugins\followthegreens" -Target "C:\X-Plane 12\Resources\plugins\PythonPlugins\My_followthegreen\followthegreens\"
+
+Umstellen auf Standard:
+PowerShell mit Administratorrechten aus einem bestehenden PowerShell: 
+
+Start-Process powershell -Verb runAs
+rm "C:\X-Plane 12\Resources\plugins\PythonPlugins\followthegreens"
+New-Item -ItemType SymbolicLink -Path "C:\X-Plane 12\Resources\plugins\PythonPlugins\followthegreens" -Target "C:\X-Plane 12\Resources\plugins\PythonPlugins\Git_latest_FollowTheGreen\followthegreens"
+
+
+
+debuggin im Mini Python Interpreter in X-Plane:
+
+getPluginList()
+instance = getPluginInstance('xppython3.followthegreens')
+instance.followTheGreensCmd(0)
+
+
+import followthegreens.mp_functions as mp
+parent_conn, child_conn = mp.multiprocessing.Pipe()
+mp.function_frame(child_conn, "C:\X-Plane 12", "EDDB")
