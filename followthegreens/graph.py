@@ -344,7 +344,7 @@ class Graph:  # Graph(FeatureCollection)?
                 node = False
 
         if not node:
-            logger.debug(f"could not find route from {source} to {target}")
+            logger.debug(f"Dijkstra: could not find route from {source} to {target}")
             return None
         else:
             # Including the source in the path
@@ -358,11 +358,11 @@ class Graph:  # Graph(FeatureCollection)?
         """
         va = self.get_vertex(a)
         if va is None:
-            logger.warning(f":heuristic: invalid vertex id a={a}")
+            logger.warning(f"invalid vertex id a={a}")
             return math.inf
         vb = self.get_vertex(b)
         if vb is None:
-            logger.warning(f":heuristic: invalid vertex id b={b}")
+            logger.warning(f"invalid vertex id b={b}")
             return math.inf
         return distance(va, vb)
 
@@ -405,7 +405,7 @@ class Graph:  # Graph(FeatureCollection)?
                     n = v
 
             if n == None:
-                logger.warning(":AStart: route not found")
+                logger.warning("AStar: route not found")
                 return None
 
             # if the current node is the stop_node
@@ -446,5 +446,5 @@ class Graph:  # Graph(FeatureCollection)?
             open_list.remove(n)
             closed_list.add(n)
 
-        logger.warning(":AStart: route not found")
+        logger.warning("AStar: route not found")
         return None
