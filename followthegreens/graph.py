@@ -8,7 +8,15 @@ import math
 import json
 from functools import reduce
 
-from .geo import Point, Line, Polygon, distance, nearestPointToLines, destination, pointInPolygon
+from .geo import (
+    Point,
+    Line,
+    Polygon,
+    distance,
+    nearestPointToLines,
+    destination,
+    pointInPolygon,
+)
 from .globals import TAXIWAY_DIR_TWOWAY, DEPARTURE, ARRIVAL
 
 logger = logging.getLogger("follow_the_greens")
@@ -64,7 +72,9 @@ class Edge(Line):
         self.direction = direction  # direction of vertex: oneway or twoway
         self.usage = usage  # type of vertex: runway or taxiway or taxiway_X where X is width code (A-F)
         self.name = name  # segment name, not unique!
-        self.active = []  # array of segment activity, activity can be departure, arrival, or ils.
+        self.active = (
+            []
+        )  # array of segment activity, activity can be departure, arrival, or ils.
         # departure require clearance. plane cannot stop on segment of type ils.
 
     def props(self):
@@ -145,8 +155,14 @@ class Graph:  # Graph(FeatureCollection)?
             for dst in src.adjacent.keys():
                 v = self.get_edge(src.id, dst)
                 code = v.widthCode("F")
-                txyOk = ("taxiwayOnly" in options and options["taxiwayOnly"] and v.usage != "runway") or ("taxiwayOnly" not in options)
-                scdOk = ("minSizeCode" in options and options["minSizeCode"] <= code) or ("minSizeCode" not in options)
+                txyOk = (
+                    "taxiwayOnly" in options
+                    and options["taxiwayOnly"]
+                    and v.usage != "runway"
+                ) or ("taxiwayOnly" not in options)
+                scdOk = (
+                    "minSizeCode" in options and options["minSizeCode"] <= code
+                ) or ("minSizeCode" not in options)
                 # logger.debug("%s %s %s %s %s" % (dst, v.usage, code, txyOk, scdOk))
                 if txyOk and scdOk:
                     connectionKeys.append(dst)
@@ -158,19 +174,32 @@ class Graph:  # Graph(FeatureCollection)?
     def add_edge(self, edge):
         if edge.start.id in self.vert_dict and edge.end.id in self.vert_dict:
             self.edges_arr.append(edge)
-            self.vert_dict[edge.start.id].add_neighbor(self.vert_dict[edge.end.id].id, edge.cost)
+            self.vert_dict[edge.start.id].add_neighbor(
+                self.vert_dict[edge.end.id].id, edge.cost
+            )
 
             if edge.direction == TAXIWAY_DIR_TWOWAY:
-                self.vert_dict[edge.end.id].add_neighbor(self.vert_dict[edge.start.id].id, edge.cost)
+                self.vert_dict[edge.end.id].add_neighbor(
+                    self.vert_dict[edge.start.id].id, edge.cost
+                )
         else:
             logger.critical(f"vertex not found when adding edges {edge.src},{edge.dst}")
 
     def get_edge(self, src, dst):
-        arr = list(filter(lambda x: x.start.id == src and x.end.id == dst, self.edges_arr))
+        arr = list(
+            filter(lambda x: x.start.id == src and x.end.id == dst, self.edges_arr)
+        )
         if len(arr) > 0:
             return arr[0]
 
-        arr = list(filter(lambda x: x.start.id == dst and x.end.id == src and x.direction == TAXIWAY_DIR_TWOWAY, self.edges_arr))
+        arr = list(
+            filter(
+                lambda x: x.start.id == dst
+                and x.end.id == src
+                and x.direction == TAXIWAY_DIR_TWOWAY,
+                self.edges_arr,
+            )
+        )
         if len(arr) > 0:
             return arr[0]
 
@@ -186,8 +215,14 @@ class Graph:  # Graph(FeatureCollection)?
 
         for edge in self.edges_arr:
             code = edge.widthCode("F")  # default all ok.
-            txyOk = ("taxiwayOnly" in options and options["taxiwayOnly"] and edge.usage != "runway") or ("taxiwayOnly" not in options)
-            scdOk = ("minSizeCode" in options and options["minSizeCode"] <= code) or ("minSizeCode" not in options)
+            txyOk = (
+                "taxiwayOnly" in options
+                and options["taxiwayOnly"]
+                and edge.usage != "runway"
+            ) or ("taxiwayOnly" not in options)
+            scdOk = ("minSizeCode" in options and options["minSizeCode"] <= code) or (
+                "minSizeCode" not in options
+            )
             # logger.debug("%s %s %s %s %s" % (dst, v.usage, code, txyOk, scdOk))
             if txyOk and scdOk:
                 if edge.src not in connected:
@@ -197,14 +232,18 @@ class Graph:  # Graph(FeatureCollection)?
 
         return connected
 
-    def findClosestPointOnEdges(self, point):  # @todo: construct array of lines on "add_edge"
+    def findClosestPointOnEdges(
+        self, point
+    ):  # @todo: construct array of lines on "add_edge"
         return nearestPointToLines(point, self.edges_arr)
 
     def findClosestVertex(self, point):
         closest = None
         shortest = math.inf
         for n, v in self.vert_dict.items():
-            if len(v.adjacent) > 0:  # It must be a vertex connected to the network of taxiways
+            if (
+                len(v.adjacent) > 0
+            ):  # It must be a vertex connected to the network of taxiways
                 d = distance(v, point)
                 if d < shortest:
                     shortest = d
@@ -220,7 +259,9 @@ class Graph:  # Graph(FeatureCollection)?
         return vertices
 
     def findClosestVertexAheadGuess(self, point, brng, speed):
-        MAX_AHEAD = 500  # m, we could make algorithm grow these until vertex found "ahead"
+        MAX_AHEAD = (
+            500  # m, we could make algorithm grow these until vertex found "ahead"
+        )
         MAX_LATERAL = 200  # m
         AHEAD_START = 300
         LATERAL_START = 40
@@ -401,7 +442,9 @@ class Graph:  # Graph(FeatureCollection)?
 
             # find a node with the lowest value of f() - evaluation function
             for v in open_list:
-                if n == None or g[v] + self.heuristic(v, stop_node) < g[n] + self.heuristic(n, stop_node):
+                if n == None or g[v] + self.heuristic(v, stop_node) < g[
+                    n
+                ] + self.heuristic(n, stop_node):
                     n = v
 
             if n == None:

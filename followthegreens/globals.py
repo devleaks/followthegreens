@@ -21,11 +21,17 @@ MAINWINDOW_DISPLAY_TIME = 30  # If above true, main UI window will disappear aft
 
 # you may carefully adjust those:
 MAINWINDOW_FROM_LEFT = 100  # Distance of main UI window from left of screen
-MAINWINDOW_FROM_BOTTOM = 80  # Distance of the bottom of the main window from the bottom of the screen
+MAINWINDOW_FROM_BOTTOM = (
+    80  # Distance of the bottom of the main window from the bottom of the screen
+)
 
 # don't touch those:
-MAINWINDOW_WIDTH = 500  # Normal main window width. May need adjustment if font size is changed
-MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from space and title bar
+MAINWINDOW_WIDTH = (
+    500  # Normal main window width. May need adjustment if font size is changed
+)
+MAINWINDOW_HEIGHT = (
+    80  # Additional main window height to accommodate from space and title bar
+)
 
 
 # X-Plane APT files constants and keywords
@@ -57,7 +63,9 @@ WARNING_DISTANCE = 150  # When getting close to a STOP BAR, show main window.
 
 PLANE_MONITOR_DURATION = 3  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
 
-MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before getting potential stop bar
+MIN_SEGMENTS_BEFORE_HOLD = (
+    3  # on arrival, number of segments to travel before getting potential stop bar
+)
 DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # 20 meter, distance between lights on ground. I *think* that the standard for taxi cetner line lights is 60 meters.
 DISTANCE_BETWEEN_STOPLIGHTS = 2  # meter, distance between lights on ground.
 ADD_LIGHT_AT_VERTEX = False  # Add a light at each taxiway network vertex on the path

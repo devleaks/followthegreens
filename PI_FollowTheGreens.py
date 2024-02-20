@@ -10,7 +10,13 @@ from traceback import print_exc
 import xp
 
 from followthegreens import __VERSION__, __NAME__, __SIGNATURE__, __DESCRIPTION__
-from followthegreens import XP_FTG_COMMAND, XP_FTG_COMMAND_DESC, XP_FTG_CLEARANCE_COMMAND, XP_FTG_CLEARANCE_COMMAND_DESC, FOLLOW_THE_GREENS_IS_RUNNING
+from followthegreens import (
+    XP_FTG_COMMAND,
+    XP_FTG_COMMAND_DESC,
+    XP_FTG_CLEARANCE_COMMAND,
+    XP_FTG_CLEARANCE_COMMAND_DESC,
+    FOLLOW_THE_GREENS_IS_RUNNING,
+)
 from followthegreens import FollowTheGreens
 
 FORMAT = "%(levelname)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
@@ -34,8 +40,12 @@ class PythonInterface:
         if self.trace:
             print(self.Info, "XPluginStart: starting..")
 
-        self.followTheGreensCmdRef = xp.createCommand(XP_FTG_COMMAND, XP_FTG_COMMAND_DESC)
-        xp.registerCommandHandler(self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None)
+        self.followTheGreensCmdRef = xp.createCommand(
+            XP_FTG_COMMAND, XP_FTG_COMMAND_DESC
+        )
+        xp.registerCommandHandler(
+            self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None
+        )
         if self.followTheGreensCmdRef is not None:
             if self.trace:
                 print(self.Info, "XPluginStart: command registered.")
@@ -43,7 +53,9 @@ class PythonInterface:
             if self.trace:
                 print(self.Info, "XPluginStop: command not registered.")
 
-        self.clearanceCmdRef = xp.createCommand(XP_FTG_CLEARANCE_COMMAND, XP_FTG_CLEARANCE_COMMAND_DESC)
+        self.clearanceCmdRef = xp.createCommand(
+            XP_FTG_CLEARANCE_COMMAND, XP_FTG_CLEARANCE_COMMAND_DESC
+        )
         xp.registerCommandHandler(self.clearanceCmdRef, self.clearanceCmd, 1, None)
         if self.followTheGreensCmdRef is not None:
             if self.trace:
@@ -52,7 +64,9 @@ class PythonInterface:
             if self.trace:
                 print(self.Info, "XPluginStop: command not registered.")
 
-        self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), self.Name, self.followTheGreensCmdRef)
+        self.menuIdx = xp.appendMenuItemWithCommand(
+            xp.findPluginsMenu(), self.Name, self.followTheGreensCmdRef
+        )
         if self.menuIdx is None or (self.menuIdx is not None and self.menuIdx < 0):
             print(self.Info, "XPluginStart: menu not added.")
         else:
@@ -94,7 +108,9 @@ class PythonInterface:
             print(self.Info, "XPluginStop: stopping..")
 
         if self.followTheGreensCmdRef:
-            xp.unregisterCommandHandler(self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None)
+            xp.unregisterCommandHandler(
+                self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None
+            )
             self.followTheGreensCmdRef = None
             if self.trace:
                 print(self.Info, "XPluginStop: command unregistered.")
@@ -141,12 +157,20 @@ class PythonInterface:
             self.enabled = True
 
             if self.isRunningRef is not None:
-                for sig in ("com.leecbaker.datareftool", "xplanesdk.examples.DataRefEditor"):
+                for sig in (
+                    "com.leecbaker.datareftool",
+                    "xplanesdk.examples.DataRefEditor",
+                ):
                     dre = xp.findPluginBySignature(sig)
                     if dre != xp.NO_PLUGIN_ID:
-                        xp.sendMessageToPlugin(dre, 0x01000000, FOLLOW_THE_GREENS_IS_RUNNING)
+                        xp.sendMessageToPlugin(
+                            dre, 0x01000000, FOLLOW_THE_GREENS_IS_RUNNING
+                        )
                         if self.trace:
-                            print(self.Info, f"XPluginEnable: data accessor registered with {sig}.")
+                            print(
+                                self.Info,
+                                f"XPluginEnable: data accessor registered with {sig}.",
+                            )
                     else:
                         if self.trace:
                             print(self.Info, f"XPluginEnable: dataref not created.")
@@ -255,7 +279,10 @@ class PythonInterface:
                 print_exc()
                 return 0
         elif not self.followTheGreens:
-            print(self.Info, "followTheGreensCmd: Error: could not create FollowTheGreens.")
+            print(
+                self.Info,
+                "followTheGreensCmd: Error: could not create FollowTheGreens.",
+            )
 
         return 0
 

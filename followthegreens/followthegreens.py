@@ -39,7 +39,9 @@ class FollowTheGreens:
         self.aircraft = None
         self.lights = None
         self.segment = 0  # counter for green segments currently lit -0-----|-1-----|-2---------|-3---
-        self.move = None  # departure or arrival, guessed first, can be changed by pilot.
+        self.move = (
+            None  # departure or arrival, guessed first, can be changed by pilot.
+        )
         self.destination = None  # Handy
         self.ui = UIUtil(self)  # Where windows are built
         self.flightLoop = FlightLoop(self)  # where the magic is done
@@ -51,7 +53,9 @@ class FollowTheGreens:
         # if self.__status = FollowTheGreens.STATUS["ACTIVE"]:
         logger.info(f"status: {self.__status}, {self.ui.mainWindowExists()}.")
         if self.ui.mainWindowExists():
-            logger.debug(f"mainWindow exists, changing visibility {self.ui.isMainWindowVisible()}.")
+            logger.debug(
+                f"mainWindow exists, changing visibility {self.ui.isMainWindowVisible()}."
+            )
             self.ui.toggleVisibilityMainWindow()
             return 1
         else:
@@ -91,11 +95,15 @@ class FollowTheGreens:
         airport = self.aircraft.airport(pos)
         if airport is None:
             logger.debug("no airport")
-            return self.ui.promptForAirport()  # prompt for airport will continue with getDestination(airport)
+            return (
+                self.ui.promptForAirport()
+            )  # prompt for airport will continue with getDestination(airport)
 
         if airport.name == "NOT FOUND":
             logger.debug("no airport (not found)")
-            return self.ui.promptForAirport()  # prompt for airport will continue with getDestination(airport)
+            return (
+                self.ui.promptForAirport()
+            )  # prompt for airport will continue with getDestination(airport)
 
         # Info 3
         logger.info("At %s" % airport.name)
@@ -104,7 +112,9 @@ class FollowTheGreens:
     def getDestination(self, airport):
         # Prompt for local destination at airport.
         # Either a runway for departure or a parking for arrival.
-        if not self.airport or (self.airport.icao != airport):  # we may have changed airport since last call
+        if not self.airport or (
+            self.airport.icao != airport
+        ):  # we may have changed airport since last call
             airport = Airport(airport)
             # Info 4 to 8 in airport.prepare()
             status = airport.prepare()  # [ok, errmsg]
@@ -135,7 +145,9 @@ class FollowTheGreens:
         # If we find a route, we light it.
         if destination not in self.airport.getDestinations(self.move):
             logger.debug(f"destination not valid {destination} for {self.move}")
-            return self.ui.promptForDestination("Destination %s not valid for %s." % (destination, self.move))
+            return self.ui.promptForDestination(
+                "Destination %s not valid for %s." % (destination, self.move)
+            )
 
         # Info 11
         logger.info(f"Route to {destination}.")
@@ -164,7 +176,9 @@ class FollowTheGreens:
         self.destination = destination
         onRwy = False
         if self.move == ARRIVAL:
-            onRwy, runway = self.airport.onRunway(pos, 300)  # 150m either side of runway, return [True,Runway()] or [False, None]
+            onRwy, runway = self.airport.onRunway(
+                pos, 300
+            )  # 150m either side of runway, return [True,Runway()] or [False, None]
         self.lights = LightString()
         self.lights.populate(route, onRwy)
         if len(self.lights.lights) == 0:
@@ -172,7 +186,9 @@ class FollowTheGreens:
             return self.ui.sorry("We could not light a route to your destination.")
 
         # Info 13
-        logger.info(f"Added {len(self.lights.lights)} lights, {self.lights.segments + 1} segments, {len(self.lights.stopbars)} stopbars.")
+        logger.info(
+            f"Added {len(self.lights.lights)} lights, {self.lights.segments + 1} segments, {len(self.lights.stopbars)} stopbars."
+        )
         self.segment = 0
         logger.info(f"Segment {self.segment + 1}/{self.lights.segments + 1}.")
         ret = self.lights.illuminateSegment(self.segment)
@@ -192,7 +208,10 @@ class FollowTheGreens:
         # Hint: distance and heading to first light
         if initdiff > 20 or initdist > 200:
             hdg_str = " ".join(f"{int(initbrgn):03d}")
-            xp.speakString("Follow the greens. Taxiway is at about %d meters heading %s." % (initdist, hdg_str))
+            xp.speakString(
+                "Follow the greens. Taxiway is at about %d meters heading %s."
+                % (initdist, hdg_str)
+            )
         else:
             xp.speakString("Follow the greens.")
 
@@ -200,14 +219,20 @@ class FollowTheGreens:
         if self.lights.segments == 0:  # just one segment
             logger.debug(f"just one segment {self.move}")
             if self.move == ARRIVAL:
-                if len(self.lights.stopbars) == 0:  # not terminated by a stop bar, it is probably an arrival...
+                if (
+                    len(self.lights.stopbars) == 0
+                ):  # not terminated by a stop bar, it is probably an arrival...
                     logger.debug("just one segment on arrival")
                     return self.ui.promptForParked()
-                if len(self.lights.stopbars) == 1:  # terminated with a stop bar, it is probably a departure...
+                if (
+                    len(self.lights.stopbars) == 1
+                ):  # terminated with a stop bar, it is probably a departure...
                     logger.debug("1 segment with 1 stopbar on arrival?")
                     return self.ui.promptForClearance()
             if self.move == DEPARTURE:
-                if len(self.lights.stopbars) == 0:  # not terminated by a stop bar, it is probably an arrival...
+                if (
+                    len(self.lights.stopbars) == 0
+                ):  # not terminated by a stop bar, it is probably an arrival...
                     logger.debug("1 segment with 0 stopbar on departure?")
                     return self.ui.promptForDeparture()
 

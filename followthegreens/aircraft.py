@@ -5,7 +5,9 @@ from .XPDref import XPDref
 
 
 class Aircraft:
-    def __init__(self, icaomodel="A321", icaocategory="D", tailsign="OO-PMA", callsign="FG-001"):
+    def __init__(
+        self, icaomodel="A321", icaocategory="D", tailsign="OO-PMA", callsign="FG-001"
+    ):
         self.icaomodel = XPDref("sim/aircraft/view/acf_ICAO")
         self.tailsign = XPDref("sim/aircraft/view/acf_tailnum")
         self.lat = XPDref("sim/flightmodel/position/latitude")
@@ -26,7 +28,9 @@ class Aircraft:
         return self.groundspeed.value
 
     def airport(self, pos):
-        next_airport_index = xp.findNavAid(None, None, pos[0], pos[1], None, xp.Nav_Airport)
+        next_airport_index = xp.findNavAid(
+            None, None, pos[0], pos[1], None, xp.Nav_Airport
+        )
         if next_airport_index:
             return xp.getNavAidInfo(next_airport_index)
         return None

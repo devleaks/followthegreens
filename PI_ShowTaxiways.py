@@ -21,7 +21,9 @@ class PythonInterface:
     def __init__(self):
         self.Name = "Show taxiways"
         self.Sig = "xppython3.showtaxiways"
-        self.Desc = "Show taxiways, highlight taxiway network" + " (Rel. " + __VERSION__ + ")"
+        self.Desc = (
+            "Show taxiways, highlight taxiway network" + " (Rel. " + __VERSION__ + ")"
+        )
         self.Info = self.Name + f" (rel. {__VERSION__})"
         self.enabled = False
         self.trace = False  # produces extra debugging in XPPython3.log for this class
@@ -34,8 +36,12 @@ class PythonInterface:
             print(self.Info, "XPluginStart: starting..")
 
         self.showTaxiwaysCmdRef = xp.createCommand(XP_STW_COMMAND, XP_STW_COMMAND_DESC)
-        xp.registerCommandHandler(self.showTaxiwaysCmdRef, self.showTaxiwaysCmd, 1, None)
-        self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), self.Name, self.showTaxiwaysCmdRef)
+        xp.registerCommandHandler(
+            self.showTaxiwaysCmdRef, self.showTaxiwaysCmd, 1, None
+        )
+        self.menuIdx = xp.appendMenuItemWithCommand(
+            xp.findPluginsMenu(), self.Name, self.showTaxiwaysCmdRef
+        )
         if self.menuIdx is None or (self.menuIdx is not None and self.menuIdx < 0):
             print(self.Info, "XPluginStart: menu not added.")
         else:
@@ -50,7 +56,9 @@ class PythonInterface:
             print(self.Info, "XPluginStop: stopping..")
 
         if self.showTaxiwaysCmdRef:
-            xp.unregisterCommandHandler(self.showTaxiwaysCmdRef, self.showTaxiwaysCmd, 1, None)
+            xp.unregisterCommandHandler(
+                self.showTaxiwaysCmdRef, self.showTaxiwaysCmd, 1, None
+            )
             self.showTaxiwaysCmdRef = None
         oldidx = self.menuIdx
         if self.menuIdx is not None and self.menuIdx >= 0:
@@ -140,7 +148,9 @@ class PythonInterface:
             if self.trace:
                 print(self.Info, "showTaxiwaysCmd: available.")
 
-            if self.showTaxiways.ui.mainWindowExists():  # already running, we stop it...
+            if (
+                self.showTaxiways.ui.mainWindowExists()
+            ):  # already running, we stop it...
                 try:
                     self.showTaxiways.cancel()
                     if self.trace:

@@ -9,7 +9,12 @@ MSG_ADD_DATAREF = 0x01000000
 
 
 class XPCustomDRef(object):
-    xplm_types = {"int": xp.Type_Int, "float": xp.Type_Float, "double": xp.Type_Double, "int_array": xp.Type_IntArray}
+    xplm_types = {
+        "int": xp.Type_Int,
+        "float": xp.Type_Float,
+        "double": xp.Type_Double,
+        "int_array": xp.Type_IntArray,
+    }
 
     dref = None
     data_type = None
@@ -31,7 +36,16 @@ class XPCustomDRef(object):
 
     notify_dre = True
 
-    def __init__(self, python_interface, signature, data_type, initial_value=None, writeable=False, refcon=0, **kwargs):
+    def __init__(
+        self,
+        python_interface,
+        signature,
+        data_type,
+        initial_value=None,
+        writeable=False,
+        refcon=0,
+        **kwargs,
+    ):
         self.python_interface = python_interface
 
         self.signature = signature
@@ -40,11 +54,17 @@ class XPCustomDRef(object):
             self.refcon = signature
 
         if "[" in data_type:
-            self.array_len = int(data_type[data_type.find("[") + 1 : data_type.find("]")].split(":")[0])
+            self.array_len = int(
+                data_type[data_type.find("[") + 1 : data_type.find("]")].split(":")[0]
+            )
             data_type = data_type[: data_type.find("[")]
 
             if data_type == "int_array":
-                self.value = initial_value if initial_value is not None else [int(0)] * self.array_len
+                self.value = (
+                    initial_value
+                    if initial_value is not None
+                    else [int(0)] * self.array_len
+                )
                 self.read_int_array_cb = self.read_value_int_array_cb
             else:
                 print("type not supported")
@@ -108,7 +128,9 @@ class XPCustomDRef(object):
             xp.sendMessageToPlugin(plugin_id, MSG_ADD_DATAREF, self.signature)
 
     def __repr__(self):
-        return "sig:{} - value:{} - dref:{} - data_type:{}".format(self.signature, self.value, self.dref, self.data_type)
+        return "sig:{} - value:{} - dref:{} - data_type:{}".format(
+            self.signature, self.value, self.dref, self.data_type
+        )
 
 
 class XPCustomDRefsMgr(object):
@@ -120,8 +142,23 @@ class XPCustomDRefsMgr(object):
         self.python_interface = python_interface
         super(XPCustomDRefsMgr, self).__init__()
 
-    def create_dref(self, signature, data_type, writeable=False, refcon=0, dref_class=XPCustomDRef, **kwargs):
-        self.drefs[signature] = dref_class(self.python_interface, signature, data_type, writeable=writeable, refcon=0, **kwargs)
+    def create_dref(
+        self,
+        signature,
+        data_type,
+        writeable=False,
+        refcon=0,
+        dref_class=XPCustomDRef,
+        **kwargs,
+    ):
+        self.drefs[signature] = dref_class(
+            self.python_interface,
+            signature,
+            data_type,
+            writeable=writeable,
+            refcon=0,
+            **kwargs,
+        )
         return self.drefs[signature]
 
     def get_value(self, signature):
@@ -189,7 +226,9 @@ class XPDref:
         if "[" in dref_type:
             self.is_array = True
 
-            range_array = dref_type[dref_type.find("[") + 1 : dref_type.find("]")].split(":")
+            range_array = dref_type[
+                dref_type.find("[") + 1 : dref_type.find("]")
+            ].split(":")
             if len(range_array) < 2:
                 range_array.insert(0, "0")
 
