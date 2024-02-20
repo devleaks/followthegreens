@@ -1,3 +1,4 @@
+1.6.4 - 20-FEB-2024 - Now opening all files as UTF-8 files. Code blackened.
 1.6.3 - 02-JAN-2024 - Added «clearance received» command
 1.6.2 - 02-JAN-2024 - Clean-up logging and code, source blackened
 1.6.1 - 28-DEC-2023 - Interim release with menu checkmark disabled

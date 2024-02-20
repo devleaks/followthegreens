@@ -147,26 +147,42 @@ class Airport:
         APT_FILES = {}
 
         # Add scenery packs, which include Global Airports scenery in XP11
-        scenery_packs_file = os.path.join(SYSTEM_DIRECTORY, "Custom Scenery", "scenery_packs.ini")
+        scenery_packs_file = os.path.join(
+            SYSTEM_DIRECTORY, "Custom Scenery", "scenery_packs.ini"
+        )
         if os.path.exists(scenery_packs_file):
-            scenery_packs = open(scenery_packs_file, "r")
+            scenery_packs = open(
+                scenery_packs_file, "r", encoding="utf-8", errors="ignore"
+            )
             scenery = scenery_packs.readline()
             scenery = scenery.strip()
             while scenery:
                 if re.match("^SCENERY_PACK", scenery, flags=0):
                     logger.debug(f"SCENERY_PACK {scenery.rstrip()}")
                     scenery_pack_dir = scenery[13:-1]
-                    scenery_pack_apt = os.path.join(scenery_pack_dir, "Earth nav data", "apt.dat")
+                    scenery_pack_apt = os.path.join(
+                        scenery_pack_dir, "Earth nav data", "apt.dat"
+                    )
                     # logger.debug("APT.DAT {scenery_pack_apt}")
-                    if os.path.exists(scenery_pack_apt) and os.path.isfile(scenery_pack_apt):
+                    if os.path.exists(scenery_pack_apt) and os.path.isfile(
+                        scenery_pack_apt
+                    ):
                         logger.debug(f"Added apt.dat {scenery_pack_apt}")
                         APT_FILES[scenery] = scenery_pack_apt
                 scenery = scenery_packs.readline()
             scenery_packs.close()
 
         # Add XP 12 location for Global Airports
-        default_airports_file = os.path.join(SYSTEM_DIRECTORY, "Global Scenery", "Global Airports", "Earth nav data", "apt.dat")
-        if os.path.exists(default_airports_file) and os.path.isfile(default_airports_file):
+        default_airports_file = os.path.join(
+            SYSTEM_DIRECTORY,
+            "Global Scenery",
+            "Global Airports",
+            "Earth nav data",
+            "apt.dat",
+        )
+        if os.path.exists(default_airports_file) and os.path.isfile(
+            default_airports_file
+        ):
             APT_FILES["default airports"] = default_airports_file
         # else:
         #     logger.warning(f"default airport file {DEFAULT_AIRPORTS} not found")
@@ -180,19 +196,27 @@ class Airport:
             apt_dat = open(filename, "r", encoding="utf-8", errors="ignore")
             line = apt_dat.readline()
 
-            while not self.loaded and line:  # while we have not found our airport and there are more lines in this pack
+            while (
+                not self.loaded and line
+            ):  # while we have not found our airport and there are more lines in this pack
                 if re.match("^1 ", line, flags=0):  # if it is a "startOfAirport" line
-                    newparam = line.split()  # if no characters supplied to split(), multiple space characters as one
+                    newparam = (
+                        line.split()
+                    )  # if no characters supplied to split(), multiple space characters as one
                     # logger.debug("airport: %s" % newparam[4])
                     if newparam[4] == self.icao:  # it is the airport we are looking for
                         self.name = " ".join(newparam[5:])
                         self.altitude = newparam[1]
                         # Info 4.a
-                        logger.info(f"Found airport {newparam[4]} '{self.name}' in '{filename}'.")
+                        logger.info(
+                            f"Found airport {newparam[4]} '{self.name}' in '{filename}'."
+                        )
                         self.scenery_pack = filename  # remember where we found it
                         self.lines.append(AptLine(line))  # keep first line
                         line = apt_dat.readline()  # next line in apt.dat
-                        while line and not re.match("^1 ", line, flags=0):  # while we do not encounter a line defining a new airport...
+                        while line and not re.match(
+                            "^1 ", line, flags=0
+                        ):  # while we do not encounter a line defining a new airport...
                             testline = AptLine(line)
                             if testline.linecode() is not None:
                                 self.lines.append(testline)
@@ -221,7 +245,9 @@ class Airport:
         # 1201  25.29549372  051.60759816 both 16 unnamed entity(split)
         def addVertex(aptline):
             args = aptline.content().split()
-            return self.graph.add_vertex(args[3], Point(args[0], args[1]), args[2], " ".join(args[3:]))
+            return self.graph.add_vertex(
+                args[3], Point(args[0], args[1]), args[2], " ".join(args[3:])
+            )
 
         vertexlines = list(filter(lambda x: x.linecode() == 1201, self.lines))
         v = list(map(addVertex, vertexlines))
@@ -249,19 +275,25 @@ class Airport:
                     self.graph.add_edge(edge)
                     edgeCount += 1
                 else:
-                    logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}.")
+                    logger.debug(
+                        f"not enough params {aptline.linecode()} {aptline.content()}."
+                    )
             elif aptline.linecode() == 1204 and edge is not None:
                 args = aptline.content().split()
                 if len(args) >= 2:
                     edge.add_active(args[0], args[1])
                     edgeActiveCount += 1
                 else:
-                    logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}.")
+                    logger.debug(
+                        f"not enough params {aptline.linecode()} {aptline.content()}."
+                    )
             else:
                 edge = None
 
         # Info 6
-        logger.info(f"added {len(vertexlines)} nodes, {edgeCount} edges ({edgeActiveCount} enhanced).")
+        logger.info(
+            f"added {len(vertexlines)} nodes, {edgeCount} edges ({edgeActiveCount} enhanced)."
+        )
         return True
 
     def ldRunways(self):
@@ -272,9 +304,15 @@ class Airport:
         for aptline in self.lines:
             if aptline.linecode() == 100:  # runway
                 args = aptline.content().split()
-                runway = Polygon.mkPolygon(args[8], args[9], args[17], args[18], float(args[0]))
-                runways[args[7]] = Runway(args[7], args[0], args[8], args[9], args[17], args[18], runway)
-                runways[args[16]] = Runway(args[16], args[0], args[17], args[18], args[8], args[9], runway)
+                runway = Polygon.mkPolygon(
+                    args[8], args[9], args[17], args[18], float(args[0])
+                )
+                runways[args[7]] = Runway(
+                    args[7], args[0], args[8], args[9], args[17], args[18], runway
+                )
+                runways[args[16]] = Runway(
+                    args[16], args[0], args[17], args[18], args[8], args[9], runway
+                )
 
         self.runways = runways
         logger.debug(f"added {len(runways.keys())} runways")
@@ -330,7 +368,9 @@ class Airport:
         return self.graph.findClosestVertexAhead(Point(coord[0], coord[1]), brng, speed)
 
     def findClosestVertexAheadGuess(self, coord, brng, speed):
-        return self.graph.findClosestVertexAheadGuess(Point(coord[0], coord[1]), brng, speed)
+        return self.graph.findClosestVertexAheadGuess(
+            Point(coord[0], coord[1]), brng, speed
+        )
 
     def findClosestPointOnEdges(self, coord):
         return self.graph.findClosestPointOnEdges(Point(coord[0], coord[1]))
@@ -356,7 +396,9 @@ class Airport:
             if width is None:
                 polygon = rwy.polygon
             else:  # make a larger area around/along runway (larger than runway width)
-                polygon = Polygon.mkPolygon(rwy.start.lat, rwy.start.lon, rwy.end.lat, rwy.end.lon, float(width))
+                polygon = Polygon.mkPolygon(
+                    rwy.start.lat, rwy.start.lon, rwy.end.lat, rwy.end.lon, float(width)
+                )
             if pointInPolygon(point, polygon):
                 if width:
                     logger.debug(f"on {name} (buffer={width}m)")
@@ -476,7 +518,10 @@ class Airport:
 
         if dst[0] is None:
             logger.debug("no close vertex")
-            return (False, "We could not find a taxiway near parking or ramp %s." % destination)
+            return (
+                False,
+                "We could not find a taxiway near parking or ramp %s." % destination,
+            )
 
         if dst[1] > TOO_FAR:
             logger.debug("plane too far from taxiways")
@@ -488,7 +533,9 @@ class Airport:
         opts = {"taxiwayOnly": True}
         route = Route(self.graph, src[0], dst[0], move, opts)
         route.find()
-        if not route.found() and len(opts.keys()) > 0:  # if there were options, we try to find a route without option
+        if (
+            not route.found() and len(opts.keys()) > 0
+        ):  # if there were options, we try to find a route without option
             logger.debug("route not found with options, trying without option.")
             route.options = {}
             route.find()
