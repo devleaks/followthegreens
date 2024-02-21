@@ -69,6 +69,10 @@ to give you the clearance and allow you to progress on the greens.
 If ATC is not capable of calling the clearance for you, you need to either press the «Clearance Received» button on the main dialog box of Follow the Greens.
 Alternatively, you can assign the command to a keystroke or a joystick button to activate it when needed.
 
+The command `XPPython3/followthegreens/send_cancel` is like if you pressed Cancel in a dialog box and terminates Follow the greens.
+
+The command `XPPython3/followthegreens/send_ok` is like if you pressed OK in the last dialog box and terminates Follow the greens normally.
+
 ## More Information
 
 Here is how it works.

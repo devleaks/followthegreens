@@ -10,13 +10,10 @@ from traceback import print_exc
 import xp
 
 from followthegreens import __VERSION__, __NAME__, __SIGNATURE__, __DESCRIPTION__
-from followthegreens import (
-    XP_FTG_COMMAND,
-    XP_FTG_COMMAND_DESC,
-    XP_FTG_CLEARANCE_COMMAND,
-    XP_FTG_CLEARANCE_COMMAND_DESC,
-    FOLLOW_THE_GREENS_IS_RUNNING,
-)
+from followthegreens import XP_FTG_COMMAND, XP_FTG_COMMAND_DESC, FOLLOW_THE_GREENS_IS_RUNNING
+from followthegreens import XP_FTG_CLEARANCE_COMMAND, XP_FTG_CLEARANCE_COMMAND_DESC
+from followthegreens import XP_FTG_CANCEL_COMMAND, XP_FTG_CANCEL_COMMAND_DESC
+from followthegreens import XP_FTG_OK_COMMAND, XP_FTG_OK_COMMAND_DESC
 from followthegreens import FollowTheGreens
 
 FORMAT = "%(levelname)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
@@ -29,44 +26,61 @@ class PythonInterface:
         self.Sig = __SIGNATURE__
         self.Desc = __DESCRIPTION__ + " (Rel. " + __VERSION__ + ")"
         self.Info = self.Name + f" (rel. {__VERSION__})"
-        self.enabled = False
         self.trace = True  # produces extra debugging in XPPython3.log for this class
-        self.menuIdx = None
+
         self.followTheGreens = None
-        self.followTheGreensCmdRef = None
+        self.enabled = False
+
+        self.menuIdx = None
+
         self.isRunningRef = None
+
+        self.followTheGreensCmdRef = None
+        self.clearanceCmdRef = None
+        self.cancelCmdRef = None
+        self.okCmdRef = None
 
     def XPluginStart(self):
         if self.trace:
             print(self.Info, "XPluginStart: starting..")
 
-        self.followTheGreensCmdRef = xp.createCommand(
-            XP_FTG_COMMAND, XP_FTG_COMMAND_DESC
-        )
-        xp.registerCommandHandler(
-            self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None
-        )
+        self.followTheGreensCmdRef = xp.createCommand(XP_FTG_COMMAND, XP_FTG_COMMAND_DESC)
+        xp.registerCommandHandler(self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None)
         if self.followTheGreensCmdRef is not None:
             if self.trace:
-                print(self.Info, "XPluginStart: command registered.")
+                print(self.Info, f"XPluginStart: {XP_FTG_COMMAND} command registered.")
         else:
             if self.trace:
-                print(self.Info, "XPluginStop: command not registered.")
+                print(self.Info, f"XPluginStop: {XP_FTG_COMMAND} not registered.")
 
-        self.clearanceCmdRef = xp.createCommand(
-            XP_FTG_CLEARANCE_COMMAND, XP_FTG_CLEARANCE_COMMAND_DESC
-        )
+        self.clearanceCmdRef = xp.createCommand(XP_FTG_CLEARANCE_COMMAND, XP_FTG_CLEARANCE_COMMAND_DESC)
         xp.registerCommandHandler(self.clearanceCmdRef, self.clearanceCmd, 1, None)
         if self.followTheGreensCmdRef is not None:
             if self.trace:
-                print(self.Info, "XPluginStart: command registered.")
+                print(self.Info, f"XPluginStart: {XP_FTG_CLEARANCE_COMMAND} command registered.")
         else:
             if self.trace:
-                print(self.Info, "XPluginStop: command not registered.")
+                print(self.Info, f"XPluginStop: {XP_FTG_CLEARANCE_COMMAND} command not registered.")
 
-        self.menuIdx = xp.appendMenuItemWithCommand(
-            xp.findPluginsMenu(), self.Name, self.followTheGreensCmdRef
-        )
+        self.cancelCmdRef = xp.createCommand(XP_FTG_CANCEL_COMMAND, XP_FTG_CANCEL_COMMAND_DESC)
+        xp.registerCommandHandler(self.cancelCmdRef, self.cancelCmd, 1, None)
+        if self.followTheGreensCmdRef is not None:
+            if self.trace:
+                print(self.Info, f"XPluginStart: {XP_FTG_CANCEL_COMMAND} command registered.")
+        else:
+            if self.trace:
+                print(self.Info, f"XPluginStop: {XP_FTG_CANCEL_COMMAND} command not registered.")
+
+        self.okCmdRef = xp.createCommand(XP_FTG_OK_COMMAND, XP_FTG_OK_COMMAND_DESC)
+        xp.registerCommandHandler(self.okCmdRef, self.okCmd, 1, None)
+        if self.followTheGreensCmdRef is not None:
+            if self.trace:
+                print(self.Info, f"XPluginStart: {XP_FTG_OK_COMMAND} command registered.")
+        else:
+            if self.trace:
+                print(self.Info, f"XPluginStop: {XP_FTG_OK_COMMAND} command not registered.")
+
+        self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), self.Name, self.followTheGreensCmdRef)
         if self.menuIdx is None or (self.menuIdx is not None and self.menuIdx < 0):
             print(self.Info, "XPluginStart: menu not added.")
         else:
@@ -92,13 +106,6 @@ class PythonInterface:
             0,
             0,
         )  # Refcons not used
-        # if self.isRunningRef is not None:
-        #     xp.shareData(FOLLOW_THE_GREENS_IS_RUNNING, xp.Type_Int, self.runningStatusChangedCallback, 0)
-        #     if self.trace:
-        #         print(self.Info, "XPluginStart: data accessor registered.")
-        # else:
-        #     if self.trace:
-        #         print(self.Info, "XPluginStart: data accessor not registered.")
 
         print(self.Info, "XPluginStart: ..started.")
         return self.Name, self.Sig, self.Desc
@@ -107,16 +114,41 @@ class PythonInterface:
         if self.trace:
             print(self.Info, "XPluginStop: stopping..")
 
-        if self.followTheGreensCmdRef:
-            xp.unregisterCommandHandler(
-                self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None
-            )
+        if self.followTheGreensCmdRef:  # XP_FTG_COMMAND
+            xp.unregisterCommandHandler(self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None)
             self.followTheGreensCmdRef = None
             if self.trace:
-                print(self.Info, "XPluginStop: command unregistered.")
+                print(self.Info, f"XPluginStop: {XP_FTG_COMMAND} command unregistered.")
         else:
             if self.trace:
-                print(self.Info, "XPluginStop: command not unregistered.")
+                print(self.Info, f"XPluginStop: {XP_FTG_COMMAND} command not unregistered.")
+
+        if self.clearanceCmdRef:  # XP_FTG_CLEARANCE_COMMAND
+            xp.unregisterCommandHandler(self.clearanceCmdRef, self.clearanceCmd, 1, None)
+            self.clearanceCmdRef = None
+            if self.trace:
+                print(self.Info, f"XPluginStop: {XP_FTG_CLEARANCE_COMMAND} command unregistered.")
+        else:
+            if self.trace:
+                print(self.Info, f"XPluginStop: {XP_FTG_CLEARANCE_COMMAND} command not unregistered.")
+
+        if self.cancelCmdRef:  # XP_FTG_CANCEL_COMMAND
+            xp.unregisterCommandHandler(self.cancelCmdRef, self.cancelCmd, 1, None)
+            self.cancelCmdRef = None
+            if self.trace:
+                print(self.Info, f"XPluginStop: {XP_FTG_CANCEL_COMMAND} command unregistered.")
+        else:
+            if self.trace:
+                print(self.Info, f"XPluginStop: {XP_FTG_CANCEL_COMMAND} command not unregistered.")
+
+        if self.okCmdRef:  # XP_FTG_OK_COMMAND
+            xp.unregisterCommandHandler(self.okCmdRef, self.okCmd, 1, None)
+            self.okCmdRef = None
+            if self.trace:
+                print(self.Info, f"XPluginStop: {XP_FTG_OK_COMMAND} command unregistered.")
+        else:
+            if self.trace:
+                print(self.Info, f"XPluginStop: {XP_FTG_OK_COMMAND} command not unregistered.")
 
         oldidx = self.menuIdx
         if self.menuIdx is not None and self.menuIdx >= 0:
@@ -157,20 +189,12 @@ class PythonInterface:
             self.enabled = True
 
             if self.isRunningRef is not None:
-                for sig in (
-                    "com.leecbaker.datareftool",
-                    "xplanesdk.examples.DataRefEditor",
-                ):
+                for sig in ("com.leecbaker.datareftool", "xplanesdk.examples.DataRefEditor"):
                     dre = xp.findPluginBySignature(sig)
                     if dre != xp.NO_PLUGIN_ID:
-                        xp.sendMessageToPlugin(
-                            dre, 0x01000000, FOLLOW_THE_GREENS_IS_RUNNING
-                        )
+                        xp.sendMessageToPlugin(dre, 0x01000000, FOLLOW_THE_GREENS_IS_RUNNING)
                         if self.trace:
-                            print(
-                                self.Info,
-                                f"XPluginEnable: data accessor registered with {sig}.",
-                            )
+                            print(self.Info, f"XPluginEnable: data accessor registered with {sig}.")
                     else:
                         if self.trace:
                             print(self.Info, f"XPluginEnable: dataref not created.")
@@ -204,6 +228,7 @@ class PythonInterface:
         return None
 
     def XPluginReceiveMessage(self, inFromWho, inMessage, inParam):
+        # Should may be handle change of location/airport?
         pass
 
     def clearanceCmd(self, *args, **kwargs):
@@ -212,9 +237,6 @@ class PythonInterface:
             print(self.Info, "clearanceCmd: not enabled.")
             return 0
 
-        # When mapped on a keystroke, followTheGreen only starts on begin of command (phase=0).
-        # Phase=1 (continuous press) and phase=2 (release key) are ignored.
-        # If phase not found, report it in log and assume phase=0 (i.e. work will be done.)
         commandPhase = 0
         if len(args) > 2:
             commandPhase = args[1]
@@ -236,6 +258,72 @@ class PythonInterface:
                 print_exc()
         elif not self.followTheGreens:
             print(self.Info, "clearanceCmd: no FollowTheGreens running.")
+
+        return 0
+
+    def cancelCmd(self, *args, **kwargs):
+        # pylint: disable=unused-argument
+        if not self.enabled:
+            print(self.Info, "cancelCmd: not enabled.")
+            return 0
+
+        # When mapped on a keystroke, followTheGreen only starts on begin of command (phase=0).
+        # Phase=1 (continuous press) and phase=2 (release key) are ignored.
+        # If phase not found, report it in log and assume phase=0 (i.e. work will be done.)
+        commandPhase = 0
+        if len(args) > 2:
+            commandPhase = args[1]
+            if self.trace:
+                print(self.Info, "cancelCmd: command phase", commandPhase)
+        else:
+            print(self.Info, "cancelCmd: no command phase", len(args))
+
+        if self.followTheGreens and commandPhase == 0:
+            if self.trace:
+                print(self.Info, "cancelCmd: available.")
+            try:
+                self.followTheGreens.ui.cancelReceived("cancel command received")
+                if self.trace:
+                    print(self.Info, "cancelCmd: executed.")
+                return 1
+            except:
+                print(self.Info, "cancelCmd: exception")
+                print_exc()
+        elif not self.followTheGreens:
+            print(self.Info, "cancelCmd: no FollowTheGreens running.")
+
+        return 0
+
+    def okCmd(self, *args, **kwargs):
+        # pylint: disable=unused-argument
+        if not self.enabled:
+            print(self.Info, "okCmd: not enabled.")
+            return 0
+
+        # When mapped on a keystroke, followTheGreen only starts on begin of command (phase=0).
+        # Phase=1 (continuous press) and phase=2 (release key) are ignored.
+        # If phase not found, report it in log and assume phase=0 (i.e. work will be done.)
+        commandPhase = 0
+        if len(args) > 2:
+            commandPhase = args[1]
+            if self.trace:
+                print(self.Info, "okCmd: command phase", commandPhase)
+        else:
+            print(self.Info, "okCmd: no command phase", len(args))
+
+        if self.followTheGreens and commandPhase == 0:
+            if self.trace:
+                print(self.Info, "okCmd: available.")
+            try:
+                self.followTheGreens.ui.cancelReceived("ok command received")
+                if self.trace:
+                    print(self.Info, "okCmd: executed.")
+                return 1
+            except:
+                print(self.Info, "okCmd: exception")
+                print_exc()
+        elif not self.followTheGreens:
+            print(self.Info, "okCmd: no FollowTheGreens running.")
 
         return 0
 
@@ -279,10 +367,7 @@ class PythonInterface:
                 print_exc()
                 return 0
         elif not self.followTheGreens:
-            print(
-                self.Info,
-                "followTheGreensCmd: Error: could not create FollowTheGreens.",
-            )
+            print(self.Info, "followTheGreensCmd: Error: could not create FollowTheGreens.")
 
         return 0
 

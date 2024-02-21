@@ -6,10 +6,16 @@ SYSTEM_DIRECTORY = "."
 FOLLOW_THE_GREENS_IS_RUNNING = "XPPython3/followthegreens/is_running"
 
 XP_FTG_COMMAND = "XPPython3/followthegreens/main_windown_toggle"
-XP_FTG_COMMAND_DESC = "Open or close Follow the Greens window"
+XP_FTG_COMMAND_DESC = "Open or close Follow the greens window"
 
 XP_FTG_CLEARANCE_COMMAND = "XPPython3/followthegreens/send_clearance_ok"
 XP_FTG_CLEARANCE_COMMAND_DESC = "Clears next stop bar on greens"
+
+XP_FTG_CANCEL_COMMAND = "XPPython3/followthegreens/send_cancel"
+XP_FTG_CANCEL_COMMAND_DESC = "Cancel Follow the greens"
+
+XP_FTG_OK_COMMAND = "XPPython3/followthegreens/send_ok"
+XP_FTG_OK_COMMAND_DESC = "Send OK to Follow the greens"
 
 XP_STW_COMMAND = "XPPython3/followthegreens/highlight_taxiways_toggle"
 XP_STW_COMMAND_DESC = "Show / hide taxiway network"
@@ -21,17 +27,11 @@ MAINWINDOW_DISPLAY_TIME = 30  # If above true, main UI window will disappear aft
 
 # you may carefully adjust those:
 MAINWINDOW_FROM_LEFT = 100  # Distance of main UI window from left of screen
-MAINWINDOW_FROM_BOTTOM = (
-    80  # Distance of the bottom of the main window from the bottom of the screen
-)
+MAINWINDOW_FROM_BOTTOM = 80  # Distance of the bottom of the main window from the bottom of the screen
 
 # don't touch those:
-MAINWINDOW_WIDTH = (
-    500  # Normal main window width. May need adjustment if font size is changed
-)
-MAINWINDOW_HEIGHT = (
-    80  # Additional main window height to accommodate from space and title bar
-)
+MAINWINDOW_WIDTH = 500  # Normal main window width. May need adjustment if font size is changed
+MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from space and title bar
 
 
 # X-Plane APT files constants and keywords
@@ -63,9 +63,7 @@ WARNING_DISTANCE = 150  # When getting close to a STOP BAR, show main window.
 
 PLANE_MONITOR_DURATION = 3  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
 
-MIN_SEGMENTS_BEFORE_HOLD = (
-    3  # on arrival, number of segments to travel before getting potential stop bar
-)
+MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before getting potential stop bar
 DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # 20 meter, distance between lights on ground. I *think* that the standard for taxi cetner line lights is 60 meters.
 DISTANCE_BETWEEN_STOPLIGHTS = 2  # meter, distance between lights on ground.
 ADD_LIGHT_AT_VERTEX = False  # Add a light at each taxiway network vertex on the path
