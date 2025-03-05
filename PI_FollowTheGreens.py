@@ -10,11 +10,18 @@ from traceback import print_exc
 import xp
 
 from followthegreens import __VERSION__, __NAME__, __SIGNATURE__, __DESCRIPTION__
+
 from followthegreens import XP_FTG_COMMAND, XP_FTG_COMMAND_DESC, FOLLOW_THE_GREENS_IS_RUNNING
 from followthegreens import XP_FTG_CLEARANCE_COMMAND, XP_FTG_CLEARANCE_COMMAND_DESC
 from followthegreens import XP_FTG_CANCEL_COMMAND, XP_FTG_CANCEL_COMMAND_DESC
 from followthegreens import XP_FTG_OK_COMMAND, XP_FTG_OK_COMMAND_DESC
-from followthegreens import FollowTheGreens
+
+from followthegreens import XP_STW_COMMAND, XP_STW_COMMAND_DESC
+
+from followthegreens import FollowTheGreens, ShowTaxiways
+
+FTG_MENU = "Follow the greens"
+STW_MENU = "Show taxiways"
 
 FORMAT = "%(levelname)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
 logging.basicConfig(level=logging.INFO, format=FORMAT)
@@ -31,19 +38,25 @@ class PythonInterface:
         self.followTheGreens = None
         self.enabled = False
 
-        self.menuIdx = None
-
         self.isRunningRef = None
 
+        # 1. Follow The Greens
+        self.menuIdx = None
         self.followTheGreensCmdRef = None
         self.clearanceCmdRef = None
         self.cancelCmdRef = None
         self.okCmdRef = None
 
+        # 2. Show Taxiways
+        self.menuIdx_st = None
+        self.showTaxiways = None
+        self.showTaxiwaysCmdRef = None
+
     def XPluginStart(self):
         if self.trace:
             print(self.Info, "XPluginStart: starting..")
 
+        # 1. Follow The Greens
         self.followTheGreensCmdRef = xp.createCommand(XP_FTG_COMMAND, XP_FTG_COMMAND_DESC)
         xp.registerCommandHandler(self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None)
         if self.followTheGreensCmdRef is not None:
@@ -80,7 +93,7 @@ class PythonInterface:
             if self.trace:
                 print(self.Info, f"XPluginStop: {XP_FTG_OK_COMMAND} command not registered.")
 
-        self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), self.Name, self.followTheGreensCmdRef)
+        self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), FTG_MENU, self.followTheGreensCmdRef)
         if self.menuIdx is None or (self.menuIdx is not None and self.menuIdx < 0):
             print(self.Info, "XPluginStart: menu not added.")
         else:
@@ -107,6 +120,20 @@ class PythonInterface:
             0,
         )  # Refcons not used
 
+        # 2. Show Taxiways
+        self.showTaxiwaysCmdRef = xp.createCommand(XP_STW_COMMAND, XP_STW_COMMAND_DESC)
+        xp.registerCommandHandler(
+            self.showTaxiwaysCmdRef, self.showTaxiwaysCmd, 1, None
+        )
+        self.menuIdx_st = xp.appendMenuItemWithCommand(
+            xp.findPluginsMenu(), STW_MENU, self.showTaxiwaysCmdRef
+        )
+        if self.menuIdx_st is None or (self.menuIdx_st is not None and self.menuIdx_st < 0):
+            print(self.Info, "XPluginStart: Show Taxiwaysmenu not added.")
+        else:
+            if self.trace:
+                print(self.Info, "XPluginStart: Show Taxiways menu added.", self.menuIdx_st)
+
         print(self.Info, "XPluginStart: ..started.")
         return self.Name, self.Sig, self.Desc
 
@@ -114,6 +141,7 @@ class PythonInterface:
         if self.trace:
             print(self.Info, "XPluginStop: stopping..")
 
+        # 1. Follow The Greens
         if self.followTheGreensCmdRef:  # XP_FTG_COMMAND
             xp.unregisterCommandHandler(self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None)
             self.followTheGreensCmdRef = None
@@ -178,12 +206,37 @@ class PythonInterface:
                 print(self.Info, "XPluginStop: exception")
                 print_exc()
 
+        # 2. Show Taxiways
+        if self.showTaxiwaysCmdRef:
+            xp.unregisterCommandHandler(
+                self.showTaxiwaysCmdRef, self.showTaxiwaysCmd, 1, None
+            )
+            self.showTaxiwaysCmdRef = None
+        oldidx = self.menuIdx
+        if self.menuIdx is not None and self.menuIdx >= 0:
+            xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx)
+            self.menuIdx = None
+            if self.trace:
+                print(self.Info, "XPluginStop: menu removed.", oldidx)
+        else:
+            if self.trace:
+                print(self.Info, "XPluginStop: menu not removed.", oldidx)
+        if self.showTaxiways:
+            try:
+                self.showTaxiways.stop()
+                self.showTaxiways = None
+            except:
+                print(self.Info, "XPluginStop: exception")
+                print_exc()
+
         print(self.Info, "XPluginStop: ..stopped.")
         return None
 
     def XPluginEnable(self):
         if self.trace:
             print(self.Info, "XPluginEnable: enabling..")
+
+        # 1. Follow The Greens
         try:
             self.followTheGreens = FollowTheGreens(self)
             self.enabled = True
@@ -197,22 +250,37 @@ class PythonInterface:
                             print(self.Info, f"XPluginEnable: data accessor registered with {sig}.")
                     else:
                         if self.trace:
-                            print(self.Info, f"XPluginEnable: dataref not created.")
+                            print(self.Info, f"XPluginEnable: plugin {sig} not found.")
             else:
                 if self.trace:
-                    print(self.Info, f"XPluginEnable: plugin {sig} not found.")
+                    print(self.Info, "XPluginEnable: no data accessor.")
 
             print(self.Info, "XPluginEnable: ..enabled.")
             return 1
         except:
             print(self.Info, "XPluginEnable: ..exception")
             print_exc()
+
+        # 2. Show Taxiways
+        try:
+            self.showTaxiways = ShowTaxiways(self)
+            self.enabled = True
+            if self.trace:
+                print(self.Info, "XPluginEnable: enabled.")
+            return 1
+        except:
+            print(self.Info, "XPluginEnable: exception")
+            print_exc()
+
+
         print(self.Info, "XPluginEnable: ..not enabled.")
         return 0
 
     def XPluginDisable(self):
         if self.trace:
             print(self.Info, "XPluginDisable: disabling..")
+
+        # 1. Follow The Greens
         try:
             if self.enabled and self.followTheGreens:
                 self.followTheGreens.disable()
@@ -223,6 +291,21 @@ class PythonInterface:
         except:
             print(self.Info, "XPluginDisable: exception")
             print_exc()
+
+        # 2. Show Taxiways
+        try:
+            if self.enabled and self.showTaxiways:
+                self.showTaxiways.disable()
+                self.showTaxiways = None
+
+            self.enabled = False
+            if self.trace:
+                print(self.Info, "XPluginDisable: ..disabled.")
+            return None
+        except:
+            print(self.Info, "XPluginDisable: exception")
+            print_exc()
+
         self.enabled = False
         print(self.Info, "XPluginDisable: ..disabled with issue.")
         return None
@@ -385,3 +468,60 @@ class PythonInterface:
         get a callback like this -- instead, our Accessors are called: MySetData(f|d)Callback.
         """
         pass
+
+    def showTaxiwaysCmd(self, *args, **kwargs):
+        # pylint: disable=unused-argument
+        if not self.enabled:
+            print(self.Info, "showTaxiwaysCmd: not enabled.")
+            return 0
+
+        # When mapped on a keystroke, showTaxiways only starts on begin of command (phase=0).
+        # Phase=1 (continuous press) and phase=2 (release key) are ignored.
+        # If phase not found, report it in log and assume phase=0 (i.e. work will be done.)
+        commandPhase = 0
+        if len(args) > 2:
+            commandPhase = args[1]
+            if self.trace:
+                print(self.Info, "showTaxiwaysCmd: command phase", commandPhase)
+        else:
+            print(self.Info, "showTaxiwaysCmd: no command phase", len(args))
+
+        if not self.showTaxiways:
+            try:
+                self.showTaxiways = ShowTaxiways(self)
+                if self.trace:
+                    print(self.Info, "showTaxiwaysCmd: created.")
+            except:
+                print(self.Info, "showTaxiwaysCmd: exception at creation")
+                print_exc()
+                return 0
+
+        if self.showTaxiways and commandPhase == 0:
+            if self.trace:
+                print(self.Info, "showTaxiwaysCmd: available.")
+
+            if (
+                self.showTaxiways.ui.mainWindowExists()
+            ):  # already running, we stop it...
+                try:
+                    self.showTaxiways.cancel()
+                    if self.trace:
+                        print(self.Info, "showTaxiwaysCmd: ended.")
+                    return 1
+                except:
+                    print(self.Info, "showTaxiwaysCmd: exception")
+                    print_exc()
+                return 0
+
+            try:
+                self.showTaxiways.start()
+                if self.trace:
+                    print(self.Info, "showTaxiwaysCmd: started.")
+                return 1
+            except:
+                print(self.Info, "showTaxiwaysCmd: exception")
+                print_exc()
+        elif not self.showTaxiways:
+            print(self.Info, "showTaxiwaysCmd: Error: could not create ShowTaxiways.")
+
+        return 0
