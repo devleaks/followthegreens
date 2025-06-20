@@ -58,12 +58,12 @@ class MyLoadingFlightLoop:
                 feedback = self.conn.recv()
                 logging.debug("mp_flightloop::FlightLoop: Flight loop - message " + type(feedback).__name__)
                 if type(feedback).__name__ == 'Feedback':
-                    logging.debug("mp_flightloop::FlightLoop: Flight loop - Feedback message status " + feedback.status)
-                    logging.debug("mp_flightloop::FlightLoop: Flight loop - Feedback message name " + feedback.name)
-                    logging.debug("mp_flightloop::FlightLoop: Flight loop - Feedback message altitude " + str(feedback.altitude))
-                    logging.debug("mp_flightloop::FlightLoop: Flight loop - Feedback message loaded " + str(feedback.loaded))
-                    logging.debug("mp_flightloop::FlightLoop: Flight loop - Feedback message scenery_pack " + str(feedback.scenery_pack))
-                    logging.debug("mp_flightloop::FlightLoop: Flight loop - Feedback message new_lines " + str(len(feedback.new_lines)))
+                    logging.debug("mp_flightloop::FlightLoop: Flight loop - Feedback message status       : " + feedback.status)
+                    logging.debug("mp_flightloop::FlightLoop: Flight loop - Feedback message name         : " + feedback.name)
+                    logging.debug("mp_flightloop::FlightLoop: Flight loop - Feedback message altitude     : " + str(feedback.altitude))
+                    logging.debug("mp_flightloop::FlightLoop: Flight loop - Feedback message loaded       : " + str(feedback.loaded))
+                    logging.debug("mp_flightloop::FlightLoop: Flight loop - Feedback message scenery_pack : " + str(feedback.scenery_pack))
+                    logging.debug("mp_flightloop::FlightLoop: Flight loop - Feedback message new_lines    : " + str(len(feedback.new_lines)))
                     self.status = feedback.status
                     self.mc.name = feedback.name
                     self.mc.altitude = feedback.altitude
