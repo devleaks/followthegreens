@@ -11,6 +11,8 @@ from .globals import MAINWINDOW_AUTOHIDE, MAINWINDOW_DISPLAY_TIME
 from .globals import MAINWINDOW_WIDTH, MAINWINDOW_HEIGHT
 from .globals import MAINWINDOW_FROM_LEFT, MAINWINDOW_FROM_BOTTOM
 
+logger = logging.getLogger("follow_the_greens")
+
 
 # Some texts we need to recognize. May be later translated.
 CLOSE_TEXT = "Close"
@@ -26,7 +28,6 @@ WINDOW_DISPLAY_TIME = 30 # secs
 
 
 class UIUtil:
-
     def __init__(self, ftg):
         self.ftg = ftg
         self.mainWindow = None
@@ -41,16 +42,14 @@ class UIUtil:
         self.displayTime = 0
         self.search = ''
         self.searchBackup = ''
-
+        self.waiting_for_clearance = False
 
     def window(self, strings, btns):
         if self.mainWindow and "widgetID" in self.mainWindow.keys():  # We create a new window each time we are called.
-            xp.destroyWidget(self.mainWindow['widgetID'], 1)
+            xp.destroyWidget(self.mainWindow["widgetID"], 1)
             self.mainWindow = None
 
-        widgetWindow = {'widgetID': None,   # the ID of the main window containing all other widgets
-                        'widgets': {}       # hash of all child widgets we care about
-                        }
+        widgetWindow = {"widgetID": None, "widgets": {}}  # the ID of the main window containing all other widgets  # hash of all child widgets we care about
         self.mainWindow = widgetWindow
 
         self.fontID = xp.Font_Proportional
@@ -64,13 +63,12 @@ class UIUtil:
         self.wBottom = MAINWINDOW_FROM_BOTTOM
         widgetCenter = int(self.wLeft + (self.wRight - self.wLeft) / 2)
 
-        widgetWindow['widgetID'] = xp.createWidget(self.wLeft, self.wTop, self.wRight, self.wBottom, 0, "Follow the greens",
-                                                   1, 0, xp.WidgetClass_MainWindow)
+        widgetWindow["widgetID"] = xp.createWidget(self.wLeft, self.wTop, self.wRight, self.wBottom, 0, "Follow the greens", 1, 0, xp.WidgetClass_MainWindow)
 
-        xp.addWidgetCallback(widgetWindow['widgetID'], self.cbMainWindow)
+        xp.addWidgetCallback(widgetWindow["widgetID"], self.cbMainWindow)
 
         # xp.setWidgetProperty(widgetWindow['widgetID'], xp.Property_MainWindowType, xp.MainWindowStyle_Translucent)
-        xp.setWidgetProperty(widgetWindow['widgetID'], xp.Property_MainWindowHasCloseBoxes, 1)
+        xp.setWidgetProperty(widgetWindow["widgetID"], xp.Property_MainWindowHasCloseBoxes, 1)
 
         # Add five label / editable text fields.
         # We determine placement based on the size of the font.
@@ -85,31 +83,28 @@ class UIUtil:
             top = int(self.wTop - 35 - len(self.linetops) * linespace * self.strHeight)
             bottom = int(top - self.strHeight)
             self.linetops.append([top, right])  # where line finishes
-            xp.createWidget(left, top, right, bottom, 1, s, 0, widgetWindow['widgetID'], xp.WidgetClass_Caption)
+            xp.createWidget(left, top, right, bottom, 1, s, 0, widgetWindow["widgetID"], xp.WidgetClass_Caption)
 
         # Line of buttons
         buttons, bwidth = self.mkButtons(btns)
         top = int(self.wBottom + 30)
         bottom = int(top - 1.2 * self.strHeight)
         left0 = int(widgetCenter - bwidth / 2)
-        for k,btn in buttons.items():
+        for k, btn in buttons.items():
             left = left0 + btn["left"]
             right = left0 + btn["right"]
-            widgetWindow['widgets'][btn["name"]] = xp.createWidget(left, top, right, bottom,
-                                                                   1, btn["text"], 0, widgetWindow['widgetID'],
-                                                                   xp.WidgetClass_Button)
+            widgetWindow["widgets"][btn["name"]] = xp.createWidget(left, top, right, bottom, 1, btn["text"], 0, widgetWindow["widgetID"], xp.WidgetClass_Button)
             if btn["cb"]:
-                xp.addWidgetCallback(widgetWindow['widgets'][btn["name"]], btn["cb"])
+                xp.addWidgetCallback(widgetWindow["widgets"][btn["name"]], btn["cb"])
 
         self.canHide = True  # new window can always be hidden
-        return widgetWindow['widgetID']
-
+        return widgetWindow["widgetID"]
 
     def mkButtons(self, btns):
         buttons = {}
         prev = False
 
-        for b,cb in btns.items():
+        for b, cb in btns.items():
             buttons[b] = {}
             if not prev:
                 buttons[b]["left"] = 0
@@ -124,28 +119,19 @@ class UIUtil:
 
         return (buttons, prev["right"])  # total width of all buttons
 
-
     def mainWindowExists(self):
-        return self.mainWindow and "widgetID" in self.mainWindow.keys()
-
+        return self.mainWindow is not None and "widgetID" in self.mainWindow.keys()
 
     def isMainWindowVisible(self):
         if self.mainWindowExists():
-            return xp.isWidgetVisible(self.mainWindow['widgetID'])
+            return xp.isWidgetVisible(self.mainWindow["widgetID"])
         return False
-
 
     def showMainWindow(self, canHide=True):
         if self.mainWindowExists():
-            xp.showWidget(self.mainWindow['widgetID'])
-            if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
-                xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Checked)
-                logging.debug(f"showMainWindow: menu checked ({self.ftg.pi.menuIdx})")
-            else:
-                logging.debug(f"showMainWindow: menu not checked ({self.ftg.pi.menuIdx})")
+            xp.showWidget(self.mainWindow["widgetID"])
             self.canHide = canHide
             self.displayTime = 0
-
 
     def hideMainWindowIfOk(self, elapsed=0):
         # We always hide it on request, even if canHide is False
@@ -156,33 +142,24 @@ class UIUtil:
                self.hideMainWindow()
 
 
-
     def hideMainWindow(self):
         # We always hide it on request, even if canHide is False
         if self.mainWindowExists():
-            xp.hideWidget(self.mainWindow['widgetID'])
-            if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
-                xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Unchecked)
-                logging.debug(f"hideMainWindowIfOk: menu checked ({self.ftg.pi.menuIdx})")
-            else:
-                logging.debug(f"hideMainWindowIfOk: menu not checked ({self.ftg.pi.menuIdx})")
-
+            xp.hideWidget(self.mainWindow["widgetID"])
 
     def toggleVisibilityMainWindow(self):
         if self.mainWindowExists():
-            logging.debug("UIUtil::toggleVisibilityMainWindow: isMainWindowVisible(): %d.", self.isMainWindowVisible())
+            logger.debug(f"isMainWindowVisible(): {self.isMainWindowVisible()}.")
             if self.isMainWindowVisible():
                 self.hideMainWindow()
             else:
                 self.showMainWindow()
 
-
     def destroyMainWindow(self):
         if self.mainWindowExists():
-            xp.hideWidget(self.mainWindow['widgetID'])
-            xp.destroyWidget(self.mainWindow['widgetID'], 1)
+            xp.hideWidget(self.mainWindow["widgetID"])
+            xp.destroyWidget(self.mainWindow["widgetID"], 1)
             self.mainWindow = None
-
 
     #
     #
@@ -190,7 +167,7 @@ class UIUtil:
     #
     def greetings(self, text="Good %s."):
         h = self.ftg.aircraft.hourOfDay()
-        logging.debug("UIUtil::nextLeg: bye: %d.", h)
+        logger.debug(f"bye: {h}.")
         ss = list(GOOD.keys())[-1]
         for k, v in GOOD.items():
             if h > v:
@@ -200,22 +177,16 @@ class UIUtil:
     def promptForAirport(self):
         # Create a window to prompt for airport ICAO code
         prompt = "Please enter this airport ICAO code"
-        widgetWindow = self.window([
-            "Welcome. We could not find the airport where you are located.",
-            prompt
-        ], {
-            "Follow the greens": self.cbAirport,
-            CANCELSHORT_TEXT: self.cbCancel
-        })
+        widgetWindow = self.window(
+            ["Welcome. We could not find the airport where you are located.", prompt], {"Follow the greens": self.cbAirport, CANCELSHORT_TEXT: self.cbCancel}
+        )
 
         left = self.linetops[1][1] + 10
         right = int(left + 100)
         top = self.linetops[2][0]
         bottom = int(top - self.strHeight)
-        widget = xp.createWidget(left, top, right, bottom, 1, 'icao', 0,
-                                 self.mainWindow['widgetID'],
-                                 xp.WidgetClass_TextField)
-        self.mainWindow['widgets']['icao'] = widget
+        widget = xp.createWidget(left, top, right, bottom, 1, "icao", 0, self.mainWindow["widgetID"], xp.WidgetClass_TextField)
+        self.mainWindow["widgets"]["icao"] = widget
 
         return widgetWindow
 
@@ -264,7 +235,6 @@ class UIUtil:
 
         return widgetWindow
 
-
     def promptForDestination(self, status=""):
         # Create a window to prompt for a local airport destination, either a runway or a parking position
         move = self.ftg.move
@@ -274,17 +244,17 @@ class UIUtil:
 
         button = None
         prompt = None
-        text   = None
+        text = None
         if move == DEPARTURE:
             self.validDestinations = self.ftg.airport.getDestinations(DEPARTURE)
             prompt = "Please enter runway for departure"
             button = "It is an arrival"
-            text   = "RWY/HLD"
+            text = "RWY/HLD"
         else:
             self.validDestinations = self.ftg.airport.getDestinations(ARRIVAL)
             prompt = "Please enter parking for arrival"
             button = "It is a departure"
-            text   = "RAMP"
+            text = "RAMP"
 
         if len(self.validDestinations) > 0:
             self.validDestinations.sort()
@@ -303,113 +273,74 @@ class UIUtil:
             CANCELSHORT_TEXT: self.cbCancel
         })
 
-
         left = self.linetops[1][1] + 10
         right = int(left + 150)
         top = self.linetops[1][0] - 2
         bottom = int(top - self.strHeight)
-        widget = xp.createWidget(left, top, right, bottom, 1, text, 0,
-                                 self.mainWindow['widgetID'],
-                                 xp.WidgetClass_TextField)
-        self.mainWindow['widgets']['dest'] = widget
-        xp.addWidgetCallback(self.mainWindow['widgets']['dest'], self.cbUpDown)
+        widget = xp.createWidget(left, top, right, bottom, 1, text, 0, self.mainWindow["widgetID"], xp.WidgetClass_TextField)
+        self.mainWindow["widgets"]["dest"] = widget
+        xp.addWidgetCallback(self.mainWindow["widgets"]["dest"], self.cbUpDown)
 
         strWidth = xp.measureString(self.fontID, button)
         left = right + 20  # after the above textfield
         right = int(left + 1.1 * strWidth)
         # top = int(self.wTop - 40 - self.strHeight)
         # bottom = int(top - self.strHeight)
-        widget = xp.createWidget(left, top, right, bottom, 1, button, 0,
-                                 widgetWindow,
-                                 xp.WidgetClass_Button)
-        self.mainWindow['widgets']['move'] = widget
-        xp.addWidgetCallback(self.mainWindow['widgets']['move'], self.cbMovement)
+        widget = xp.createWidget(left, top, right, bottom, 1, button, 0, widgetWindow, xp.WidgetClass_Button)
+        self.mainWindow["widgets"]["move"] = widget
+        xp.addWidgetCallback(self.mainWindow["widgets"]["move"], self.cbMovement)
 
         return widgetWindow
 
-
     def followTheGreen(self):
-        btns = {
-            CANCEL_TEXT: self.cbCancel
-        }
+        btns = {CANCEL_TEXT: self.cbCancel}
         if self.dest:
             btns[IAMLOST_TEXT] = self.cbNewGreen
-        return self.window([
-            "Follow the greens.",
-            "(You can close this window with the little x in the above window title bar.)"
-        ], btns)
-
+        return self.window(["Follow the greens.", "(You can close this window with the little x in the above window title bar.)"], btns)
 
     def promptForClearance(self):
         # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
-        btns = {
-            CLEARANCE_TEXT: self.cbClearance,
-            CANCELSHORT_TEXT: self.cbCancel
-        }
+        btns = {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel}
         if self.dest:
             btns[IAMLOST_TEXT] = self.cbNewGreen
-        return self.window([
-            "Follow the greens until you encounter a line of red stop lights.",
-            "At the stop lights, contact TOWER for clearance. Press Continue when cleared."
-        ], btns)
-
+        self.waiting_for_clearance = True
+        return self.window(
+            [
+                "Follow the greens until you encounter a line of red stop lights.",
+                "At the stop lights, contact TOWER for clearance. Press Continue when cleared.",
+            ],
+            btns,
+        )
 
     def tryAgain(self, text):
         # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
-        btns = {
-            NEWDEST_TEXT: self.cbNewDestination,
-            CANCEL_TEXT: self.cbCancel
-        }
+        btns = {NEWDEST_TEXT: self.cbNewDestination, CANCEL_TEXT: self.cbCancel}
         if self.dest:
             btns[IAMLOST_TEXT] = self.cbNewGreen
-        return self.window([
-            "We could not find a route to your destination.",
-            "Get closer to taxiways and try again."
-        ], btns)
-
+        return self.window(["We could not find a route to your destination.", "Get closer to taxiways and try again."], btns)
 
     def promptForDeparture(self):
         # In front of the last stopbar, ask to ask for clearance for departure and press continue when clearance obtained.
-        return self.window([
-            "Follow the greens until you encounter a line of red stop lights at departure runway.",
-            "Press Continue when cleared for runway."
-        ], {
-            CLEARANCE_TEXT: self.cbClearance,
-            CANCELSHORT_TEXT: self.cbCancel
-        })
-
+        self.waiting_for_clearance = True
+        return self.window(
+            ["Follow the greens until you encounter a line of red stop lights at departure runway.", "Press Continue when cleared for runway."],
+            {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel},
+        )
 
     def promptForParked(self):
-        btns = {
-            CONTINUE_TEXT: self.cbClearance,
-            CANCELSHORT_TEXT: self.cbCancel
-        }
+        btns = {CONTINUE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel}
         if self.dest:
             btns[IAMLOST_TEXT] = self.cbNewGreen
         # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
-        return self.window([
-            "Follow the greens to the designated parking area.",
-            "Press Continue when parked."
-        ], btns)
-
+        return self.window(["Follow the greens to the designated parking area.", "Press Continue when parked."], btns)
 
     def bye(self):
-        return self.window([
-            "You have reached your destination.",
-            self.greetings("Enjoy your %s.")
-        ], {
-            FINISH_TEXT: self.cbBye
-        })
-
+        return self.window(["You have reached your destination.", self.greetings("Enjoy your %s.")], {FINISH_TEXT: self.cbBye})
 
     def enjoy(self):
-        return self.window([
-            "All taxiways in the network are lit. Press "+FINISH_TEXT+" to hide them.",
-            self.greetings("Enjoy your %s.")
-        ], {
-            FINISH_TEXT: self.cbBye
-        })
-
+        return self.window(
+            ["All taxiways in the network are lit. Press " + FINISH_TEXT + " to hide them.", self.greetings("Enjoy your %s.")], {FINISH_TEXT: self.cbBye}
+        )
 
     def sorry(self, message):
         # Open a window with explanation.
@@ -428,7 +359,7 @@ class UIUtil:
         # pylint: disable=unused-argument
         # Router for all window events (when button pressed)
         if inMessage == xp.Message_CloseButtonPushed:
-            xp.hideWidget(self.mainWindow['widgetID'])
+            xp.hideWidget(self.mainWindow["widgetID"])
             return 1
         return 0
 
@@ -484,10 +415,10 @@ class UIUtil:
     def cbDestination(self, inMessage, inWidget, inParam1, inParam2):
         # pylint: disable=unused-argument
         if inMessage == xp.Msg_PushButtonPressed:
-            if 'dest' in self.mainWindow['widgets'].keys():
-                self.dest = xp.getWidgetDescriptor(self.mainWindow['widgets']['dest'])
-                logging.debug("UIUtil::cbDestination:destination: %s", self.dest)
-                xp.hideWidget(self.mainWindow['widgetID'])
+            if "dest" in self.mainWindow["widgets"].keys():
+                self.dest = xp.getWidgetDescriptor(self.mainWindow["widgets"]["dest"])
+                logger.debug(f"destination: {self.dest}")
+                xp.hideWidget(self.mainWindow["widgetID"])
                 nextWindow = self.ftg.followTheGreen(self.dest)
                 xp.showWidget(nextWindow)
             return 1
@@ -496,7 +427,7 @@ class UIUtil:
     def cbNewDestination(self, inMessage, inWidget, inParam1, inParam2):
         # pylint: disable=unused-argument
         if inMessage == xp.Msg_PushButtonPressed:
-            xp.hideWidget(self.mainWindow['widgetID'])
+            xp.hideWidget(self.mainWindow["widgetID"])
             nextWindow = self.promptForDestination()
             xp.showWidget(nextWindow)
             return 1
@@ -507,7 +438,7 @@ class UIUtil:
         if inMessage == xp.Msg_PushButtonPressed:
             if not self.dest:
                 return 0
-            xp.hideWidget(self.mainWindow['widgetID'])
+            xp.hideWidget(self.mainWindow["widgetID"])
             nextWindow = self.ftg.newGreen(self.dest)
             xp.showWidget(nextWindow)
             return 1
@@ -516,7 +447,7 @@ class UIUtil:
     def cbMovement(self, inMessage, inWidget, inParam1, inParam2):
         # pylint: disable=unused-argument
         if inMessage == xp.Msg_PushButtonPressed:
-            xp.hideWidget(self.mainWindow['widgetID'])
+            xp.hideWidget(self.mainWindow["widgetID"])
             if self.ftg.move == DEPARTURE:
                 self.ftg.move = ARRIVAL
             else:
@@ -529,17 +460,28 @@ class UIUtil:
     def cbClearance(self, inMessage, inWidget, inParam1, inParam2):
         # pylint: disable=unused-argument
         if inMessage == xp.Msg_PushButtonPressed:
-            xp.hideWidget(self.mainWindow['widgetID'])
+            xp.hideWidget(self.mainWindow["widgetID"])
+            self.waiting_for_clearance = False
             nextWindow = self.ftg.nextLeg()
             xp.showWidget(nextWindow)
             return 1
         return 0
 
+    def clearanceReceived(self):
+        logger.info(f"clearance command received")
+        if self.waiting_for_clearance:
+            xp.hideWidget(self.mainWindow["widgetID"])
+            self.waiting_for_clearance = False
+            nextWindow = self.ftg.nextLeg()
+            xp.showWidget(nextWindow)
+        else:
+            logger.info(f"not waiting for clearance, ignoring command")
+
     def cbClose(self, inMessage, inWidget, inParam1, inParam2):
         # pylint: disable=unused-argument
         # Just closes the window. Do no alter any other process.
         if inMessage == xp.Msg_PushButtonPressed:
-            xp.hideWidget(self.mainWindow['widgetID'])
+            xp.hideWidget(self.mainWindow["widgetID"])
             return 1
         return 0
 
@@ -547,16 +489,21 @@ class UIUtil:
         # pylint: disable=unused-argument
         # Cancels FollowTheGreen
         if inMessage == xp.Msg_PushButtonPressed:
-            xp.hideWidget(self.mainWindow['widgetID'])
+            xp.hideWidget(self.mainWindow["widgetID"])
             self.ftg.cancel("user cancelled")
             return 1
         return 0
+
+    def cancelReceived(self, comment: str):
+        logger.info(f"cancel command received")
+        xp.hideWidget(self.mainWindow["widgetID"])
+        self.ftg.cancel(comment)
 
     def cbBye(self, inMessage, inWidget, inParam1, inParam2):
         # pylint: disable=unused-argument
         # Cancels FollowTheGreen
         if inMessage == xp.Msg_PushButtonPressed:
-            xp.hideWidget(self.mainWindow['widgetID'])
+            xp.hideWidget(self.mainWindow["widgetID"])
             self.ftg.cancel("terminated normally")
             return 1
         return 0

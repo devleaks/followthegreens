@@ -8,8 +8,8 @@ import math
 import json
 
 # Geology constants
-R = 6371000            # Radius of third rock from the sun, in metres
-FT = 12 * 0.0254       # 1 FOOT = 12 INCHES
+R = 6371000  # Radius of third rock from the sun, in metres
+FT = 12 * 0.0254  # 1 FOOT = 12 INCHES
 NAUTICAL_MILE = 1.852  # Nautical mile in meters 6076.118ft=1nm
 
 
@@ -58,7 +58,6 @@ def sign(x):  # there is no sign function in python...
 
 
 class Feature:
-
     def __init__(self):
         self.properties = {}
         self.featureType = "Feature"
@@ -78,41 +77,33 @@ class Feature:
         return {
             "type": "Feature",
             "geometry": self.geom(True),
-            "properties": self.props()
+            "properties": self.props(),
         }
 
     def geom(self, lonLat=False):
-        return {
-            "type": self.geomType,
-            "coordinates": self.coords(lonLat)
-        }
+        return {"type": self.geomType, "coordinates": self.coords(lonLat)}
 
     def __str__(self):
         return json.dumps(self.feature())
 
 
 class FeatureCollection:
-
     def __init__(self, features=[]):
         self.features = features
 
     def featureCollection(self):
-        return {
-            "type": "FeatureCollection",
-            "features": self.features
-        }
+        return {"type": "FeatureCollection", "features": self.features}
 
     def __str__(self):
         return json.dumps(self.featureCollection())
 
     def save(self, filename):
-        f = open(filename, 'w')
+        f = open(filename, "w")
         json.dump(self.featureCollection(), f, indent=2)
         f.close()
 
 
 class Point(Feature):
-
     def __init__(self, lat, lon, alt=0):
         Feature.__init__(self)
         self.geomType = "Point"
@@ -130,7 +121,6 @@ class Point(Feature):
 
 
 class Line(Feature):
-
     def __init__(self, start, end):
         Feature.__init__(self)
         self.geomType = "LineString"
@@ -151,7 +141,6 @@ class Line(Feature):
 
 
 class LineString(Feature):
-
     def __init__(self, points):
         Feature.__init__(self)
         self.geomType = "LineString"
@@ -175,7 +164,6 @@ class LineString(Feature):
 
 
 class Polygon(Feature):
-
     def __init__(self, p):
         Feature.__init__(self)
         self.geomType = "Polygon"
@@ -186,7 +174,6 @@ class Polygon(Feature):
 
     def coords(self, lonLat=False):
         return list(map(lambda x: x.coords(lonLat), self.coordinates))
-
 
     @staticmethod
     def mkPolygon(lat1, lon1, lat2, lon2, width):
@@ -205,9 +192,11 @@ class Polygon(Feature):
         return Polygon([a0, a1, a3, a2])
 
 
-def haversine(lat1, lat2, long1, long2): # in radians.
+def haversine(lat1, lat2, long1, long2):  # in radians.
     dlat, dlong = lat2 - lat1, long2 - long1
-    return math.pow(math.sin(dlat / 2), 2) + math.cos(lat1) * math.cos(lat2) * math.pow(math.sin(dlong / 2), 2)
+    return math.pow(math.sin(dlat / 2), 2) + math.cos(lat1) * math.cos(lat2) * math.pow(
+        math.sin(dlong / 2), 2
+    )
 
 
 def distance(p1, p2):  # in degrees.
@@ -224,7 +213,9 @@ def bearing(src, dst):
     lon2 = math.radians(dst.lon)
 
     y = math.sin(lon2 - lon1) * math.cos(lat2)
-    x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(lon2 - lon1)
+    x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(
+        lon2 - lon1
+    )
     t = math.atan2(y, x)
     brng = convertAngleTo360(math.degrees(t))  # in degrees
     return brng
@@ -236,8 +227,13 @@ def destination(src, brngDeg, d):
     brng = math.radians(brngDeg)
     r = d / R
 
-    lat2 = math.asin(math.sin(lat) * math.cos(r) + math.cos(lat) * math.sin(r) * math.cos(brng))
-    lon2 = lon + math.atan2(math.sin(brng) * math.sin(r) * math.cos(lat), math.cos(r) - math.sin(lat) * math.sin(lat2))
+    lat2 = math.asin(
+        math.sin(lat) * math.cos(r) + math.cos(lat) * math.sin(r) * math.cos(brng)
+    )
+    lon2 = lon + math.atan2(
+        math.sin(brng) * math.sin(r) * math.cos(lat),
+        math.cos(r) - math.sin(lat) * math.sin(lat2),
+    )
     return Point(math.degrees(lat2), math.degrees(lon2))
 
 
@@ -322,6 +318,7 @@ def pointInPolygon(point, polygon):
 #
 debugFeature = []
 
+
 def debugF(f, n, c=None):
     f.setProp("name", n)
     if c:
@@ -384,7 +381,9 @@ def arcCenter(l0, l1, radius):
     b_out = bearing(l1.start, l1.end)
     turnAngle = turn(b_in, b_out)
     oppositeTurnAngle = turn(b_out, b_in)
-    l0b = lineOffset(l0, sign(turnAngle) * radius)   # offset line is always on right side of line
+    l0b = lineOffset(
+        l0, sign(turnAngle) * radius
+    )  # offset line is always on right side of line
     l1b = lineOffset(l1, sign(oppositeTurnAngle) * radius)
     return lineintersect(l0b, l1b)
 

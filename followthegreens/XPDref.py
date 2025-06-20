@@ -9,12 +9,11 @@ MSG_ADD_DATAREF = 0x01000000
 
 
 class XPCustomDRef(object):
-
     xplm_types = {
-        'int': xp.Type_Int,
-        'float': xp.Type_Float,
-        'double': xp.Type_Double,
-        'int_array': xp.Type_IntArray,
+        "int": xp.Type_Int,
+        "float": xp.Type_Float,
+        "double": xp.Type_Double,
+        "int_array": xp.Type_IntArray,
     }
 
     dref = None
@@ -38,8 +37,15 @@ class XPCustomDRef(object):
     notify_dre = True
 
     def __init__(
-            self, python_interface, signature, data_type, initial_value=None, writeable=False, refcon=0, **kwargs):
-
+        self,
+        python_interface,
+        signature,
+        data_type,
+        initial_value=None,
+        writeable=False,
+        refcon=0,
+        **kwargs,
+    ):
         self.python_interface = python_interface
 
         self.signature = signature
@@ -48,29 +54,34 @@ class XPCustomDRef(object):
             self.refcon = signature
 
         if "[" in data_type:
-            self.array_len = int(data_type[data_type.find('[') + 1:data_type.find(']')].split(':')[0])
-            data_type = data_type[:data_type.find('[')]
+            self.array_len = int(
+                data_type[data_type.find("[") + 1 : data_type.find("]")].split(":")[0]
+            )
+            data_type = data_type[: data_type.find("[")]
 
-            if data_type == 'int_array':
-                self.value = initial_value if initial_value is not None else [int(0)] * self.array_len
+            if data_type == "int_array":
+                self.value = (
+                    initial_value
+                    if initial_value is not None
+                    else [int(0)] * self.array_len
+                )
                 self.read_int_array_cb = self.read_value_int_array_cb
             else:
-                print('type not supported')
+                print("type not supported")
                 return None
 
         else:
-
-            if data_type == 'int':
+            if data_type == "int":
                 self.value = initial_value if initial_value is not None else int(0)
                 self.read_int_cb = self.read_value_cb
-            elif data_type == 'float':
+            elif data_type == "float":
                 self.value = initial_value if initial_value is not None else float(0)
                 self.read_float_cb = self.read_value_cb
-            elif data_type == 'double':
+            elif data_type == "double":
                 self.value = initial_value if initial_value is not None else float(0)
                 self.read_double_cb = self.read_value_cb
             else:
-                print('type not supported')
+                print("type not supported")
                 return None
 
         self.data_type = data_type
@@ -78,7 +89,6 @@ class XPCustomDRef(object):
         self.register()
 
     def register(self):
-
         self.dref = xp.registerDataAccessor(
             self.signature,  # inDataName
             self.xplm_types[self.data_type],  # inDataType
@@ -99,8 +109,6 @@ class XPCustomDRef(object):
             0,  # inWriteRefcon
         )
 
-        # logger.debug(('dref_register={}:{}'.format(self.signature, self.dref))
-
     def unregister(self):
         if self.dref:
             xp.unregisterDataAccessor(self.dref)
@@ -112,7 +120,7 @@ class XPCustomDRef(object):
     def read_value_int_array_cb(self, inRefcon, out, offset, maximum):
         if out is None:
             return self.array_len
-        out.extend(self.value[offset:offset + maximum])
+        out.extend(self.value[offset : offset + maximum])
         return len(out)
 
     def notify_datarefeditor(self, plugin_id):
@@ -120,25 +128,37 @@ class XPCustomDRef(object):
             xp.sendMessageToPlugin(plugin_id, MSG_ADD_DATAREF, self.signature)
 
     def __repr__(self):
-        return 'sig:{} - value:{} - dref:{} - data_type:{}'.format(
-            self.signature, self.value, self.dref, self.data_type)
+        return "sig:{} - value:{} - dref:{} - data_type:{}".format(
+            self.signature, self.value, self.dref, self.data_type
+        )
 
 
 class XPCustomDRefsMgr(object):
-
     drefs = {}
 
     python_interface = None
 
     def __init__(self, python_interface=None):
-
         self.python_interface = python_interface
         super(XPCustomDRefsMgr, self).__init__()
 
-    def create_dref(self, signature, data_type, writeable=False, refcon=0, dref_class=XPCustomDRef, **kwargs):
-
+    def create_dref(
+        self,
+        signature,
+        data_type,
+        writeable=False,
+        refcon=0,
+        dref_class=XPCustomDRef,
+        **kwargs,
+    ):
         self.drefs[signature] = dref_class(
-            self.python_interface, signature, data_type, writeable=writeable, refcon=0, **kwargs)
+            self.python_interface,
+            signature,
+            data_type,
+            writeable=writeable,
+            refcon=0,
+            **kwargs,
+        )
         return self.drefs[signature]
 
     def get_value(self, signature):
@@ -168,11 +188,11 @@ class XPCustomDRefsMgr(object):
 
 
 class XPDref:
-    '''
+    """
     Easy Dataref access
 
     Copyright (C) 2011  Joan Perez i Cauhe
-    '''
+    """
 
     dr_get = None
     dr_set = None
@@ -190,57 +210,29 @@ class XPDref:
     last = 0
 
     dref_mapping = {
-        'int': {
-            'dr_get': xp.getDatai,
-            'dr_set': xp.setDatai,
-            'dr_cast': int,
-        },
-        'float': {
-            'dr_get': xp.getDataf,
-            'dr_set': xp.setDataf,
-            'dr_cast': float,
-        },
-        'double': {
-            'dr_get': xp.getDatad,
-            'dr_set': xp.setDatad,
-            'dr_cast': float,
-        },
+        "int": {"dr_get": xp.getDatai, "dr_set": xp.setDatai, "dr_cast": int},
+        "float": {"dr_get": xp.getDataf, "dr_set": xp.setDataf, "dr_cast": float},
+        "double": {"dr_get": xp.getDatad, "dr_set": xp.setDatad, "dr_cast": float},
     }
 
     dref_mapping_array = {
-        'int': {
-            'dr_get': xp.getDatavi,
-            'dr_set': xp.setDatavi,
-            'dr_cast': int,
-        },
-        'float': {
-            'dr_get': xp.getDatavf,
-            'dr_set': xp.setDatavf,
-            'dr_cast': float,
-        },
-        'byte': {
-            'dr_get': xp.getDatab,
-            'dr_set': xp.setDatab,
-            'dr_cast': bytearray,
-        },
-        'string': {
-            'dr_get': xp.getDatab,
-            'dr_set': xp.setDatab,
-            'dr_cast': bytearray,
-        },
+        "int": {"dr_get": xp.getDatavi, "dr_set": xp.setDatavi, "dr_cast": int},
+        "float": {"dr_get": xp.getDatavf, "dr_set": xp.setDatavf, "dr_cast": float},
+        "byte": {"dr_get": xp.getDatab, "dr_set": xp.setDatab, "dr_cast": bytearray},
+        "string": {"dr_get": xp.getDatab, "dr_set": xp.setDatab, "dr_cast": bytearray},
     }
 
     def __init__(self, signature, dref_type="float", is_decimal=False):
-
-        if '[' in dref_type:
-
+        if "[" in dref_type:
             self.is_array = True
 
-            range_array = dref_type[dref_type.find('[') + 1:dref_type.find(']')].split(':')
+            range_array = dref_type[
+                dref_type.find("[") + 1 : dref_type.find("]")
+            ].split(":")
             if len(range_array) < 2:
-                range_array.insert(0, '0')
+                range_array.insert(0, "0")
 
-            dref_type = dref_type[:dref_type.find('[')]
+            dref_type = dref_type[: dref_type.find("[")]
             dref_mapping = self.dref_mapping_array
 
             self.index = int(range_array[0])
@@ -248,7 +240,6 @@ class XPDref:
             self.last = int(range_array[1])
 
         else:
-
             dref_mapping = self.dref_mapping
 
         if dref_type not in dref_mapping:
@@ -258,9 +249,9 @@ class XPDref:
         if dref_type == "string":
             self.is_string = True
 
-        self.dr_get = dref_mapping[dref_type]['dr_get']
-        self.dr_set = dref_mapping[dref_type]['dr_set']
-        self.dr_cast = dref_mapping[dref_type]['dr_cast']
+        self.dr_get = dref_mapping[dref_type]["dr_get"]
+        self.dr_set = dref_mapping[dref_type]["dr_set"]
+        self.dr_cast = dref_mapping[dref_type]["dr_cast"]
 
         self.dref = xp.findDataRef(signature)
         if not self.dref:
@@ -283,7 +274,7 @@ class XPDref:
             values = []
             self.dr_get(self.dref, values, self.index, self.count)
             if self.is_string:
-                return bytearray([x for x in values if x]).decode('utf-8')
+                return bytearray([x for x in values if x]).decode("utf-8")
             else:
                 return values
         else:
@@ -302,4 +293,4 @@ class XPDref:
 
     @property
     def decimal_value(self):
-        return D(self.get()).quantize('0.00')
+        return D(self.get()).quantize("0.00")

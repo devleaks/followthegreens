@@ -36,7 +36,7 @@ Reload scripts as needed in XPPython3. Follow the greens should now be a menu en
 Select it to start it.
 
 
-## Options and Paramters
+## Options and Parameters
 
 X-Plane does not provide easy user interface construction. So there is no Settings or Options window.
 You must change all parameters in a plugin file.
@@ -49,12 +49,29 @@ In file X-Plane Home Directory/Resources/Plugins/PythonPlugins/followthegreen/gl
 | LIGHTS_AHEAD              |       10        |  0 - 20            | Number of light after the rabbit. If 0, lights till stopbar    |
 | RABBIT_LENGTH             |       10        |  2 - 16            | Length of the the rabbit (in number of lights)                 |
 | RABBIT_DURATION           |       0.5       |  0.5 - 0.03        | Duration of a "off" light in rabitt. Low value impacts FPS     |
-| DISTANCEBETWEENGREENLIGHTS|       20        |  5 - 40            | Distance between green lights (in meter)                       |
-| WARNINGDISTANCE           |       150       |  100-300           | Distance to stop light before Follow the greens window pops up |
+| DISTANCE_BETWEEN_GREEN_LIGHTS|    20.       |  5 - 40            | Distance between green lights (in meter)                       |
+| WARNING_DISTANCE          |       150       |  100-300           | Distance to stop light before Follow the greens window pops up |
 
 
 Watch out. Changing other parameter may crash the plugin and X-Plane.
 
+## X-Plane Integration
+
+The `XPPython3/followthegreens/is_running` dataref is 1 if Follow the Greens is running.
+
+The command `XPPython3/followthegreens/main_windown_toggle` toggles the visibility of the main window of Follow the Greens.
+If it is already running, it show the current instructions and prompt.
+The main window of Follow the Greens disappears after a few seconds. Toggling its visibility shows it back.
+
+The command `XPPython3/followthegreens/send_clearance_ok` is meant to be used by external parties, ATC controllers and alike,
+to give you the clearance and allow you to progress on the greens.
+
+If ATC is not capable of calling the clearance for you, you need to either press the «Clearance Received» button on the main dialog box of Follow the Greens.
+Alternatively, you can assign the command to a keystroke or a joystick button to activate it when needed.
+
+The command `XPPython3/followthegreens/send_cancel` is like if you pressed Cancel in a dialog box and terminates Follow the greens.
+
+The command `XPPython3/followthegreens/send_ok` is like if you pressed OK in the last dialog box and terminates Follow the greens normally.
 
 ## More Information
 

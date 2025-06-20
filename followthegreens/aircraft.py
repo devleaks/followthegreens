@@ -74,7 +74,9 @@ class Aircraft:
         return self.groundspeed.value
 
     def airport(self, pos):
-        next_airport_index = xp.findNavAid(None, None, pos[0], pos[1], None, xp.Nav_Airport)
+        next_airport_index = xp.findNavAid(
+            None, None, pos[0], pos[1], None, xp.Nav_Airport
+        )
         if next_airport_index:
             return xp.getNavAidInfo(next_airport_index)
         return None

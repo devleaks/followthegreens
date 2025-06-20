@@ -7,12 +7,22 @@ import logging
 import math
 import json
 from functools import reduce
-from .geo import Point, Line, Polygon, distance, nearestPointToLines, destination, pointInPolygon
+
+from .geo import (
+    Point,
+    Line,
+    Polygon,
+    distance,
+    nearestPointToLines,
+    destination,
+    pointInPolygon,
+)
 from .globals import TAXIWAY_DIR_TWOWAY, DEPARTURE, ARRIVAL
+
+logger = logging.getLogger("follow_the_greens")
 
 
 class Vertex(Point):  ## Vertex(Point)
-
     def __init__(self, node, point, usage, name=""):
         Point.__init__(self, point.lat, point.lon)
         self.id = node
@@ -20,7 +30,6 @@ class Vertex(Point):  ## Vertex(Point)
         self.name = name
         self.adjacent = {}
         self.setProp("vid", node)  # vertex id
-
 
     def props(self):
         self.setProp("marker-color", "#888888")  # “dest”, “init”, “both” or “junc”
@@ -40,7 +49,7 @@ class Vertex(Point):  ## Vertex(Point)
     def add_neighbor(self, neighbor, weight=0):
         self.adjacent[neighbor] = weight
 
-    def get_connections(self, graph, options = {}):
+    def get_connections(self, graph, options={}):
         return self.adjacent.keys()
 
     def get_neighbors(self):
@@ -48,7 +57,6 @@ class Vertex(Point):  ## Vertex(Point)
 
 
 class Active:
-
     def __init__(self, active, runways):
         self.active = active
         self.runways = runways.split(",")
@@ -58,14 +66,15 @@ class Active:
 
 
 class Edge(Line):
-
     def __init__(self, src, dst, cost, direction, usage, name):
         Line.__init__(self, src, dst)
-        self.cost = cost    # cost = distance to next vertext
+        self.cost = cost  # cost = distance to next vertext
         self.direction = direction  # direction of vertex: oneway or twoway
         self.usage = usage  # type of vertex: runway or taxiway or taxiway_X where X is width code (A-F)
-        self.name = name    # segment name, not unique!
-        self.active = []    # array of segment activity, activity can be departure, arrival, or ils.
+        self.name = name  # segment name, not unique!
+        self.active = (
+            []
+        )  # array of segment activity, activity can be departure, arrival, or ils.
         # departure require clearance. plane cannot stop on segment of type ils.
 
     def props(self):
@@ -90,9 +99,7 @@ class Edge(Line):
     def mkActives(self):
         ret = []
         for a in self.active:
-            ret.append({
-                a.active: ",".join(a.runways)  # "ils": "12L,30R"
-            })
+            ret.append({a.active: ",".join(a.runways)})  # "ils": "12L,30R"
         return ret
 
     def add_active(self, active, runways):
@@ -111,17 +118,14 @@ class Edge(Line):
             return self.usage[8]
         return default
 
-class Graph:  # Graph(FeatureCollection)?
 
+class Graph:  # Graph(FeatureCollection)?
     def __init__(self):
         self.vert_dict = {}
         self.edges_arr = []
 
     def __str__(self):
-        return json.dumps({
-            "type": "FeatureCollection",
-            "features": self.features()
-        })
+        return json.dumps({"type": "FeatureCollection", "features": self.features()})
 
     def __iter__(self):
         return iter(self.vert_dict.values())
@@ -130,10 +134,11 @@ class Graph:  # Graph(FeatureCollection)?
         def add(arr, v):
             arr.append(v.feature(self))
             return arr
+
         return reduce(add, self.edges_arr, [])
 
-    def add_vertex(self, node, point, usage, name = ""):
-        new_vertex = Vertex(node, point, usage, name = "")
+    def add_vertex(self, node, point, usage, name=""):
+        new_vertex = Vertex(node, point, usage, name="")
         self.vert_dict[node] = new_vertex
         return new_vertex
 
@@ -150,9 +155,15 @@ class Graph:  # Graph(FeatureCollection)?
             for dst in src.adjacent.keys():
                 v = self.get_edge(src.id, dst)
                 code = v.widthCode("F")
-                txyOk = ("taxiwayOnly" in options and options["taxiwayOnly"] and v.usage != "runway") or ("taxiwayOnly" not in options)
-                scdOk = ("minSizeCode" in options and options["minSizeCode"] <= code) or ("minSizeCode" not in options)
-                # logging.debug("%s %s %s %s %s" % (dst, v.usage, code, txyOk, scdOk))
+                txyOk = (
+                    "taxiwayOnly" in options
+                    and options["taxiwayOnly"]
+                    and v.usage != "runway"
+                ) or ("taxiwayOnly" not in options)
+                scdOk = (
+                    "minSizeCode" in options and options["minSizeCode"] <= code
+                ) or ("minSizeCode" not in options)
+                # logger.debug("%s %s %s %s %s" % (dst, v.usage, code, txyOk, scdOk))
                 if txyOk and scdOk:
                     connectionKeys.append(dst)
 
@@ -163,19 +174,32 @@ class Graph:  # Graph(FeatureCollection)?
     def add_edge(self, edge):
         if edge.start.id in self.vert_dict and edge.end.id in self.vert_dict:
             self.edges_arr.append(edge)
-            self.vert_dict[edge.start.id].add_neighbor(self.vert_dict[edge.end.id].id, edge.cost)
+            self.vert_dict[edge.start.id].add_neighbor(
+                self.vert_dict[edge.end.id].id, edge.cost
+            )
 
-            if(edge.direction == TAXIWAY_DIR_TWOWAY):
-                self.vert_dict[edge.end.id].add_neighbor(self.vert_dict[edge.start.id].id, edge.cost)
+            if edge.direction == TAXIWAY_DIR_TWOWAY:
+                self.vert_dict[edge.end.id].add_neighbor(
+                    self.vert_dict[edge.start.id].id, edge.cost
+                )
         else:
-            logging.critical("Graph::add_edge: vertex not found when adding edges %s,%s", edge.src, edge.dst)
+            logger.critical(f"vertex not found when adding edges {edge.src},{edge.dst}")
 
     def get_edge(self, src, dst):
-        arr = list(filter(lambda x: x.start.id == src and x.end.id == dst, self.edges_arr))
+        arr = list(
+            filter(lambda x: x.start.id == src and x.end.id == dst, self.edges_arr)
+        )
         if len(arr) > 0:
             return arr[0]
 
-        arr = list(filter(lambda x: x.start.id == dst and x.end.id == src and x.direction == TAXIWAY_DIR_TWOWAY, self.edges_arr))
+        arr = list(
+            filter(
+                lambda x: x.start.id == dst
+                and x.end.id == src
+                and x.direction == TAXIWAY_DIR_TWOWAY,
+                self.edges_arr,
+            )
+        )
         if len(arr) > 0:
             return arr[0]
 
@@ -191,9 +215,15 @@ class Graph:  # Graph(FeatureCollection)?
 
         for edge in self.edges_arr:
             code = edge.widthCode("F")  # default all ok.
-            txyOk = ("taxiwayOnly" in options and options["taxiwayOnly"] and edge.usage != "runway") or ("taxiwayOnly" not in options)
-            scdOk = ("minSizeCode" in options and options["minSizeCode"] <= code) or ("minSizeCode" not in options)
-            # logging.debug("%s %s %s %s %s" % (dst, v.usage, code, txyOk, scdOk))
+            txyOk = (
+                "taxiwayOnly" in options
+                and options["taxiwayOnly"]
+                and edge.usage != "runway"
+            ) or ("taxiwayOnly" not in options)
+            scdOk = ("minSizeCode" in options and options["minSizeCode"] <= code) or (
+                "minSizeCode" not in options
+            )
+            # logger.debug("%s %s %s %s %s" % (dst, v.usage, code, txyOk, scdOk))
             if txyOk and scdOk:
                 if edge.src not in connected:
                     connected.append(edge.src)
@@ -202,19 +232,23 @@ class Graph:  # Graph(FeatureCollection)?
 
         return connected
 
-    def findClosestPointOnEdges(self, point):  # @todo: construct array of lines on "add_edge"
+    def findClosestPointOnEdges(
+        self, point
+    ):  # @todo: construct array of lines on "add_edge"
         return nearestPointToLines(point, self.edges_arr)
 
     def findClosestVertex(self, point):
         closest = None
         shortest = math.inf
         for n, v in self.vert_dict.items():
-            if len(v.adjacent) > 0:    # It must be a vertex connected to the network of taxiways
+            if (
+                len(v.adjacent) > 0
+            ):  # It must be a vertex connected to the network of taxiways
                 d = distance(v, point)
                 if d < shortest:
                     shortest = d
                     closest = n
-        logging.debug("Graph::findClosestVertex: %s at %f", closest, shortest)
+        logger.debug(f"{closest} at {shortest}")
         return [closest, shortest]
 
     def findVertexInPolygon(self, polygon):
@@ -225,8 +259,10 @@ class Graph:  # Graph(FeatureCollection)?
         return vertices
 
     def findClosestVertexAheadGuess(self, point, brng, speed):
-        MAX_AHEAD = 500     # m, we could make algorithm grow these until vertex found "ahead"
-        MAX_LATERAL = 200   # m
+        MAX_AHEAD = (
+            500  # m, we could make algorithm grow these until vertex found "ahead"
+        )
+        MAX_LATERAL = 200  # m
         AHEAD_START = 300
         LATERAL_START = 40
         AHEAD_INC = 100
@@ -241,7 +277,7 @@ class Graph:  # Graph(FeatureCollection)?
                 lateral += LATERAL_INC
             ahead += AHEAD_INC
             lateral = LATERAL_START
-        logging.debug("Graph::findClosestVertexAheadGuess: found at ahead=%d, lateral=%d.", ahead, lateral)
+        logger.debug(f"found at ahead={ahead}, lateral={lateral}")
         return found
 
     def findClosestVertexAhead(self, point, brng, speed, ahead=200, lateral=100):
@@ -255,7 +291,7 @@ class Graph:  # Graph(FeatureCollection)?
         baseR = destination(base, brng - 90, lateral)
         triangle = Polygon([point, baseL, baseR])
         vertices = self.findVertexInPolygon(triangle)
-        logging.debug("Graph::findClosestVertexAhead: %d, %d, inside %s.", ahead, lateral, len(vertices))
+        logger.debug(f"{ahead}, {lateral}, inside {len(vertices)}.")
 
         v = None
         d = math.inf
@@ -277,12 +313,12 @@ class Graph:  # Graph(FeatureCollection)?
         # This will store the Shortest path between source and target node
         route = []
         if not source or not target:
-            logging.debug("Graph::Dijkstra: source or target missing")
+            logger.debug("source or target missing")
             return route
 
         # These are all the nodes which have not been visited yet
         unvisited_nodes = list(self.get_vertices())
-        # logging.debug("Unvisited nodes", unvisited_nodes)
+        # logger.debug("Unvisited nodes", unvisited_nodes)
         # It will store the shortest distance from one node to another
         shortest_distance = {}
         # It will store the predecessors of the nodes
@@ -297,7 +333,7 @@ class Graph:  # Graph(FeatureCollection)?
         shortest_distance[str(source)] = 0
 
         # Running the loop while all the nodes have been visited
-        while(unvisited_nodes):
+        while unvisited_nodes:
             # setting the value of min_node as None
             min_node = None
             # iterating through all the unvisited node
@@ -308,16 +344,16 @@ class Graph:  # Graph(FeatureCollection)?
                     min_node = current_node
                 elif shortest_distance[min_node] > shortest_distance[current_node]:
                     # I the value of min_node is less than that of current_node, set
-                    #min_node as current_node
+                    # min_node as current_node
                     min_node = current_node
 
             # Iterating through the connected nodes of current_node (for
             # example, a is connected with b and c having values 10 and 3
             # respectively) and the weight of the edges
             connected = self.get_connections(self.get_vertex(min_node), options)
-            # logging.debug("connected %s %s", min_node, connected)
+            # logger.debug("connected %s %s", min_node, connected)
             for child_node in connected:
-                e = self.get_edge(min_node, child_node) # should always be found...
+                e = self.get_edge(min_node, child_node)  # should always be found...
                 cost = e.cost
 
                 # checking if the value of the current_node + value of the edge
@@ -339,22 +375,22 @@ class Graph:  # Graph(FeatureCollection)?
         node = target
         # Starting from the goal node, we will go back to the source node and
         # see what path we followed to get the smallest distance
-        # logging.debug("predecessor %s", predecessor)
+        # logger.debug("predecessor %s", predecessor)
         while node and node != source and len(predecessor.keys()) > 0:
             # As it is not necessary that the target node can be reached from # the source node, we must enclose it in a try block
-            route.insert(0,node)
+            route.insert(0, node)
             if node in predecessor:
                 node = predecessor[node]
             else:
                 node = False
 
         if not node:
-            logging.debug("Graph::Dijkstra: could not find route from %s to %s", source, target)
+            logger.debug(f"Dijkstra: could not find route from {source} to {target}")
             return None
         else:
             # Including the source in the path
             route.insert(0, source)
-            logging.debug("Graph::Dijkstra: route: %s", "-".join(route))
+            logger.debug(f"route: {'-'.join(route)}")
             return route
 
     def heuristic(self, a, b):  # On demand
@@ -363,11 +399,11 @@ class Graph:  # Graph(FeatureCollection)?
         """
         va = self.get_vertex(a)
         if va is None:
-            logging.warning(f":heuristic: invalid vertex id a={a}")
+            logger.warning(f"invalid vertex id a={a}")
             return math.inf
         vb = self.get_vertex(b)
         if vb is None:
-            logging.warning(f":heuristic: invalid vertex id b={b}")
+            logger.warning(f"invalid vertex id b={b}")
             return math.inf
         return distance(va, vb)
 
@@ -406,11 +442,13 @@ class Graph:  # Graph(FeatureCollection)?
 
             # find a node with the lowest value of f() - evaluation function
             for v in open_list:
-                if n == None or g[v] + self.heuristic(v, stop_node) < g[n] + self.heuristic(n, stop_node):
+                if n == None or g[v] + self.heuristic(v, stop_node) < g[
+                    n
+                ] + self.heuristic(n, stop_node):
                     n = v
 
             if n == None:
-                logging.warning(":AStart: route not found")
+                logger.warning("AStar: route not found")
                 return None
 
             # if the current node is the stop_node
@@ -426,7 +464,7 @@ class Graph:  # Graph(FeatureCollection)?
                 return reconst_path
 
             # for all neighbors of the current node do
-            for (m, weight) in self.get_neighbors(n):
+            for m, weight in self.get_neighbors(n):
                 # if the current node isn't in both open_list and closed_list
                 # add it to open_list and note n as it's parent
                 if m not in open_list and m not in closed_list:
@@ -451,5 +489,5 @@ class Graph:  # Graph(FeatureCollection)?
             open_list.remove(n)
             closed_list.add(n)
 
-        logging.warning(":AStart: route not found")
+        logger.warning("AStar: route not found")
         return None

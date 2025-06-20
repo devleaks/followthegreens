@@ -1,7 +1,7 @@
 __NAME__ = "Follow the greens"
 __SIGNATURE__ = "xppython3.followthegreens"
 __DESCRIPTION__ = "Follow the greens, an X-Plane ATC A-SMGCS experience."
-__VERSION__ = "1.5.1"
+__VERSION__ = "1.6.7"
 
 try:
     from .followthegreens import FollowTheGreens
@@ -17,5 +17,8 @@ try:
     from .ui import UIUtil
     from .XPDref import XPDref
     from .globals import FOLLOW_THE_GREENS_IS_RUNNING, XP_FTG_COMMAND, XP_FTG_COMMAND_DESC, XP_STW_COMMAND, XP_STW_COMMAND_DESC
+    from .globals import XP_FTG_CLEARANCE_COMMAND, XP_FTG_CLEARANCE_COMMAND_DESC
+    from .globals import XP_FTG_CANCEL_COMMAND, XP_FTG_CANCEL_COMMAND_DESC
+    from .globals import XP_FTG_OK_COMMAND, XP_FTG_OK_COMMAND_DESC
 except ImportError:
     pass
