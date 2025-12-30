@@ -2,6 +2,7 @@
 # We currently have two loops, one for rabbit, one to monitor plane position.
 #
 import logging
+from datetime import datetime
 
 import xp
 
@@ -31,6 +32,8 @@ class FlightLoop:
         self.diftingLimit = (
             5 * DISTANCE_BETWEEN_GREEN_LIGHTS
         )  # After that, we send a warning, and we may cancel FTG.
+        self.last_updated = datetime.now()
+        self.rabbit_mode = 0  # faster, normal, slower [-2, 2]?
 
     def startFlightLoop(self):
         # @todo schedule/unschedule without destroying
@@ -80,6 +83,44 @@ class FlightLoop:
         else:
             logger.debug("plane not tracked.")
 
+    def rabbitMode(self, mode: str):
+        # Need to add a function to NOT change rabbit too often, once every 10 secs. is a minimum
+        MAX_UPDATE_FREQUENCY = 10  # seconds
+        now = datetime.now()
+        delay = (now - self.last_updated).total_seconds()
+        if delay < MAX_UPDATE_FREQUENCY:
+            logger.debug(
+                f"must wait {round(MAX_UPDATE_FREQUENCY - delay, 2)} seconds before changing rabbit"
+            )
+            return
+
+        if self.rabbitRunning:
+            xp.destroyFlightLoop(self.flrabbit)
+            self.rabbitRunning = False
+            logger.debug("rabbit stopped before adjustments")
+        else:
+            logger.debug("rabbit not running.")
+
+        self.ftg.lights.rabbitMode(mode)
+        self.last_updated = now
+
+        phase = xp.FlightLoop_Phase_AfterFlightModel
+        # @todo: make function to reset lastLit counter
+        self.lastLit = 0
+        params = [phase, self.rabbitFLCB, self.refrabbit]
+        self.flrabbit = xp.createFlightLoop(params)
+        xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)
+        self.rabbitRunning = True
+        logger.debug("rabbit restarted after adjustments")
+
+    def adjustSpeed(self, speed, position):
+        # Check if speed of aircraft is optimum
+        # Next vertex: distance, expected turn angle at vertex
+        # Min taxi speed 5kt, absolute max taxi speed 30kt
+        # Accelerate of more than 200m from turn, break if closer
+        # Max turn speed = function(turn angle)
+        return False
+
     def rabbitFLCB(
         self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon
     ):
@@ -101,6 +142,11 @@ class FlightLoop:
         if not pos or (pos[0] == 0 and pos[1] == 0):
             logger.debug("no position.")
             return self.nextIter
+
+        # Monitor aircraft speed and adjust rabbit speed
+        spd = self.ftg.aircraft.speed()
+        if self.adjustSpeed(pos, spd):
+            self.changeRabbit(0, 0, 0)
 
         nextStop, warn = self.ftg.lights.toNextStop(pos)
         if nextStop and warn < WARNING_DISTANCE:

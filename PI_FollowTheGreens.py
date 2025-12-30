@@ -4,27 +4,23 @@
 # Enjoy.
 #
 #
-import logging
 from traceback import print_exc
 
 import xp
 
 from followthegreens import __VERSION__, __NAME__, __SIGNATURE__, __DESCRIPTION__
-
-from followthegreens import XP_FTG_COMMAND, XP_FTG_COMMAND_DESC, FOLLOW_THE_GREENS_IS_RUNNING
+from followthegreens import (
+    XP_FTG_COMMAND,
+    XP_FTG_COMMAND_DESC,
+    FOLLOW_THE_GREENS_IS_RUNNING,
+    FTG_MENU,
+)
 from followthegreens import XP_FTG_CLEARANCE_COMMAND, XP_FTG_CLEARANCE_COMMAND_DESC
 from followthegreens import XP_FTG_CANCEL_COMMAND, XP_FTG_CANCEL_COMMAND_DESC
 from followthegreens import XP_FTG_OK_COMMAND, XP_FTG_OK_COMMAND_DESC
-
-from followthegreens import XP_STW_COMMAND, XP_STW_COMMAND_DESC
-
+from followthegreens import XP_FTG_SPEED_COMMAND, XP_FTG_SPEED_COMMAND_DESC
+from followthegreens import XP_STW_COMMAND, XP_STW_COMMAND_DESC, STW_MENU
 from followthegreens import FollowTheGreens, ShowTaxiways
-
-FTG_MENU = "Follow the greens"
-STW_MENU = "Show taxiways"
-
-FORMAT = "%(levelname)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
-logging.basicConfig(level=logging.INFO, format=FORMAT)
 
 
 class PythonInterface:
@@ -51,54 +47,93 @@ class PythonInterface:
         self.menuIdx_st = None
         self.showTaxiways = None
         self.showTaxiwaysCmdRef = None
+        self.rabbitModeCmdRefs = {}
+
+        self.rabbitModes = {
+            "slow": self.rabbitModeSlow,
+            "slower": self.rabbitModeSlower,
+            "med": self.rabbitModeMed,
+            "faster": self.rabbitModeFaster,
+            "fast": self.rabbitModeFast,
+        }
 
     def XPluginStart(self):
         if self.trace:
             print(self.Info, "XPluginStart: starting..")
 
         # 1. Follow The Greens
-        self.followTheGreensCmdRef = xp.createCommand(XP_FTG_COMMAND, XP_FTG_COMMAND_DESC)
-        xp.registerCommandHandler(self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None)
+        self.followTheGreensCmdRef = xp.createCommand(
+            XP_FTG_COMMAND, XP_FTG_COMMAND_DESC
+        )
+        xp.registerCommandHandler(
+            self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None
+        )
         if self.followTheGreensCmdRef is not None:
             if self.trace:
-                print(self.Info, f"XPluginStart: {XP_FTG_COMMAND} command registered.")
+                print(self.Info, f"XPluginStart: {XP_FTG_COMMAND} command registered")
         else:
             if self.trace:
-                print(self.Info, f"XPluginStop: {XP_FTG_COMMAND} not registered.")
+                print(self.Info, f"XPluginStart: {XP_FTG_COMMAND} not registered")
 
-        self.clearanceCmdRef = xp.createCommand(XP_FTG_CLEARANCE_COMMAND, XP_FTG_CLEARANCE_COMMAND_DESC)
+        self.clearanceCmdRef = xp.createCommand(
+            XP_FTG_CLEARANCE_COMMAND, XP_FTG_CLEARANCE_COMMAND_DESC
+        )
         xp.registerCommandHandler(self.clearanceCmdRef, self.clearanceCmd, 1, None)
         if self.followTheGreensCmdRef is not None:
             if self.trace:
-                print(self.Info, f"XPluginStart: {XP_FTG_CLEARANCE_COMMAND} command registered.")
+                print(
+                    self.Info,
+                    f"XPluginStart: {XP_FTG_CLEARANCE_COMMAND} command registered",
+                )
         else:
             if self.trace:
-                print(self.Info, f"XPluginStop: {XP_FTG_CLEARANCE_COMMAND} command not registered.")
+                print(
+                    self.Info,
+                    f"XPluginStart: {XP_FTG_CLEARANCE_COMMAND} command not registered",
+                )
 
-        self.cancelCmdRef = xp.createCommand(XP_FTG_CANCEL_COMMAND, XP_FTG_CANCEL_COMMAND_DESC)
+        self.cancelCmdRef = xp.createCommand(
+            XP_FTG_CANCEL_COMMAND, XP_FTG_CANCEL_COMMAND_DESC
+        )
         xp.registerCommandHandler(self.cancelCmdRef, self.cancelCmd, 1, None)
         if self.followTheGreensCmdRef is not None:
             if self.trace:
-                print(self.Info, f"XPluginStart: {XP_FTG_CANCEL_COMMAND} command registered.")
+                print(
+                    self.Info,
+                    f"XPluginStart: {XP_FTG_CANCEL_COMMAND} command registered",
+                )
         else:
             if self.trace:
-                print(self.Info, f"XPluginStop: {XP_FTG_CANCEL_COMMAND} command not registered.")
+                print(
+                    self.Info,
+                    f"XPluginStart: {XP_FTG_CANCEL_COMMAND} command not registered",
+                )
 
         self.okCmdRef = xp.createCommand(XP_FTG_OK_COMMAND, XP_FTG_OK_COMMAND_DESC)
         xp.registerCommandHandler(self.okCmdRef, self.okCmd, 1, None)
         if self.followTheGreensCmdRef is not None:
             if self.trace:
-                print(self.Info, f"XPluginStart: {XP_FTG_OK_COMMAND} command registered.")
+                print(
+                    self.Info, f"XPluginStart: {XP_FTG_OK_COMMAND} command registered"
+                )
         else:
             if self.trace:
-                print(self.Info, f"XPluginStop: {XP_FTG_OK_COMMAND} command not registered.")
+                print(
+                    self.Info,
+                    f"XPluginStart: {XP_FTG_OK_COMMAND} command not registered",
+                )
 
-        self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), FTG_MENU, self.followTheGreensCmdRef)
+        self.menuIdx = xp.appendMenuItemWithCommand(
+            xp.findPluginsMenu(), FTG_MENU, self.followTheGreensCmdRef
+        )
         if self.menuIdx is None or (self.menuIdx is not None and self.menuIdx < 0):
-            print(self.Info, "XPluginStart: menu not added.")
+            print(self.Info, "XPluginStart: menu not added")
         else:
             if self.trace:
-                print(self.Info, f"XPluginStart: menu added, index {self.menuIdx}.")
+                print(
+                    self.Info,
+                    f"XPluginStart: menu item «{FTG_MENU}» added (index {self.menuIdx})",
+                )
 
         self.isRunningRef = xp.registerDataAccessor(
             FOLLOW_THE_GREENS_IS_RUNNING,
@@ -128,13 +163,32 @@ class PythonInterface:
         self.menuIdx_st = xp.appendMenuItemWithCommand(
             xp.findPluginsMenu(), STW_MENU, self.showTaxiwaysCmdRef
         )
-        if self.menuIdx_st is None or (self.menuIdx_st is not None and self.menuIdx_st < 0):
-            print(self.Info, "XPluginStart: Show Taxiwaysmenu not added.")
+        if self.menuIdx_st is None or (
+            self.menuIdx_st is not None and self.menuIdx_st < 0
+        ):
+            print(self.Info, "XPluginStart: Show Taxiways menu not added")
         else:
             if self.trace:
-                print(self.Info, "XPluginStart: Show Taxiways menu added.", self.menuIdx_st)
+                print(
+                    self.Info,
+                    f"XPluginStart: menu item «{STW_MENU}» added (index={self.menuIdx_st})",
+                )
 
-        print(self.Info, "XPluginStart: ..started.")
+        # 3. Rabbit modes
+        self.rabbitModeCmdRefs = {}
+        for mode, callback in self.rabbitModes.items():
+            self.rabbitModeCmdRefs[mode] = xp.createCommand(
+                XP_FTG_SPEED_COMMAND + mode, XP_FTG_SPEED_COMMAND_DESC + mode
+            )
+            xp.registerCommandHandler(self.rabbitModeCmdRefs[mode], callback, 1, None)
+            if self.trace:
+                print(
+                    self.Info,
+                    f"XPluginStart: {XP_FTG_SPEED_COMMAND + mode} command registered",
+                )
+        print(self.Info, "XPluginStart: registered speed commands")
+
+        print(self.Info, "XPluginStart: ..started")
         return self.Name, self.Sig, self.Desc
 
     def XPluginStop(self):
@@ -143,93 +197,147 @@ class PythonInterface:
 
         # 1. Follow The Greens
         if self.followTheGreensCmdRef:  # XP_FTG_COMMAND
-            xp.unregisterCommandHandler(self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None)
+            xp.unregisterCommandHandler(
+                self.followTheGreensCmdRef, self.followTheGreensCmd, 1, None
+            )
             self.followTheGreensCmdRef = None
             if self.trace:
-                print(self.Info, f"XPluginStop: {XP_FTG_COMMAND} command unregistered.")
+                print(self.Info, f"XPluginStop: {XP_FTG_COMMAND} command unregistered")
         else:
             if self.trace:
-                print(self.Info, f"XPluginStop: {XP_FTG_COMMAND} command not unregistered.")
+                print(
+                    self.Info,
+                    f"XPluginStop: {XP_FTG_COMMAND} command not unregistered",
+                )
 
         if self.clearanceCmdRef:  # XP_FTG_CLEARANCE_COMMAND
-            xp.unregisterCommandHandler(self.clearanceCmdRef, self.clearanceCmd, 1, None)
+            xp.unregisterCommandHandler(
+                self.clearanceCmdRef, self.clearanceCmd, 1, None
+            )
             self.clearanceCmdRef = None
             if self.trace:
-                print(self.Info, f"XPluginStop: {XP_FTG_CLEARANCE_COMMAND} command unregistered.")
+                print(
+                    self.Info,
+                    f"XPluginStop: {XP_FTG_CLEARANCE_COMMAND} command unregistered",
+                )
         else:
             if self.trace:
-                print(self.Info, f"XPluginStop: {XP_FTG_CLEARANCE_COMMAND} command not unregistered.")
+                print(
+                    self.Info,
+                    f"XPluginStop: {XP_FTG_CLEARANCE_COMMAND} command not unregistered",
+                )
 
         if self.cancelCmdRef:  # XP_FTG_CANCEL_COMMAND
             xp.unregisterCommandHandler(self.cancelCmdRef, self.cancelCmd, 1, None)
             self.cancelCmdRef = None
             if self.trace:
-                print(self.Info, f"XPluginStop: {XP_FTG_CANCEL_COMMAND} command unregistered.")
+                print(
+                    self.Info,
+                    f"XPluginStop: {XP_FTG_CANCEL_COMMAND} command unregistered",
+                )
         else:
             if self.trace:
-                print(self.Info, f"XPluginStop: {XP_FTG_CANCEL_COMMAND} command not unregistered.")
+                print(
+                    self.Info,
+                    f"XPluginStop: {XP_FTG_CANCEL_COMMAND} command not unregistered",
+                )
 
         if self.okCmdRef:  # XP_FTG_OK_COMMAND
             xp.unregisterCommandHandler(self.okCmdRef, self.okCmd, 1, None)
             self.okCmdRef = None
             if self.trace:
-                print(self.Info, f"XPluginStop: {XP_FTG_OK_COMMAND} command unregistered.")
+                print(
+                    self.Info, f"XPluginStop: {XP_FTG_OK_COMMAND} command unregistered"
+                )
         else:
             if self.trace:
-                print(self.Info, f"XPluginStop: {XP_FTG_OK_COMMAND} command not unregistered.")
+                print(
+                    self.Info,
+                    f"XPluginStop: {XP_FTG_OK_COMMAND} command not unregistered",
+                )
 
+        # Rabbit speeds
+        for mode, callback in self.rabbitModes.items():
+            if self.rabbitModeCmdRefs[mode] is not None:
+                xp.unregisterCommandHandler(
+                    self.rabbitModeCmdRefs[mode], callback, 1, None
+                )
+                if self.trace:
+                    print(
+                        self.Info,
+                        f"XPluginStop: {XP_FTG_SPEED_COMMAND + mode} command unregistered",
+                    )
+        print(self.Info, "XPluginStop: unregistered speed commands")
+
+        # Follow the Greens
         oldidx = self.menuIdx
         if self.menuIdx is not None and self.menuIdx >= 0:
             xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx)
             self.menuIdx = None
             if self.trace:
-                print(self.Info, f"XPluginStop: menu removed (index was {oldidx}).")
+                print(
+                    self.Info,
+                    f"XPluginStop: menu item «{FTG_MENU}» removed (index was {oldidx})",
+                )
         else:
             if self.trace:
-                print(self.Info, f"XPluginStop: menu not removed (index {oldidx}).")
+                print(
+                    self.Info,
+                    f"XPluginStop: menu item «{FTG_MENU}» not removed (index {oldidx})",
+                )
 
         if self.isRunningRef is not None:  # and self.isRunningRef > 0?
             # xp.unshareData(FOLLOW_THE_GREENS_IS_RUNNING, xp.Type_Int, self.runningStatusChangedCallback, 0)
             xp.unregisterDataAccessor(self.isRunningRef)
             self.isRunningRef = None
             if self.trace:
-                print(self.Info, "XPluginStop: data accessor unregistered.")
+                print(self.Info, "XPluginStop: data accessor unregistered")
         else:
             if self.trace:
-                print(self.Info, "XPluginStop: data accessor not unregistered.")
+                print(self.Info, "XPluginStop: data accessor not unregistered")
 
         if self.followTheGreens:
             try:
                 self.followTheGreens.stop()
                 self.followTheGreens = None
+                if self.trace:
+                    print(self.Info, f"XPluginStop: FollowTheGreens stopped")
             except:
                 print(self.Info, "XPluginStop: exception")
                 print_exc()
 
-        # 2. Show Taxiways
+        # Show Taxiways
         if self.showTaxiwaysCmdRef:
             xp.unregisterCommandHandler(
                 self.showTaxiwaysCmdRef, self.showTaxiwaysCmd, 1, None
             )
             self.showTaxiwaysCmdRef = None
-        oldidx = self.menuIdx
-        if self.menuIdx is not None and self.menuIdx >= 0:
-            xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx)
-            self.menuIdx = None
+        oldidx = self.menuIdx_st
+        if self.menuIdx_st is not None and self.menuIdx_st >= 0:
+            xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx_st)
+            self.menuIdx_st = None
             if self.trace:
-                print(self.Info, "XPluginStop: menu removed.", oldidx)
+                print(
+                    self.Info,
+                    f"XPluginStop: menu item «{STW_MENU}» removed (index {oldidx})",
+                )
         else:
             if self.trace:
-                print(self.Info, "XPluginStop: menu not removed.", oldidx)
+                print(
+                    self.Info,
+                    f"XPluginStop: menu item «{STW_MENU}» not removed (index {oldidx})",
+                )
         if self.showTaxiways:
             try:
                 self.showTaxiways.stop()
                 self.showTaxiways = None
+                if self.trace:
+                    print(self.Info, f"XPluginStop: ShowTaxiways stopped")
             except:
                 print(self.Info, "XPluginStop: exception")
                 print_exc()
 
-        print(self.Info, "XPluginStop: ..stopped.")
+        print(self.Info, "XPluginStop: ..stopped")
         return None
 
     def XPluginEnable(self):
@@ -239,24 +347,30 @@ class PythonInterface:
         # 1. Follow The Greens
         try:
             self.followTheGreens = FollowTheGreens(self)
-            self.enabled = True
 
             if self.isRunningRef is not None:
-                for sig in ("com.leecbaker.datareftool", "xplanesdk.examples.DataRefEditor"):
+                for sig in (
+                    "com.leecbaker.datareftool",
+                    "xplanesdk.examples.DataRefEditor",
+                ):
                     dre = xp.findPluginBySignature(sig)
                     if dre != xp.NO_PLUGIN_ID:
-                        xp.sendMessageToPlugin(dre, 0x01000000, FOLLOW_THE_GREENS_IS_RUNNING)
+                        xp.sendMessageToPlugin(
+                            dre, 0x01000000, FOLLOW_THE_GREENS_IS_RUNNING
+                        )
                         if self.trace:
-                            print(self.Info, f"XPluginEnable: data accessor registered with {sig}.")
+                            print(
+                                self.Info,
+                                f"XPluginEnable: data accessor registered with {sig}",
+                            )
                     else:
                         if self.trace:
-                            print(self.Info, f"XPluginEnable: plugin {sig} not found.")
+                            print(self.Info, f"XPluginEnable: plugin {sig} not found")
             else:
                 if self.trace:
-                    print(self.Info, "XPluginEnable: no data accessor.")
+                    print(self.Info, "XPluginEnable: no data accessor")
 
-            print(self.Info, "XPluginEnable: ..enabled.")
-            return 1
+            print(self.Info, "XPluginEnable: FollowTheGreens created")
         except:
             print(self.Info, "XPluginEnable: ..exception")
             print_exc()
@@ -264,16 +378,16 @@ class PythonInterface:
         # 2. Show Taxiways
         try:
             self.showTaxiways = ShowTaxiways(self)
-            self.enabled = True
             if self.trace:
-                print(self.Info, "XPluginEnable: enabled.")
+                print(self.Info, "XPluginEnable: ShowTaxiways created")
+            self.enabled = True
             return 1
         except:
             print(self.Info, "XPluginEnable: exception")
             print_exc()
 
-
-        print(self.Info, "XPluginEnable: ..not enabled.")
+        self.enabled = False
+        print(self.Info, "XPluginEnable: ..not enabled")
         return 0
 
     def XPluginDisable(self):
@@ -285,9 +399,7 @@ class PythonInterface:
             if self.enabled and self.followTheGreens:
                 self.followTheGreens.disable()
                 self.followTheGreens = None
-            self.enabled = False
-            print(self.Info, "XPluginDisable: ..disabled.")
-            return None
+            print(self.Info, "XPluginDisable: FollowTheGreens disabled")
         except:
             print(self.Info, "XPluginDisable: exception")
             print_exc()
@@ -298,16 +410,17 @@ class PythonInterface:
                 self.showTaxiways.disable()
                 self.showTaxiways = None
 
-            self.enabled = False
             if self.trace:
-                print(self.Info, "XPluginDisable: ..disabled.")
+                print(self.Info, "XPluginDisable: ShowTaxiways disabled")
+                print(self.Info, "XPluginDisable: ..disabled")
+            self.enabled = False
             return None
         except:
             print(self.Info, "XPluginDisable: exception")
             print_exc()
 
         self.enabled = False
-        print(self.Info, "XPluginDisable: ..disabled with issue.")
+        print(self.Info, "XPluginDisable: ..disabled with exception")
         return None
 
     def XPluginReceiveMessage(self, inFromWho, inMessage, inParam):
@@ -450,7 +563,10 @@ class PythonInterface:
                 print_exc()
                 return 0
         elif not self.followTheGreens:
-            print(self.Info, "followTheGreensCmd: Error: could not create FollowTheGreens.")
+            print(
+                self.Info,
+                "followTheGreensCmd: Error: could not create FollowTheGreens.",
+            )
 
         return 0
 
@@ -523,5 +639,53 @@ class PythonInterface:
                 print_exc()
         elif not self.showTaxiways:
             print(self.Info, "showTaxiwaysCmd: Error: could not create ShowTaxiways.")
+
+        return 0
+
+    def rabbitModeSlow(self, commandRef, phase, refCon):
+        return self.rabbitMode(
+            commandRef=commandRef, phase=phase, refCon=refCon, mode="slow"
+        )
+
+    def rabbitModeSlower(self, commandRef, phase, refCon):
+        return self.rabbitMode(
+            commandRef=commandRef, phase=phase, refCon=refCon, mode="slower"
+        )
+
+    def rabbitModeMed(self, commandRef, phase, refCon):
+        return self.rabbitMode(
+            commandRef=commandRef, phase=phase, refCon=refCon, mode="med"
+        )
+
+    def rabbitModeFast(self, commandRef, phase, refCon):
+        return self.rabbitMode(
+            commandRef=commandRef, phase=phase, refCon=refCon, mode="fast"
+        )
+
+    def rabbitModeFaster(self, commandRef, phase, refCon):
+        return self.rabbitMode(
+            commandRef=commandRef, phase=phase, refCon=refCon, mode="faster"
+        )
+
+    def rabbitMode(self, commandRef, phase: int, refCon, mode: str):
+        # pylint: disable=unused-argument
+        if not self.enabled:
+            print(self.Info, "rabbitMode: not enabled.")
+            return 0
+
+        if self.followTheGreens and phase == 0:
+            if self.trace:
+                print(self.Info, "rabbitMode: FollowTheGreens available.")
+            try:
+                self.followTheGreens.rabbitMode(mode)
+                if self.trace:
+                    print(self.Info, "rabbitMode: set.")
+                return 1
+            except:
+                print(self.Info, "rabbitMode: exception")
+                print_exc()
+                return 0
+        elif not self.followTheGreens:
+            print(self.Info, "rabbitMode: Error: could not create FollowTheGreens.")
 
         return 0

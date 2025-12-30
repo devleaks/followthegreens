@@ -5,6 +5,9 @@ SYSTEM_DIRECTORY = "."
 # X-Plane Interface
 FOLLOW_THE_GREENS_IS_RUNNING = "XPPython3/followthegreens/is_running"
 
+FTG_MENU = "Follow the greens..."
+STW_MENU = "Show taxiways"
+
 XP_FTG_COMMAND = "XPPython3/followthegreens/main_windown_toggle"
 XP_FTG_COMMAND_DESC = "Open or close Follow the greens window"
 
@@ -20,6 +23,27 @@ XP_FTG_OK_COMMAND_DESC = "Send OK to Follow the greens"
 XP_STW_COMMAND = "XPPython3/followthegreens/highlight_taxiways_toggle"
 XP_STW_COMMAND_DESC = "Show / hide taxiway network"
 
+XP_FTG_SPEED_COMMAND = "XPPython3/followthegreens/speed_"  # + FTP_SPEED
+XP_FTG_SPEED_COMMAND_DESC = "Set Follow the Greens rabbit to "  # + FTP_SPEED
+
+XP_FTG_SPEED = [
+    "slow",
+    "slower",
+    "med",
+    "faster",
+    "fast",
+]
+
+AMBIANT_RWY_LIGHT = {
+    "OFF": "off",
+    "LOW": "lo",
+    "MEDIUM": "med",
+    "HIGH": "hi",
+}
+AMBIANT_RWY_LIGHT_DATAREF = "sim/operation/rwy_lights_"  # + AMBIANT_RWY_LIGHT
+AMBIANT_RWY_LIGHT_VALUE = "sim/graphics/scenery/airport_light_level"
+AIRPORTLIGHT_ON = "sim/graphics/scenery/airport_lights_on"
+
 # Main UI Window display and position
 #
 MAINWINDOW_AUTOHIDE = True  # If false, main UI window will always remain visible.
@@ -27,11 +51,17 @@ MAINWINDOW_DISPLAY_TIME = 30  # If above true, main UI window will disappear aft
 
 # you may carefully adjust those:
 MAINWINDOW_FROM_LEFT = 100  # Distance of main UI window from left of screen
-MAINWINDOW_FROM_BOTTOM = 80  # Distance of the bottom of the main window from the bottom of the screen
+MAINWINDOW_FROM_BOTTOM = (
+    80  # Distance of the bottom of the main window from the bottom of the screen
+)
 
 # don't touch those:
-MAINWINDOW_WIDTH = 500  # Normal main window width. May need adjustment if font size is changed
-MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from space and title bar
+MAINWINDOW_WIDTH = (
+    500  # Normal main window width. May need adjustment if font size is changed
+)
+MAINWINDOW_HEIGHT = (
+    80  # Additional main window height to accommodate from space and title bar
+)
 
 
 # X-Plane APT files constants and keywords
@@ -63,12 +93,23 @@ WARNING_DISTANCE = 150  # When getting close to a STOP BAR, show main window.
 
 PLANE_MONITOR_DURATION = 3  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
 
-MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before getting potential stop bar
+MIN_SEGMENTS_BEFORE_HOLD = (
+    3  # on arrival, number of segments to travel before getting potential stop bar
+)
 DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # 20 meter, distance between lights on ground. I *think* that the standard for taxi cetner line lights is 60 meters.
 DISTANCE_BETWEEN_STOPLIGHTS = 2  # meter, distance between lights on ground.
 ADD_LIGHT_AT_VERTEX = False  # Add a light at each taxiway network vertex on the path
 ADD_LIGHT_AT_LAST_VERTEX = False  # Add a light at the last vertex, even if it is closer than DISTANCE_BETWEEN_GREEN_LIGHTS
 ADD_STOPBAR_AT_LAST_VERTEX = False  # Add a stop bar at the end (artificial)
+
+# As a first step, uses 5 standard rabbit (length, speed)
+FTG_SPEED_PARAMS = {  # [#lights_in_rabbit, #secs_to_run_all_lights]
+    "fast": [2 * RABBIT_LENGTH, RABBIT_DURATION / 2],  # accelerate (long and fast)
+    "faster": [2 * RABBIT_LENGTH, RABBIT_DURATION],  # go faster
+    "med": [RABBIT_LENGTH, RABBIT_DURATION],  # normal
+    "slower": [RABBIT_LENGTH / 2, 4 * RABBIT_DURATION],  # slow down (short and slow)
+    "slow": [RABBIT_LENGTH / 2, 2 * RABBIT_DURATION],  # slow down
+}
 
 
 # Follow the greens lighting constants

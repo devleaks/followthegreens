@@ -1,3 +1,7 @@
+
+2.0.0 - 29-DEC-2025 - Added hooks for 4D FtG, updated README.
+
+1.6.7 - 21-FEB-2024 - Added skunkcrafts updater files
 1.6.6 - 21-FEB-2024 - Added Cancel and OK (finish, bye, etc.) commands
 1.6.5 - 20-FEB-2024 - Now opening all files as UTF-8 files. Code blackened.
 1.6.3 - 02-JAN-2024 - Added «clearance received» command

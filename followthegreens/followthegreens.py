@@ -12,6 +12,7 @@
 # You are too far from the taxiways.
 # We could not find a suitable route to your destination.
 #
+import os
 import logging
 
 import xp
@@ -19,11 +20,25 @@ import xp
 from .aircraft import Aircraft
 from .airport import Airport
 from .flightloop import FlightLoop
-from .globals import ARRIVAL, DEPARTURE
+from .globals import ARRIVAL, DEPARTURE, AMBIANT_RWY_LIGHT_VALUE
 from .lightstring import LightString
 from .ui import UIUtil
+from .XPDref import XPDref
 
-logger = logging.getLogger("follow_the_greens")
+
+# Setup logging
+plugin_path = os.path.dirname(__file__)
+FORMAT = "%(levelname)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
+LOGFILENAME = "xplane_ftg.log"
+logging.basicConfig(
+    level=logging.INFO,
+    format=FORMAT,
+    handlers=[
+        logging.FileHandler(os.path.join(plugin_path, "..", LOGFILENAME)),
+        logging.StreamHandler(),
+    ],
+)
+logger = logging.getLogger(__name__)
 
 
 class FollowTheGreens:
@@ -45,6 +60,9 @@ class FollowTheGreens:
         self.destination = None  # Handy
         self.ui = UIUtil(self)  # Where windows are built
         self.flightLoop = FlightLoop(self)  # where the magic is done
+        self.airport_light_level = XPDref(
+            AMBIANT_RWY_LIGHT_VALUE
+        )  # [off, lo, med, hi] = [0, 0.25, 0.5, 0.75, 1]
 
     def start(self):
         # Toggles visibility of main window.
@@ -69,6 +87,9 @@ class FollowTheGreens:
             logger.info("..started.")
             return 1  # window displayed
         return 0
+
+    def rabbitMode(self, mode: str):
+        self.flightLoop.rabbitMode(mode=mode)
 
     def getAirport(self):
         # Search for airport or prompt for one.
@@ -160,6 +181,7 @@ class FollowTheGreens:
         # Info 12
         pos = self.aircraft.position()
         hdg = self.aircraft.heading()
+        gsp = self.aircraft.speed()
         if pos is None:
             logger.debug("no plane position")
             return self.ui.sorry("We could not locate your plane.")

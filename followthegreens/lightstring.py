@@ -16,6 +16,7 @@ from .globals import (
     DISTANCE_BETWEEN_STOPLIGHTS,
     MIN_SEGMENTS_BEFORE_HOLD,
     DISTANCE_BETWEEN_LIGHTS,
+    FTG_SPEED_PARAMS,
 )
 from .globals import RABBIT_LENGTH, RABBIT_DURATION, LIGHTS_AHEAD
 from .globals import AIRCRAFT_TYPES as TAXIWAY_WIDTH
@@ -207,6 +208,15 @@ class LightString:
         self.lastLit = 0
         self.lightTypes = None
 
+        self.num_lights_ahead = LIGHTS_AHEAD  # if zero, all lights are shown, otherwise, must be >= self.rabbit_length
+        self.rabbit_length = RABBIT_LENGTH
+        if self.num_lights_ahead > 0 and self.num_lights_ahead < self.rabbit_length:
+            logger.debug(
+                f"light ahead {self.num_lights_ahead} shorter than rabbit length {self.rabbit_length}"
+            )
+        self.rabbit_duration = RABBIT_DURATION
+        self.rabbit_mode = 0  # [-2, 2]
+
     def __str__(self):
         return json.dumps({"type": "FeatureCollection", "features": self.features()})
 
@@ -231,6 +241,26 @@ class LightString:
         if dsrc < ddst:
             return edge.start
         return edge.end
+
+    def rabbitMode(self, mode: str):
+        if mode not in FTG_SPEED_PARAMS:
+            return False
+        self.rabbit_mode = mode
+        length, speed = FTG_SPEED_PARAMS[mode]
+        self.changeRabbit(length=length, duration=speed, ahead=self.num_lights_ahead)
+        logger.debug(f"rabbit mode {mode}: {length}, {round(speed, 2)}")
+
+    def changeRabbit(self, length: int, duration: float, ahead: int):
+        if self.num_lights_ahead is None or self.num_lights_ahead == 0:
+            return
+        if self.num_lights_ahead > 0:
+            la = self.num_lights_ahead - self.rabbit_length
+            if la < 0:
+                la = 0
+            self.num_lights_ahead = la + length
+        # else: self.num_lights_ahead == 0 which means all lights are on and we don't change that
+        self.rabbit_length = length
+        self.rabbit_duration = duration
 
     def populate(self, route, onRunway=False):
         # @todo: If already populated, must delete lights first
@@ -506,7 +536,7 @@ class LightString:
                 f"will instanciate(green): {segment} between {start} and {end}."
             )
 
-        if LIGHTS_AHEAD is None or LIGHTS_AHEAD == 0:
+        if self.num_lights_ahead is None or self.num_lights_ahead == 0:
             # Instanciate for each green light in segment and stop bar
             for i in range(start, end):
                 self.lights[i].on()
@@ -587,9 +617,9 @@ class LightString:
             if start > 0:  # can't be.
                 self.offToIndex(start - 1)
 
-            if LIGHTS_AHEAD > 0:
+            if self.num_lights_ahead > 0:
                 # we need to turn lights on ahead of rabbit
-                wishidx = start + RABBIT_LENGTH + LIGHTS_AHEAD
+                wishidx = start + RABBIT_LENGTH + self.num_lights_ahead
                 if wishidx < rabbitNose:
                     self.onToIndex(wishidx)
                 else:
@@ -609,12 +639,12 @@ class LightString:
         else:  # restore previous
             restore(start, self.rabbitIdx, rabbitNose)
 
-        curr = start + (self.rabbitIdx % RABBIT_LENGTH)
+        curr = start + (self.rabbitIdx % self.rabbit_length)
         if curr < rabbitNose:
             self.lights[curr].off()
 
         self.rabbitIdx += 1
-        return RABBIT_DURATION
+        return self.rabbit_duration
 
     def showAll(self, airport):
         def showSegment(s, cnt):

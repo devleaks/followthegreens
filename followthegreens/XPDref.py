@@ -8,6 +8,18 @@ import xp
 MSG_ADD_DATAREF = 0x01000000
 
 
+class XPCmd:
+    def __init__(self, command) -> None:
+        self.command = command
+        self.cmdref = xp.findCommand(command)
+
+    def execute(self) -> bool:
+        if self.cmdref is not None:
+            xp.commandOnce(self.cmdref)
+            return True
+        return False
+
+
 class XPCustomDRef(object):
     xplm_types = {
         "int": xp.Type_Int,

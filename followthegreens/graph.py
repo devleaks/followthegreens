@@ -442,12 +442,12 @@ class Graph:  # Graph(FeatureCollection)?
 
             # find a node with the lowest value of f() - evaluation function
             for v in open_list:
-                if n == None or g[v] + self.heuristic(v, stop_node) < g[
+                if n is None or g[v] + self.heuristic(v, stop_node) < g[
                     n
                 ] + self.heuristic(n, stop_node):
                     n = v
 
-            if n == None:
+            if n is None:
                 logger.warning("AStar: route not found")
                 return None
 
