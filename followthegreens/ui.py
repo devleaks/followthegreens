@@ -1,17 +1,14 @@
 # User Interface Utility Class
 # Creates FTG windows.
 #
-import logging
 from random import random
 
 import xp
 
-from .globals import ARRIVAL, DEPARTURE, GOOD
+from .globals import logger, ARRIVAL, DEPARTURE, GOOD
 from .globals import MAINWINDOW_AUTOHIDE, MAINWINDOW_DISPLAY_TIME
 from .globals import MAINWINDOW_WIDTH, MAINWINDOW_HEIGHT
 from .globals import MAINWINDOW_FROM_LEFT, MAINWINDOW_FROM_BOTTOM
-
-logger = logging.getLogger("follow_the_greens")
 
 
 # Some texts we need to recognize. May be later translated.

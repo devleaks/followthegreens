@@ -2,7 +2,6 @@
 # Keep track of all lights set for FTG, their status, etc. Manipulate them as well.
 #
 import math
-import logging
 import json
 import os.path
 
@@ -10,6 +9,7 @@ import xp
 
 from .geo import Point, distance, bearing, destination, convertAngleTo360
 from .globals import (
+    RABBIT_MODE,
     DISTANCE_BETWEEN_GREEN_LIGHTS,
     ADD_LIGHT_AT_VERTEX,
     ADD_LIGHT_AT_LAST_VERTEX,
@@ -20,9 +20,7 @@ from .globals import (
 )
 from .globals import RABBIT_LENGTH, RABBIT_DURATION, LIGHTS_AHEAD
 from .globals import AIRCRAFT_TYPES as TAXIWAY_WIDTH
-from .globals import DEPARTURE, ARRIVAL
-
-logger = logging.getLogger("follow_the_greens")
+from .globals import DEPARTURE, ARRIVAL, logger
 
 LIGHT_TYPE_OFF = "LIGHT_TYPE_OFF"
 LIGHT_TYPE_DEFAULT = "LIGHT_TYPE_DEFAULT"
@@ -41,6 +39,9 @@ LIGHT_TYPES_OBJFILES = {
     LIGHT_TYPE_STOP: "red.obj",
     LIGHT_TYPE_LAST: "green.obj",
 }
+
+HARDCODED_MIN_DISTANCE = 10 # meters
+HARDCODED_MIN_TIME = 0.1  # secs
 
 
 class LightType:
@@ -183,6 +184,7 @@ class Stopbar:
 
 
 class LightString:
+
     def __init__(self):
         self.lights = (
             []
@@ -217,6 +219,12 @@ class LightString:
         self.rabbit_duration = RABBIT_DURATION
         self.rabbit_mode = 0  # [-2, 2]
 
+        self._int_cnt = 0
+
+        logger.debug(
+            f"LightString created {self.rabbit_length}, {self.rabbit_duration}"
+        )
+
     def __str__(self):
         return json.dumps({"type": "FeatureCollection", "features": self.features()})
 
@@ -242,17 +250,22 @@ class LightString:
             return edge.start
         return edge.end
 
-    def rabbitMode(self, mode: str):
-        if mode not in FTG_SPEED_PARAMS:
-            return False
+    def resetRabbit(self):
+        # set all lights
+        for i in range(0, len(self.lights)):
+            self.lights[i].on()
+        self.lastLit = 0
+
+    def rabbitMode(self, mode: RABBIT_MODE):
         self.rabbit_mode = mode
         length, speed = FTG_SPEED_PARAMS[mode]
+        self.resetRabbit()
         self.changeRabbit(length=length, duration=speed, ahead=self.num_lights_ahead)
-        logger.debug(f"rabbit mode {mode}: {length}, {round(speed, 2)}")
+        logger.info(
+            f"rabbit mode: {mode}: {length}, {round(speed, 2)} (ahead={self.num_lights_ahead})"
+        )
 
     def changeRabbit(self, length: int, duration: float, ahead: int):
-        if self.num_lights_ahead is None or self.num_lights_ahead == 0:
-            return
         if self.num_lights_ahead > 0:
             la = self.num_lights_ahead - self.rabbit_length
             if la < 0:
@@ -261,6 +274,7 @@ class LightString:
         # else: self.num_lights_ahead == 0 which means all lights are on and we don't change that
         self.rabbit_length = length
         self.rabbit_duration = duration
+        logger.info(f"rabbit mode: {self.rabbit_length}, {self.rabbit_duration}")
 
     def populate(self, route, onRunway=False):
         # @todo: If already populated, must delete lights first
@@ -563,7 +577,7 @@ class LightString:
             return self.stopbars[self.currentSegment].lightStringIndex
         return len(self.lights) - 1
 
-    def closest(self, position, after=0):
+    def closest(self, position, after: int = 0):
         # Find closest light to position (often plane)
         dist = math.inf
         idx = None
@@ -600,12 +614,12 @@ class LightString:
         # warning, verbose, since called at each rabbit flightloop
         # logger.debug("turned on %d -> %d.", self.lastLit, last)
 
-    def rabbit(self, start):
+    def rabbit(self, start: int):
         if not self.rabbitCanRun:
             return 10  # checks 10 seconds later
 
         def restore(strt, sq, rn):
-            prev = strt + ((sq - 1) % RABBIT_LENGTH)
+            prev = strt + ((sq - 1) % self.rabbit_length)
             if prev < rn:
                 self.lights[prev].on()
 
@@ -619,7 +633,7 @@ class LightString:
 
             if self.num_lights_ahead > 0:
                 # we need to turn lights on ahead of rabbit
-                wishidx = start + RABBIT_LENGTH + self.num_lights_ahead
+                wishidx = start + self.rabbit_length + self.num_lights_ahead
                 if wishidx < rabbitNose:
                     self.onToIndex(wishidx)
                 else:
@@ -644,7 +658,8 @@ class LightString:
             self.lights[curr].off()
 
         self.rabbitIdx += 1
-        return self.rabbit_duration
+
+        return max(self.rabbit_duration, HARDCODED_MIN_TIME)
 
     def showAll(self, airport):
         def showSegment(s, cnt):
@@ -654,12 +669,13 @@ class LightString:
             self.lights.append(Light(LIGHT_TYPE_TAXIWAY, s.start, brng, cnt))
             cnt += 1
 
-            dist = DISTANCE_BETWEEN_LIGHTS
+            step = max(DISTANCE_BETWEEN_LIGHTS, HARDCODED_MIN_DISTANCE)
+            dist = step
             while dist < s.length():
                 pos = destination(s.start, brng, dist)
                 self.lights.append(Light(LIGHT_TYPE_TAXIWAY, pos, brng, cnt))
                 cnt += 1
-                dist += DISTANCE_BETWEEN_LIGHTS
+                dist += step
 
             # light at end of segment
             self.lights.append(Light(LIGHT_TYPE_TAXIWAY, s.end, brng, cnt))

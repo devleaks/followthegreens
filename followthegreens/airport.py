@@ -4,14 +4,18 @@
 import os.path
 import re
 import math
-import logging
 
 from .geo import Point, Line, Polygon, distance, pointInPolygon
 from .graph import Graph, Edge
-from .globals import SYSTEM_DIRECTORY, DISTANCE_TO_RAMPS, DEPARTURE, ARRIVAL, TOO_FAR
+from .globals import (
+    logger,
+    SYSTEM_DIRECTORY,
+    DISTANCE_TO_RAMPS,
+    DEPARTURE,
+    ARRIVAL,
+    TOO_FAR,
+)
 from .globals import AIRCRAFT_TYPES as TAXIWAY_WIDTH
-
-logger = logging.getLogger("follow_the_greens")
 
 
 class AptLine:

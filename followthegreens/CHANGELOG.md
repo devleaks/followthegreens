@@ -1,4 +1,11 @@
 
+# Future
+2.2.0 - ??-???-???? - Adjust rabbit speed relative to aircraft ground speed vs. taxiway optimal speed.
+2.1.0 - ??-???-???? - Added optimal speed information on taxiway "edges".
+2.0.2 - ??-???-???? - Added aircraft ground speed monitoring and comparison to static speed.
+
+# Current
+2.0.1 - 02-JAN-2026 - Added 5 commands to speed up or slow down rabbit.
 2.0.0 - 29-DEC-2025 - Added hooks for 4D FtG, updated README.
 
 1.6.7 - 21-FEB-2024 - Added skunkcrafts updater files

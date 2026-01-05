@@ -3,7 +3,6 @@
 # Dijkstra stolen at https://www.bogotobogo.com/python/python_graph_data_structures.php
 # AStar implemented by myself.
 #
-import logging
 import math
 import json
 from functools import reduce
@@ -17,9 +16,7 @@ from .geo import (
     destination,
     pointInPolygon,
 )
-from .globals import TAXIWAY_DIR_TWOWAY, DEPARTURE, ARRIVAL
-
-logger = logging.getLogger("follow_the_greens")
+from .globals import logger, TAXIWAY_DIR_TWOWAY, DEPARTURE, ARRIVAL
 
 
 class Vertex(Point):  ## Vertex(Point)

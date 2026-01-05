@@ -1,54 +1,20 @@
-# Follow the greens mission container Class
-# Keeps all information handy. Dispatches intruction to do things.
+# Follow the greens XPPYthon3 Plugin Interface
 #
-# Cannot use Follow the greens.
-# We are sorry. We cannot provide Follow the greens service at this airport.
-# Reasons:
-# This airport does not have a routing network of taxiway.
 #
-# Can use Follow the greens, but other issue:
-# We are sorry. We cannot provide Follow the greens service now.
-# Reasons:
-# You are too far from the taxiways.
-# We could not find a suitable route to your destination.
-#
-import os
-import logging
-
 import xp
 
+from .globals import logger, FTG_STATUS, ARRIVAL, DEPARTURE, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE
 from .aircraft import Aircraft
 from .airport import Airport
 from .flightloop import FlightLoop
-from .globals import ARRIVAL, DEPARTURE, AMBIANT_RWY_LIGHT_VALUE
 from .lightstring import LightString
 from .ui import UIUtil
-from .XPDref import XPDref
-
-
-# Setup logging
-plugin_path = os.path.dirname(__file__)
-FORMAT = "%(levelname)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
-LOGFILENAME = "xplane_ftg.log"
-logging.basicConfig(
-    level=logging.INFO,
-    format=FORMAT,
-    handlers=[
-        logging.FileHandler(os.path.join(plugin_path, "..", LOGFILENAME)),
-        logging.StreamHandler(),
-    ],
-)
-logger = logging.getLogger(__name__)
 
 
 class FollowTheGreens:
-    # Internal status
-    STATUS = {"NEW": "NEW", "INITIALIZED": "INIT", "READY": "READY", "ACTIVE": "ACTIVE"}
 
     def __init__(self, pi):
-        self.__status = FollowTheGreens.STATUS["NEW"]
-        if pi is not None and pi.trace:
-            logger.setLevel(logging.DEBUG)
+        self.__status = FTG_STATUS.NEW
         self.pi = pi
         self.airport = None
         self.aircraft = None
@@ -60,7 +26,7 @@ class FollowTheGreens:
         self.destination = None  # Handy
         self.ui = UIUtil(self)  # Where windows are built
         self.flightLoop = FlightLoop(self)  # where the magic is done
-        self.airport_light_level = XPDref(
+        self.airport_light_level = xp.findDataRef(
             AMBIANT_RWY_LIGHT_VALUE
         )  # [off, lo, med, hi] = [0, 0.25, 0.5, 0.75, 1]
 
@@ -89,7 +55,10 @@ class FollowTheGreens:
         return 0
 
     def rabbitMode(self, mode: str):
-        self.flightLoop.rabbitMode(mode=mode)
+        if mode not in RABBIT_MODE:
+            logger.warning(f"invalid rabbit mode {mode}")
+            return
+        self.flightLoop.rabbitMode = mode
 
     def getAirport(self):
         # Search for airport or prompt for one.
@@ -223,7 +192,7 @@ class FollowTheGreens:
 
         logger.info(f"first light at {initdist} m, heading {initbrgn} DEG.")
         self.flightLoop.startFlightLoop()
-        self.__status = FollowTheGreens.STATUS["ACTIVE"]
+        self.__status = FTG_STATUS.ACTIVE
         # Info 14
         logger.info("Flightloop started.")
 

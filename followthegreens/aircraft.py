@@ -1,31 +1,30 @@
 # Aircraft data encapsulator
 #
 import xp
-from .XPDref import XPDref
 
 
 class Aircraft:
     def __init__(
-        self, icaomodel="A321", icaocategory="D", tailsign="OO-PMA", callsign="FG-001"
+        self, icaomodel="A320", icaocategory="C", tailsign="OO-XPL", callsign="FG-001"
     ):
-        self.icaomodel = XPDref("sim/aircraft/view/acf_ICAO")
-        self.tailsign = XPDref("sim/aircraft/view/acf_tailnum")
-        self.lat = XPDref("sim/flightmodel/position/latitude")
-        self.lon = XPDref("sim/flightmodel/position/longitude")
-        self.psi = XPDref("sim/flightmodel/position/psi")
-        self.groundspeed = XPDref("sim/flightmodel/position/groundspeed")
-        self.localTime = XPDref("sim/time/local_time_sec")
+        self.icaomodel = xp.findDataRef("sim/aircraft/view/acf_ICAO")
+        self.tailsign = xp.findDataRef("sim/aircraft/view/acf_tailnum")
+        self.lat = xp.findDataRef("sim/flightmodel/position/latitude")
+        self.lon = xp.findDataRef("sim/flightmodel/position/longitude")
+        self.psi = xp.findDataRef("sim/flightmodel/position/psi")
+        self.groundspeed = xp.findDataRef("sim/flightmodel/position/groundspeed")
+        self.localTime = xp.findDataRef("sim/time/local_time_sec")
         self.callsign = callsign
         self.icaocat = icaocategory
 
     def position(self):
-        return [self.lat.value, self.lon.value]
+        return [xp.getDataf(self.lat), xp.getDataf(self.lon)]
 
     def heading(self):
-        return self.psi.value
+        return xp.getDataf(self.psi)
 
     def speed(self):
-        return self.groundspeed.value
+        return xp.getDataf(self.groundspeed)
 
     def airport(self, pos):
         next_airport_index = xp.findNavAid(
@@ -36,4 +35,4 @@ class Aircraft:
         return None
 
     def hourOfDay(self):
-        return int(self.localTime.value / 3600)  # seconds since midnight??
+        return int(xp.getDataf(self.localTime) / 3600)  # seconds since midnight??
