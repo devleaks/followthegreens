@@ -44,20 +44,22 @@ There is no need to install other software.
 
 Once XPPython3 plugin is installed, plugins written in the python language are located in
 
+```
 <X-Plane 12 Folder> / resources / plugins / PythonPlugins
+```
 
-(The XPPython3 plugin itself resides in <X-Plane 12 Folder> / resources / plugins / XPPython3 folder.)
+(The XPPython3 plugin itself resides in `<X-Plane 12 Folder> / resources / plugins / XPPython3` folder.)
 
 Download the FtG plugin code and unzip it.
 
-Place both the file PI_Followthegreens.py and the folder followthegreens in <X-Plane 12 Folder> / resources / plugins / PythonPlugins.
+Place both the file `PI_Followthegreens.py` and the folder `followthegreens` in `<X-Plane 12 Folder> / resources / plugins / PythonPlugins`.
 
 That's it.
 
 Reload X-Plane, or the plugins, or the python scripts and you are all set.
 
 When X-Plane is running and a plane is loaded, check the _Plugin_ menu item at the top.
-It should now contain a Follow the greens... menu item. 
+It should now contain a _Follow the greens..._ menu item. 
 
 # Usage
 
@@ -70,8 +72,10 @@ XPPython3 release 4 or above is required.
 # Rationale for Release 2
 
 After reading this paper (https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
-I found it amusing to incorporate their suggested model into FtG.
-Please notice their « overhype » with 4D trajectories🤣.
+I found it amusing to incorporate their model and suggestions into FtG.
+
+Please notice their « overhype » with _4D_ trajectories 🤣.
+
 FtG 1 is 2D (latitude and longitude guidance on the ground...), FtG 2 adds time information, that’s just a third dimension.
 FtG won’t ask you to fly to your holding position.
 (🤔 we may here have a definite path for improvement in a future release.)
