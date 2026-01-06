@@ -85,13 +85,13 @@ To start follow the greens, you will need to supply some information to it to st
 If you are at a stand location, ready for departure, you will need to supply the runway you are taking-off from.
 Follow the greens will light the path the the entrane of the runway.
 
-![[departure.png|800]]
+![Departure dialog](images/departure.png)
 
 If you just landed and roll out, heading for your stand, you will need to supply the stand number.
 It must be a stand location known from X-Plane for that airport.
 Follow the greens will light the way to the stand.
 
-![[arrival.png|800]]
+![Arrival dialog](images/arrival.png)
 
 If you added plugins like [AutoDGS](https://forums.x-plane.org/forums/topic/290222-autodgs-dgs-marshaller-or-vdgs-for-every-gateway-airport/#comment-2569544), you will be guided at the stand by a marshall or a VDG system.
 
@@ -105,7 +105,7 @@ Follow the greens is not aware of the ATC ground in use, and the ATC ground is n
 Therefore, when ATC has given clearance and you aknowledged it, you can press the the «Clearance received» button
 in the dialog box.
 
-![[clearance.png|800]]
+![Clearance dialog](images/clearance.png)
 
 Follow the greens will resume, turn off the red lights and light the next segment of greens.
 
@@ -236,4 +236,4 @@ See [developer notes](devnotes.md).
 
 [Changelog](changelog.md)
 
-[[ftp.png]]
+![FtG Logo](images/ftp.png)
