@@ -12,15 +12,13 @@
 # You are too far from the taxiways.
 # We could not find a suitable route to your destination.
 #
-import logging
 import xp
 
 from .aircraft import Aircraft
 from .airport import Airport
 from .lightstring import LightString
 from .ui import UIUtil
-
-logger = logging.getLogger("show_taxiways")
+from .globals import logger
 
 
 class ShowTaxiways:

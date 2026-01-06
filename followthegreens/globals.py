@@ -1,24 +1,78 @@
 # Global constants
 #
+import os
+import logging
+from enum import StrEnum
+
+# Setup logging
+plugin_path = os.path.dirname(__file__)
+FORMAT = "%(levelname)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
+LOGFILENAME = "ftg_log.txt"
+logging.basicConfig(
+    level=logging.DEBUG,
+    format=FORMAT,
+    handlers=[
+        logging.FileHandler(os.path.join(plugin_path, "..", LOGFILENAME)),
+        logging.StreamHandler(),
+    ],
+)
+logger = logging.getLogger("FtG")
+
+
 SYSTEM_DIRECTORY = "."
 
+SHOW_TRACE = True
+
 # X-Plane Interface
-FOLLOW_THE_GREENS_IS_RUNNING = "XPPython3/followthegreens/is_running"
+FTG_PLUGIN_PATH = "XPPython3/followthegreens"
 
-XP_FTG_COMMAND = "XPPython3/followthegreens/main_windown_toggle"
-XP_FTG_COMMAND_DESC = "Open or close Follow the greens window"
+class FTG_STATUS(StrEnum):
+    NEW = "NEW"
+    INITIALIZED = "INIT"
+    READY = "READY"
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
 
-XP_FTG_CLEARANCE_COMMAND = "XPPython3/followthegreens/send_clearance_ok"
-XP_FTG_CLEARANCE_COMMAND_DESC = "Clears next stop bar on greens"
 
-XP_FTG_CANCEL_COMMAND = "XPPython3/followthegreens/send_cancel"
-XP_FTG_CANCEL_COMMAND_DESC = "Cancel Follow the greens"
+# Menu entry texts
+FTG_MENU = "Follow the greens..."
+STW_MENU = "Show taxiways"
 
-XP_FTG_OK_COMMAND = "XPPython3/followthegreens/send_ok"
-XP_FTG_OK_COMMAND_DESC = "Send OK to Follow the greens"
+# Commands: Path and description
+FTG_COMMAND = FTG_PLUGIN_PATH + "/main_windown_toggle"
+FTG_COMMAND_DESC = "Open or close Follow the greens window"
 
-XP_STW_COMMAND = "XPPython3/followthegreens/highlight_taxiways_toggle"
-XP_STW_COMMAND_DESC = "Show / hide taxiway network"
+FTG_CLEARANCE_COMMAND = FTG_PLUGIN_PATH + "/send_clearance_ok"
+FTG_CLEARANCE_COMMAND_DESC = "Clears next stop bar on greens"
+
+FTG_CANCEL_COMMAND = FTG_PLUGIN_PATH + "/send_cancel"
+FTG_CANCEL_COMMAND_DESC = "Cancel Follow the greens"
+
+FTG_OK_COMMAND = FTG_PLUGIN_PATH + "/send_ok"
+FTG_OK_COMMAND_DESC = "Send OK to Follow the greens"
+
+STW_COMMAND = FTG_PLUGIN_PATH + "/highlight_taxiways_toggle"
+STW_COMMAND_DESC = "Show / hide taxiway network"
+
+FTG_SPEED_COMMAND = FTG_PLUGIN_PATH + "/speed_"  # + FTP_SPEED
+FTG_SPEED_COMMAND_DESC = "Set Follow the Greens rabbit to "  # + FTP_SPEED
+
+# Data Accessor
+FTG_IS_RUNNING = FTG_PLUGIN_PATH + "/is_running"
+
+
+# X-PLANE Runway Lights Datarefs
+class AMBIANT_RWY_LIGHT(StrEnum):
+    OFF = "off"
+    LOW = "lo"
+    MEDIUM = "med"
+    HIGH = "hi"
+
+AMBIANT_RWY_LIGHT_CMDROOT = "sim/operation/rwy_lights_"  # + AMBIANT_RWY_LIGHT
+AMBIANT_RWY_LIGHT_VALUE = "sim/graphics/scenery/airport_light_level"
+AIRPORTLIGHT_ON = "sim/graphics/scenery/airport_lights_on"
+# Preferences
+RUNWAY_LIGHT_LEVEL_WHILE_FTG = AMBIANT_RWY_LIGHT.LOW
 
 # Main UI Window display and position
 #
@@ -52,7 +106,7 @@ TAXIWAY_ACTIVE_ARRIVAL = "arrival"
 TAXIWAY_ACTIVE_ILS = "ils"
 
 
-# Follow the greens general constants and keywords
+# Follow the greens constants and keywords
 #
 ARRIVAL = TAXIWAY_ACTIVE_ARRIVAL
 DEPARTURE = TAXIWAY_ACTIVE_DEPARTURE
@@ -62,32 +116,49 @@ TOO_FAR = 500  # meters, if further than this from a taxiway, does not kick in.
 WARNING_DISTANCE = 150  # When getting close to a STOP BAR, show main window.
 
 PLANE_MONITOR_DURATION = 3  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
-
 MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before getting potential stop bar
-DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # 20 meter, distance between lights on ground. I *think* that the standard for taxi cetner line lights is 60 meters.
-DISTANCE_BETWEEN_STOPLIGHTS = 2  # meter, distance between lights on ground.
+
 ADD_LIGHT_AT_VERTEX = False  # Add a light at each taxiway network vertex on the path
 ADD_LIGHT_AT_LAST_VERTEX = False  # Add a light at the last vertex, even if it is closer than DISTANCE_BETWEEN_GREEN_LIGHTS
 ADD_STOPBAR_AT_LAST_VERTEX = False  # Add a stop bar at the end (artificial)
 
-
 # Follow the greens lighting constants
 #
-DISTANCE_BETWEEN_LIGHTS = 5  # in ~ meter
+DISTANCE_BETWEEN_GREEN_LIGHTS = 8  # 20 meter, distance between lights on ground. I *think* that the standard for taxi cetner line lights is 60 meters.
+DISTANCE_BETWEEN_STOPLIGHTS = 8  # meter, distance between red stop lights on the ground.
+DISTANCE_BETWEEN_LIGHTS = 40  # in meter, when showing all taxiways. This can build numerous lights!
+
 
 LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
-RABBIT_TIMEON = 0.4  # sec, set to 0 to cancel rabbit
-RABBIT_TIMEOFF = 2  # sec
-RABBIT_PHASE = 0.3  # sec
-RABBIT_INTENSITY = 2.0  # ratio to current value
-RABBIT_LENGTH = 12  # number of lights
-RABBIT_DURATION = 0.10  # sec
+RABBIT_LENGTH = 10  # number of lights that blink in front of aircraft
+RABBIT_DURATION = 0.2  # sec duration of "off" light in rabbit
+
+class RABBIT_MODE(StrEnum):
+    SLOW = "slow"
+    SLOWER = "slower"
+    MED = "med"
+    FASTER = "faster"
+    FAST = "fast"
+
+# As a first step, uses 5 standard rabbit (length, speed)
+FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
+    RABBIT_MODE.FAST: [2 * RABBIT_LENGTH, RABBIT_DURATION / 2],  # accelerate (long and fast)
+    RABBIT_MODE.FASTER: [RABBIT_LENGTH, RABBIT_DURATION / 2],  # go faster (same length, faster)
+    RABBIT_MODE.MED: [RABBIT_LENGTH, RABBIT_DURATION],  # normal
+    RABBIT_MODE.SLOWER: [
+        RABBIT_LENGTH,
+        2 * RABBIT_DURATION,
+    ],  # slow down (same length, slower)
+    RABBIT_MODE.SLOW: [int(RABBIT_LENGTH / 2), 2 * RABBIT_DURATION],  # slow down (short and slow)
+}
+
 
 # ATC related constants
 #
 ATC = {"None", "Delivery", "Ground", "Tower", "Tracon", "Center"}
-
+# ATC greetings
 GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}
+# GOOD = {"morning": 4, "day": 6, "afternoon": 9, "evening": 12, "night": 17}  # special US
 
 # Aeronautics constant (notes)
 #

@@ -3,7 +3,6 @@
 # Dijkstra stolen at https://www.bogotobogo.com/python/python_graph_data_structures.php
 # AStar implemented by myself.
 #
-import logging
 import math
 import json
 from functools import reduce
@@ -17,9 +16,7 @@ from .geo import (
     destination,
     pointInPolygon,
 )
-from .globals import TAXIWAY_DIR_TWOWAY, DEPARTURE, ARRIVAL
-
-logger = logging.getLogger("follow_the_greens")
+from .globals import logger, TAXIWAY_DIR_TWOWAY, DEPARTURE, ARRIVAL
 
 
 class Vertex(Point):  ## Vertex(Point)
@@ -442,12 +439,12 @@ class Graph:  # Graph(FeatureCollection)?
 
             # find a node with the lowest value of f() - evaluation function
             for v in open_list:
-                if n == None or g[v] + self.heuristic(v, stop_node) < g[
+                if n is None or g[v] + self.heuristic(v, stop_node) < g[
                     n
                 ] + self.heuristic(n, stop_node):
                     n = v
 
-            if n == None:
+            if n is None:
                 logger.warning("AStar: route not found")
                 return None
 

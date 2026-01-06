@@ -4,14 +4,18 @@
 import os.path
 import re
 import math
-import logging
 
 from .geo import Point, Line, Polygon, distance, pointInPolygon
 from .graph import Graph, Edge
-from .globals import SYSTEM_DIRECTORY, DISTANCE_TO_RAMPS, DEPARTURE, ARRIVAL, TOO_FAR
+from .globals import (
+    logger,
+    SYSTEM_DIRECTORY,
+    DISTANCE_TO_RAMPS,
+    DEPARTURE,
+    ARRIVAL,
+    TOO_FAR,
+)
 from .globals import AIRCRAFT_TYPES as TAXIWAY_WIDTH
-
-logger = logging.getLogger("follow_the_greens")
 
 
 class AptLine:
@@ -533,9 +537,7 @@ class Airport:
         opts = {"taxiwayOnly": True}
         route = Route(self.graph, src[0], dst[0], move, opts)
         route.find()
-        if (
-            not route.found() and len(opts.keys()) > 0
-        ):  # if there were options, we try to find a route without option
+        if not route.found() and len(opts.keys()) > 0:  # if there were options, we try to find a route without option
             logger.debug("route not found with options, trying without option.")
             route.options = {}
             route.find()

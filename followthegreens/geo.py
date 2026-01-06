@@ -9,6 +9,9 @@ import json
 
 # Geology constants
 R = 6371000  # Radius of third rock from the sun, in metres
+EARTH = 39940653000  # Earth circumference, in meter :-)
+
+# Imperial units
 FT = 12 * 0.0254  # 1 FOOT = 12 INCHES
 NAUTICAL_MILE = 1.852  # Nautical mile in meters 6076.118ft=1nm
 

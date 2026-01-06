@@ -1,50 +1,47 @@
-# Follow the greens mission container Class
-# Keeps all information handy. Dispatches intruction to do things.
+# Follow the greens XPPYthon3 Plugin Interface
 #
-# Cannot use Follow the greens.
-# We are sorry. We cannot provide Follow the greens service at this airport.
-# Reasons:
-# This airport does not have a routing network of taxiway.
 #
-# Can use Follow the greens, but other issue:
-# We are sorry. We cannot provide Follow the greens service now.
-# Reasons:
-# You are too far from the taxiways.
-# We could not find a suitable route to your destination.
-#
-import logging
-
 import xp
+import os
+import tomllib
 
+from .globals import logger, FTG_STATUS, ARRIVAL, DEPARTURE, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE
 from .aircraft import Aircraft
 from .airport import Airport
 from .flightloop import FlightLoop
-from .globals import ARRIVAL, DEPARTURE
 from .lightstring import LightString
 from .ui import UIUtil
 
-logger = logging.getLogger("follow_the_greens")
-
 
 class FollowTheGreens:
-    # Internal status
-    STATUS = {"NEW": "NEW", "INITIALIZED": "INIT", "READY": "READY", "ACTIVE": "ACTIVE"}
 
     def __init__(self, pi):
-        self.__status = FollowTheGreens.STATUS["NEW"]
-        if pi is not None and pi.trace:
-            logger.setLevel(logging.DEBUG)
+        self.__status = FTG_STATUS.NEW
         self.pi = pi
         self.airport = None
         self.aircraft = None
         self.lights = None
         self.segment = 0  # counter for green segments currently lit -0-----|-1-----|-2---------|-3---
-        self.move = (
-            None  # departure or arrival, guessed first, can be changed by pilot.
-        )
+        self.move = None # departure or arrival, guessed first, can be changed by pilot.
         self.destination = None  # Handy
         self.ui = UIUtil(self)  # Where windows are built
         self.flightLoop = FlightLoop(self)  # where the magic is done
+        self.airport_light_level = xp.findDataRef(
+            AMBIANT_RWY_LIGHT_VALUE
+        )  # [off, lo, med, hi] = [0, 0.25, 0.5, 0.75, 1]
+
+        # Load optional config file (Rel. 2 onwards)
+        # Parameters in this file will overwrite (with constrain)
+        # default values provided by FtG.
+        self.config = {}
+        here = os.path.dirname(__file__)
+        CONFIGILENAME = "ftgconfig.toml"
+        filename = os.path.join(here, CONFIGILENAME)
+        if os.path.exists(filename):
+            with open(filename, "r") as fp:
+                self.config = tomllib.load(fp)
+            logger.info(f"config file {filename} loaded")
+            # @todo Need to install params here...
 
     def start(self):
         # Toggles visibility of main window.
@@ -69,6 +66,12 @@ class FollowTheGreens:
             logger.info("..started.")
             return 1  # window displayed
         return 0
+
+    def rabbitMode(self, mode: str):
+        if mode not in RABBIT_MODE:
+            logger.warning(f"invalid rabbit mode {mode}")
+            return
+        self.flightLoop.rabbitMode = mode
 
     def getAirport(self):
         # Search for airport or prompt for one.
@@ -160,6 +163,7 @@ class FollowTheGreens:
         # Info 12
         pos = self.aircraft.position()
         hdg = self.aircraft.heading()
+        gsp = self.aircraft.speed()
         if pos is None:
             logger.debug("no plane position")
             return self.ui.sorry("We could not locate your plane.")
@@ -201,7 +205,7 @@ class FollowTheGreens:
 
         logger.info(f"first light at {initdist} m, heading {initbrgn} DEG.")
         self.flightLoop.startFlightLoop()
-        self.__status = FollowTheGreens.STATUS["ACTIVE"]
+        self.__status = FTG_STATUS.ACTIVE
         # Info 14
         logger.info("Flightloop started.")
 
