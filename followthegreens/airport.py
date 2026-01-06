@@ -537,9 +537,7 @@ class Airport:
         opts = {"taxiwayOnly": True}
         route = Route(self.graph, src[0], dst[0], move, opts)
         route.find()
-        if (
-            not route.found() and len(opts.keys()) > 0
-        ):  # if there were options, we try to find a route without option
+        if not route.found() and len(opts.keys()) > 0:  # if there were options, we try to find a route without option
             logger.debug("route not found with options, trying without option.")
             route.options = {}
             route.find()

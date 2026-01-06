@@ -2,6 +2,8 @@
 #
 #
 import xp
+import os
+import tomllib
 
 from .globals import logger, FTG_STATUS, ARRIVAL, DEPARTURE, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE
 from .aircraft import Aircraft
@@ -20,15 +22,26 @@ class FollowTheGreens:
         self.aircraft = None
         self.lights = None
         self.segment = 0  # counter for green segments currently lit -0-----|-1-----|-2---------|-3---
-        self.move = (
-            None  # departure or arrival, guessed first, can be changed by pilot.
-        )
+        self.move = None # departure or arrival, guessed first, can be changed by pilot.
         self.destination = None  # Handy
         self.ui = UIUtil(self)  # Where windows are built
         self.flightLoop = FlightLoop(self)  # where the magic is done
         self.airport_light_level = xp.findDataRef(
             AMBIANT_RWY_LIGHT_VALUE
         )  # [off, lo, med, hi] = [0, 0.25, 0.5, 0.75, 1]
+
+        # Load optional config file (Rel. 2 onwards)
+        # Parameters in this file will overwrite (with constrain)
+        # default values provided by FtG.
+        self.config = {}
+        here = os.path.dirname(__file__)
+        CONFIGILENAME = "ftgconfig.toml"
+        filename = os.path.join(here, CONFIGILENAME)
+        if os.path.exists(filename):
+            with open(filename, "r") as fp:
+                self.config = tomllib.load(fp)
+            logger.info(f"config file {filename} loaded")
+            # @todo Need to install params here...
 
     def start(self):
         # Toggles visibility of main window.

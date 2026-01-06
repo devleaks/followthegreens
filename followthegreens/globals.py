@@ -81,17 +81,11 @@ MAINWINDOW_DISPLAY_TIME = 30  # If above true, main UI window will disappear aft
 
 # you may carefully adjust those:
 MAINWINDOW_FROM_LEFT = 100  # Distance of main UI window from left of screen
-MAINWINDOW_FROM_BOTTOM = (
-    80  # Distance of the bottom of the main window from the bottom of the screen
-)
+MAINWINDOW_FROM_BOTTOM = 80  # Distance of the bottom of the main window from the bottom of the screen
 
 # don't touch those:
-MAINWINDOW_WIDTH = (
-    500  # Normal main window width. May need adjustment if font size is changed
-)
-MAINWINDOW_HEIGHT = (
-    80  # Additional main window height to accommodate from space and title bar
-)
+MAINWINDOW_WIDTH = 500  # Normal main window width. May need adjustment if font size is changed
+MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from space and title bar
 
 
 # X-Plane APT files constants and keywords
