@@ -2,7 +2,7 @@
 #
 import os
 import logging
-from enum import StrEnum
+from enum import Enum, StrEnum
 
 # Setup logging
 plugin_path = os.path.dirname(__file__)
@@ -105,6 +105,7 @@ TAXIWAY_ACTIVE_DEPARTURE = "departure"
 TAXIWAY_ACTIVE_ARRIVAL = "arrival"
 TAXIWAY_ACTIVE_ILS = "ils"
 
+ROUTING_ALGORITHM = "dijkstra"  # astar, dijkstra (default)
 
 # Follow the greens constants and keywords
 #
@@ -152,6 +153,9 @@ FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
     RABBIT_MODE.SLOW: [int(RABBIT_LENGTH / 2), 2 * RABBIT_DURATION],  # slow down (short and slow)
 }
 
+# For now: Hardcoded speed values
+SPEED_SLOW = 1.0 # m/s, 2kt
+SPEED_FAST = 10.0 # m/s, 20kt
 
 # ATC related constants
 #
@@ -181,6 +185,14 @@ GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}
 #
 # Aicraft type/class (size) is used to estimate minimal taxiway width
 #
+class AIRCRAFT_TYPE(Enum):  # Half width of taxiway in meters
+    A = 4  # 7.5m
+    B = 6  # 10.5m
+    C = 8  # 15m or 18m
+    D = 9  # 18m or 23m
+    E = 12  # 23m
+    F = 15  # 30m
+
 AIRCRAFT_TYPES = {  # Half width of taxiway in meters
     "A": 4,  # 7.5m
     "B": 6,  # 10.5m

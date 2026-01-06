@@ -150,13 +150,16 @@ And monitor your brakes temperature.
 
 While FtG rabbit runs, all runway lights are dimmed to a preference value:
 
-RUNWAY_LIGHT_LEVEL_WHILE_FTG
+`RUNWAY_LIGHT_LEVEL_WHILE_FTG`
 
 So if you set it to
 
+```
 RUNWAY_LIGHT_LEVEL_WHILE_FTG = AMBIANT_RWY_LIGHT.LOW
+```
 
 all runway lights will be dimmed to low while FtG is running.
+Even completely OFF if you choose to do so.
 
 Runway light luminosity will be restored to its original value after FtG terminates.
 
@@ -172,11 +175,12 @@ Alternatively, independently of FtG, runway lights can be dimmed thanks to follo
 
 The speed and length of the rabbit can be controlled by two preference parameters:
 
+```
 RABBIT_LENGTH = 10  # number of lights that blink in front of aircraft
 RABBIT_DURATION = 0.2  # sec duration of "off" light in rabbit
+```
 
-
-You can manually adjust rabbit speed with the following FtG commands:
+You can manually adjust rabbit speed and length with the following FtG commands:
 
 - `XPPython3/followthegreens/speed_slow` (length x 2, speed x 2)
 - `XPPython3/followthegreens/speed_slower` (normal length, speed x 2, twice slower)

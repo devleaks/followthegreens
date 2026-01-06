@@ -9,6 +9,8 @@ from .globals import (
     AMBIANT_RWY_LIGHT,
     logger,
     RABBIT_MODE,
+    SPEED_SLOW,
+    SPEED_FAST,
     PLANE_MONITOR_DURATION,
     DISTANCE_BETWEEN_GREEN_LIGHTS,
     WARNING_DISTANCE,
@@ -44,14 +46,17 @@ class FlightLoop:
         # @todo: make function to reset lastLit counter
         self.lastLit = 0
 
-        if not self.rabbitRunning:
-            params = [phase, self.rabbitFLCB, self.refrabbit]
-            self.flrabbit = xp.createFlightLoop(params)
-            xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)
-            self.rabbitRunning = True
-            logger.debug("rabbit started.")
+        if self.has_rabbit():
+            if not self.rabbitRunning:
+                params = [phase, self.rabbitFLCB, self.refrabbit]
+                self.flrabbit = xp.createFlightLoop(params)
+                xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)
+                self.rabbitRunning = True
+                logger.debug("rabbit started.")
+            else:
+                logger.debug("rabbit running.")
         else:
-            logger.debug("rabbit running.")
+            logger.debug("no rabbit requested.")
 
         if not self.planeRunning:
             params = [phase, self.planeFLCB, self.refplane]
@@ -122,6 +127,9 @@ class FlightLoop:
             else:
                 logger.debug(f"runway lights no need to restore ({currlevel} vs. {self.runway_level_original})")
 
+    def has_rabbit(self) -> bool:
+        return self.ftg.lights.rabbit_duration > 0 if self.ftg.lights is not None else False
+
     @property
     def rabbitMode(self) -> RABBIT_MODE:
         return self._rabbit_mode
@@ -168,12 +176,16 @@ class FlightLoop:
         # Accelerate of more than 200m from turn, break if closer
         # Max turn speed = function(turn angle)
         # Note: 20kt~=10.29m/s, 1m/s~=1.94kt
-        SPEED_SLOW = 1.0 # m/s
-        SPEED_FAST = 10.0
+        #
+        logger.debug(f"adjustSpeed: {speed}")
+        mode = RABBIT_MODE.MED
         if speed < SPEED_SLOW:
-            self.rabbitMode = RABBIT_MODE.FASTER
+            mode = RABBIT_MODE.FASTER
         elif speed > SPEED_FAST:
-            self.rabbitMode = RABBIT_MODE.SLOWER
+            mode = RABBIT_MODE.SLOWER
+        if self.rabbitMode != mode:
+            self.rabbitMode = mode
+            logger.debug(f"adjustSpeed: changed to {mode}")
 
     def rabbitFLCB(
         self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon
@@ -208,7 +220,7 @@ class FlightLoop:
         else:
             # Monitor aircraft speed and adjust rabbit speed
             spd = self.ftg.aircraft.speed()
-            self.adjustSpeed(pos, spd)
+            self.adjustSpeed(spd, pos)
 
         closestLight, distance = self.ftg.lights.closest(pos)
         if not closestLight:

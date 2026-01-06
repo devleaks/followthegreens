@@ -2,20 +2,20 @@
 #
 import xp
 
+from .globals import AIRCRAFT_TYPE
 
 class Aircraft:
     def __init__(
-        self, icaomodel="A320", icaocategory="C", tailsign="OO-XPL", callsign="FG-001"
+        self
     ):
         self.icaomodel = xp.findDataRef("sim/aircraft/view/acf_ICAO")
         self.tailsign = xp.findDataRef("sim/aircraft/view/acf_tailnum")
+        self.icaotype = AIRCRAFT_TYPE.C  # default
         self.lat = xp.findDataRef("sim/flightmodel/position/latitude")
         self.lon = xp.findDataRef("sim/flightmodel/position/longitude")
         self.psi = xp.findDataRef("sim/flightmodel/position/psi")
         self.groundspeed = xp.findDataRef("sim/flightmodel/position/groundspeed")
         self.localTime = xp.findDataRef("sim/time/local_time_sec")
-        self.callsign = callsign
-        self.icaocat = icaocategory
 
     def position(self):
         return [xp.getDataf(self.lat), xp.getDataf(self.lon)]

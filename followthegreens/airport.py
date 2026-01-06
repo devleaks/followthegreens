@@ -14,6 +14,7 @@ from .globals import (
     DEPARTURE,
     ARRIVAL,
     TOO_FAR,
+    ROUTING_ALGORITHM
 )
 from .globals import AIRCRAFT_TYPES as TAXIWAY_WIDTH
 
@@ -72,6 +73,7 @@ class Route:
         self.vertices = None
         self.edges = None
         self.smoothed = None
+        self.algorithm = ROUTING_ALGORITHM  # default, unused
 
     def __str__(self):
         if self.found():
@@ -79,7 +81,10 @@ class Route:
         return ""
 
     def find(self):
-        self.route = self.graph.Dijkstra(self.src, self.dst, self.options)
+        if self.algorithm == "astar":
+            self.route = self.graph.AStar(self.src, self.dst)
+        else: # dijkstra, default
+            self.route = self.graph.Dijkstra(self.src, self.dst, self.options)
         return self
 
     def found(self):

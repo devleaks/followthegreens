@@ -94,6 +94,22 @@ I hope you will enjoy the eye candy Follow the greens.
 
 Taxi safely.
 
+## Lights
+
+I struggle with X-Plane lights.
+
+```
+# Light repeated to make it brighter
+# NAME             X   Y   Z    R   G   B   A   size <s1> <t1> <s2> <t2> dataref
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.3  0.0  0.5  0.5  0.0  UNUSED
+```
+
+The size of the light (0.3) is relative (to what?) and is already quite large, but visible.
+Smaller lights (0.2) are OK but smaller, and less bright.
+
+To augment luminosity, the last line is sometimes repeated 10, or 20 times!
+Feel free to experiment to your liking.
+
 
 ## Wish
 

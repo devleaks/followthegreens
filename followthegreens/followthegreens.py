@@ -38,10 +38,19 @@ class FollowTheGreens:
         CONFIGILENAME = "ftgconfig.toml"
         filename = os.path.join(here, CONFIGILENAME)
         if os.path.exists(filename):
-            with open(filename, "r") as fp:
+            with open(filename, "rb") as fp:
                 self.config = tomllib.load(fp)
             logger.info(f"config file {filename} loaded")
-            # @todo Need to install params here...
+            logger.debug(f"config: {self.config}")
+
+    def get_config(self, name):
+        # Example: get_config("AMBIANT_RWY_LIGHT_VALUE")
+        # return either the config value or the global value AMBIANT_RWY_LIGHT_VALUE.
+        g = globals()
+        g1 = g.get(name)
+        if name not in self.config:
+            logger.info(f"no config for {name}, returning global {name}={g1}")
+        return self.config.get(name, g1)
 
     def start(self):
         # Toggles visibility of main window.
