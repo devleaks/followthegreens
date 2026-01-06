@@ -1,1 +1,1 @@
-See [followthegreens/README.md](https://github.com/devleaks/followthegreens/blob/main/followthegreens/README.md).
+See [instructions and notes](https://devleaks.github.io/followthegreens/).

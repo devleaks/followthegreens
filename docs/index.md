@@ -1,7 +1,5 @@
 # Follow the Greens
 
-Welcome.
-
 Follow the greens is a enhancement to airport infrastructure to ease ground operations.
 
 It is an aid for ground movement, to indicate to pilots where and how to circulate on taxiways without ATC communication.

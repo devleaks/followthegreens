@@ -2,11 +2,11 @@ import os
 import binascii
 import glob
 
-excluded = [".DS_Store", "gensc.py", "xpdepot.py"]
+excluded = [".DS_Store", "gensc.py", "xpdepot.py", "docs", "mkdocs.yml"]
 
 
 def is_excluded(f):
-    return f in excluded or "__pycache__" in f or "skunkcrafts_" in f
+    return f in excluded or "__pycache__" in f or "skunkcrafts_" in f or f.startswith("docs")
 
 
 files = {}
@@ -23,6 +23,5 @@ def out(what):
     for f, v in files.items():
         print(f"{f}|{v[what]}")
 
-
 # out("size")
-out("crc32")
+out("size")

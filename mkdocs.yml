@@ -1,4 +1,4 @@
-site_name: X-Plane 12 Follow the Greens Plugin
+site_name: Follow the Greens
 
 theme:
   name: "material"
@@ -24,7 +24,7 @@ theme:
   logo: x-plane.svg
 
 nav:
-- Home: index.md
+- Welcome: index.md
 - Changelog: changelog.md
 - Developer Notes: devnotes.md
 
