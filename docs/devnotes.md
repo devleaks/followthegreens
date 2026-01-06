@@ -1,6 +1,6 @@
 # Follow the Greens
 
-Here is how it works.
+## How it Works
 
 First, the plugin tries to guess the airport from your current plane location.
 If the plugin fails to guess the airport, you will have to manually enter the airport ICAO code.
@@ -110,6 +110,7 @@ Smaller lights (0.2) are OK but smaller, and less bright.
 To augment luminosity, the last line is sometimes repeated 10, or 20 times!
 Feel free to experiment to your liking.
 
+![Green light](images/greenlight.png)
 
 ## Wish
 
@@ -135,5 +136,3 @@ Thanks a lot for X-Plane. We have a lot of fun.
 Keep it open, so we can add our fantasies to your world.
 
 Best regards.
-
-PS: And if you want to call the rabbit a [lamb instead](https://twitter.com/XPlaneOfficial/status/1357051101581877248), that's fine with me.

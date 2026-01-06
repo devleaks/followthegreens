@@ -124,7 +124,7 @@ XPPython3 release 4 or above is required.
 
 # Rationale for Release 2
 
-After reading this paper (https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
+After reading [this paper](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
 I found it amusing to incorporate their model and suggestions into FtG.
 
 Please notice the « overhype » with _4D_ trajectories 🤣.
