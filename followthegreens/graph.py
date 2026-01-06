@@ -11,6 +11,7 @@ from .geo import (
     Point,
     Line,
     Polygon,
+    bearing,
     distance,
     nearestPointToLines,
     destination,
@@ -52,6 +53,19 @@ class Vertex(Point):  ## Vertex(Point)
     def get_neighbors(self):
         return list(map(lambda a: (a, self.adjacent[a]), self.adjacent))
 
+    def turn(self, src, dst) -> float | None:
+        # Turn angle coming from src and going to dst
+        # Will be used as a weighted extra cost when visited from src to dst
+        if src not in self.adjacent or dst not in self.adjacent:
+            return None
+        b1 = bearing(self.adjacent[src], self)
+        b2 = bearing(self, self.adjacent[dst])
+        bd = b1 - b2
+        while bd > 360:
+            bd = bd - 360
+        while bd < 0:
+            bd = bd + 360
+        return bd
 
 class Active:
     def __init__(self, active, runways):
@@ -68,11 +82,10 @@ class Edge(Line):
         self.cost = cost  # cost = distance to next vertext
         self.direction = direction  # direction of vertex: oneway or twoway
         self.usage = usage  # type of vertex: runway or taxiway or taxiway_X where X is width code (A-F)
-        self.name = name  # segment name, not unique!
-        self.active = (
-            []
-        )  # array of segment activity, activity can be departure, arrival, or ils.
-        # departure require clearance. plane cannot stop on segment of type ils.
+        self.usage2 = "inner" # or "outer" or "both"
+        self.name = name  # segment name, not unique! For documentation only.
+        self.active = [] # array of segment activity, activity can be departure, arrival, or ils.
+                         # departure require clearance. plane cannot stop on segment of type ils.
 
     def props(self):
         props = self.properties
@@ -111,6 +124,7 @@ class Edge(Line):
         return self.has_active(DEPARTURE) or self.has_active(ARRIVAL)
 
     def widthCode(self, default=None):
+        # self.usage = taxiway_X where X is width code (A-F)
         if self.usage and len(self.usage) == 9:
             return self.usage[8]
         return default

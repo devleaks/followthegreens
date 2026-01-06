@@ -149,6 +149,10 @@ class Stopbar:
     def make(self):
         numlights = int(self.width / DISTANCE_BETWEEN_STOPLIGHTS)
 
+        if numlights < 4:
+            logger.warning(f"stopbar has not enough lights {numlights}")
+            numlights = 4
+
         # centerline
         self.lights.append(Light(LIGHT_TYPE_STOP, self.position, 0, 0))
 

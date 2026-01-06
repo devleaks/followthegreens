@@ -125,9 +125,9 @@ ADD_STOPBAR_AT_LAST_VERTEX = False  # Add a stop bar at the end (artificial)
 
 # Follow the greens lighting constants
 #
-DISTANCE_BETWEEN_GREEN_LIGHTS = 8  # 20 meter, distance between lights on ground. I *think* that the standard for taxi cetner line lights is 60 meters.
-DISTANCE_BETWEEN_STOPLIGHTS = 8  # meter, distance between red stop lights on the ground.
-DISTANCE_BETWEEN_LIGHTS = 40  # in meter, when showing all taxiways. This can build numerous lights!
+DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # meters, distance between lights on ground. I *think* that the standard for taxi center line lights is 60 meters.
+DISTANCE_BETWEEN_STOPLIGHTS = 2  # meters, distance between red stop lights on the ground. Should be small, like 2 meters
+DISTANCE_BETWEEN_LIGHTS = 40  # meters, when showing all taxiways. This can build numerous lights! Use 40-80 range.
 
 
 LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
@@ -153,7 +153,7 @@ FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
     RABBIT_MODE.SLOW: [int(RABBIT_LENGTH / 2), 2 * RABBIT_DURATION],  # slow down (short and slow)
 }
 
-# For now: Hardcoded speed values
+# For now: hardcoded speed values, same for all aircrafts
 SPEED_SLOW = 1.0 # m/s, 2kt
 SPEED_FAST = 10.0 # m/s, 20kt
 
