@@ -4,9 +4,7 @@ Follow the greens is a enhancement to airport infrastructure to ease ground oper
 
 It is an aid for ground movement, to indicate to pilots where and how to circulate on taxiways without ATC communication.
 
-In a nutshell, whenever a pilot request taxi instructions, she or he solely receives "Please Follow the greens".
-
-Ground operators will highlight the taxi path the pilot has to follow with center taxiway green lights.
+ATC Ground operators will highlight the taxi path the pilot has to follow with center taxiway green lights.
 A red line across the taxiway indicates the aircraft has to hold and wait for the red light to clear.
 Very much like car traffic lights.
 
@@ -14,23 +12,23 @@ No more path or taxiway segment names to remember. Just green lights to follow.
 
 Follow the greens is part of the serious _Advanced Surface Movement Guidance and Control System_ (A-SMGCS).
 
-Please have a look at the following video (https://vimeo.com/101564135) and search for "airport Follow the greens"
-to get more information (http://followthegreens.com) if you are interested.
-There are nowaways a lot more information, manufacturers, and pilot project reports to learn from.
-(Pilot project, I mean, experimental projects...)
+Please have a look at the [following video](https://vimeo.com/101564135) and search for "airport Follow the greens" to get more information.
+(http://followthegreens.com) if you are interested.
+There are nowaways a lot more information, manufacturers, and experimental project reports to learn from.
 
 Follow the greens has numerous advantages discussed in the above videos, ranking to ease of use, to smoother taxi rides,
 to lower interaction with ground control.
 
 Yeah, yeah, less fuel use also.
+
 Yeah, yeah, less CO2 produced.
+
 Yeah, yeah, follow the greens is realllly green. Can't be greener than that.
+
 Serious. No green bashing.
-(Don't forget to substract energy usage for led green lights though.
-And coffee machine for ATC ground. No seriously.)
 
 I found amusing to bring Follow the greens concept to X-Plane as ATC and "AI" struggle to guide you on the ground.
-X-Plane yellow painted coach arrows on taxiways are fine, useful but look too artificial.
+X-Plane yellow painted coach arrows on taxiways are fine, useful, but look too artificial.
 
 Follow the greens is an existing system used at a handful airports.
 But now, thanks to this plugin, even your local muni can get Follow the greens (at no cost).
@@ -68,7 +66,9 @@ That's it.
 Reload X-Plane, or the plugins, or the python scripts and you are all set.
 
 When X-Plane is running and a plane is loaded, check the _Plugin_ menu item at the top.
-It should now contain a _Follow the greens..._ menu item. 
+It should now contain a _Follow the greens..._ menu item.
+
+![[menu.png|400]]
 
 
 # Usage
@@ -85,14 +85,19 @@ To start follow the greens, you will need to supply some information to it to st
 If you are at a stand location, ready for departure, you will need to supply the runway you are taking-off from.
 Follow the greens will light the path the the entrane of the runway.
 
+![[departure.png|800]]
+
 If you just landed and roll out, heading for your stand, you will need to supply the stand number.
 It must be a stand location known from X-Plane for that airport.
 Follow the greens will light the way to the stand.
 
-If you added plugins like AutoDGS, you will be guided at the stand by a marshall or a VDG system.
+![[arrival.png|800]]
+
+If you added plugins like [AutoDGS](https://forums.x-plane.org/forums/topic/290222-autodgs-dgs-marshaller-or-vdgs-for-every-gateway-airport/#comment-2569544), you will be guided at the stand by a marshall or a VDG system.
 
 If your path come across an holding position, FtG will indicate the holding position with a red bar of lights
 across the taxiway.
+
 When approaching this red line across the taxiway, a dialog box will pop up and ask you to confirm
 when you received the clearance to progress.
 
@@ -100,15 +105,14 @@ Follow the greens is not aware of the ATC ground in use, and the ATC ground is n
 Therefore, when ATC has given clearance and you aknowledged it, you can press the the «Clearance received» button
 in the dialog box.
 
+![[clearance.png|800]]
+
 Follow the greens will resume, turn off the red lights and light the next segment of greens.
 
 It will do so until you reach your destination.
 
 That is it. Nothing more. Nothing less.
 
-
-The instruction manual for _Follow the greens_ can be found here
-(https://devleaks.github.io/followthegreens/).
 
 
 # New in Release 2
@@ -158,11 +162,10 @@ Runway light luminosity will be restored to its original value after FtG termina
 
 Alternatively, independently of FtG, runway lights can be dimmed thanks to following X-Plane commands:
 
-Preset runway lights to
-      - sim/operation/rwy_lights_off (sim/graphics/scenery/airport_light_level=0)
-      - sim/operation/rwy_lights_lo (sim/graphics/scenery/airport_light_level=0.25)
-      - sim/operation/rwy_lights_med (sim/graphics/scenery/airport_light_level=0.5)
-      - sim/operation/rwy_lights_hi (sim/graphics/scenery/airport_light_level=1)
+- `sim/operation/rwy_lights_off` (sim/graphics/scenery/airport_light_level=0)
+- `sim/operation/rwy_lights_lo` (sim/graphics/scenery/airport_light_level=0.25)
+- `sim/operation/rwy_lights_med` (sim/graphics/scenery/airport_light_level=0.5)
+- `sim/operation/rwy_lights_hi` (sim/graphics/scenery/airport_light_level=1)
 
 
 ## Rabbit Speed
@@ -175,11 +178,11 @@ RABBIT_DURATION = 0.2  # sec duration of "off" light in rabbit
 
 You can manually adjust rabbit speed with the following FtG commands:
 
-    - XPPython3/followthegreens/speed_slow (length x 2, speed x 2)
-    - XPPython3/followthegreens/speed_slower (normal length, speed x 2, twice slower)
-    - XPPython3/followthegreens/speed_med (normal length, normal speed)
-    - XPPython3/followthegreens/speed_faster (normal length, speed / 2, twice faster)
-    - XPPython3/followthegreens/speed_fast (length x 2, speed / 2)
+- `XPPython3/followthegreens/speed_slow` (length x 2, speed x 2)
+- `XPPython3/followthegreens/speed_slower` (normal length, speed x 2, twice slower)
+- `XPPython3/followthegreens/speed_med` (normal length, normal speed)
+- `XPPython3/followthegreens/speed_faster` (normal length, speed / 2, twice faster)
+- `XPPython3/followthegreens/speed_fast` (length x 2, speed / 2)
 
 
 ## Automagic Rabbit Speed Control
@@ -187,19 +190,19 @@ You can manually adjust rabbit speed with the following FtG commands:
 The goal of Release 2 is to supply taxi speed information to the pilot in addition to the direction (Follow the greens).
 The speed information is supplied with two «variables»:
 
-    - The speed of the «rabbit» (the faster the rabbit, the faster you should run to catch it up, the slower the rabbit, the slower you should go.)
-    - The length of the rabbit (the longer the rabbit, the more you can keep up with that speed, do not expect speed change.)
+- The speed of the «rabbit» (the faster the rabbit, the faster you should run to catch it up, the slower the rabbit, the slower you should go.)
+- The length of the rabbit (the longer the rabbit, the more you can keep up with that speed, do not expect speed change.)
 
 
 In this first instance, the control of the speed is simplified as such:
 
-- If the aircraft is at or below 15 knots (~7m/s), the rabbit will propose to accelerate (run faster). This is indicated by a faster rabbit sequence.
+- If the aircraft is at or below 10 knots (~5m/s), the rabbit will propose to accelerate (run faster). This is indicated by a faster rabbit sequence.
 - If the aircraft is at or above 25 knots (~13m/s), the rabbit will propose to slow down. This is indicated by a slower rabbit sequence.
 - If the aircraft nears a stop bar or the end of the greens (at about 200 meters from it), the rabbit will also propose to slow down.
 
-Between 15 and 25 knots on a straight taxiway, the rabbit will run at normal speed.
+Between 10 and 25 knots on a straight taxiway, the rabbit will run at normal speed.
 
-There currently is no difference between a GA and a A380. They all taxi at the same speed range.
+There currently is no difference between a GA and a A380. They all taxi at the same speed range 10 to 25 knots.
 
 In a later release, speed indication will be refined to anticipate turns (at slow speed) or long, straight taxiways.
 Speeds will also be adjusted for aircraft types and sizes.
@@ -209,20 +212,24 @@ Speeds will also be adjusted for aircraft types and sizes.
 
 FtG adds the follwoing commands:
 
-    - XPPython3/followthegreens/main_windown_toggle
-    - XPPython3/followthegreens/send_clearance_ok
-    - XPPython3/followthegreens/send_cancel
-    - XPPython3/followthegreens/send_ok
-    - XPPython3/followthegreens/highlight_taxiways_toggle
+- `XPPython3/followthegreens/main_windown_toggle`
+- `XPPython3/followthegreens/send_clearance_ok`
+- `XPPython3/followthegreens/send_cancel`
+- `XPPython3/followthegreens/send_ok`
+- `XPPython3/followthegreens/highlight_taxiways_toggle`
 
 
 FtG adds the following dataref:
 
-    - XPPython3/followthegreens/is_running
+- `XPPython3/followthegreens/is_running`
 
 which is 0 if FtG is not running and 1 when FtG is running.
 
 
 # Developer Notes
 
-(in another file.)
+See [developer notes](devnotes.md).
+
+[Changelog](changelog.md)
+
+[[ftp.png]]
