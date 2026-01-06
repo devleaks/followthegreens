@@ -1,4 +1,4 @@
-site_name: Python wrapper for X-Plane Web API
+site_name: X-Plane 12 Follow the Greens Plugin
 
 theme:
   name: "material"
@@ -24,11 +24,9 @@ theme:
   logo: x-plane.svg
 
 nav:
-- Home:
-  - Overview: index.md
-  - Changelog: changelog.md
-- Usage: usage/index.md
-- Reference: reference/index.md
+- Home: index.md
+- Changelog: changelog.md
+- Developer Notes: devnotes.md
 
 markdown_extensions:
 - pymdownx.snippets
