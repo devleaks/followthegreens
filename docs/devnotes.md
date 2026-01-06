@@ -1,79 +1,4 @@
-Follow the greens
-=================
-
-Follow the greens is a recent enhancement to the busiest airport infrastructure to ease ground operations.
-In a nutshell, whenever a plane request taxi instruction, it solely receive "Callsign, please Follow the greens".
-Ground operators dim all taxi lights visible to the crew, except those for the taxi path to be followed.
-A red line across the taxiway indicates the plane has to hold and wait the the red light to clear. Very much like car traffic lights.
-
-Follow the greens is part of the serious Advanced Surface Movement Guidance and Control System (A-SMGCS).
-Please have a look at the following video (https://vimeo.com/101564135) and search for "airport Follow the greens"
-to get more information (http://followthegreens.com).
-
-Follow the greens has numerous advantages discussed in the above videos, ranking to ease of use, to smoother taxi rides,
-to lower interaction with ground control.
-
-I found amusing to bring Follow the greens concept to X-Plane as ATC and "AI" (I hate that word) struggle to guide you on the ground.
-Yellow painted coach arrows are useful but look too artificial. Follow the greens is an existing system used at
-a handful airports. But now, thanks to this plugin, even your local muni can get Follow the greens (at no cost).
-
-
-Constrains are:
-
- - Airport must have a network of taxiways.
- - You must manually enter information the plugin need and cannot find.
-
- Technically speaking, Follow the greens is a XPPython3 plugin, so you need XPPython3 installed and working.
-
-
-## Installation
-
-Requirement: Have XPPython3 installed and working.
-
-Unzip Follow the greens distribution file.
-Copy PI_followthegreen.py file and followthegreen folder to your Resources/plugin/PythonPlugin folder.
-Reload scripts as needed in XPPython3. Follow the greens should now be a menu entry in your Plugins menu.
-Select it to start it.
-
-
-## Options and Parameters
-
-X-Plane does not provide easy user interface construction. So there is no Settings or Options window.
-You must change all parameters in a plugin file.
-
-In file X-Plane Home Directory/Resources/Plugins/PythonPlugins/followthegreen/globals.py you can adjust the following parameters.
-
-
-| parameter                 | Typical/default | Acceptable range   | Meaning                                                        |
-|---------------------------|-----------------|--------------------|----------------------------------------------------------------|
-| LIGHTS_AHEAD              |       10        |  0 - 20            | Number of light after the rabbit. If 0, lights till stopbar    |
-| RABBIT_LENGTH             |       10        |  2 - 16            | Length of the the rabbit (in number of lights)                 |
-| RABBIT_DURATION           |       0.5       |  0.5 - 0.03        | Duration of a "off" light in rabitt. Low value impacts FPS     |
-| DISTANCE_BETWEEN_GREEN_LIGHTS|    20.       |  5 - 40            | Distance between green lights (in meter)                       |
-| WARNING_DISTANCE          |       150       |  100-300           | Distance to stop light before Follow the greens window pops up |
-
-
-Watch out. Changing other parameter may crash the plugin and X-Plane.
-
-## X-Plane Integration
-
-The `XPPython3/followthegreens/is_running` dataref is 1 if Follow the Greens is running.
-
-The command `XPPython3/followthegreens/main_windown_toggle` toggles the visibility of the main window of Follow the Greens.
-If it is already running, it show the current instructions and prompt.
-The main window of Follow the Greens disappears after a few seconds. Toggling its visibility shows it back.
-
-The command `XPPython3/followthegreens/send_clearance_ok` is meant to be used by external parties, ATC controllers and alike,
-to give you the clearance and allow you to progress on the greens.
-
-If ATC is not capable of calling the clearance for you, you need to either press the «Clearance Received» button on the main dialog box of Follow the Greens.
-Alternatively, you can assign the command to a keystroke or a joystick button to activate it when needed.
-
-The command `XPPython3/followthegreens/send_cancel` is like if you pressed Cancel in a dialog box and terminates Follow the greens.
-
-The command `XPPython3/followthegreens/send_ok` is like if you pressed OK in the last dialog box and terminates Follow the greens normally.
-
-## More Information
+# Follow the Greens
 
 Here is how it works.
 
@@ -168,10 +93,6 @@ I hope you will enjoy the eye candy Follow the greens.
 
 
 Taxi safely.
-
-
-Otto Pilot
-
 
 
 ## Wish

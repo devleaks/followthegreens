@@ -13,8 +13,8 @@ No more path or taxiway segment names to remember. Just green lights to follow.
 Follow the greens is part of the serious _Advanced Surface Movement Guidance and Control System_ (A-SMGCS).
 
 Please have a look at the [following video](https://vimeo.com/101564135) and search for "airport Follow the greens" to get more information.
-(http://followthegreens.com) if you are interested.
-There are nowaways a lot more information, manufacturers, and experimental project reports to learn from.
+[http://followthegreens.com](http://followthegreens.com) if you are interested.
+There is nowaways a lot more information, manufacturers, and experimental project reports to learn from.
 
 Follow the greens has numerous advantages discussed in the above videos, ranking to ease of use, to smoother taxi rides,
 to lower interaction with ground control.
@@ -68,7 +68,7 @@ Reload X-Plane, or the plugins, or the python scripts and you are all set.
 When X-Plane is running and a plane is loaded, check the _Plugin_ menu item at the top.
 It should now contain a _Follow the greens..._ menu item.
 
-![menu.png|400]
+!(menu.png)
 
 
 # Usage
