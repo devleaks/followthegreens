@@ -68,7 +68,7 @@ Reload X-Plane, or the plugins, or the python scripts and you are all set.
 When X-Plane is running and a plane is loaded, check the _Plugin_ menu item at the top.
 It should now contain a _Follow the greens..._ menu item.
 
-!(menu.png)
+[[menu.png]]
 
 
 # Usage
