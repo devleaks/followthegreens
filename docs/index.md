@@ -215,15 +215,23 @@ Speeds will also be adjusted for aircraft types and sizes.
 
 # Configuration Parameters
 
+Configuration file is either
+
+`<X-Plane 12 Folder> / Resources / plugins / PythonPlugins / followthegreens / ftgconfig.toml`
+
+or
+
+`<X-Plane 12 Folder> / Output / preferences / ftgconfig.toml`
+
 ```
-DISTANCE_BETWEEN_GREEN_LIGHTS = 20
-DISTANCE_BETWEEN_LIGHTS = 40
+DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # meters
+DISTANCE_BETWEEN_LIGHTS = 40  # meters
 
-LIGHTS_AHEAD = 0
-RABBIT_LENGTH = 10
-RABBIT_DURATION = 0.2
+LIGHTS_AHEAD = 0   # number of green lights
+RABBIT_LENGTH = 10   # number of green lights
+RABBIT_DURATION = 0.2   # seconds, no less than 0.1
 
-RUNWAY_LIGHT_LEVEL_WHILE_FTG = "lo"
+RUNWAY_LIGHT_LEVEL_WHILE_FTG = "lo"  # off, lo, med, hi
 ```
 
 ![Parameters](images/parameters.png)

@@ -41,6 +41,15 @@ class FollowTheGreens:
                 self.config = tomllib.load(fp)
             logger.info(f"config file {filename} loaded")
             logger.debug(f"config: {self.config}")
+        else:
+            filename = os.path.join(".", "Output", "preferences", CONFIGILENAME)  # relative to X-Plane "rott/home" folder
+            if os.path.exists(filename):
+                with open(filename, "rb") as fp:
+                    self.config = tomllib.load(fp)
+                logger.info(f"config file {filename} loaded")
+                logger.debug(f"config: {self.config}")
+            else:
+                logger.debug("no config file")
 
     def get_config(self, name):
         # Example: get_config("AMBIANT_RWY_LIGHT_VALUE")
