@@ -192,7 +192,7 @@ class FlightLoop:
             logger.debug("no rabbit")
             return
         mode = RABBIT_MODE.MED
-        if speed < 0.01: # m/s
+        if speed < 0.01:  # m/s
             logger.debug("probably stopped")
         elif speed < SPEED_SLOW:
             logger.debug("too slow")
@@ -204,18 +204,14 @@ class FlightLoop:
             self.rabbitMode = mode
             logger.debug(f"adjustSpeed: mode is {self.rabbitMode} (requested {mode})")
 
-    def rabbitFLCB(
-        self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon
-    ):
+    def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
         # show rabbit in front of plane.
         # plane is supposed to Follow the greens and it close to green light index self.lastLit.
         # We cannot use XP's counter because it does not increment by 1 just for us.
         return self.ftg.lights.rabbit(self.lastLit)
 
-    def planeFLCB(
-        self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon
-    ):
+    def planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
         # monitor progress of plane on the green. Turns lights off as it does no longer needs them.
         # logger.debug('%2f, %2f, %d', elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter)
@@ -225,7 +221,6 @@ class FlightLoop:
         if not pos or (pos[0] == 0 and pos[1] == 0):
             logger.debug("no position.")
             return self.nextIter
-
 
         nextStop, warn = self.ftg.lights.toNextStop(pos)
         if nextStop and warn < WARNING_DISTANCE:
@@ -255,9 +250,7 @@ class FlightLoop:
             self.distance = distance
             return self.nextIter
 
-        if self.lastLit == closestLight and (
-            abs(self.distance - distance) < DISTANCE_BETWEEN_GREEN_LIGHTS
-        ):  # not moved enought, may even be stopped
+        if self.lastLit == closestLight and (abs(self.distance - distance) < DISTANCE_BETWEEN_GREEN_LIGHTS):  # not moved enought, may even be stopped
             return self.nextIter
 
         # @todo

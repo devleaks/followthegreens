@@ -23,6 +23,7 @@ SHOW_TRACE = True
 # X-Plane Interface
 FTG_PLUGIN_PATH = "XPPython3/followthegreens"
 
+
 class FTG_STATUS(StrEnum):
     NEW = "NEW"
     INITIALIZED = "INIT"
@@ -66,6 +67,7 @@ class AMBIANT_RWY_LIGHT(StrEnum):
     MED = "med"
     HIGH = "hi"
 
+
 AMBIANT_RWY_LIGHT_CMDROOT = "sim/operation/rwy_lights_"  # + AMBIANT_RWY_LIGHT
 AMBIANT_RWY_LIGHT_VALUE = "sim/graphics/scenery/airport_light_level"
 AIRPORTLIGHT_ON = "sim/graphics/scenery/airport_lights_on"
@@ -92,6 +94,7 @@ class NODE_TYPE(StrEnum):
     DEPART = "init"
     JUNCTION = "junc"
 
+
 class TAXIWAY_DIRECTION(StrEnum):
     ONEWAY = "oneway"
     TWOWAY = "twoway"
@@ -99,30 +102,33 @@ class TAXIWAY_DIRECTION(StrEnum):
     OUTER = "outer"
     BOTH = "both"
 
+
 class TAXIWAY_TYPE(StrEnum):
-    TAXIWAY  = "taxiway"
+    TAXIWAY = "taxiway"
     RUNWAY = "runway"
     BOTH = "both"
 
+
 class TAXIWAY_ACTIVE(StrEnum):
-    DEPARTURE  = "departure"
+    DEPARTURE = "departure"
     ARRIVAL = "arrival"
     ILS = "ils"
 
 
 class ROUTING_ALGORITHMS(StrEnum):
-    DIJKSTRA  = "dijkstra"
+    DIJKSTRA = "dijkstra"
     ASTAR = "astart"
 
-ROUTING_ALGORITHM = ROUTING_ALGORITHMS.ASTAR  # astar, dijkstra (default)
 
+ROUTING_ALGORITHM = ROUTING_ALGORITHMS.ASTAR  # astar, dijkstra (default)
 
 
 # Follow the greens constants and keywords
 #
 class MOVEMENT(StrEnum):
-    ARRIVAL  = "arrival"
+    ARRIVAL = "arrival"
     DEPARTURE = "departure"
+
 
 DISTANCE_TO_RAMPS = 100  # meters, if closer that this to a ramp, assume departure, otherwise, assume arrival
 TOO_FAR = 500  # meters, if further than this from a taxiway, does not kick in.
@@ -146,6 +152,7 @@ LIGHTS_AHEAD = 10  # Number of lights in front of rabbit. If 0, lights all light
 RABBIT_LENGTH = 8  # number of lights that blink in front of aircraft
 RABBIT_DURATION = 0.15  # sec duration of "off" light in rabbit
 
+
 class RABBIT_MODE(StrEnum):
     SLOW = "slow"
     SLOWER = "slower"
@@ -153,24 +160,35 @@ class RABBIT_MODE(StrEnum):
     FASTER = "faster"
     FAST = "fast"
 
+
 # Preferences
 RUNWAY_LIGHT_LEVEL_WHILE_FTG = AMBIANT_RWY_LIGHT.LOW
 
 # As a first step, uses 5 standard rabbit (length, speed)
 FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
-    RABBIT_MODE.FAST: [2 * RABBIT_LENGTH, RABBIT_DURATION / 2],  # accelerate (long and fast)
-    RABBIT_MODE.FASTER: [RABBIT_LENGTH, RABBIT_DURATION / 2],  # go faster (same length, faster)
+    RABBIT_MODE.FAST: [
+        2 * RABBIT_LENGTH,
+        RABBIT_DURATION / 2,
+    ],  # accelerate (long and fast)
+    RABBIT_MODE.FASTER: [
+        RABBIT_LENGTH,
+        RABBIT_DURATION / 2,
+    ],  # go faster (same length, faster)
     RABBIT_MODE.MED: [RABBIT_LENGTH, RABBIT_DURATION],  # normal
     RABBIT_MODE.SLOWER: [
         RABBIT_LENGTH,
         2 * RABBIT_DURATION,
     ],  # slow down (same length, slower)
-    RABBIT_MODE.SLOW: [int(RABBIT_LENGTH / 2), 2 * RABBIT_DURATION],  # slow down (short and slow)
+    RABBIT_MODE.SLOW: [
+        int(RABBIT_LENGTH / 2),
+        2 * RABBIT_DURATION,
+    ],  # slow down (short and slow)
 }
 
 # For now: hardcoded speed values, same for all aircrafts
-SPEED_SLOW = 1.0 # m/s, 2kt
-SPEED_FAST = 10.0 # m/s, 20kt
+SPEED_SLOW = 1.0  # m/s, 2kt
+SPEED_FAST = 10.0  # m/s, 20kt
+
 
 # ATC related constants
 #
@@ -182,9 +200,11 @@ class ATC(StrEnum):
     TRACON = "Tracon"
     CENTER = "Center"
 
+
 # ATC greetings
 GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}
 # GOOD = {"morning": 4, "day": 6, "afternoon": 9, "evening": 12, "night": 17}  # special US
+
 
 # Aeronautics constant (notes)
 #
@@ -214,6 +234,7 @@ class TAXIWAY_WIDTH_CODE(Enum):  # Half width of taxiway in meters
     D = "D"
     E = "E"
     F = "F"
+
 
 class TAXIWAY_WIDTH(Enum):  # Half width of taxiway in meters
     A = 4  # 7.5m

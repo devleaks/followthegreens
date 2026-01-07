@@ -4,6 +4,7 @@ import xp
 
 from .globals import TAXIWAY_WIDTH_CODE
 
+
 class Aircraft:
     def __init__(self):
         self.icaomodel = xp.findDataRef("sim/aircraft/view/acf_ICAO")

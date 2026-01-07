@@ -38,9 +38,7 @@ class UIUtil:
         self.waiting_for_clearance = False
 
     def window(self, strings, btns):
-        if (
-            self.mainWindow and "widgetID" in self.mainWindow.keys()
-        ):  # We create a new window each time we are called.
+        if self.mainWindow and "widgetID" in self.mainWindow.keys():  # We create a new window each time we are called.
             xp.destroyWidget(self.mainWindow["widgetID"], 1)
             self.mainWindow = None
 
@@ -56,11 +54,7 @@ class UIUtil:
         linespace = 2.0
 
         self.wLeft = MAINWINDOW_FROM_LEFT
-        self.wTop = (
-            MAINWINDOW_FROM_BOTTOM
-            + MAINWINDOW_HEIGHT
-            + len(strings) * int(linespace * self.strHeight)
-        )
+        self.wTop = MAINWINDOW_FROM_BOTTOM + MAINWINDOW_HEIGHT + len(strings) * int(linespace * self.strHeight)
         self.wRight = MAINWINDOW_FROM_LEFT + MAINWINDOW_WIDTH
         self.wBottom = MAINWINDOW_FROM_BOTTOM
         widgetCenter = int(self.wLeft + (self.wRight - self.wLeft) / 2)
@@ -80,9 +74,7 @@ class UIUtil:
         xp.addWidgetCallback(widgetWindow["widgetID"], self.cbMainWindow)
 
         # xp.setWidgetProperty(widgetWindow['widgetID'], xp.Property_MainWindowType, xp.MainWindowStyle_Translucent)
-        xp.setWidgetProperty(
-            widgetWindow["widgetID"], xp.Property_MainWindowHasCloseBoxes, 1
-        )
+        xp.setWidgetProperty(widgetWindow["widgetID"], xp.Property_MainWindowHasCloseBoxes, 1)
 
         # Add five label / editable text fields.
         # We determine placement based on the size of the font.
@@ -148,9 +140,7 @@ class UIUtil:
             buttons[b]["text"] = b
             buttons[b]["cb"] = cb
             buttons[b]["swidth"] = int(xp.measureString(self.fontID, b))
-            buttons[b]["right"] = int(
-                buttons[b]["left"] + buttons[b]["swidth"] + 10
-            )  # inside button
+            buttons[b]["right"] = int(buttons[b]["left"] + buttons[b]["swidth"] + 10)  # inside button
             prev = buttons[b]
 
         return (buttons, prev["right"])  # total width of all buttons
@@ -172,11 +162,7 @@ class UIUtil:
     def hideMainWindowIfOk(self, elapsed=0):
         # We always hide it on request, even if canHide is False
         self.displayTime += elapsed
-        if (
-            MAINWINDOW_AUTOHIDE
-            and self.displayTime > MAINWINDOW_DISPLAY_TIME
-            and self.canHide
-        ):
+        if MAINWINDOW_AUTOHIDE and self.displayTime > MAINWINDOW_DISPLAY_TIME and self.canHide:
             self.hideMainWindow()
 
     def hideMainWindow(self):
@@ -261,9 +247,7 @@ class UIUtil:
 
         if len(self.validDestinations) > 0:
             self.validDestinations.sort()
-            self.validDestIdxs = list(
-                map(lambda x: x[0].upper(), self.validDestinations)
-            )
+            self.validDestIdxs = list(map(lambda x: x[0].upper(), self.validDestinations))
             self.destinationIdx = int(random() * len(self.validDestinations))
             text = self.validDestinations[self.destinationIdx]
 
@@ -299,9 +283,7 @@ class UIUtil:
         right = int(left + 1.1 * strWidth)
         # top = int(self.wTop - 40 - self.strHeight)
         # bottom = int(top - self.strHeight)
-        widget = xp.createWidget(
-            left, top, right, bottom, 1, button, 0, widgetWindow, xp.WidgetClass_Button
-        )
+        widget = xp.createWidget(left, top, right, bottom, 1, button, 0, widgetWindow, xp.WidgetClass_Button)
         self.mainWindow["widgets"]["move"] = widget
         xp.addWidgetCallback(self.mainWindow["widgets"]["move"], self.cbMovement)
 
@@ -379,9 +361,7 @@ class UIUtil:
     def enjoy(self):
         return self.window(
             [
-                "All taxiways in the network are lit. Press "
-                + FINISH_TEXT
-                + " to hide them.",
+                "All taxiways in the network are lit. Press " + FINISH_TEXT + " to hide them.",
                 self.greetings("Enjoy your %s."),
             ],
             {FINISH_TEXT: self.cbBye},
@@ -424,25 +404,13 @@ class UIUtil:
     def cbUpDown(self, message, widgetID, param1, param2):
         # We intercept some keypress we are interested in _first_
         if message == xp.Msg_KeyPress and not (param1[1] & xp.UpFlag):
-            if param1[2] == xp.VK_DOWN or (
-                param1[2] == xp.VK_N and param1[1] & xp.ControlFlag
-            ):
-                self.destinationIdx = (self.destinationIdx + 1) % len(
-                    self.validDestinations
-                )
-                xp.setWidgetDescriptor(
-                    widgetID, self.validDestinations[self.destinationIdx]
-                )
+            if param1[2] == xp.VK_DOWN or (param1[2] == xp.VK_N and param1[1] & xp.ControlFlag):
+                self.destinationIdx = (self.destinationIdx + 1) % len(self.validDestinations)
+                xp.setWidgetDescriptor(widgetID, self.validDestinations[self.destinationIdx])
                 return 1
-            if param1[2] == xp.VK_UP or (
-                param1[2] == xp.VK_P and param1[1] & xp.ControlFlag
-            ):
-                xp.setWidgetDescriptor(
-                    widgetID, self.validDestinations[self.destinationIdx]
-                )
-                self.destinationIdx = (self.destinationIdx - 1) % len(
-                    self.validDestinations
-                )
+            if param1[2] == xp.VK_UP or (param1[2] == xp.VK_P and param1[1] & xp.ControlFlag):
+                xp.setWidgetDescriptor(widgetID, self.validDestinations[self.destinationIdx])
+                self.destinationIdx = (self.destinationIdx - 1) % len(self.validDestinations)
                 return 1
             if param1[2] >= xp.VK_0 and param1[2] <= xp.VK_Z:
                 # thanks for the hint: https://forums.x-plane.org/index.php?/forums/topic/238447-best-ui-for-list-of-value/&tab=comments#comment-2130991
@@ -454,9 +422,7 @@ class UIUtil:
                     idx = -1
                 if idx > -1:
                     self.destinationIdx = idx
-                    xp.setWidgetDescriptor(
-                        widgetID, self.validDestinations[self.destinationIdx]
-                    )
+                    xp.setWidgetDescriptor(widgetID, self.validDestinations[self.destinationIdx])
                 return 1
             # if any other key as been pressed, we ignore it.
             return 1

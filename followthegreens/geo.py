@@ -197,9 +197,7 @@ class Polygon(Feature):
 
 def haversine(lat1, lat2, long1, long2):  # in radians.
     dlat, dlong = lat2 - lat1, long2 - long1
-    return math.pow(math.sin(dlat / 2), 2) + math.cos(lat1) * math.cos(lat2) * math.pow(
-        math.sin(dlong / 2), 2
-    )
+    return math.pow(math.sin(dlat / 2), 2) + math.cos(lat1) * math.cos(lat2) * math.pow(math.sin(dlong / 2), 2)
 
 
 def distance(p1, p2):  # in degrees.
@@ -216,9 +214,7 @@ def bearing(src, dst):
     lon2 = math.radians(dst.lon)
 
     y = math.sin(lon2 - lon1) * math.cos(lat2)
-    x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(
-        lon2 - lon1
-    )
+    x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(lon2 - lon1)
     t = math.atan2(y, x)
     brng = convertAngleTo360(math.degrees(t))  # in degrees
     return brng
@@ -230,9 +226,7 @@ def destination(src, brngDeg, d):
     brng = math.radians(brngDeg)
     r = d / R
 
-    lat2 = math.asin(
-        math.sin(lat) * math.cos(r) + math.cos(lat) * math.sin(r) * math.cos(brng)
-    )
+    lat2 = math.asin(math.sin(lat) * math.cos(r) + math.cos(lat) * math.sin(r) * math.cos(brng))
     lon2 = lon + math.atan2(
         math.sin(brng) * math.sin(r) * math.cos(lat),
         math.cos(r) - math.sin(lat) * math.sin(lat2),
@@ -384,9 +378,7 @@ def arcCenter(l0, l1, radius):
     b_out = bearing(l1.start, l1.end)
     turnAngle = turn(b_in, b_out)
     oppositeTurnAngle = turn(b_out, b_in)
-    l0b = lineOffset(
-        l0, sign(turnAngle) * radius
-    )  # offset line is always on right side of line
+    l0b = lineOffset(l0, sign(turnAngle) * radius)  # offset line is always on right side of line
     l1b = lineOffset(l1, sign(oppositeTurnAngle) * radius)
     return lineintersect(l0b, l1b)
 

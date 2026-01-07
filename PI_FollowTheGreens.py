@@ -97,27 +97,17 @@ class PythonInterface:
             else:
                 self.debug(f"XPluginStart: {cmd} not registered")
 
-        self.menuIdx = xp.appendMenuItemWithCommand(
-            xp.findPluginsMenu(), FTG_MENU, self.CmdRefs[FTG_COMMAND]
-        )
+        self.menuIdx = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), FTG_MENU, self.CmdRefs[FTG_COMMAND])
         if self.menuIdx is None or (self.menuIdx is not None and self.menuIdx < 0):
             self.debug("XPluginStart: menu not added")
         else:
-            self.debug(
-                f"XPluginStart: menu item «{FTG_MENU}» added (index {self.menuIdx})"
-            )
+            self.debug(f"XPluginStart: menu item «{FTG_MENU}» added (index {self.menuIdx})")
 
-        self.menuIdx_st = xp.appendMenuItemWithCommand(
-            xp.findPluginsMenu(), STW_MENU, self.CmdRefs[STW_COMMAND]
-        )
-        if self.menuIdx_st is None or (
-            self.menuIdx_st is not None and self.menuIdx_st < 0
-        ):
+        self.menuIdx_st = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), STW_MENU, self.CmdRefs[STW_COMMAND])
+        if self.menuIdx_st is None or (self.menuIdx_st is not None and self.menuIdx_st < 0):
             self.debug("XPluginStart: Show Taxiways menu not added")
         else:
-            self.debug(
-                f"XPluginStart: menu item «{STW_MENU}» added (index={self.menuIdx_st})"
-            )
+            self.debug(f"XPluginStart: menu item «{STW_MENU}» added (index={self.menuIdx_st})")
 
         self.isRunningRef = xp.registerDataAccessor(
             FTG_IS_RUNNING,
@@ -158,13 +148,9 @@ class PythonInterface:
         if self.menuIdx is not None and self.menuIdx >= 0:
             xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx)
             self.menuIdx = None
-            self.debug(
-                f"XPluginStop: menu item «{FTG_MENU}» removed (index was {oldidx})"
-            )
+            self.debug(f"XPluginStop: menu item «{FTG_MENU}» removed (index was {oldidx})")
         else:
-            self.debug(
-                f"XPluginStop: menu item «{FTG_MENU}» not removed (index {oldidx})"
-            )
+            self.debug(f"XPluginStop: menu item «{FTG_MENU}» not removed (index {oldidx})")
 
         if self.isRunningRef is not None:  # and self.isRunningRef > 0?
             xp.unregisterDataAccessor(self.isRunningRef)
@@ -186,13 +172,9 @@ class PythonInterface:
         if self.menuIdx_st is not None and self.menuIdx_st >= 0:
             xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx_st)
             self.menuIdx_st = None
-            self.debug(
-                f"XPluginStop: menu item «{STW_MENU}» removed (index was {oldidx})"
-            )
+            self.debug(f"XPluginStop: menu item «{STW_MENU}» removed (index was {oldidx})")
         else:
-            self.debug(
-                f"XPluginStop: menu item «{STW_MENU}» not removed (index {oldidx})"
-            )
+            self.debug(f"XPluginStop: menu item «{STW_MENU}» not removed (index {oldidx})")
 
         if self.showTaxiways:
             try:
@@ -220,9 +202,7 @@ class PythonInterface:
                     dre = xp.findPluginBySignature(sig)
                     if dre != xp.NO_PLUGIN_ID:
                         xp.sendMessageToPlugin(dre, 0x01000000, FTG_IS_RUNNING)
-                        self.debug(
-                            f"XPluginEnable: data accessor registered with {sig}"
-                        )
+                        self.debug(f"XPluginEnable: data accessor registered with {sig}")
                     else:
                         self.debug(f"XPluginEnable: plugin {sig} not found")
             else:
@@ -394,9 +374,7 @@ class PythonInterface:
         if self.showTaxiways is not None and phase == 0:
             self.debug("showTaxiwaysCmd: available.")
 
-            if (
-                self.showTaxiways.ui.mainWindowExists()
-            ):  # already running, we stop it...
+            if self.showTaxiways.ui.mainWindowExists():  # already running, we stop it...
                 try:
                     self.showTaxiways.cancel()
                     self.debug("showTaxiwaysCmd: ended.")
@@ -419,29 +397,19 @@ class PythonInterface:
         return 0
 
     def rabbitModeSlow(self, commandRef, phase, refCon):
-        return self.rabbitMode(
-            commandRef=commandRef, phase=phase, refCon=refCon, mode="slow"
-        )
+        return self.rabbitMode(commandRef=commandRef, phase=phase, refCon=refCon, mode="slow")
 
     def rabbitModeSlower(self, commandRef, phase, refCon):
-        return self.rabbitMode(
-            commandRef=commandRef, phase=phase, refCon=refCon, mode="slower"
-        )
+        return self.rabbitMode(commandRef=commandRef, phase=phase, refCon=refCon, mode="slower")
 
     def rabbitModeMed(self, commandRef, phase, refCon):
-        return self.rabbitMode(
-            commandRef=commandRef, phase=phase, refCon=refCon, mode="med"
-        )
+        return self.rabbitMode(commandRef=commandRef, phase=phase, refCon=refCon, mode="med")
 
     def rabbitModeFast(self, commandRef, phase, refCon):
-        return self.rabbitMode(
-            commandRef=commandRef, phase=phase, refCon=refCon, mode="fast"
-        )
+        return self.rabbitMode(commandRef=commandRef, phase=phase, refCon=refCon, mode="fast")
 
     def rabbitModeFaster(self, commandRef, phase, refCon):
-        return self.rabbitMode(
-            commandRef=commandRef, phase=phase, refCon=refCon, mode="faster"
-        )
+        return self.rabbitMode(commandRef=commandRef, phase=phase, refCon=refCon, mode="faster")
 
     def rabbitMode(self, commandRef, phase: int, refCon: Any, mode: str):
         # pylint: disable=unused-argument
@@ -460,20 +428,13 @@ class PythonInterface:
                 print_exc()
                 return 0
         elif not self.followTheGreens:
-            self.debug(
-                "rabbitMode: Error: could not create FollowTheGreens", force=True
-            )
+            self.debug("rabbitMode: Error: could not create FollowTheGreens", force=True)
         return 0
 
     # Data accessors
     def getRunningStatusCallback(self, inRefcon):
         # Returns 1 if actually running (lights blinking on taxiways). 0 otherwise.
-        return (
-            1
-            if self.followTheGreens is not None
-            and self.followTheGreens.flightLoop.rabbitRunning
-            else 0
-        )
+        return 1 if self.followTheGreens is not None and self.followTheGreens.flightLoop.rabbitRunning else 0
 
     # Future use
     def runningStatusChangedCallback(self, inRefcon):
