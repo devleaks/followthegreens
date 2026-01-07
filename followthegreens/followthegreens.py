@@ -1,11 +1,12 @@
 # Follow the greens XPPYthon3 Plugin Interface
 #
 #
+from math import log
 import xp
 import os
 import tomllib
 
-from .globals import logger, FTG_STATUS, ARRIVAL, DEPARTURE, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE
+from .globals import logger, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE
 from .aircraft import Aircraft
 from .airport import Airport
 from .flightloop import FlightLoop
@@ -188,11 +189,11 @@ class FollowTheGreens:
         logger.debug("Got route: %s.", route)
         self.destination = destination
         onRwy = False
-        if self.move == ARRIVAL:
+        if self.move == MOVEMENT.ARRIVAL:
             onRwy, runway = self.airport.onRunway(
                 pos, 300
             )  # 150m either side of runway, return [True,Runway()] or [False, None]
-        self.lights = LightString()
+        self.lights = LightString(config=self.config)
         self.lights.populate(route, onRwy)
         if len(self.lights.lights) == 0:
             logger.debug("no lights")
@@ -231,7 +232,7 @@ class FollowTheGreens:
         # self.segment = 0
         if self.lights.segments == 0:  # just one segment
             logger.debug(f"just one segment {self.move}")
-            if self.move == ARRIVAL:
+            if self.move == MOVEMENT.ARRIVAL:
                 if (
                     len(self.lights.stopbars) == 0
                 ):  # not terminated by a stop bar, it is probably an arrival...
@@ -242,7 +243,7 @@ class FollowTheGreens:
                 ):  # terminated with a stop bar, it is probably a departure...
                     logger.debug("1 segment with 1 stopbar on arrival?")
                     return self.ui.promptForClearance()
-            if self.move == DEPARTURE:
+            if self.move == MOVEMENT.DEPARTURE:
                 if (
                     len(self.lights.stopbars) == 0
                 ):  # not terminated by a stop bar, it is probably an arrival...
@@ -275,16 +276,16 @@ class FollowTheGreens:
         # re-authorize rabbit auto-tuning
         self.flightLoop.allow_rabbit_autotune()
 
-        if self.move == DEPARTURE and self.segment == (self.lights.segments - 1):
+        if self.move == MOVEMENT.DEPARTURE and self.segment == (self.lights.segments - 1):
             return self.ui.promptForDeparture()
 
-        if self.move == DEPARTURE and self.segment == self.lights.segments:
+        if self.move == MOVEMENT.DEPARTURE and self.segment == self.lights.segments:
             # Info 16.b
             logger.info("ready for take-off.")
             self.segment = 0  # reset
             return self.ui.bye()
 
-        if self.move == ARRIVAL and self.segment == self.lights.segments:
+        if self.move == MOVEMENT.ARRIVAL and self.segment == self.lights.segments:
             return self.ui.promptForParked()
 
         return self.ui.promptForClearance()

@@ -17,8 +17,14 @@ from .geo import (
     destination,
     pointInPolygon,
 )
-from .globals import logger, DEPARTURE, ARRIVAL, TAXIWAY_DIR_TWOWAY, TAXIWAY_DIR_ONEWAY, TAXIWAY_DIR_BOTH, TAXIWAY_TYPE_RUNWAY, TAXIWAY_DIR_OUTER
-
+from .globals import (
+    logger,
+    MOVEMENT,
+    TAXIWAY_WIDTH_CODE,
+    TAXIWAY_TYPE,
+    TAXIWAY_ACTIVE,
+    TAXIWAY_DIRECTION,
+)
 
 class Vertex(Point):  ## Vertex(Point)
     def __init__(self, node, point, usage, name=""):
@@ -69,8 +75,10 @@ class Vertex(Point):  ## Vertex(Point)
 
 class Active:
     def __init__(self, active, runways):
-        self.active = active
+        self.active = TAXIWAY_ACTIVE(active)
         self.runways = runways.split(",")
+        if len(self.runways) > 4:
+            logger.warning("more than 4 runways for active segment")
 
     def __str__(self):
         return self.active + ":" + ",".join(self.runways)
@@ -80,11 +88,15 @@ class Edge(Line):
     def __init__(self, src, dst, cost, direction, usage, name):
         Line.__init__(self, src, dst)
         self.cost = cost  # cost = distance to next vertext
-        self.direction = direction  # direction of vertex: TAXIWAY_DIR_ONEWAY or TAXIWAY_DIR_TWOWAY
-        self.usage = usage  # type of vertex: runway or taxiway or taxiway_X where X is width code (A-F)
-        self.usage2 = TAXIWAY_DIR_BOTH # or "outer" or "both"
-        self.width_code = self.widthCode()
+        self.direction =TAXIWAY_DIRECTION(direction)
         self.name = name  # segment name, not unique! For documentation only.
+        self.usage = TAXIWAY_TYPE.RUNWAY
+        self.width_code = None
+        if usage.startswith("taxiway"):
+            self.usage = TAXIWAY_TYPE.TAXIWAY
+            if len(usage) == 9:
+                self.width_code = TAXIWAY_WIDTH_CODE(usage[8].upper())
+        self.usage2 = TAXIWAY_DIRECTION.BOTH  # unused
         self.active = [] # array of segment activity, activity can be departure, arrival, or ils.
                          # departure require clearance. plane cannot stop on segment of type ils.
 
@@ -96,7 +108,7 @@ class Edge(Line):
         if self.usage[0:4] == "taxi":
             props["stroke"] = "#aaaa00"
 
-        if self.direction == TAXIWAY_DIR_ONEWAY:
+        if self.direction == TAXIWAY_DIRECTION.ONEWAY:
             props["stroke"] = "#00dd00"
             props["stroke-width"] = 2
 
@@ -109,7 +121,7 @@ class Edge(Line):
 
     @property
     def is_inner(self):
-        return self.usage2 != TAXIWAY_DIR_OUTER
+        return self.usage2 != TAXIWAY_DIRECTION.OUTER
 
     def mkActives(self):
         ret = []
@@ -120,19 +132,16 @@ class Edge(Line):
     def add_active(self, active, runways):
         return self.active.append(Active(active, runways))
 
-    def has_active(self, active=None):
-        if active:
+    def has_active(self, active:TAXIWAY_ACTIVE|None=None):
+        if active is not None:
             for a in self.active:
                 if a.active == active:
                     return True
             return False
-        return self.has_active(DEPARTURE) or self.has_active(ARRIVAL)
+        return self.has_active(TAXIWAY_ACTIVE.DEPARTURE) or self.has_active(TAXIWAY_ACTIVE.ARRIVAL)
 
-    def widthCode(self, default=None):
-        # self.usage = taxiway_X where X is width code (A-F)
-        if self.usage and len(self.usage) == 9:
-            return self.usage[8]
-        return default
+    def widthCode(self, default: TAXIWAY_WIDTH_CODE|None = None) -> TAXIWAY_WIDTH_CODE|None:
+        return default if self.width_code is None else self.width_code
 
     def opposite(self):
         return Edge(src=self.end, dst=self.start, cost=self.cost, direction=self.direction, usage=self.usage, name=self.name)
@@ -142,8 +151,6 @@ class Graph:  # Graph(FeatureCollection)?
     def __init__(self):
         self.vert_dict = {}
         self.edges_arr = []
-
-        self.all_edges = []
 
         # Try to guess if information is supplied or not
         self._uses_width_code = False
@@ -184,7 +191,7 @@ class Graph:  # Graph(FeatureCollection)?
                 txyOk = (
                     "taxiwayOnly" in options
                     and options["taxiwayOnly"]
-                    and v.usage != TAXIWAY_TYPE_RUNWAY
+                    and v.usage != TAXIWAY_TYPE.RUNWAY
                 ) or ("taxiwayOnly" not in options)
                 scdOk = (
                     "minSizeCode" in options and options["minSizeCode"] <= code
@@ -199,32 +206,38 @@ class Graph:  # Graph(FeatureCollection)?
 
     def add_edge(self, edge):
         if edge.start.id in self.vert_dict and edge.end.id in self.vert_dict:
-            self.all_edges.append(edge)
             self.edges_arr.append(edge)
             self.vert_dict[edge.start.id].add_neighbor(
                 self.vert_dict[edge.end.id].id, edge.cost
             )
 
-            if edge.direction == TAXIWAY_DIR_TWOWAY:
+            if edge.direction == TAXIWAY_DIRECTION.TWOWAY:
                 self.vert_dict[edge.end.id].add_neighbor(
                     self.vert_dict[edge.start.id].id, edge.cost
                 )
             # Check if information is available
             if edge.width_code is not None:
                 self._uses_width_code = True
-            if edge.direction == TAXIWAY_DIR_ONEWAY:
+            if edge.direction == TAXIWAY_DIRECTION.ONEWAY:
                 self._oneways = True
-            if edge.usage == TAXIWAY_TYPE_RUNWAY:
+            if edge.usage == TAXIWAY_TYPE.RUNWAY:
                 self._runways = True
         else:
             logger.critical(f"vertex not found when adding edges {edge.src},{edge.dst}")
 
-    def filter_edges(self, width_code: str, move: str, respect_width: bool = False, respect_inner: bool = False, use_runway: bool = True, respect_oneway: bool = True):
-        # Filter all_edges and place result in edges_arr
+    def clone(self, width_code: str, move: str, respect_width: bool = False, respect_inner: bool = False, use_runway: bool = True, respect_oneway: bool = True) -> Graph:
+        logger.debug(f"cloning.. ({len(self.edges_arr)})")
         width_strict = False
-        edges = []
         oneways = 0
-        for e in self.all_edges:
+
+        graph = Graph()
+
+        def add_edge(e):
+            graph.add_vertex(e.src.id, Point(e.src.lat, e.src.lon), e.src.usage, e.src.name)
+            graph.add_vertex(e.dst.id, Point(e.dst.lat, e.dst.lon), e.dst.usage, e.dst.name)
+            graph.add_edge(e)
+
+        for e in self.edges_arr:
             # Exclusions
             if respect_width:
                 if e.width_code is not None:
@@ -234,29 +247,22 @@ class Graph:  # Graph(FeatureCollection)?
                     continue  # no width info on taxiway, use strict width mode, so must ignore this unlabelled segment
 
             if respect_inner:
-                if move == ARRIVAL and e.is_inner: # arrival cannot use outer rwy
+                if move == MOVEMENT.ARRIVAL and e.is_inner: # arrival cannot use outer rwy
                     continue
-                if move == DEPARTURE and not e.is_inner:  # departure cannot use inner rwy
+                if move == MOVEMENT.DEPARTURE and not e.is_inner:  # departure cannot use inner rwy
                     continue
-            if not use_runway and e.usage == TAXIWAY_TYPE_RUNWAY: # cannot use runway for taxiing
+            if not use_runway and e.usage == TAXIWAY_TYPE.RUNWAY: # cannot use runway for taxiing
                 # Note: My understanding of 1202 runway is that runway indicates that the edge IS a runway and can be used for taxiing
                 continue
 
             # if not excluded, add it
             if respect_oneway:
-                edges.append(e)
+                add_edge(e)
             else:
-                edges.append(e)
-                edges.append(e.opposite())
+                add_edge(e)
                 oneways = oneways + 1
-        self.edges_arr = edges
-        logger.debug(f"filter_edges: width_code={width_code} (strict={width_strict}), move={move}: {len(edges)}/{len(self.all_edges), {oneways}}")
-
-    def reset_filter_edges(self):
-        edges = []
-        for e in self.all_edges:
-            edges.append(e)
-        self.edges_arr = edges
+        logger.debug(f"..cloned: width_code={width_code} (strict={width_strict}), move={move}: {len(graph.edges_arr)}/{len(self.edges_arr)}, {oneways}.")
+        return graph
 
     def get_edge(self, src, dst):
         arr = list(
@@ -269,7 +275,7 @@ class Graph:  # Graph(FeatureCollection)?
             filter(
                 lambda x: x.start.id == dst
                 and x.end.id == src
-                and x.direction == TAXIWAY_DIR_TWOWAY,
+                and x.direction == TAXIWAY_DIRECTION.TWOWAY,
                 self.edges_arr,
             )
         )
@@ -291,7 +297,7 @@ class Graph:  # Graph(FeatureCollection)?
             txyOk = (
                 "taxiwayOnly" in options
                 and options["taxiwayOnly"]
-                and edge.usage != TAXIWAY_TYPE_RUNWAY
+                and edge.usage != TAXIWAY_TYPE.RUNWAY
             ) or ("taxiwayOnly" not in options)
             scdOk = ("minSizeCode" in options and options["minSizeCode"] <= code) or (
                 "minSizeCode" not in options

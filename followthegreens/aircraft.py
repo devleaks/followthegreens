@@ -2,15 +2,13 @@
 #
 import xp
 
-from .globals import AIRCRAFT_TYPE
+from .globals import TAXIWAY_WIDTH_CODE
 
 class Aircraft:
-    def __init__(
-        self
-    ):
+    def __init__(self):
         self.icaomodel = xp.findDataRef("sim/aircraft/view/acf_ICAO")
         self.tailsign = xp.findDataRef("sim/aircraft/view/acf_tailnum")
-        self.icaotype = AIRCRAFT_TYPE.C  # default
+        self.width_code = TAXIWAY_WIDTH_CODE.C
         self.lat = xp.findDataRef("sim/flightmodel/position/latitude")
         self.lon = xp.findDataRef("sim/flightmodel/position/longitude")
         self.psi = xp.findDataRef("sim/flightmodel/position/psi")
@@ -27,9 +25,7 @@ class Aircraft:
         return xp.getDataf(self.groundspeed)
 
     def airport(self, pos):
-        next_airport_index = xp.findNavAid(
-            None, None, pos[0], pos[1], None, xp.Nav_Airport
-        )
+        next_airport_index = xp.findNavAid(None, None, pos[0], pos[1], None, xp.Nav_Airport)
         if next_airport_index:
             return xp.getNavAidInfo(next_airport_index)
         return None

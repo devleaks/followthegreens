@@ -6,7 +6,6 @@ from datetime import datetime
 import xp
 
 from .globals import (
-    AMBIANT_RWY_LIGHT,
     logger,
     RABBIT_MODE,
     SPEED_SLOW,
@@ -16,26 +15,24 @@ from .globals import (
     WARNING_DISTANCE,
     RUNWAY_LIGHT_LEVEL_WHILE_FTG,
     AMBIANT_RWY_LIGHT_CMDROOT,
+    AMBIANT_RWY_LIGHT,
 )
-
-EARTH = 39940653000  # Earth circumference, in meter :-)
+from .geo import EARTH
 
 
 class FlightLoop:
     def __init__(self, ftg):
         self.ftg = ftg
-        self.refrabbit = "FollowTheGreen:rabbit"
+        self.refrabbit = "FtG:rabbit"
         self.flrabbit = None
         self.rabbitRunning = False
-        self.refplane = "FollowTheGreen:plane"
+        self.refplane = "FtG:aircraft"
         self.flplane = None
         self.planeRunning = False
         self.nextIter = PLANE_MONITOR_DURATION  # seconds
         self.lastLit = 0
         self.distance = EARTH
-        self.diftingLimit = (
-            5 * DISTANCE_BETWEEN_GREEN_LIGHTS
-        )  # After that, we send a warning, and we may cancel FTG.
+        self.diftingLimit = 5 * DISTANCE_BETWEEN_GREEN_LIGHTS  # After that, we send a warning, and we may cancel FTG.
         self.last_updated = datetime.now()
         self._rabbit_mode = RABBIT_MODE.MED
         self._may_adjust_rabbit = True
@@ -75,13 +72,14 @@ class FlightLoop:
             logger.debug("plane tracked.")
 
         # Dim runway lights according to preferences
+        ll = self.ftg.get_config("RUNWAY_LIGHT_LEVEL_WHILE_FTG")
         if self.planeRunning and self.ftg.airport_light_level is not None:
             self.runway_level_original = xp.getDataf(self.ftg.airport_light_level)
-            cmdref = xp.findCommand(AMBIANT_RWY_LIGHT_CMDROOT + RUNWAY_LIGHT_LEVEL_WHILE_FTG)
+            cmdref = xp.findCommand(AMBIANT_RWY_LIGHT_CMDROOT + ll)
             if cmdref is not None:
                 xp.commandOnce(cmdref)
                 currlevel = xp.getDataf(self.ftg.airport_light_level)
-                logger.debug(f"runway lights preference set to {RUNWAY_LIGHT_LEVEL_WHILE_FTG} (original={self.runway_level_original}, during FtG={currlevel})")
+                logger.debug(f"runway lights preference set to {ll} (original={self.runway_level_original}, during FtG={currlevel})")
 
     def stopFlightLoop(self):
         if self.rabbitRunning:
@@ -116,7 +114,7 @@ class FlightLoop:
                 elif self.runway_level_original <= 0.25:
                     level = AMBIANT_RWY_LIGHT.LOW
                 elif self.runway_level_original <= 0.5:
-                    level = AMBIANT_RWY_LIGHT.MED
+                    level = AMBIANT_RWY_LIGHT.MEDIUM
                 logger.debug(f"new level {level} ({currlevel} => {self.runway_level_original})")
                 cmdref = xp.findCommand(AMBIANT_RWY_LIGHT_CMDROOT + level)
                 if cmdref is not None:

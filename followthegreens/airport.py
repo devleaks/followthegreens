@@ -8,15 +8,17 @@ import math
 from .geo import Point, Line, Polygon, distance, pointInPolygon
 from .graph import Graph, Edge
 from .globals import (
+    TAXIWAY_WIDTH_CODE,
+    TAXIWAY_WIDTH,
     logger,
-    SYSTEM_DIRECTORY,
     DISTANCE_TO_RAMPS,
-    DEPARTURE,
-    ARRIVAL,
+    MOVEMENT,
     TOO_FAR,
-    ROUTING_ALGORITHM
+    ROUTING_ALGORITHM,
+    ROUTING_ALGORITHMS,
 )
-from .globals import AIRCRAFT_TYPES as TAXIWAY_WIDTH
+
+SYSTEM_DIRECTORY = "."
 
 
 class AptLine:
@@ -73,16 +75,17 @@ class Route:
         self.vertices = None
         self.edges = None
         self.smoothed = None
-        self.algorithm = ROUTING_ALGORITHM  # default, unused
+        self.algorithm = ROUTING_ALGORITHMS.ASTAR  # default, unused
 
     def __str__(self):
         if self.found():
             return "-".join(self.route)
         return ""
 
-    def _find(self, algorithm: str, width_code: str, move: str, respect_width: bool = False, respect_inner: bool = False, use_runway: bool = True, respect_oneway: bool = True):
+    def _find(self, algorithm: ROUTING_ALGORITHMS, width_code: str, move: str, respect_width: bool = False, respect_inner: bool = False, use_runway: bool = True, respect_oneway: bool = True):
         # Preselect edge set with supplied constraints
-        self.graph.filter_edges(
+        logger.debug("_find clone")
+        graph = self.graph.clone(
             width_code=width_code,
             move=self.move,
             respect_width=respect_width,
@@ -90,13 +93,16 @@ class Route:
             use_runway=use_runway,
             respect_oneway=respect_oneway)
 
-        if algorithm == "astar":
-            return self.graph.AStar(self.src, self.dst)
+        logger.debug(f"_find route {algorithm}")
+        if algorithm == ROUTING_ALGORITHMS.ASTAR:
+            return graph.AStar(self.src, self.dst)
 
-        return self.graph.Dijkstra(self.src, self.dst)  # no option
+        return graph.Dijkstra(self.src, self.dst)  # no option
 
     def findExtended(self, width_code: str, move: str):
-        for algorithm in ["astar", "dijkstra"]:
+        logger.debug("findExtended started")
+        for algorithm in ROUTING_ALGORITHMS:
+            logger.debug(f"findExtended {algorithm}")
             for respect_width_code in [True, False]:
                 # Strict
                 route = self._find(algorithm=algorithm, width_code=width_code, move=move,
@@ -128,13 +134,13 @@ class Route:
 
         # We're desperate
         logger.debug("found not restricted route, returning default wide search")
-        return self._find(algorithm="desperate", width_code=width_code, move=move)
+        return self._find(algorithm=ROUTING_ALGORITHM, width_code=width_code, move=move)
 
     def find(self):
-        if self.algorithm == "astar":
+        if self.algorithm == ROUTING_ALGORITHMS.ASTAR:
             self.route = self.graph.AStar(self.src, self.dst)
-        else: # dijkstra, default
-            self.route = self.graph.Dijkstra(self.src, self.dst, self.options)
+            return self
+        self.route = self.graph.Dijkstra(self.src, self.dst, self.options)
         return self
 
     def found(self):
@@ -147,7 +153,7 @@ class Route:
         for i in range(len(self.route) - 1):
             e = self.graph.get_edge(self.route[i], self.route[i + 1])
             v = self.graph.get_vertex(self.route[i])
-            v.setProp("taxiway-width", TAXIWAY_WIDTH[e.widthCode("D")])  # default to D
+            v.setProp("taxiway-width", TAXIWAY_WIDTH[e.widthCode(TAXIWAY_WIDTH_CODE.D)].value)
             v.setProp("ls", i)
             self.edges.append(e)
 
@@ -468,15 +474,14 @@ class Airport:
 
         return [False, None]
 
-    def guessMove(self, coord):
-        # Return DEPARTURE|ARRIVAL
+    def guessMove(self, coord) -> MOVEMENT:
         onRwy, runway = self.onRunway(coord)
         if onRwy:
-            return ARRIVAL
+            return MOVEMENT.ARRIVAL
         ret = self.findClosestRamp(coord)
         if ret[1] < DISTANCE_TO_RAMPS:  # meters, we are close to a ramp.
-            return DEPARTURE
-        return ARRIVAL
+            return MOVEMENT.DEPARTURE
+        return MOVEMENT.ARRIVAL
 
     def getRunways(self):
         if not self.runways:
@@ -503,7 +508,7 @@ class Airport:
         return self.ramps.keys()
 
     def getDestinations(self, mode):
-        if mode == DEPARTURE:
+        if mode == MOVEMENT.DEPARTURE:
             return list(list(self.runways.keys()) + list(self.holds.keys()))
 
         return list(self.ramps.keys())
@@ -519,7 +524,7 @@ class Airport:
             return (False, "We could not locate your plane.")
         logger.debug(f"got starting position {pos}")
 
-        if move == DEPARTURE:
+        if move == MOVEMENT.DEPARTURE:
             src = self.findClosestVertex(pos)
         else:  # arrival
             brng = aircraft.heading()
@@ -552,7 +557,7 @@ class Airport:
         # ..to destination
         dst = None
         dstpt = None  # heading after destination reached (heading of runway/takeoff or heading of parking)
-        if move == DEPARTURE:
+        if move == MOVEMENT.DEPARTURE:
             if destination in self.runways.keys():
                 runway = self.getRunway(destination)
                 if runway:  # we sure to find one because first test
@@ -596,7 +601,6 @@ class Airport:
             logger.debug("route not found with options, trying without option.")
             route.options = {}
             route.find()
-
         if route.found():  # second attempt may have worked
             return (True, route)
 

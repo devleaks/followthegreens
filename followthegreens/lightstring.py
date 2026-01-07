@@ -9,18 +9,23 @@ import xp
 
 from .geo import Point, distance, bearing, destination, convertAngleTo360
 from .globals import (
-    RABBIT_MODE,
-    DISTANCE_BETWEEN_GREEN_LIGHTS,
-    ADD_LIGHT_AT_VERTEX,
+    logger,
     ADD_LIGHT_AT_LAST_VERTEX,
-    DISTANCE_BETWEEN_STOPLIGHTS,
-    MIN_SEGMENTS_BEFORE_HOLD,
+    ADD_LIGHT_AT_VERTEX,
+    DISTANCE_BETWEEN_GREEN_LIGHTS,
     DISTANCE_BETWEEN_LIGHTS,
+    DISTANCE_BETWEEN_STOPLIGHTS,
     FTG_SPEED_PARAMS,
+    LIGHTS_AHEAD,
+    MIN_SEGMENTS_BEFORE_HOLD,
+    MOVEMENT,
+    RABBIT_DURATION,
+    RABBIT_LENGTH,
+    RABBIT_MODE,
+    TAXIWAY_ACTIVE,
+    TAXIWAY_WIDTH_CODE,
+    TAXIWAY_WIDTH,
 )
-from .globals import RABBIT_LENGTH, RABBIT_DURATION, LIGHTS_AHEAD
-from .globals import AIRCRAFT_TYPES as TAXIWAY_WIDTH
-from .globals import DEPARTURE, ARRIVAL, logger
 
 LIGHT_TYPE_OFF = "LIGHT_TYPE_OFF"
 LIGHT_TYPE_DEFAULT = "LIGHT_TYPE_DEFAULT"
@@ -137,17 +142,18 @@ class Stopbar:
     # A set of red lights perpendicular to the taxiway direction (=heading).
     # Width is set by the taxiway width code if available, F (very wide) as default.
     # Holds a referece to its lights
-    def __init__(self, position, heading, index, size="F"):
+    def __init__(self, position, heading, index, size:TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.F, distance_between_stoplights:int = DISTANCE_BETWEEN_STOPLIGHTS):
         self.lights = []
         self.position = position
         self.heading = heading
         self.lightStringIndex = index
-        self.width = TAXIWAY_WIDTH[size]  # must check size in TAXIWAY_WIDTH.keys()
+        self.width = TAXIWAY_WIDTH[size.value].value
+        self.distance_between_stoplights = distance_between_stoplights
         self._on = False
         self.make()
 
     def make(self):
-        numlights = int(self.width / DISTANCE_BETWEEN_STOPLIGHTS)
+        numlights = int(self.width / self.distance_between_stoplights)
 
         if numlights < 4:
             logger.warning(f"stopbar has not enough lights {numlights}")
@@ -159,13 +165,13 @@ class Stopbar:
         # one side of centerline
         brng = self.heading + 90
         for i in range(numlights):
-            pos = destination(self.position, brng, i * DISTANCE_BETWEEN_STOPLIGHTS)
+            pos = destination(self.position, brng, i * self.distance_between_stoplights)
             self.lights.append(Light(LIGHT_TYPE_STOP, pos, 0, i))
 
         # the other side of centerline
         brng = self.heading - 90
         for i in range(numlights):
-            pos = destination(self.position, brng, i * DISTANCE_BETWEEN_STOPLIGHTS)
+            pos = destination(self.position, brng, i * self.distance_between_stoplights)
             self.lights.append(Light(LIGHT_TYPE_STOP, pos, 0, numlights + i))
 
     def place(self, lightTypes):
@@ -189,7 +195,7 @@ class Stopbar:
 
 class LightString:
 
-    def __init__(self):
+    def __init__(self, config: dict = {}):
         self.lights = (
             []
         )  # all green lights from start to destination indexed from 0 to len(lights)
@@ -199,29 +205,25 @@ class LightString:
         self.rabbitIdx = 0
         self.rabbitCanRun = False
 
-        self.route = (
-            None  # route as returned by graph.Dijkstra, i.e. a list of vertex indices.
-        )
+        self.route = None  # route as returned by graph.Dijkstra, i.e. a list of vertex indices.
+
         # g_ and r_ are for graphic objects (lights, green and red)
         self.drefs = []
-        self.params = (
-            []
-        )  # LIGHT_PARAM_DEF       full_custom_halo        9   R   G   B   A   S       X   Y   Z   F
+        self.params = []  # LIGHT_PARAM_DEF       full_custom_halo        9   R   G   B   A   S       X   Y   Z   F
         self.txy_light_obj = None
         self.stp_light_obj = None
         self.xyzPlaced = False
         self.oldStart = -1
         self.lastLit = 0
         self.lightTypes = None
+        self.distance_between_lights = config.get("DISTANCE_BETWEEN_GREEN_LIGHTS", DISTANCE_BETWEEN_GREEN_LIGHTS)
 
-        self.num_lights_ahead = LIGHTS_AHEAD  # if zero, all lights are shown, otherwise, must be >= self.rabbit_length
-        self.rabbit_length = RABBIT_LENGTH
-        self.rabbit_duration = RABBIT_DURATION
-        self.rabbit_mode = 0  # [-2, 2]
+        self.num_lights_ahead = config.get("LIGHTS_AHEAD", LIGHTS_AHEAD)  # if zero, all lights are shown, otherwise, must be >= self.rabbit_length
+        self.rabbit_length = config.get("RABBIT_LENGTH", RABBIT_LENGTH)
+        self.rabbit_duration = config.get("RABBIT_DURATION", RABBIT_DURATION)
+        self.rabbit_mode = RABBIT_MODE.MED
 
-        logger.debug(
-            f"LightString created {self.rabbit_length}, {self.rabbit_duration}"
-        )
+        logger.debug(f"LightString created {self.rabbit_length}, {self.rabbit_duration}")
 
     def __str__(self):
         return json.dumps({"type": "FeatureCollection", "features": self.features()})
@@ -291,7 +293,7 @@ class LightString:
         thisLights.append(Light(LIGHT_TYPE_FIRST, currPoint, 0, 0))
         lastLight = currPoint
         # logger.debug("placed first light")
-        distanceBeforeNextLight = DISTANCE_BETWEEN_GREEN_LIGHTS
+        distanceBeforeNextLight = self.distance_between_lights
 
         logger.debug(f"at vertex 0, {currVertex.id}, {len(thisLights)}")
         for i in range(1, len(route.route)):
@@ -302,21 +304,20 @@ class LightString:
             brng = bearing(currVertex, nextVertex)
 
             thisEdge = graph.get_edge(currVertex.id, nextVertex.id)
-            if not onILS and thisEdge.has_active("ils"):  # remember entry into ILS zone
+            if not onILS and thisEdge.has_active(TAXIWAY_ACTIVE.ILS):  # remember entry into ILS zone
                 logger.debug(
                     f"thisEdge active ils {thisEdge.start.id}-{thisEdge.end.id}, {i}, {thisEdge.usage}"
                 )
                 onILS = thisEdge
                 onILSidx = len(thisLights)
-            elif not thisEdge.has_active(DEPARTURE):  # no longer an ILS zone
+            elif not thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):  # no longer an ILS zone
                 # logger.debug("thisEdge %d, %s.", i, thisEdge.usage)
                 onILS = False
 
             # logger.debug("dist to next: bearing: %f, distance: %f, type: %s", brng, distToNextVertex, thisEdge.usage)  # noqa: E501
 
-            if route.move == DEPARTURE and thisEdge.has_active(
-                DEPARTURE
-            ):  # must place a stopbar
+            if route.move == MOVEMENT.DEPARTURE and thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):
+                # must place a stopbar
                 stopbarAt = currVertex
                 lightAtStopbar = len(thisLights)
                 if onILS:
@@ -350,11 +351,10 @@ class LightString:
                     onRwy = True  # We assume that we a setting a stopbar before a runway crossing.
                 else:
                     logger.debug(
-                        f"LightString::populate: departure: on runway #={i}, usage={thisEdge.usage}, dept?={thisEdge.has_active(DEPARTURE)}, {thisEdge.mkActives()}"
+                        f"LightString::populate: departure: on runway #={i}, usage={thisEdge.usage}, dept?={thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE)}, {thisEdge.mkActives()}"
                     )
-                    if thisEdge.usage != "runway" and not thisEdge.has_active(
-                        DEPARTURE
-                    ):  # if consecutive active departure segments, do not stop for them
+                    if thisEdge.usage != "runway" and not thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):
+                        # if consecutive active departure segments, do not stop for them
                         logger.debug(f"departure: no longer on runway at edge {i}.")
                         onRwy = False
 
@@ -362,8 +362,8 @@ class LightString:
             # the criteria here should be refined. test for active=arrival, and runway=runway where we landed. @todo.
             # @todo: check also for hasActive(ARRIVAL)? Or either or both?
             if (
-                route.move == ARRIVAL
-                and thisEdge.has_active(DEPARTURE)
+                route.move == MOVEMENT.ARRIVAL
+                and thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE)
                 and i > MIN_SEGMENTS_BEFORE_HOLD
             ):  # must place a stop bar
                 stopbarAt = (
@@ -396,23 +396,18 @@ class LightString:
                     onRwy = True  # We assume that we a setting a stopbar before a runway crossing.
                 else:
                     logger.debug(f"arrival: not on runway {i}, {thisEdge.usage}")
-                    if thisEdge.usage != "runway" and not thisEdge.has_active(
-                        DEPARTURE
-                    ):  # if consecutive active departure segments, do not stop for them
+                    if thisEdge.usage != "runway" and not thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):
+                        # if consecutive active departure segments, do not stop for them
                         logger.debug(f"arrival: no longer on runway at edge {i}.")
                         onRwy = False
 
-            if (
-                onRwy
-                and thisEdge.usage != "runway"
-                and not thisEdge.has_active(DEPARTURE)
-            ):  # if consecutive active departure segments, do not stop for them
+            if onRwy and thisEdge.usage != "runway" and not thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):
+                # if consecutive active departure segments, do not stop for them
                 logger.debug(f"no longer on runway at edge {i}.")
                 onRwy = False
 
-            if (
-                distToNextVertex < distanceBeforeNextLight
-            ):  # we don't insert a light, we go to next leg  # noqa: E501
+            if distToNextVertex < distanceBeforeNextLight:
+                # we don't insert a light, we go to next leg  # noqa: E501
                 distanceBeforeNextLight = distanceBeforeNextLight - distToNextVertex
             else:  # we insert a light until we reach the next point
                 while distanceBeforeNextLight < distToNextVertex:
@@ -424,7 +419,7 @@ class LightString:
                         distToNextVertex - distanceBeforeNextLight
                     )  # should be close to ftg_geoutil.distance(currPoint, nextVertex)
                     currPoint = nextLightPos
-                    distanceBeforeNextLight = DISTANCE_BETWEEN_GREEN_LIGHTS
+                    distanceBeforeNextLight = self.distance_between_lights
                     # logger.debug("added light %f, %f", distanceBeforeNextLight, distToNextVertex)
 
                 distanceBeforeNextLight = distanceBeforeNextLight - distToNextVertex
@@ -461,7 +456,7 @@ class LightString:
         return thisLights
 
     # We make a stopbar after the green light index lightIndex
-    def mkStopBar(self, lightIndex, src, dst, extremity="end", size="E"):
+    def mkStopBar(self, lightIndex, src, dst, extremity="end", size:TAXIWAY_WIDTH_CODE=TAXIWAY_WIDTH_CODE.E):
         brng = bearing(src, dst)
         start = None
         if extremity == "end":

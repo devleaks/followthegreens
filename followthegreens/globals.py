@@ -18,9 +18,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("FtG")
 
-
-SYSTEM_DIRECTORY = "."
-
 SHOW_TRACE = True
 
 # X-Plane Interface
@@ -66,6 +63,7 @@ class AMBIANT_RWY_LIGHT(StrEnum):
     OFF = "off"
     LOW = "lo"
     MEDIUM = "med"
+    MED = "med"
     HIGH = "hi"
 
 AMBIANT_RWY_LIGHT_CMDROOT = "sim/operation/rwy_lights_"  # + AMBIANT_RWY_LIGHT
@@ -88,23 +86,11 @@ MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from spac
 
 # X-Plane APT files constants and keywords
 #
-NODE_TYPE_BOTH = "both"
-NODE_TYPE_DESTNATION = "dest"
-NODE_TYPE_DEPART = "init"
-NODE_TYPE_JUNCTION = "junc"
-
 class NODE_TYPE(StrEnum):
     BOTH = "both"
     DESTNATION = "dest"
     DEPART = "init"
     JUNCTION = "junc"
-
-
-TAXIWAY_DIR_ONEWAY = "oneway"
-TAXIWAY_DIR_TWOWAY = "twoway"
-TAXIWAY_DIR_INNER = "inner"
-TAXIWAY_DIR_OUTER = "outer"
-TAXIWAY_DIR_BOTH = "both"
 
 class TAXIWAY_DIRECTION(StrEnum):
     ONEWAY = "oneway"
@@ -113,39 +99,30 @@ class TAXIWAY_DIRECTION(StrEnum):
     OUTER = "outer"
     BOTH = "both"
 
-
-TAXIWAY_TYPE_TAXIWAY = "taxiway"
-TAXIWAY_TYPE_RUNWAY = "runway"
-TAXIWAY_TYPE_BOTH = "both"
-
 class TAXIWAY_TYPE(StrEnum):
     TAXIWAY  = "taxiway"
     RUNWAY = "runway"
     BOTH = "both"
 
-
-TAXIWAY_ACTIVE_DEPARTURE = "departure"
-TAXIWAY_ACTIVE_ARRIVAL = "arrival"
-TAXIWAY_ACTIVE_ILS = "ils"
-
 class TAXIWAY_ACTIVE(StrEnum):
     DEPARTURE  = "departure"
     ARRIVAL = "arrival"
-    ILS = "both"
+    ILS = "ils"
 
 
-ROUTING_ALGORITHM = "dijkstra"  # astar, dijkstra (default)
-
-class ROUTING_ALGORITHM_EXTRA(StrEnum):
+class ROUTING_ALGORITHMS(StrEnum):
     DIJKSTRA  = "dijkstra"
     ASTAR = "astart"
+
+ROUTING_ALGORITHM = ROUTING_ALGORITHMS.ASTAR  # astar, dijkstra (default)
 
 
 
 # Follow the greens constants and keywords
 #
-ARRIVAL = TAXIWAY_ACTIVE_ARRIVAL
-DEPARTURE = TAXIWAY_ACTIVE_DEPARTURE
+class MOVEMENT(StrEnum):
+    ARRIVAL  = "arrival"
+    DEPARTURE = "departure"
 
 DISTANCE_TO_RAMPS = 100  # meters, if closer that this to a ramp, assume departure, otherwise, assume arrival
 TOO_FAR = 500  # meters, if further than this from a taxiway, does not kick in.
@@ -197,7 +174,14 @@ SPEED_FAST = 10.0 # m/s, 20kt
 
 # ATC related constants
 #
-ATC = {"None", "Delivery", "Ground", "Tower", "Tracon", "Center"}
+class ATC(StrEnum):
+    NONE = "None"
+    DELIVERY = "Delivery"
+    GROUND = "Ground"
+    TOWER = "Tower"
+    TRACON = "Tracon"
+    CENTER = "Center"
+
 # ATC greetings
 GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}
 # GOOD = {"morning": 4, "day": 6, "afternoon": 9, "evening": 12, "night": 17}  # special US
@@ -223,19 +207,18 @@ GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}
 #
 # Aicraft type/class (size) is used to estimate minimal taxiway width
 #
-class AIRCRAFT_TYPE(Enum):  # Half width of taxiway in meters
+class TAXIWAY_WIDTH_CODE(Enum):  # Half width of taxiway in meters
+    A = "A"
+    B = "B"
+    C = "C"
+    D = "D"
+    E = "E"
+    F = "F"
+
+class TAXIWAY_WIDTH(Enum):  # Half width of taxiway in meters
     A = 4  # 7.5m
     B = 6  # 10.5m
     C = 8  # 15m or 18m
     D = 9  # 18m or 23m
     E = 12  # 23m
     F = 15  # 30m
-
-AIRCRAFT_TYPES = {  # Half width of taxiway in meters
-    "A": 4,  # 7.5m
-    "B": 6,  # 10.5m
-    "C": 8,  # 15m or 18m
-    "D": 9,  # 18m or 23m
-    "E": 12,  # 23m
-    "F": 15,  # 30m
-}

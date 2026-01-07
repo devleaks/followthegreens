@@ -1,19 +1,10 @@
 __NAME__ = "Follow the greens"
 __SIGNATURE__ = "xppython3.followthegreens"
 __DESCRIPTION__ = "Follow the greens, a 4D X-Plane ATC A-SMGCS experience"
-__VERSION__ = "2.0.3"
+__VERSION__ = "2.1.0"
 
 from .followthegreens import FollowTheGreens
 from .showtaxiways import ShowTaxiways
-from .aircraft import Aircraft
-from .airport import Airport
-from .flightloop import FlightLoop
-from .geo import Point, Line, Polygon, FeatureCollection
-from .geo import distance, bearing, destination
-from .geo import nearestPointToLines, pointInPolygon
-from .graph import Graph, Edge, Vertex
-from .lightstring import LightString
-from .ui import UIUtil
 from .globals import FTG_IS_RUNNING, SHOW_TRACE, RABBIT_MODE
 from .globals import FTG_COMMAND, FTG_COMMAND_DESC, FTG_MENU
 from .globals import STW_COMMAND, STW_COMMAND_DESC, STW_MENU
