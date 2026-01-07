@@ -80,6 +80,56 @@ class Route:
             return "-".join(self.route)
         return ""
 
+    def _find(self, algorithm: str, width_code: str, move: str, respect_width: bool = False, respect_inner: bool = False, use_runway: bool = True, respect_oneway: bool = True):
+        # Preselect edge set with supplied constraints
+        self.graph.filter_edges(
+            width_code=width_code,
+            move=self.move,
+            respect_width=respect_width,
+            respect_inner=respect_inner,
+            use_runway=use_runway,
+            respect_oneway=respect_oneway)
+
+        if algorithm == "astar":
+            return self.graph.AStar(self.src, self.dst)
+
+        return self.graph.Dijkstra(self.src, self.dst)  # no option
+
+    def findExtended(self, width_code: str, move: str):
+        for algorithm in ["astar", "dijkstra"]:
+            for respect_width_code in [True, False]:
+                # Strict
+                route = self._find(algorithm=algorithm, width_code=width_code, move=move,
+                    respect_width=respect_width_code,
+                    respect_inner=True,
+                    use_runway=False,
+                    respect_oneway=True)
+                if route.found():
+                    logger.debug(f"found algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=True, use_runway=False, respect_oneway=True")
+                    return route
+                # Use runway
+                route = self._find(algorithm=algorithm, width_code=width_code, move=move,
+                    respect_width=respect_width_code,
+                    respect_inner=False, # unsued anyway
+                    use_runway=True,
+                    respect_oneway=True)
+                if route.found():
+                    logger.debug(f"found algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=False, use_runway=True, respect_oneway=True")
+                    return route
+                # Do not respect one ways
+                route = self._find(algorithm=algorithm, width_code=width_code, move=move,
+                    respect_width=respect_width_code,
+                    respect_inner=False, # unsued anyway
+                    use_runway=True,
+                    respect_oneway=False)
+                if route.found():
+                    logger.debug(f"found algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=False, use_runway=True, respect_oneway=False")
+                    return route
+
+        # We're desperate
+        logger.debug("found not restricted route, returning default wide search")
+        return self._find(algorithm="desperate", width_code=width_code, move=move)
+
     def find(self):
         if self.algorithm == "astar":
             self.route = self.graph.AStar(self.src, self.dst)

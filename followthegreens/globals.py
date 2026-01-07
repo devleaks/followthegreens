@@ -71,8 +71,6 @@ class AMBIANT_RWY_LIGHT(StrEnum):
 AMBIANT_RWY_LIGHT_CMDROOT = "sim/operation/rwy_lights_"  # + AMBIANT_RWY_LIGHT
 AMBIANT_RWY_LIGHT_VALUE = "sim/graphics/scenery/airport_light_level"
 AIRPORTLIGHT_ON = "sim/graphics/scenery/airport_lights_on"
-# Preferences
-RUNWAY_LIGHT_LEVEL_WHILE_FTG = AMBIANT_RWY_LIGHT.LOW
 
 # Main UI Window display and position
 #
@@ -95,17 +93,54 @@ NODE_TYPE_DESTNATION = "dest"
 NODE_TYPE_DEPART = "init"
 NODE_TYPE_JUNCTION = "junc"
 
+class NODE_TYPE(StrEnum):
+    BOTH = "both"
+    DESTNATION = "dest"
+    DEPART = "init"
+    JUNCTION = "junc"
+
+
 TAXIWAY_DIR_ONEWAY = "oneway"
 TAXIWAY_DIR_TWOWAY = "twoway"
+TAXIWAY_DIR_INNER = "inner"
+TAXIWAY_DIR_OUTER = "outer"
+TAXIWAY_DIR_BOTH = "both"
+
+class TAXIWAY_DIRECTION(StrEnum):
+    ONEWAY = "oneway"
+    TWOWAY = "twoway"
+    INNER = "inner"
+    OUTER = "outer"
+    BOTH = "both"
+
 
 TAXIWAY_TYPE_TAXIWAY = "taxiway"
 TAXIWAY_TYPE_RUNWAY = "runway"
+TAXIWAY_TYPE_BOTH = "both"
+
+class TAXIWAY_TYPE(StrEnum):
+    TAXIWAY  = "taxiway"
+    RUNWAY = "runway"
+    BOTH = "both"
+
 
 TAXIWAY_ACTIVE_DEPARTURE = "departure"
 TAXIWAY_ACTIVE_ARRIVAL = "arrival"
 TAXIWAY_ACTIVE_ILS = "ils"
 
+class TAXIWAY_ACTIVE(StrEnum):
+    DEPARTURE  = "departure"
+    ARRIVAL = "arrival"
+    ILS = "both"
+
+
 ROUTING_ALGORITHM = "dijkstra"  # astar, dijkstra (default)
+
+class ROUTING_ALGORITHM_EXTRA(StrEnum):
+    DIJKSTRA  = "dijkstra"
+    ASTAR = "astart"
+
+
 
 # Follow the greens constants and keywords
 #
@@ -130,9 +165,9 @@ DISTANCE_BETWEEN_STOPLIGHTS = 2  # meters, distance between red stop lights on t
 DISTANCE_BETWEEN_LIGHTS = 40  # meters, when showing all taxiways. This can build numerous lights! Use 40-80 range.
 
 
-LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
-RABBIT_LENGTH = 10  # number of lights that blink in front of aircraft
-RABBIT_DURATION = 0.2  # sec duration of "off" light in rabbit
+LIGHTS_AHEAD = 10  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
+RABBIT_LENGTH = 8  # number of lights that blink in front of aircraft
+RABBIT_DURATION = 0.15  # sec duration of "off" light in rabbit
 
 class RABBIT_MODE(StrEnum):
     SLOW = "slow"
@@ -140,6 +175,9 @@ class RABBIT_MODE(StrEnum):
     MED = "med"
     FASTER = "faster"
     FAST = "fast"
+
+# Preferences
+RUNWAY_LIGHT_LEVEL_WHILE_FTG = AMBIANT_RWY_LIGHT.LOW
 
 # As a first step, uses 5 standard rabbit (length, speed)
 FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]

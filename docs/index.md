@@ -31,7 +31,7 @@ I found amusing to bring Follow the greens concept to X-Plane as ATC and "AI" st
 X-Plane yellow painted coach arrows on taxiways are fine, useful, but look too artificial.
 
 Follow the greens is an existing system used at a handful airports.
-But now, thanks to this plugin, even your local muni can get Follow the greens (at no cost).
+But now, thanks to this plugin, even your local muni can get Follow the greens _(at no cost)_.
 
 Follow the greens is abbreviated FtG.
 
@@ -39,7 +39,8 @@ Follow the greens is abbreviated FtG.
 # Installation
 
 FtG plugin is written in the python language.
-Therefore, you first need to install the XPPython3 plugin to allow for use of python plugins in X-Plane.
+Therefore, you first need to install the [XPPython3 plugin](https://xppython3.readthedocs.io/en/latest/)
+to allow for use of python plugins in X-Plane.
 
 This process is very similar to the Lua language plugin (XLua or FlyithLua) to use Lua scripts.
 Here, another language (Python), another plugin (XPPython3).
@@ -210,6 +211,53 @@ There currently is no difference between a GA and a A380. They all taxi at the s
 
 In a later release, speed indication will be refined to anticipate turns (at slow speed) or long, straight taxiways.
 Speeds will also be adjusted for aircraft types and sizes.
+
+
+# Configuration Parameters
+
+```
+DISTANCE_BETWEEN_GREEN_LIGHTS = 20
+DISTANCE_BETWEEN_LIGHTS = 40
+
+LIGHTS_AHEAD = 0
+RABBIT_LENGTH = 10
+RABBIT_DURATION = 0.2
+
+RUNWAY_LIGHT_LEVEL_WHILE_FTG = "lo"
+```
+
+![Parameters](images/parameters.png)
+
+Please note that the values you enter here may degrade X-Plane performances (faster rabbit, numerous taxiway lights...)
+The plugin enforces certain constraints to prevent X-Plane from crashing.
+
+# Notes on Performances
+
+Follow the greens uses little resources.
+
+1. Every 10 seconds or so, FtG checks the aircraft position and speed and adjust greens accordingly.
+2. The rabbit is called more often, depending on its speed. The faster the rabbit, the more pressure on X-Plane. With 0.2 seconds rabbit, FtG is unnoticable.
+
+One might expect a slight hiccup when looking for a route at a large airport with numerous taxiways.
+Hiccup should not last more than one or two seconds in this case.
+
+### About Strict Route Search Mode
+
+The goal of FtG is to provide a route from where the aircraft is located to a destination,
+either a runway entry, or a parking stand.
+It does this by finding a route on a network of taxiways.
+
+But!
+
+Taxiways may have contraints.
+
+First, there might be aircraft size/width/weight constraints. A narrow taxiway is not suitable for an airliner.
+Second, there might be local constrainst like one-way taxiways, taxiways used for inner/outer traffic.
+Third, runways may sometime be used as taxiways, usually with a U-turn facility at its edges.
+
+X-Plane airport designer sometimes provides detailed taxiway information, sometimes not.
+
+Follow the greens has to cope with what is available in airport definition files.
 
 
 # FtG Control and Monitoring

@@ -216,14 +216,8 @@ class LightString:
 
         self.num_lights_ahead = LIGHTS_AHEAD  # if zero, all lights are shown, otherwise, must be >= self.rabbit_length
         self.rabbit_length = RABBIT_LENGTH
-        if self.num_lights_ahead > 0 and self.num_lights_ahead < self.rabbit_length:
-            logger.debug(
-                f"light ahead {self.num_lights_ahead} shorter than rabbit length {self.rabbit_length}"
-            )
         self.rabbit_duration = RABBIT_DURATION
         self.rabbit_mode = 0  # [-2, 2]
-
-        self._int_cnt = 0
 
         logger.debug(
             f"LightString created {self.rabbit_length}, {self.rabbit_duration}"
@@ -231,6 +225,9 @@ class LightString:
 
     def __str__(self):
         return json.dumps({"type": "FeatureCollection", "features": self.features()})
+
+    def has_rabbit(self) -> bool:
+        return self.rabbit_duration > 0 and self.rabbit_length  > 0
 
     def features(self):
         fc = []
@@ -256,26 +253,23 @@ class LightString:
 
     def resetRabbit(self):
         # set all lights
-        for i in range(0, len(self.lights)):
+        maxl = min(len(self.lights), self.lastLit + self.rabbit_length + self.num_lights_ahead)
+        for i in range(self.lastLit, maxl):
             self.lights[i].on()
-        self.lastLit = 0
+        logger.debug(f"rabbit reset: {self.lastLit} -> {maxl}")
 
     def rabbitMode(self, mode: RABBIT_MODE):
+        if not self.has_rabbit():
+            return
         self.rabbit_mode = mode
         length, speed = FTG_SPEED_PARAMS[mode]
         self.resetRabbit()
         self.changeRabbit(length=length, duration=speed, ahead=self.num_lights_ahead)
-        logger.info(
-            f"rabbit mode: {mode}: {length}, {round(speed, 2)} (ahead={self.num_lights_ahead})"
-        )
+        logger.info(f"rabbit mode: {mode}: {length}, {round(speed, 2)} (ahead={self.num_lights_ahead})")
 
     def changeRabbit(self, length: int, duration: float, ahead: int):
-        if self.num_lights_ahead > 0:
-            la = self.num_lights_ahead - self.rabbit_length
-            if la < 0:
-                la = 0
-            self.num_lights_ahead = la + length
-        # else: self.num_lights_ahead == 0 which means all lights are on and we don't change that
+        if not self.has_rabbit():
+            return
         self.rabbit_length = length
         self.rabbit_duration = duration
         logger.info(f"rabbit mode: {self.rabbit_length}, {self.rabbit_duration}")

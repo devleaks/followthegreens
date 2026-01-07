@@ -3,8 +3,8 @@
 # Goal is to provide centralized location for user-defined configuration parameters
 # toml used because now standard package in python.
 #
-DISTANCE_BETWEEN_GREEN_LIGHTS = 8  # meters, distance between lights on ground. I *think* that the standard for taxi cetner line lights is 60 meters.
-DISTANCE_BETWEEN_STOPLIGHTS = 8  # meters, distance between red stop lights on the ground.
+DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # meters, distance between lights on ground. I *think* that the standard for taxi cetner line lights is 60 meters.
+DISTANCE_BETWEEN_STOPLIGHTS = 2  # meters, distance between red stop lights on the ground.
 DISTANCE_BETWEEN_LIGHTS = 40  # meters, when showing all taxiways. This can build numerous lights so keep them far apart!
 
 LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.

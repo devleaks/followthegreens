@@ -17,7 +17,7 @@ from .geo import (
     destination,
     pointInPolygon,
 )
-from .globals import logger, TAXIWAY_DIR_TWOWAY, DEPARTURE, ARRIVAL
+from .globals import logger, DEPARTURE, ARRIVAL, TAXIWAY_DIR_TWOWAY, TAXIWAY_DIR_ONEWAY, TAXIWAY_DIR_BOTH, TAXIWAY_TYPE_RUNWAY, TAXIWAY_DIR_OUTER
 
 
 class Vertex(Point):  ## Vertex(Point)
@@ -80,9 +80,10 @@ class Edge(Line):
     def __init__(self, src, dst, cost, direction, usage, name):
         Line.__init__(self, src, dst)
         self.cost = cost  # cost = distance to next vertext
-        self.direction = direction  # direction of vertex: oneway or twoway
+        self.direction = direction  # direction of vertex: TAXIWAY_DIR_ONEWAY or TAXIWAY_DIR_TWOWAY
         self.usage = usage  # type of vertex: runway or taxiway or taxiway_X where X is width code (A-F)
-        self.usage2 = "inner" # or "outer" or "both"
+        self.usage2 = TAXIWAY_DIR_BOTH # or "outer" or "both"
+        self.width_code = self.widthCode()
         self.name = name  # segment name, not unique! For documentation only.
         self.active = [] # array of segment activity, activity can be departure, arrival, or ils.
                          # departure require clearance. plane cannot stop on segment of type ils.
@@ -95,7 +96,7 @@ class Edge(Line):
         if self.usage[0:4] == "taxi":
             props["stroke"] = "#aaaa00"
 
-        if self.direction == "oneway":
+        if self.direction == TAXIWAY_DIR_ONEWAY:
             props["stroke"] = "#00dd00"
             props["stroke-width"] = 2
 
@@ -105,6 +106,10 @@ class Edge(Line):
         props["usage"] = self.usage
         props["active"] = self.mkActives()
         return props
+
+    @property
+    def is_inner(self):
+        return self.usage2 != TAXIWAY_DIR_OUTER
 
     def mkActives(self):
         ret = []
@@ -129,11 +134,21 @@ class Edge(Line):
             return self.usage[8]
         return default
 
+    def opposite(self):
+        return Edge(src=self.end, dst=self.start, cost=self.cost, direction=self.direction, usage=self.usage, name=self.name)
+
 
 class Graph:  # Graph(FeatureCollection)?
     def __init__(self):
         self.vert_dict = {}
         self.edges_arr = []
+
+        self.all_edges = []
+
+        # Try to guess if information is supplied or not
+        self._uses_width_code = False
+        self._oneways = False
+        self._runways = False
 
     def __str__(self):
         return json.dumps({"type": "FeatureCollection", "features": self.features()})
@@ -169,7 +184,7 @@ class Graph:  # Graph(FeatureCollection)?
                 txyOk = (
                     "taxiwayOnly" in options
                     and options["taxiwayOnly"]
-                    and v.usage != "runway"
+                    and v.usage != TAXIWAY_TYPE_RUNWAY
                 ) or ("taxiwayOnly" not in options)
                 scdOk = (
                     "minSizeCode" in options and options["minSizeCode"] <= code
@@ -184,6 +199,7 @@ class Graph:  # Graph(FeatureCollection)?
 
     def add_edge(self, edge):
         if edge.start.id in self.vert_dict and edge.end.id in self.vert_dict:
+            self.all_edges.append(edge)
             self.edges_arr.append(edge)
             self.vert_dict[edge.start.id].add_neighbor(
                 self.vert_dict[edge.end.id].id, edge.cost
@@ -193,8 +209,54 @@ class Graph:  # Graph(FeatureCollection)?
                 self.vert_dict[edge.end.id].add_neighbor(
                     self.vert_dict[edge.start.id].id, edge.cost
                 )
+            # Check if information is available
+            if edge.width_code is not None:
+                self._uses_width_code = True
+            if edge.direction == TAXIWAY_DIR_ONEWAY:
+                self._oneways = True
+            if edge.usage == TAXIWAY_TYPE_RUNWAY:
+                self._runways = True
         else:
             logger.critical(f"vertex not found when adding edges {edge.src},{edge.dst}")
+
+    def filter_edges(self, width_code: str, move: str, respect_width: bool = False, respect_inner: bool = False, use_runway: bool = True, respect_oneway: bool = True):
+        # Filter all_edges and place result in edges_arr
+        width_strict = False
+        edges = []
+        oneways = 0
+        for e in self.all_edges:
+            # Exclusions
+            if respect_width:
+                if e.width_code is not None:
+                    if width_code > e.width_code: # not wide enough
+                        continue
+                elif width_strict:
+                    continue  # no width info on taxiway, use strict width mode, so must ignore this unlabelled segment
+
+            if respect_inner:
+                if move == ARRIVAL and e.is_inner: # arrival cannot use outer rwy
+                    continue
+                if move == DEPARTURE and not e.is_inner:  # departure cannot use inner rwy
+                    continue
+            if not use_runway and e.usage == TAXIWAY_TYPE_RUNWAY: # cannot use runway for taxiing
+                # Note: My understanding of 1202 runway is that runway indicates that the edge IS a runway and can be used for taxiing
+                continue
+
+            # if not excluded, add it
+            if respect_oneway:
+                edges.append(e)
+            else:
+                edges.append(e)
+                edges.append(e.opposite())
+                oneways = oneways + 1
+        self.edges_arr = edges
+        logger.debug(f"filter_edges: width_code={width_code} (strict={width_strict}), move={move}: {len(edges)}/{len(self.all_edges), {oneways}}")
+
+    def reset_filter_edges(self):
+        edges = []
+        for e in self.all_edges:
+            edges.append(e)
+        self.edges_arr = edges
 
     def get_edge(self, src, dst):
         arr = list(
@@ -229,7 +291,7 @@ class Graph:  # Graph(FeatureCollection)?
             txyOk = (
                 "taxiwayOnly" in options
                 and options["taxiwayOnly"]
-                and edge.usage != "runway"
+                and edge.usage != TAXIWAY_TYPE_RUNWAY
             ) or ("taxiwayOnly" not in options)
             scdOk = ("minSizeCode" in options and options["minSizeCode"] <= code) or (
                 "minSizeCode" not in options

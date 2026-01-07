@@ -272,6 +272,9 @@ class FollowTheGreens:
             return self.ui.sorry(ret[1])
         logger.debug(f"lights instanciated ({self.segment}).")
 
+        # re-authorize rabbit auto-tuning
+        self.flightLoop.allow_rabbit_autotune()
+
         if self.move == DEPARTURE and self.segment == (self.lights.segments - 1):
             return self.ui.promptForDeparture()
 
