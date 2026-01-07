@@ -16,6 +16,7 @@ from .globals import (
     TOO_FAR,
     ROUTING_ALGORITHM,
     ROUTING_ALGORITHMS,
+    USE_STRICT_MODE,
 )
 
 SYSTEM_DIRECTORY = "."
@@ -75,7 +76,7 @@ class Route:
         self.vertices = None
         self.edges = None
         self.smoothed = None
-        self.algorithm = ROUTING_ALGORITHMS.ASTAR  # default, unused
+        self.algorithm = ROUTING_ALGORITHM  # default, unused
 
     def __str__(self):
         if self.found():
@@ -85,8 +86,8 @@ class Route:
     def _find(
         self,
         algorithm: ROUTING_ALGORITHMS,
-        width_code: str,
-        move: str,
+        width_code: TAXIWAY_WIDTH_CODE,
+        move: MOVEMENT,
         respect_width: bool = False,
         respect_inner: bool = False,
         use_runway: bool = True,
@@ -109,13 +110,16 @@ class Route:
 
         return graph.Dijkstra(self.src, self.dst)  # no option
 
-    def findExtended(self, width_code: str, move: str):
+    def findExtended(self, width_code: TAXIWAY_WIDTH_CODE, move: MOVEMENT):
+        # Clone orignal graph as collected from apt.dat file
+        # while relaxing some constraints during the cloning
+        # Starts with original graph, then relax constraints until route is found
         logger.debug("findExtended started")
         for algorithm in ROUTING_ALGORITHMS:
             logger.debug(f"findExtended {algorithm}")
             for respect_width_code in [True, False]:
                 # Strict
-                route = self._find(
+                self.route = self._find(
                     algorithm=algorithm,
                     width_code=width_code,
                     move=move,
@@ -124,11 +128,12 @@ class Route:
                     use_runway=False,
                     respect_oneway=True,
                 )
-                if route.found():
+                if self.found():
                     logger.debug(f"found algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=True, use_runway=False, respect_oneway=True")
-                    return route
+                    logger.debug("all constraints satisfied")
+                    return self
                 # Use runway
-                route = self._find(
+                self.route = self._find(
                     algorithm=algorithm,
                     width_code=width_code,
                     move=move,
@@ -137,11 +142,11 @@ class Route:
                     use_runway=True,
                     respect_oneway=True,
                 )
-                if route.found():
+                if self.found():
                     logger.debug(f"found algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=False, use_runway=True, respect_oneway=True")
-                    return route
+                    return self
                 # Do not respect one ways
-                route = self._find(
+                self.route = self._find(
                     algorithm=algorithm,
                     width_code=width_code,
                     move=move,
@@ -150,13 +155,16 @@ class Route:
                     use_runway=True,
                     respect_oneway=False,
                 )
-                if route.found():
+                if self.found():
                     logger.debug(f"found algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=False, use_runway=True, respect_oneway=False")
-                    return route
-
+                    return self
         # We're desperate
-        logger.debug("found not restricted route, returning default wide search")
-        return self._find(algorithm=ROUTING_ALGORITHM, width_code=width_code, move=move)
+        logger.debug(f"findExtended found not restricted route, returning default wide search using algorith {self.algorithm}")
+        self.options = {}
+        logger.debug("all constraints relaxed")
+        # self.route = self._find(algorithm=ROUTING_ALGORITHM, width_code=width_code, move=move) # no other restriction
+        # logger.debug(f"find extended return {self.route}, {self.graph.Dijkstra(self.src, self.dst)}")
+        return self.find()
 
     def find(self):
         if self.algorithm == ROUTING_ALGORITHMS.ASTAR:
@@ -166,7 +174,7 @@ class Route:
         return self
 
     def found(self):
-        return self.route and len(self.route) > 2
+        return self.route is not None and len(self.route) > 2
 
     def mkEdges(self):
         # From liste of vertices, build list of edges
@@ -175,7 +183,7 @@ class Route:
         for i in range(len(self.route) - 1):
             e = self.graph.get_edge(self.route[i], self.route[i + 1])
             v = self.graph.get_vertex(self.route[i])
-            v.setProp("taxiway-width", TAXIWAY_WIDTH[e.widthCode(TAXIWAY_WIDTH_CODE.D)].value)
+            v.setProp("taxiway-width", e.width_code)
             v.setProp("ls", i)
             self.edges.append(e)
 
@@ -493,7 +501,7 @@ class Airport:
             self.ldRamps()
         return self.ramps.keys()
 
-    def getDestinations(self, mode):
+    def getDestinations(self, mode: MOVEMENT):
         if mode == MOVEMENT.DEPARTURE:
             return list(list(self.runways.keys()) + list(self.holds.keys()))
 
@@ -582,11 +590,18 @@ class Airport:
         # Try to find route (src and dst are vertex ids)
         opts = {"taxiwayOnly": True}
         route = Route(self.graph, src[0], dst[0], move, opts)
-        route.find()
-        if not route.found() and len(opts.keys()) > 0:  # if there were options, we try to find a route without option
-            logger.debug("route not found with options, trying without option.")
-            route.options = {}
+        if USE_STRICT_MODE:
+            logger.debug("searching with all constraints..")
+            route.findExtended(width_code=aircraft.width_code, move=move)
+            logger.debug("..done")
+        else:
+            # use specified algorithm
             route.find()
+            if not route.found() and len(opts.keys()) > 0:  # if there were options, we try to find a route without option
+                # only relax oneway/twoway constraint
+                logger.debug("route not found with options, trying without option.")
+                route.options = {}
+                route.find()
         if route.found():  # second attempt may have worked
             return (True, route)
 

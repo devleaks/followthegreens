@@ -121,6 +121,7 @@ class ROUTING_ALGORITHMS(StrEnum):
 
 
 ROUTING_ALGORITHM = ROUTING_ALGORITHMS.ASTAR  # astar, dijkstra (default)
+USE_STRICT_MODE = True  # set to True at your own risk
 
 
 # Follow the greens constants and keywords

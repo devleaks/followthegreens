@@ -5,7 +5,7 @@ from random import random
 
 import xp
 
-from .globals import logger, ARRIVAL, DEPARTURE, GOOD
+from .globals import logger, MOVEMENT, GOOD
 from .globals import MAINWINDOW_AUTOHIDE, MAINWINDOW_DISPLAY_TIME
 from .globals import MAINWINDOW_WIDTH, MAINWINDOW_HEIGHT
 from .globals import MAINWINDOW_FROM_LEFT, MAINWINDOW_FROM_BOTTOM
@@ -234,13 +234,13 @@ class UIUtil:
         button = None
         prompt = None
         text = None
-        if move == DEPARTURE:
-            self.validDestinations = self.ftg.airport.getDestinations(DEPARTURE)
+        if move == MOVEMENT.DEPARTURE:
+            self.validDestinations = self.ftg.airport.getDestinations(MOVEMENT.DEPARTURE)
             prompt = "Please enter runway for departure"
             button = "It is an arrival"
             text = "RWY/HLD"
         else:
-            self.validDestinations = self.ftg.airport.getDestinations(ARRIVAL)
+            self.validDestinations = self.ftg.airport.getDestinations(MOVEMENT.ARRIVAL)
             prompt = "Please enter parking for arrival"
             button = "It is a departure"
             text = "RAMP"
@@ -464,10 +464,10 @@ class UIUtil:
         # pylint: disable=unused-argument
         if inMessage == xp.Msg_PushButtonPressed:
             xp.hideWidget(self.mainWindow["widgetID"])
-            if self.ftg.move == DEPARTURE:
-                self.ftg.move = ARRIVAL
+            if self.ftg.move == MOVEMENT.DEPARTURE:
+                self.ftg.move = MOVEMENT.ARRIVAL
             else:
-                self.ftg.move = DEPARTURE
+                self.ftg.move = MOVEMENT.DEPARTURE
             nextWindow = self.promptForDestination()
             xp.showWidget(nextWindow)
             return 1

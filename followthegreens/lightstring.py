@@ -338,7 +338,7 @@ class LightString:
                         stopbarAt,
                         nextVertex,
                         "start",
-                        thisEdge.widthCode("E"),
+                        thisEdge.width_code,
                     )
                     self.segments += 1
                     onRwy = True  # We assume that we a setting a stopbar before a runway crossing.
@@ -373,7 +373,7 @@ class LightString:
                         stopbarAt,
                         nextVertex,
                         "start",
-                        thisEdge.widthCode("E"),
+                        thisEdge.width_code,
                     )
                     self.segments += 1
                     onRwy = True  # We assume that we a setting a stopbar before a runway crossing.
@@ -441,6 +441,8 @@ class LightString:
         extremity="end",
         size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.E,
     ):
+        if size is None:
+            size = TAXIWAY_WIDTH_CODE.E
         brng = bearing(src, dst)
         start = None
         if extremity == "end":
