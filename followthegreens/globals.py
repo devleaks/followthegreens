@@ -192,6 +192,13 @@ FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
 SPEED_SLOW = 1.0  # m/s, 2kt
 SPEED_FAST = 10.0  # m/s, 20kt
 
+class TAXI_SPEED(Enum):
+    FAST = [10, 15]
+    MED = [5, 10]
+    SLOW = [3, 8]
+    CAUTION = [1, 4]
+    TURN = [0, 3]
+
 
 # ATC related constants
 #

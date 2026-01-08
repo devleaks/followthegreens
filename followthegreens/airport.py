@@ -187,6 +187,7 @@ class Route:
             v.setProp("taxiway-width", e.width_code)
             v.setProp("ls", i)
             self.edges.append(e)
+        logger.debug(f"segments: {[round(e.cost, 1) for e in self.edges]}")
 
     def mkVertices(self):
         self.vertices = list(map(lambda x: self.graph.get_vertex(x), self.route))
@@ -200,7 +201,7 @@ class Route:
         # Idea: while walking the lights, determine how far is next turn (position to vertex) and how much it will turn.
         #       when closing to edge, invide to slow down if turn is important
         #       if turn is unimportant, anticipate to next vertex
-        self.turns = []
+        self.turns = [0]
         v0 = self.graph.get_vertex(self.route[0])
         v1 = self.graph.get_vertex(self.route[1])
         for i in range(1, len(self.route) - 1):
@@ -208,7 +209,7 @@ class Route:
             self.turns.append(v1.turn(v0, v2))
             v0 = v1
             v1 = v2
-        logger.debug(f"turns: {self.turns}")
+        logger.debug(f"turns: {[round(t, 0) for t in self.turns]}")
 
 
 class Airport:
@@ -618,12 +619,14 @@ class Airport:
             # use specified algorithm
             route.find()
             if not route.found() and len(opts.keys()) > 0:  # if there were options, we try to find a route without option
-                # only relax oneway/twoway constraint
+                # only relax oneway/twoway constraint; second attempt may work...
                 logger.debug("route not found with options, trying without option.")
                 route.options = {}
                 route.find()
-        if route.found():  # second attempt may have worked
-            route.mkTurns()
+
+        if route.found():
+            route.mkEdges() # compute segment distances
+            route.mkTurns() # compute turn angles at end of segment
             return (True, route)
 
         return (False, "We could not find a route to your destination.")

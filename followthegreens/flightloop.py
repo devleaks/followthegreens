@@ -8,14 +8,14 @@ import xp
 from .globals import (
     logger,
     RABBIT_MODE,
-    SPEED_SLOW,
-    SPEED_FAST,
+    TAXI_SPEED,
     PLANE_MONITOR_DURATION,
     DISTANCE_BETWEEN_GREEN_LIGHTS,
     WARNING_DISTANCE,
     RUNWAY_LIGHT_LEVEL_WHILE_FTG,
     AMBIANT_RWY_LIGHT_CMDROOT,
     AMBIANT_RWY_LIGHT,
+
 )
 from .geo import EARTH, Point, distance
 
@@ -179,38 +179,14 @@ class FlightLoop:
         self.rabbitRunning = True
         logger.debug("rabbit restarted after adjustments")
 
-    def adjustRabbitSimple(self):
-        logger.debug("adjusting rabbit.. (simple)")
-        if not self.has_rabbit():
-            logger.debug("..no rabbit")
-            return
-        if not self._may_adjust_rabbit:
-            logger.debug("..autotune not permitted")
-            return
-        speed = self.ftg.aircraft.speed()
-
-        logger.debug(f"adjustRabbit: {speed}")
-        mode = RABBIT_MODE.MED
-        if speed < 0.01:  # m/s
-            logger.debug("probably stopped")
-        elif speed < SPEED_SLOW:
-            logger.debug("too slow")
-            mode = RABBIT_MODE.FASTER
-        elif speed > SPEED_FAST:
-            logger.debug("too fast")
-            mode = RABBIT_MODE.SLOWER
-        if self.rabbitMode != mode:
-            self.rabbitMode = mode
-            logger.debug(f"..done. new mode is {self.rabbitMode} (requested {mode})")
-
     def adjustRabbit(self, position, closestLight):
         logger.debug("adjusting rabbit..")
         SPEEDS = {  # m/s
-            "fast": [7.5, 13],
+            "fast": [10, 15],
             "med": [5, 10],
-            "slow": [2, 7],
+            "slow": [3, 8],
             "caution": [1, 4],
-            "turn": [0, 2],
+            "turn": [0, 3],
         }
 
         if not self.has_rabbit():
@@ -235,16 +211,45 @@ class FlightLoop:
         turn = route.turns[light.index]
         speed = self.ftg.aircraft.speed()
         # logger.debug(f"closest light: vertex index {light.index}, next vertex={nextvtx}, distance={round(dist, 1)}, turn={round(turn, 0)}, speed={round(speed, 1)}")
-        logger.debug(f"adjustRabbit: turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
+        logger.debug(f"adjustRabbit: start turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
+
+        # From observation/experience
+        # Taxi fast=15 m/s
+        # Taxi cautious = 6m/s
+        # Turn (90°): 3-4 m/s
+        # Brake: 12m/s to 3: 100 m with A321, 200m with A330
+        # WE decide:
+        # Turn < 15°, speed "cautious"
+        # Turn > 15°, speed "turn"
+        TURN_LIMIT = 15.0  # °
+        BRAKE_DIST = 200.0  # mn should be a function of acf mass/type
+        MOVEIT_DIST = 400.0  # m
+
+        # 4. Find next turn of more than 15°
+        idx = light.index + 1
+        while abs(turn) < TURN_LIMIT and idx < len(route.route):
+            turn = route.turns[idx]
+            dist = dist + route.edges[idx].cost
+            idx = idx + 1
+        logger.debug(f"adjustRabbit: next turn (>{TURN_LIMIT})={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
+
 
         # II. From distance to turn, and angle of turn, assess situation
-        # II.1  determine speed category
+        # II.1  determine speed target
         msg = "on target"
-        category = "med"
+        target = TAXI_SPEED.MED  # target speed range
+
+        if dist < BRAKE_DIST:
+            if turn < TURN_LIMIT:
+                target = TAXI_SPEED.CAUTION
+            else:
+                target = TAXI_SPEED.TURN
+        elif dist > MOVEIT_DIST:
+                target = TAXI_SPEED.FAST
 
         # II.2 Adjust rabbit mode to requirements
         mode = RABBIT_MODE.MED
-        srange = SPEEDS[category]
+        srange = target.value
         if speed < 0.01:  # m/s
             msg = "probably stopped"
         elif speed < srange[0]:
@@ -254,9 +259,11 @@ class FlightLoop:
             mode = RABBIT_MODE.SLOWER
             msg = "too fast"
 
+        logger.debug(f"adjustRabbit: current speed={speed}, target={target}, current mode={self.rabbitMode} recommanded={mode} ({msg})")
+
         if self.rabbitMode != mode:
             self.rabbitMode = mode
-            logger.debug(f"adjustRabbit: speed={speed} distance={dist} turn={turn} => category {category}")
+            logger.debug(f"adjustRabbit: speed={speed} distance={dist} turn={turn} => target {target}")
             logger.debug(f"adjustRabbit: speed={speed} range={dist} {msg} => rabbit {mode}")
         logger.debug(f"..done ({msg})")
 
