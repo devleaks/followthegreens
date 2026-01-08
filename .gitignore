@@ -135,3 +135,6 @@ gensc.py
 xpdepot.py
 skunkcrafts_file_generator.py
 ftg_log.txt
+followthegreens/lights/cust_amber.obj
+followthegreens/lights/cust_green.obj
+followthegreens/lights/cust_red.obj

@@ -232,11 +232,13 @@ class FlightLoop:
             idx = idx + 1
 
         # @todo: What if no more turn but end of greens reached?
-        if idx == len(route.route): # end of route
+        if idx == len(route.route):  # end of route
             logger.warning("adjustRabbit: reached end of route")
 
-        logger.debug(f"adjustRabbit: currently at index {light.index}, next turn (>{TURN_LIMIT} at index {idx-1}=" +
-                     f"{round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
+        logger.debug(
+            f"adjustRabbit: currently at index {light.index}, next turn (>{TURN_LIMIT} at index {idx-1}="
+            + f"{round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}"
+        )
 
         # II. From distance to turn, and angle of turn, assess situation
 

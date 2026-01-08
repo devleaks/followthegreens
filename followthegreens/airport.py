@@ -625,8 +625,8 @@ class Airport:
                 route.find()
 
         if route.found():
-            route.mkEdges() # compute segment distances
-            route.mkTurns() # compute turn angles at end of segment
+            route.mkEdges()  # compute segment distances
+            route.mkTurns()  # compute turn angles at end of segment
             return (True, route)
 
         return (False, "We could not find a route to your destination.")
