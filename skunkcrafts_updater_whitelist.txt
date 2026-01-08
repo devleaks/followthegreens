@@ -3,12 +3,12 @@ PI_FollowTheGreens.py|2455284862
 README.md|3816865703
 followthegreens/__init__.py|923035026
 followthegreens/aircraft.py|2357743693
-followthegreens/airport.py|2021487861
-followthegreens/flightloop.py|392291744
-followthegreens/followthegreens.py|381475274
+followthegreens/airport.py|2904159565
+followthegreens/flightloop.py|2403513520
+followthegreens/followthegreens.py|1183016525
 followthegreens/ftgconfig-template.toml|2112702558
 followthegreens/geo.py|2855385451
-followthegreens/globals.py|610983909
+followthegreens/globals.py|802271633
 followthegreens/graph.py|1206290830
 followthegreens/lights/amber.obj|957811461
 followthegreens/lights/cust_amber.obj|4061920889
