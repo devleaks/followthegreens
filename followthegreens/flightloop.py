@@ -180,15 +180,7 @@ class FlightLoop:
         logger.debug("rabbit restarted after adjustments")
 
     def adjustRabbit(self, position, closestLight):
-        logger.debug("adjusting rabbit..")
-        SPEEDS = {  # m/s
-            "fast": [10, 15],
-            "med": [5, 10],
-            "slow": [3, 8],
-            "caution": [1, 4],
-            "turn": [0, 3],
-        }
-
+        # logger.debug("adjusting rabbit..")
         if not self.has_rabbit():
             logger.debug("..no rabbit")
             return
@@ -197,6 +189,7 @@ class FlightLoop:
             return
 
         # I. Collect information
+
         # 1. Distance to next vertex (= distance to next potential turn)
         route = self.ftg.lights.route
         light = self.ftg.lights.lights[closestLight]
@@ -206,14 +199,18 @@ class FlightLoop:
         nextvtxid = route.route[nextvertex]
         nextvtx = route.graph.get_vertex(nextvtxid)
 
+        # 2. distance to that next vertex and turn at that vertex
         dist = distance(Point(lat=position[0], lon=position[1]), nextvtx)
-        # 2. Angle of next turn
         turn = route.turns[light.index]
+
+        # 3. current speed
         speed = self.ftg.aircraft.speed()
         # logger.debug(f"closest light: vertex index {light.index}, next vertex={nextvtx}, distance={round(dist, 1)}, turn={round(turn, 0)}, speed={round(speed, 1)}")
-        logger.debug(f"adjustRabbit: start turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
+        # logger.debug(f"adjustRabbit: start turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
 
-        # From observation/experience
+        # From observation/experience:
+        #
+        # Taxi very fast=20 m/s
         # Taxi fast=15 m/s
         # Taxi cautious = 6m/s
         # Turn (90°): 3-4 m/s
@@ -221,9 +218,11 @@ class FlightLoop:
         # WE decide:
         # Turn < 15°, speed "cautious"
         # Turn > 15°, speed "turn"
+        #
+        STOPPED_SPEED = 0.01  # m/s
         TURN_LIMIT = 15.0  # °
-        BRAKE_DIST = 200.0  # mn should be a function of acf mass/type
-        MOVEIT_DIST = 400.0  # m
+        BRAKE_DIST = 200.0  # m should be a function of acf mass/type and current speed
+        MOVEIT_DIST = 400.0  # m no reason to not go fast
 
         # 4. Find next turn of more than 15°
         idx = light.index + 1
@@ -231,27 +230,38 @@ class FlightLoop:
             turn = route.turns[idx]
             dist = dist + route.edges[idx].cost
             idx = idx + 1
-        logger.debug(f"adjustRabbit: next turn (>{TURN_LIMIT})={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
 
+        # @todo: What if no more turn but end of greens reached?
+        if idx == len(route.route): # end of route
+            logger.warning("adjustRabbit: reached end of route")
+
+        logger.debug(f"adjustRabbit: currently at index {light.index}, next turn (>{TURN_LIMIT} at index {idx-1}=" +
+                     f"{round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
 
         # II. From distance to turn, and angle of turn, assess situation
-        # II.1  determine speed target
-        msg = "on target"
+
+        # II.1  determine target speed (range)
         target = TAXI_SPEED.MED  # target speed range
+        adv = "continue"
 
         if dist < BRAKE_DIST:
-            if turn < TURN_LIMIT:
+            if abs(turn) < TURN_LIMIT:
+                adv = "small turn at braking distance, caution"
                 target = TAXI_SPEED.CAUTION
             else:
+                adv = "turn at braking distance"
                 target = TAXI_SPEED.TURN
         elif dist > MOVEIT_DIST:
-                target = TAXI_SPEED.FAST
+            adv = "no turn before large distance, move it"
+            target = TAXI_SPEED.FAST
 
-        # II.2 Adjust rabbit mode to requirements
+        # II.2 adjust rabbit mode from current speed to target speed range
+        msg = "on target"  # ..within range, mode = normal/medium
         mode = RABBIT_MODE.MED
+
         srange = target.value
-        if speed < 0.01:  # m/s
-            msg = "probably stopped"
+        if speed < STOPPED_SPEED:  # m/s
+            msg = f"probably stopped ({round(speed, 1)}m/s)"
         elif speed < srange[0]:
             mode = RABBIT_MODE.FASTER
             msg = "accelerate"
@@ -259,13 +269,11 @@ class FlightLoop:
             mode = RABBIT_MODE.SLOWER
             msg = "too fast"
 
-        logger.debug(f"adjustRabbit: current speed={speed}, target={target}, current mode={self.rabbitMode} recommanded={mode} ({msg})")
+        logger.debug(f"adjustRabbit: current speed={speed}, target={target}; rabbit current mode={self.rabbitMode}, recommanded={mode} ({adv}, {msg})")
 
         if self.rabbitMode != mode:
             self.rabbitMode = mode
-            logger.debug(f"adjustRabbit: speed={speed} distance={dist} turn={turn} => target {target}")
-            logger.debug(f"adjustRabbit: speed={speed} range={dist} {msg} => rabbit {mode}")
-        logger.debug(f"..done ({msg})")
+        # logger.debug(f"..done ({msg})")
 
     def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument

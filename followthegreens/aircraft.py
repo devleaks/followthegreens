@@ -15,6 +15,7 @@ class Aircraft:
         self.psi = xp.findDataRef("sim/flightmodel/position/psi")
         self.groundspeed = xp.findDataRef("sim/flightmodel/position/groundspeed")
         self.localTime = xp.findDataRef("sim/time/local_time_sec")
+        self.tiller = xp.findDataRef("ckpt/tiller")
 
     def position(self):
         return [xp.getDataf(self.lat), xp.getDataf(self.lon)]
@@ -24,6 +25,10 @@ class Aircraft:
 
     def speed(self):
         return xp.getDataf(self.groundspeed)
+
+    def tiller(self):
+        # runs [-50, 50]
+        return xp.getDataf(self.tiller)
 
     def airport(self, pos):
         next_airport_index = xp.findNavAid(None, None, pos[0], pos[1], None, xp.Nav_Airport)

@@ -151,8 +151,8 @@ DISTANCE_BETWEEN_STOPLIGHTS = 2  # meters, distance between red stop lights on t
 DISTANCE_BETWEEN_LIGHTS = 40  # meters, when showing all taxiways. This can build numerous lights! Use 40-80 range.
 
 
-LIGHTS_AHEAD = 10  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
-RABBIT_LENGTH = 8  # number of lights that blink in front of aircraft
+LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
+RABBIT_LENGTH = 10  # number of lights that blink in front of aircraft
 RABBIT_DURATION = 0.15  # sec duration of "off" light in rabbit
 
 
@@ -167,38 +167,37 @@ class RABBIT_MODE(StrEnum):
 # Preferences
 RUNWAY_LIGHT_LEVEL_WHILE_FTG = AMBIANT_RWY_LIGHT.LOW
 
+
+# Speed target
+class TAXI_SPEED(Enum):  # in m/s
+    FAST = [12, 18]
+    MED = [7, 10]
+    SLOW = [5, 8]
+    CAUTION = [3, 6]
+    TURN = [1, 3]
+
+
+FRACT = 2
 # As a first step, uses 5 standard rabbit (length, speed)
 FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
     RABBIT_MODE.FAST: [
-        2 * RABBIT_LENGTH,
-        RABBIT_DURATION / 2,
+        FRACT * RABBIT_LENGTH,
+        RABBIT_DURATION / FRACT,
     ],  # accelerate (long and fast)
     RABBIT_MODE.FASTER: [
         RABBIT_LENGTH,
-        RABBIT_DURATION / 2,
+        RABBIT_DURATION / FRACT,
     ],  # go faster (same length, faster)
     RABBIT_MODE.MED: [RABBIT_LENGTH, RABBIT_DURATION],  # normal
     RABBIT_MODE.SLOWER: [
         RABBIT_LENGTH,
-        2 * RABBIT_DURATION,
+        FRACT * RABBIT_DURATION,
     ],  # slow down (same length, slower)
     RABBIT_MODE.SLOW: [
-        int(RABBIT_LENGTH / 2),
-        2 * RABBIT_DURATION,
+        int(RABBIT_LENGTH / FRACT),
+        FRACT * RABBIT_DURATION,
     ],  # slow down (short and slow)
 }
-
-# For now: hardcoded speed values, same for all aircrafts
-SPEED_SLOW = 1.0  # m/s, 2kt
-SPEED_FAST = 10.0  # m/s, 20kt
-
-class TAXI_SPEED(Enum):
-    FAST = [10, 15]
-    MED = [5, 10]
-    SLOW = [3, 8]
-    CAUTION = [1, 4]
-    TURN = [0, 3]
-
 
 # ATC related constants
 #

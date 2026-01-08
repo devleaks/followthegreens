@@ -562,9 +562,10 @@ class LightString:
             # Instanciate for each stop light
             # for sb in self.stopbars:
             if len(self.stopbars) > 0 and segment < len(self.stopbars):
+                sbend = self.stopbars[segment]
                 for light in sbend.lights:
                     light.on()
-                    logger.debug(f"illuminating stop light.")
+                    logger.debug("illuminating stop light.")
                 # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
             logger.debug("no light ahead: instanciate(stop): done.")
         # else, lights will be turned on in front of rabbit

@@ -405,21 +405,21 @@ class PythonInterface:
         return 0
 
     def rabbitModeSlow(self, commandRef, phase, refCon):
-        return self.rabbitMode(commandRef=commandRef, phase=phase, refCon=refCon, mode="slow")
+        return self.rabbitMode(commandRef=commandRef, phase=phase, refCon=refCon, mode=RABBIT_MODE.SLOW)
 
     def rabbitModeSlower(self, commandRef, phase, refCon):
-        return self.rabbitMode(commandRef=commandRef, phase=phase, refCon=refCon, mode="slower")
+        return self.rabbitMode(commandRef=commandRef, phase=phase, refCon=refCon, mode=RABBIT_MODE.SLOWER)
 
     def rabbitModeMed(self, commandRef, phase, refCon):
-        return self.rabbitMode(commandRef=commandRef, phase=phase, refCon=refCon, mode="med")
+        return self.rabbitMode(commandRef=commandRef, phase=phase, refCon=refCon, mode=RABBIT_MODE.MED)
 
     def rabbitModeFast(self, commandRef, phase, refCon):
-        return self.rabbitMode(commandRef=commandRef, phase=phase, refCon=refCon, mode="fast")
+        return self.rabbitMode(commandRef=commandRef, phase=phase, refCon=refCon, mode=RABBIT_MODE.FAST)
 
     def rabbitModeFaster(self, commandRef, phase, refCon):
-        return self.rabbitMode(commandRef=commandRef, phase=phase, refCon=refCon, mode="faster")
+        return self.rabbitMode(commandRef=commandRef, phase=phase, refCon=refCon, mode=RABBIT_MODE.FASTER)
 
-    def rabbitMode(self, commandRef, phase: int, refCon: Any, mode: str):
+    def rabbitMode(self, commandRef, phase: int, refCon: Any, mode: RABBIT_MODE):
         # pylint: disable=unused-argument
         if not self.enabled:
             self.debug("rabbitMode: not enabled", force=True)

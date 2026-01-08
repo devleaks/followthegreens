@@ -1,7 +1,6 @@
 # Follow the greens XPPYthon3 Plugin Interface
 #
 #
-from math import log
 import xp
 import os
 import tomllib
@@ -42,6 +41,7 @@ class FollowTheGreens:
             logger.info(f"config file {filename} loaded")
             logger.debug(f"config: {self.config}")
         else:
+            logger.debug(f"no config file {filename}")
             filename = os.path.join(".", "Output", "preferences", CONFIGILENAME)  # relative to X-Plane "rott/home" folder
             if os.path.exists(filename):
                 with open(filename, "rb") as fp:
@@ -49,7 +49,7 @@ class FollowTheGreens:
                 logger.info(f"config file {filename} loaded")
                 logger.debug(f"config: {self.config}")
             else:
-                logger.debug("no config file")
+                logger.debug(f"no config file {filename}")
 
     def get_config(self, name):
         # Example: get_config("AMBIANT_RWY_LIGHT_VALUE")
@@ -82,10 +82,7 @@ class FollowTheGreens:
             return 1  # window displayed
         return 0
 
-    def rabbitMode(self, mode: str):
-        if mode not in RABBIT_MODE:
-            logger.warning(f"invalid rabbit mode {mode}")
-            return
+    def rabbitMode(self, mode: RABBIT_MODE):
         self.flightLoop.rabbitMode = mode
 
     def getAirport(self):
