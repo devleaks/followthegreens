@@ -70,6 +70,38 @@ class LightType:
             self.obj = None
             logger.debug(f"object unloaded {self.name}")
 
+    @staticmethod
+    def create(name: str, color: tuple, size: int, intensity: int, texture: int) -> str:
+        TEXTURES = [
+            "0.5  1.0  1.0  0.5",  # TOP RIGHT
+            "0.0  1.0  0.5  0.5",  # TOP LEFT
+            "0.5  0.5  1.0  0.0",  # BOT RIGHT
+            "0.0  0.5  0.5  0.0",  # BOT LEFT
+        ]
+        curr_dir = os.path.dirname(os.path.realpath(__file__))
+        fn = os.path.join(curr_dir, "lights", name)
+        fsize = round(size / 100, 2)
+        alpha = 1
+        with open(fn, "w") as fp:
+            print(
+                """I
+800
+OBJ
+
+TEXTURE lights.png
+TEXTURE_LIT lights.png
+
+POINT_COUNTS    0 0 0 0
+
+""",
+                file=fp,
+            )
+            ls = f"LIGHT_CUSTOM 0 0 0 {round(color[0],2)} {round(color[1],2)} {round(color[2],2)} {alpha} {fsize} {TEXTURES[texture]} UNUSED"
+            logger.debug(f"create light ({size}, {intensity}): {ls}")
+            for i in range(intensity):
+                print(ls, file=fp)
+        return fn
+
 
 class Light:
     # A light to follow, or a stopbar light
@@ -569,6 +601,33 @@ class LightString:
         point = Point(position[0], position[1])
         d = distance(point, light.position)
         return [ns, d]
+
+    # def toVertex(self, index, position):
+    #     # ilight index of next stop position and distance to it
+    #     if self.route is None:
+    #         logger.debug("no route to vertex ahead.")
+    #         return [0, 0]
+
+    #     currlight = self.lights[index]
+    #     currvertex = currlight.index
+    #     if currvertex > len(self.route.route):
+    #         logger.debug("index to large for vertex ahead.")
+    #         return [0, 0]
+
+    #     # find the first light with next index
+    #     light = None
+    #     i = 0
+    #     while light is None and i < len(self.lights):
+    #         if self.lights[i].index == currvertex + 1:
+    #             light = self.lights[i]
+    #         i = i + 1
+    #     if light is None:
+    #         logger.debug("no light for vertex ahead.")
+    #         return [0, 0]
+    #     point = Point(position[0], position[1])
+    #     d = distance(point, light.position)
+    #     logger.debug(f"light {index}: Next vertex at index={i-1}, d={round(d, 2)}.")
+    #     return [index, d]
 
     def offToIndex(self, idx):
         if idx < len(self.lights):

@@ -19,6 +19,8 @@ logging.basicConfig(
 logger = logging.getLogger("FtG")
 
 SHOW_TRACE = True
+SHOW_TAXIWAYS = True
+
 
 # X-Plane Interface
 FTG_PLUGIN_PATH = "XPPython3/followthegreens"

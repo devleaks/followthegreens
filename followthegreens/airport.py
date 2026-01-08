@@ -75,6 +75,7 @@ class Route:
         self.route = []
         self.vertices = None
         self.edges = None
+        self.turns = None
         self.smoothed = None
         self.algorithm = ROUTING_ALGORITHM  # default, unused
 
@@ -189,6 +190,25 @@ class Route:
 
     def mkVertices(self):
         self.vertices = list(map(lambda x: self.graph.get_vertex(x), self.route))
+
+    def text(self):
+        self.mkEdges()
+        return "-".join([e.name for e in self.edges])
+
+    def mkTurns(self):
+        # At end of edge x, turn will be turns[x] degrees
+        # Idea: while walking the lights, determine how far is next turn (position to vertex) and how much it will turn.
+        #       when closing to edge, invide to slow down if turn is important
+        #       if turn is unimportant, anticipate to next vertex
+        self.turns = []
+        v0 = self.graph.get_vertex(self.route[0])
+        v1 = self.graph.get_vertex(self.route[1])
+        for i in range(1, len(self.route) - 1):
+            v2 = self.graph.get_vertex(self.route[i + 1])
+            self.turns.append(v1.turn(v0, v2))
+            v0 = v1
+            v1 = v2
+        logger.debug(f"turns: {self.turns}")
 
 
 class Airport:
@@ -603,6 +623,7 @@ class Airport:
                 route.options = {}
                 route.find()
         if route.found():  # second attempt may have worked
+            route.mkTurns()
             return (True, route)
 
         return (False, "We could not find a route to your destination.")

@@ -17,7 +17,7 @@ from .globals import (
     AMBIANT_RWY_LIGHT_CMDROOT,
     AMBIANT_RWY_LIGHT,
 )
-from .geo import EARTH
+from .geo import EARTH, Point, distance
 
 
 class FlightLoop:
@@ -179,18 +179,17 @@ class FlightLoop:
         self.rabbitRunning = True
         logger.debug("rabbit restarted after adjustments")
 
-    def adjustSpeed(self, speed, position):
-        # Check if speed of aircraft is optimum
-        # Next vertex: distance, expected turn angle at vertex
-        # Min taxi speed 5kt, absolute max taxi speed 30kt
-        # Accelerate of more than 200m from turn, break if closer
-        # Max turn speed = function(turn angle)
-        # Note: 20kt~=10.29m/s, 1m/s~=1.94kt
-        #
-        logger.debug(f"adjustSpeed: {speed}")
+    def adjustRabbitSimple(self):
+        logger.debug("adjusting rabbit.. (simple)")
         if not self.has_rabbit():
-            logger.debug("no rabbit")
+            logger.debug("..no rabbit")
             return
+        if not self._may_adjust_rabbit:
+            logger.debug("..autotune not permitted")
+            return
+        speed = self.ftg.aircraft.speed()
+
+        logger.debug(f"adjustRabbit: {speed}")
         mode = RABBIT_MODE.MED
         if speed < 0.01:  # m/s
             logger.debug("probably stopped")
@@ -202,7 +201,64 @@ class FlightLoop:
             mode = RABBIT_MODE.SLOWER
         if self.rabbitMode != mode:
             self.rabbitMode = mode
-            logger.debug(f"adjustSpeed: mode is {self.rabbitMode} (requested {mode})")
+            logger.debug(f"..done. new mode is {self.rabbitMode} (requested {mode})")
+
+    def adjustRabbit(self, position, closestLight):
+        logger.debug("adjusting rabbit..")
+        SPEEDS = {  # m/s
+            "fast": [7.5, 13],
+            "med": [5, 10],
+            "slow": [2, 7],
+            "caution": [1, 4],
+            "turn": [0, 2],
+        }
+
+        if not self.has_rabbit():
+            logger.debug("..no rabbit")
+            return
+        if not self._may_adjust_rabbit:
+            logger.debug("..autotune not permitted")
+            return
+
+        # I. Collect information
+        # 1. Distance to next vertex (= distance to next potential turn)
+        route = self.ftg.lights.route
+        light = self.ftg.lights.lights[closestLight]
+        nextvertex = light.index + 1
+        if nextvertex >= len(route.route):  # end of route
+            nextvertex = len(route.route) - 1
+        nextvtxid = route.route[nextvertex]
+        nextvtx = route.graph.get_vertex(nextvtxid)
+
+        dist = distance(Point(lat=position[0], lon=position[1]), nextvtx)
+        # 2. Angle of next turn
+        turn = route.turns[light.index]
+        speed = self.ftg.aircraft.speed()
+        # logger.debug(f"closest light: vertex index {light.index}, next vertex={nextvtx}, distance={round(dist, 1)}, turn={round(turn, 0)}, speed={round(speed, 1)}")
+        logger.debug(f"adjustRabbit: turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
+
+        # II. From distance to turn, and angle of turn, assess situation
+        # II.1  determine speed category
+        msg = "on target"
+        category = "med"
+
+        # II.2 Adjust rabbit mode to requirements
+        mode = RABBIT_MODE.MED
+        srange = SPEEDS[category]
+        if speed < 0.01:  # m/s
+            msg = "probably stopped"
+        elif speed < srange[0]:
+            mode = RABBIT_MODE.FASTER
+            msg = "accelerate"
+        elif speed > srange[1]:
+            mode = RABBIT_MODE.SLOWER
+            msg = "too fast"
+
+        if self.rabbitMode != mode:
+            self.rabbitMode = mode
+            logger.debug(f"adjustRabbit: speed={speed} distance={dist} turn={turn} => category {category}")
+            logger.debug(f"adjustRabbit: speed={speed} range={dist} {msg} => rabbit {mode}")
+        logger.debug(f"..done ({msg})")
 
     def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
@@ -232,16 +288,14 @@ class FlightLoop:
             if not self.ftg.ui.isMainWindowVisible():
                 logger.debug("showing UI.")
                 self.ftg.ui.showMainWindow(False)
-        else:
-            # Monitor aircraft speed and adjust rabbit speed
-            if self.has_rabbit():
-                spd = self.ftg.aircraft.speed()
-                self.adjustSpeed(spd, pos)
 
         closestLight, distance = self.ftg.lights.closest(pos)
         if not closestLight:
             logger.debug("no close light.")
             return self.nextIter
+
+        if self.has_rabbit():
+            self.adjustRabbit(position=pos, closestLight=closestLight)  # Here is the 4D!
 
         # logger.debug("closest %d %f", closestLight, distance)
         if closestLight > self.lastLit and distance < self.diftingLimit:  # Progress OK
@@ -255,6 +309,9 @@ class FlightLoop:
 
         # @todo
         # Need to send warning when pilot moves away from the green.
+        # if distance > 200m? send warning?
+        if distance > 200:
+            logger.debug(f"aircraft away from track? (d={distance})")
 
         self.distance = distance
         return self.nextIter

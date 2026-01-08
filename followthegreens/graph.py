@@ -63,16 +63,17 @@ class Vertex(Point):  ## Vertex(Point)
     def turn(self, src, dst) -> float | None:
         # Turn angle coming from src and going to dst
         # Will be used as a weighted extra cost when visited from src to dst
-        if src not in self.adjacent or dst not in self.adjacent:
-            return None
-        b1 = bearing(self.adjacent[src], self)
-        b2 = bearing(self, self.adjacent[dst])
+        if src.id not in self.adjacent or dst.id not in self.adjacent:
+            logger.warning(f"turn: at {self.id}: from {src.id} to {dst.id}, not in adjacents {self.adjacent}")
+        b1 = bearing(src, self)
+        b2 = bearing(self, dst)
         bd = b1 - b2
-        while bd > 360:
+        while bd > 180:
             bd = bd - 360
-        while bd < 0:
+        while bd < -180:
             bd = bd + 360
-        return bd
+        # logger.debug(f"turn: at {self.id}: from {src.id} to {dst.id}: {round(bd, 1)} deg.")
+        return bd  # [-180, 180]
 
 
 class Active:
