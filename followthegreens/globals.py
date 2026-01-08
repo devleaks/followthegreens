@@ -9,7 +9,17 @@ plugin_path = os.path.dirname(__file__)
 FORMAT = "%(levelname)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
 LOGFILENAME = "ftg_log.txt"
 logging.basicConfig(
+#
+#
     level=logging.DEBUG,
+#
+#   You can change the above level by using WARN, INFO, or DEBUG.
+#   In case of problem, the developer may ask you to set the level
+#   to a specific value.
+#   Messages are logged in the file called ftg_log.txt that is located
+#   in the followthegreens folder.
+#
+#
     format=FORMAT,
     handlers=[
         logging.FileHandler(os.path.join(plugin_path, "..", LOGFILENAME)),
@@ -177,27 +187,45 @@ class TAXI_SPEED(Enum):  # in m/s
     TURN = [1, 3]
 
 
-FRACT = 2
 # As a first step, uses 5 standard rabbit (length, speed)
 FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
     RABBIT_MODE.FAST: [
-        FRACT * RABBIT_LENGTH,
-        RABBIT_DURATION / FRACT,
+        2 * RABBIT_LENGTH,
+        RABBIT_DURATION / 2,
     ],  # accelerate (long and fast)
     RABBIT_MODE.FASTER: [
         RABBIT_LENGTH,
-        RABBIT_DURATION / FRACT,
+        RABBIT_DURATION / 2,
     ],  # go faster (same length, faster)
     RABBIT_MODE.MED: [RABBIT_LENGTH, RABBIT_DURATION],  # normal
     RABBIT_MODE.SLOWER: [
         RABBIT_LENGTH,
-        FRACT * RABBIT_DURATION,
+        2 * RABBIT_DURATION,
     ],  # slow down (same length, slower)
     RABBIT_MODE.SLOW: [
-        int(RABBIT_LENGTH / FRACT),
-        FRACT * RABBIT_DURATION,
+        int(RABBIT_LENGTH / 2),
+        2 * RABBIT_DURATION,
     ],  # slow down (short and slow)
 }
+
+
+# Lights
+class LIGHT_TYPE(StrEnum):
+    OFF = "OFF"
+    DEFAULT = "DEFAULT"
+    FIRST = "FIRST"
+    TAXIWAY = "TAXIWAY"
+    TAXIWAY_ALT = "TAXIWAY_ALT"
+    STOP = "STOP"
+    LAST = "LAST"
+
+CUSTOM_LIGHTS = {}
+
+# CUSTOM_LIGHTS = {
+#     LIGHT_TYPE.TAXIWAY: ("cust_green.obj", (0, 1, 0), 20, 20, 3),
+#     "CUST_RED": ("cust_red.obj", (1, 0, 0), 20, 20, 3),
+#     "CUST_AMBER": ("cust_amber.obj", (0.7, 0.7, 0), 20, 20, 3)
+# }
 
 # ATC related constants
 #

@@ -116,6 +116,51 @@ There are also a few documented parameters you can adjust to your liking.
 There are a few requirements for FtG to work.
 For example, the airport must have a network of taxiways defined in X-Plane.
 
+To start Follow the greens, call the plugin menu item _Follow the greens..._.
+Follow instructions in the dialog boxes.
+
+There is a little tip for runway and parking stand selection.
+
+To select your destination, *first click inside the input text box to set focus there*,
+*then use UP and DOWN arrow keys to cycle through proposed valid destinations*.
+
+If you hit a text key or a number key, selection jumps to the first matching destination.
+Only the *first key you type* is used to jump to the first matching destination.
+
+I apoligize for the poor user interface.
+It is developed with standard X-Plane user interface elements,
+which do not include sophisticated widgets like menu boxes.
+
+The (main and unique) user interface window of _Follow the greens_ is designed to disappear after a few seconds of inactivity.
+Select Follow the greens in the plugin menu to display it again.
+
+You can assign Follow the greens action to a key or button.
+It is equivalent to selecting X-Plane Plugin menu entry.
+
+# Changelog
+
+## Release 2
+
+- [2.1.5](https://github.com/devleaks/followthegreens/releases) - 08-JAN-2026 - Monitoring aircraft speed, recommending target speed range from position to next turn.
+- ...
+- 2.0.0 - 29-DEC-2025 - Added hooks for 4D FtG, updated README.
+
+
+## Release 1
+
+- [1.6.7](https://github.com/devleaks/followthegreens/releases) - 21-FEB-2024 - Added skunkcrafts updater files
+- 1.6.6 - 21-FEB-2024 - Added Cancel and OK (finish, bye, etc.) commands
+- 1.6.5 - 20-FEB-2024 - Now opening all files as UTF-8 files. Code blackened.
+- ...
+- 1.0.0 - 01-APR-2021 - Initial release.
+
+
+## Future Development
+
+Recommended speed targets and parameters are statically defined.
+They should be adjusted for aircraft size and weight.
+
+Current parameters are OK for small to mid-sized airliners, narrow and wide bodies.
 
 # License
 

@@ -6,6 +6,12 @@ import os
 import tomllib
 
 from .globals import logger, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE
+#
+# THE FOLLOWING NEED TO BE IMPORTED HERE EVEN IF THEY ARE NOT USED IN THIS FILE
+# BECAUSE THEY CAN BE USED AS DEFAULT VALUES FOR USER SUPPLIED PARAMETERS
+#
+from .globals import RUNWAY_LIGHT_LEVEL_WHILE_FTG
+#
 from .aircraft import Aircraft
 from .airport import Airport
 from .flightloop import FlightLoop

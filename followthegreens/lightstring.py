@@ -4,6 +4,7 @@
 import math
 import json
 import os.path
+from enum import StrEnum
 
 import xp
 
@@ -25,24 +26,18 @@ from .globals import (
     TAXIWAY_ACTIVE,
     TAXIWAY_WIDTH_CODE,
     TAXIWAY_WIDTH,
+    CUSTOM_LIGHTS,
+    LIGHT_TYPE,
 )
 
-LIGHT_TYPE_OFF = "LIGHT_TYPE_OFF"
-LIGHT_TYPE_DEFAULT = "LIGHT_TYPE_DEFAULT"
-LIGHT_TYPE_FIRST = "LIGHT_TYPE_FIRST"
-LIGHT_TYPE_TAXIWAY = "LIGHT_TYPE_TAXIWAY"
-LIGHT_TYPE_TAXIWAY_ALT = "LIGHT_TYPE_TAXIWAY_ALT"
-LIGHT_TYPE_STOP = "LIGHT_TYPE_STOP"
-LIGHT_TYPE_LAST = "LIGHT_TYPE_LAST"
-
 LIGHT_TYPES_OBJFILES = {
-    LIGHT_TYPE_OFF: "off_light.obj",  # off_light_alt
-    LIGHT_TYPE_DEFAULT: "green.obj",
-    LIGHT_TYPE_FIRST: "green.obj",
-    LIGHT_TYPE_TAXIWAY: "green.obj",
-    LIGHT_TYPE_TAXIWAY_ALT: "amber.obj",
-    LIGHT_TYPE_STOP: "red.obj",
-    LIGHT_TYPE_LAST: "green.obj",
+    LIGHT_TYPE.OFF: "off_light.obj",  # off_light_alt
+    LIGHT_TYPE.DEFAULT: "green.obj",
+    LIGHT_TYPE.FIRST: "green.obj",
+    LIGHT_TYPE.TAXIWAY: "green.obj",
+    LIGHT_TYPE.TAXIWAY_ALT: "amber.obj",
+    LIGHT_TYPE.STOP: "red.obj",
+    LIGHT_TYPE.LAST: "green.obj",
 }
 
 HARDCODED_MIN_DISTANCE = 10  # meters
@@ -97,7 +92,7 @@ POINT_COUNTS    0 0 0 0
                 file=fp,
             )
             ls = f"LIGHT_CUSTOM 0 0 0 {round(color[0],2)} {round(color[1],2)} {round(color[2],2)} {alpha} {fsize} {TEXTURES[texture]} UNUSED"
-            logger.debug(f"create light ({size}, {intensity}): {ls}")
+            logger.debug(f"create light {name} ({size}, {intensity}): {ls}")
             for i in range(intensity):
                 print(ls, file=fp)
         return fn
@@ -197,23 +192,23 @@ class Stopbar:
             numlights = 4
 
         # centerline
-        self.lights.append(Light(LIGHT_TYPE_STOP, self.position, 0, 0))
+        self.lights.append(Light(LIGHT_TYPE.STOP, self.position, 0, 0))
 
         # one side of centerline
         brng = self.heading + 90
         for i in range(numlights):
             pos = destination(self.position, brng, i * self.distance_between_stoplights)
-            self.lights.append(Light(LIGHT_TYPE_STOP, pos, 0, i))
+            self.lights.append(Light(LIGHT_TYPE.STOP, pos, 0, i))
 
         # the other side of centerline
         brng = self.heading - 90
         for i in range(numlights):
             pos = destination(self.position, brng, i * self.distance_between_stoplights)
-            self.lights.append(Light(LIGHT_TYPE_STOP, pos, 0, numlights + i))
+            self.lights.append(Light(LIGHT_TYPE.STOP, pos, 0, numlights + i))
 
     def place(self, lightTypes):
         for light in self.lights:
-            light.place(lightTypes[light.lightType], lightTypes[LIGHT_TYPE_OFF])
+            light.place(lightTypes[light.lightType], lightTypes[LIGHT_TYPE.OFF])
 
     def on(self):
         for light in self.lights:
@@ -325,7 +320,7 @@ class LightString:
 
         currVertex = graph.get_vertex(route.route[0])
         currPoint = currVertex
-        thisLights.append(Light(LIGHT_TYPE_FIRST, currPoint, 0, 0))
+        thisLights.append(Light(LIGHT_TYPE.FIRST, currPoint, 0, 0))
         lastLight = currPoint
         # logger.debug("placed first light")
         distanceBeforeNextLight = self.distance_between_lights
@@ -428,7 +423,7 @@ class LightString:
                 while distanceBeforeNextLight < distToNextVertex:
                     nextLightPos = destination(currPoint, brng, distanceBeforeNextLight)
                     brgn = bearing(lastLight, nextLightPos)
-                    thisLights.append(Light(LIGHT_TYPE_TAXIWAY, nextLightPos, brgn, i))
+                    thisLights.append(Light(LIGHT_TYPE.TAXIWAY, nextLightPos, brgn, i))
                     lastLight = nextLightPos
                     distToNextVertex = distToNextVertex - distanceBeforeNextLight  # should be close to ftg_geoutil.distance(currPoint, nextVertex)
                     currPoint = nextLightPos
@@ -440,7 +435,7 @@ class LightString:
 
                 if ADD_LIGHT_AT_VERTEX:  # may be we insert a last light at the vertex?
                     brgn = bearing(lastLight, nextVertex)
-                    thisLights.append(Light(LIGHT_TYPE_TAXIWAY, nextVertex, brgn, i))
+                    thisLights.append(Light(LIGHT_TYPE.TAXIWAY, nextVertex, brgn, i))
                     lastLight = nextVertex
                     # logger.debug("added light at vertex %s", nextVertex.id)
 
@@ -450,7 +445,7 @@ class LightString:
         if ADD_LIGHT_AT_LAST_VERTEX:  # may be we insert a last light at the last vertex?
             lastPoint = route.route[len(route.route) - 1]
             brgn = bearing(lastLight, lastPoint)
-            thisLights.append(Light(LIGHT_TYPE_TAXIWAY, lastPoint, brgn, i))
+            thisLights.append(Light(LIGHT_TYPE.TAXIWAY, lastPoint, brgn, i))
             lastLight = lastPoint
             logger.debug(f"added light at last vertex {route.route[len(route.route) - 1].id}")
 
@@ -498,17 +493,32 @@ class LightString:
             abs(brng - convertAngleTo360(heading)),
         ]
 
+    def loadCustomLights(self):
+        for n, l in CUSTOM_LIGHTS.items():
+            LightType.create(name=l[0], color=l[1], size=l[2], intensity=l[3], texture=l[4])
+            self.lightTypes[n] = LightType(n, l[0])
+        logger.debug(f"custom lights created and loaded. {self.lightTypes.keys()}")
+        return True
+
     def loadObjects(self):
         self.lightTypes = {}
+        # This loads all "default" lights
         for k, f in LIGHT_TYPES_OBJFILES.items():
             self.lightTypes[k] = LightType(k, f)
+        # Add or replace custom lights
+        if len(CUSTOM_LIGHTS) > 0:
+            self.loadCustomLights()
+
+        # Loads and install them
+        for k, f in LIGHT_TYPES_OBJFILES.items():
             self.lightTypes[k].load()
+
         logger.debug("loaded.")
         return True
 
     def placeLights(self):
         for light in self.lights:
-            light.place(self.lightTypes[light.lightType], self.lightTypes[LIGHT_TYPE_OFF])
+            light.place(self.lightTypes[light.lightType], self.lightTypes[LIGHT_TYPE.OFF])
 
         for sb in self.stopbars:
             sb.place(self.lightTypes)
@@ -693,19 +703,19 @@ class LightString:
             brng = s.bearing()
 
             # light at start of segment
-            self.lights.append(Light(LIGHT_TYPE_TAXIWAY, s.start, brng, cnt))
+            self.lights.append(Light(LIGHT_TYPE.TAXIWAY, s.start, brng, cnt))
             cnt += 1
 
             step = max(DISTANCE_BETWEEN_LIGHTS, HARDCODED_MIN_DISTANCE)
             dist = step
             while dist < s.length():
                 pos = destination(s.start, brng, dist)
-                self.lights.append(Light(LIGHT_TYPE_TAXIWAY, pos, brng, cnt))
+                self.lights.append(Light(LIGHT_TYPE.TAXIWAY, pos, brng, cnt))
                 cnt += 1
                 dist += step
 
             # light at end of segment
-            self.lights.append(Light(LIGHT_TYPE_TAXIWAY, s.end, brng, cnt))
+            self.lights.append(Light(LIGHT_TYPE.TAXIWAY, s.end, brng, cnt))
             cnt += 1
             return cnt
 

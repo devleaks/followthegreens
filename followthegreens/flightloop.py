@@ -12,10 +12,8 @@ from .globals import (
     PLANE_MONITOR_DURATION,
     DISTANCE_BETWEEN_GREEN_LIGHTS,
     WARNING_DISTANCE,
-    RUNWAY_LIGHT_LEVEL_WHILE_FTG,
     AMBIANT_RWY_LIGHT_CMDROOT,
     AMBIANT_RWY_LIGHT,
-
 )
 from .geo import EARTH, Point, distance
 
@@ -73,6 +71,8 @@ class FlightLoop:
 
         # Dim runway lights according to preferences
         ll = self.ftg.get_config("RUNWAY_LIGHT_LEVEL_WHILE_FTG")
+        if ll is None:
+            ll = AMBIANT_RWY_LIGHT.LOW
         if self.planeRunning and self.ftg.airport_light_level is not None:
             self.runway_level_original = xp.getDataf(self.ftg.airport_light_level)
             cmdref = xp.findCommand(AMBIANT_RWY_LIGHT_CMDROOT + ll)
