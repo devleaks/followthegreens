@@ -26,19 +26,9 @@ from .globals import (
     TAXIWAY_ACTIVE,
     TAXIWAY_WIDTH_CODE,
     TAXIWAY_WIDTH,
-    CUSTOM_LIGHTS,
     LIGHT_TYPE,
+    LIGHT_TYPE_OBJFILES,
 )
-
-LIGHT_TYPES_OBJFILES = {
-    LIGHT_TYPE.OFF: "off_light.obj",  # off_light_alt
-    LIGHT_TYPE.DEFAULT: "green.obj",
-    LIGHT_TYPE.FIRST: "green.obj",
-    LIGHT_TYPE.TAXIWAY: "green.obj",
-    LIGHT_TYPE.TAXIWAY_ALT: "amber.obj",
-    LIGHT_TYPE.STOP: "red.obj",
-    LIGHT_TYPE.LAST: "green.obj",
-}
 
 HARDCODED_MIN_DISTANCE = 10  # meters
 HARDCODED_MIN_TIME = 0.1  # secs
@@ -95,7 +85,7 @@ POINT_COUNTS    0 0 0 0
             logger.debug(f"create light {name} ({size}, {intensity}): {ls}")
             for i in range(intensity):
                 print(ls, file=fp)
-        return fn
+        return name
 
 
 class Light:
@@ -493,26 +483,15 @@ class LightString:
             abs(brng - convertAngleTo360(heading)),
         ]
 
-    def loadCustomLights(self):
-        for n, l in CUSTOM_LIGHTS.items():
-            LightType.create(name=l[0], color=l[1], size=l[2], intensity=l[3], texture=l[4])
-            self.lightTypes[n] = LightType(n, l[0])
-        logger.debug(f"custom lights created and loaded. {self.lightTypes.keys()}")
-        return True
-
     def loadObjects(self):
         self.lightTypes = {}
-        # This loads all "default" lights
-        for k, f in LIGHT_TYPES_OBJFILES.items():
-            self.lightTypes[k] = LightType(k, f)
-        # Add or replace custom lights
-        if len(CUSTOM_LIGHTS) > 0:
-            self.loadCustomLights()
-
-        # Loads and install them
-        for k, f in LIGHT_TYPES_OBJFILES.items():
+        for k, f in LIGHT_TYPE_OBJFILES.items():
+            if type(f) is str:
+                self.lightTypes[k] = LightType(k, f)
+            elif type(f) in [tuple, list]:
+                fn = LightType.create(name=f[0], color=f[1], size=f[2], intensity=f[3], texture=f[4])
+                self.lightTypes[k] = LightType(k, fn)
             self.lightTypes[k].load()
-
         logger.debug("loaded.")
         return True
 

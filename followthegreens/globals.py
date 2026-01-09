@@ -29,11 +29,9 @@ logging.basicConfig(
 logger = logging.getLogger("FtG")
 
 SHOW_TRACE = True
-SHOW_TAXIWAYS = True
-
 
 # X-Plane Interface
-FTG_PLUGIN_PATH = "XPPython3/followthegreens"
+FTG_PLUGIN_ROOT_PATH = "XPPython3/followthegreens/"
 
 
 class FTG_STATUS(StrEnum):
@@ -44,31 +42,42 @@ class FTG_STATUS(StrEnum):
     INACTIVE = "INACTIVE"
 
 
+class FTG_FSM(StrEnum):
+    INITIALIZED = "INIT"
+    DESTNATION = "DESTNATION"
+    RUNNING = "RUNNING"
+    WAIT_CLR = "WAIT FOR CLEARANCE"
+    WAIT_END = "WAIT END"
+
+
+# ################################
+# X-PLANE Interface
+#
 # Menu entry texts
 FTG_MENU = "Follow the greens..."
-STW_MENU = "Show taxiways"
+STW_MENU = "Show taxiways"  # if None, do not show menu entry for Show Taxiways, mainly used for debugging...
 
 # Commands: Path and description
-FTG_COMMAND = FTG_PLUGIN_PATH + "/main_windown_toggle"
+FTG_COMMAND = FTG_PLUGIN_ROOT_PATH + "main_windown_toggle"
 FTG_COMMAND_DESC = "Open or close Follow the greens window"
 
-FTG_CLEARANCE_COMMAND = FTG_PLUGIN_PATH + "/send_clearance_ok"
+FTG_CLEARANCE_COMMAND = FTG_PLUGIN_ROOT_PATH + "send_clearance_ok"
 FTG_CLEARANCE_COMMAND_DESC = "Clears next stop bar on greens"
 
-FTG_CANCEL_COMMAND = FTG_PLUGIN_PATH + "/send_cancel"
+FTG_CANCEL_COMMAND = FTG_PLUGIN_ROOT_PATH + "send_cancel"
 FTG_CANCEL_COMMAND_DESC = "Cancel Follow the greens"
 
-FTG_OK_COMMAND = FTG_PLUGIN_PATH + "/send_ok"
+FTG_OK_COMMAND = FTG_PLUGIN_ROOT_PATH + "send_ok"
 FTG_OK_COMMAND_DESC = "Send OK to Follow the greens"
 
-STW_COMMAND = FTG_PLUGIN_PATH + "/highlight_taxiways_toggle"
+STW_COMMAND = FTG_PLUGIN_ROOT_PATH + "highlight_taxiways_toggle"
 STW_COMMAND_DESC = "Show / hide taxiway network"
 
-FTG_SPEED_COMMAND = FTG_PLUGIN_PATH + "/speed_"  # + FTP_SPEED
+FTG_SPEED_COMMAND = FTG_PLUGIN_ROOT_PATH + "speed_"  # + FTP_SPEED
 FTG_SPEED_COMMAND_DESC = "Set Follow the Greens rabbit to "  # + FTP_SPEED
 
 # Data Accessor
-FTG_IS_RUNNING = FTG_PLUGIN_PATH + "/is_running"
+FTG_IS_RUNNING = FTG_PLUGIN_ROOT_PATH + "is_running"
 
 
 # X-PLANE Runway Lights Datarefs
@@ -84,6 +93,12 @@ AMBIANT_RWY_LIGHT_CMDROOT = "sim/operation/rwy_lights_"  # + AMBIANT_RWY_LIGHT
 AMBIANT_RWY_LIGHT_VALUE = "sim/graphics/scenery/airport_light_level"
 AIRPORTLIGHT_ON = "sim/graphics/scenery/airport_lights_on"
 
+# Preferences
+RUNWAY_LIGHT_LEVEL_WHILE_FTG = AMBIANT_RWY_LIGHT.LOW
+
+# ################################
+# FTG USER INTERFACE
+#
 # Main UI Window display and position
 #
 MAINWINDOW_AUTOHIDE = True  # If false, main UI window will always remain visible.
@@ -98,6 +113,9 @@ MAINWINDOW_WIDTH = 500  # Normal main window width. May need adjustment if font 
 MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from space and title bar
 
 
+# ################################
+# FTG INTERNALS
+#
 # X-Plane APT files constants and keywords
 #
 class NODE_TYPE(StrEnum):
@@ -127,125 +145,7 @@ class TAXIWAY_ACTIVE(StrEnum):
     ILS = "ils"
 
 
-class ROUTING_ALGORITHMS(StrEnum):
-    DIJKSTRA = "dijkstra"
-    ASTAR = "astart"
-
-
-ROUTING_ALGORITHM = ROUTING_ALGORITHMS.ASTAR  # astar, dijkstra (default)
-USE_STRICT_MODE = True  # set to True at your own risk
-
-
-# Follow the greens constants and keywords
-#
-class MOVEMENT(StrEnum):
-    ARRIVAL = "arrival"
-    DEPARTURE = "departure"
-
-
-DISTANCE_TO_RAMPS = 100  # meters, if closer that this to a ramp, assume departure, otherwise, assume arrival
-TOO_FAR = 500  # meters, if further than this from a taxiway, does not kick in.
-WARNING_DISTANCE = 150  # When getting close to a STOP BAR, show main window.
-
-PLANE_MONITOR_DURATION = 3  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
-MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before getting potential stop bar
-
-ADD_LIGHT_AT_VERTEX = False  # Add a light at each taxiway network vertex on the path
-ADD_LIGHT_AT_LAST_VERTEX = False  # Add a light at the last vertex, even if it is closer than DISTANCE_BETWEEN_GREEN_LIGHTS
-ADD_STOPBAR_AT_LAST_VERTEX = False  # Add a stop bar at the end (artificial)
-
-# Follow the greens lighting constants
-#
-DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # meters, distance between lights on ground. I *think* that the standard for taxi center line lights is 60 meters.
-DISTANCE_BETWEEN_STOPLIGHTS = 2  # meters, distance between red stop lights on the ground. Should be small, like 2 meters
-DISTANCE_BETWEEN_LIGHTS = 40  # meters, when showing all taxiways. This can build numerous lights! Use 40-80 range.
-
-
-LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
-RABBIT_LENGTH = 10  # number of lights that blink in front of aircraft
-RABBIT_DURATION = 0.15  # sec duration of "off" light in rabbit
-
-
-class RABBIT_MODE(StrEnum):
-    SLOW = "slow"
-    SLOWER = "slower"
-    MED = "med"
-    FASTER = "faster"
-    FAST = "fast"
-
-
-# Preferences
-RUNWAY_LIGHT_LEVEL_WHILE_FTG = AMBIANT_RWY_LIGHT.LOW
-
-
-# Speed target
-class TAXI_SPEED(Enum):  # in m/s
-    FAST = [12, 18]
-    MED = [7, 10]
-    SLOW = [5, 8]
-    CAUTION = [3, 6]
-    TURN = [1, 3]
-
-
-# As a first step, uses 5 standard rabbit (length, speed)
-FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
-    RABBIT_MODE.FAST: [
-        2 * RABBIT_LENGTH,
-        RABBIT_DURATION / 2,
-    ],  # accelerate (long and fast)
-    RABBIT_MODE.FASTER: [
-        RABBIT_LENGTH,
-        RABBIT_DURATION / 2,
-    ],  # go faster (same length, faster)
-    RABBIT_MODE.MED: [RABBIT_LENGTH, RABBIT_DURATION],  # normal
-    RABBIT_MODE.SLOWER: [
-        RABBIT_LENGTH,
-        2 * RABBIT_DURATION,
-    ],  # slow down (same length, slower)
-    RABBIT_MODE.SLOW: [
-        int(RABBIT_LENGTH / 2),
-        2 * RABBIT_DURATION,
-    ],  # slow down (short and slow)
-}
-
-
-# Lights
-class LIGHT_TYPE(StrEnum):
-    OFF = "OFF"
-    DEFAULT = "DEFAULT"
-    FIRST = "FIRST"
-    TAXIWAY = "TAXIWAY"
-    TAXIWAY_ALT = "TAXIWAY_ALT"
-    STOP = "STOP"
-    LAST = "LAST"
-
-
-CUSTOM_LIGHTS = {}
-
-# CUSTOM_LIGHTS = {
-#     LIGHT_TYPE.TAXIWAY: ("cust_green.obj", (0, 1, 0), 20, 20, 3),
-#     "CUST_RED": ("cust_red.obj", (1, 0, 0), 20, 20, 3),
-#     "CUST_AMBER": ("cust_amber.obj", (0.7, 0.7, 0), 20, 20, 3)
-# }
-
-
-# ATC related constants
-#
-class ATC(StrEnum):
-    NONE = "None"
-    DELIVERY = "Delivery"
-    GROUND = "Ground"
-    TOWER = "Tower"
-    TRACON = "Tracon"
-    CENTER = "Center"
-
-
-# ATC greetings
-GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}
-# GOOD = {"morning": 4, "day": 6, "afternoon": 9, "evening": 12, "night": 17}  # special US
-
-
-# Aeronautics constant (notes)
+# AIRPORT/AERONAUTICAL CONSTANTS
 #
 # ICAO Annex 14 - Aerodrome Reference Code Element 2, Table 1-1
 # (Aeroplane Wingspan; Outer Main Gear Wheel Span)
@@ -282,3 +182,129 @@ class TAXIWAY_WIDTH(Enum):  # Half width of taxiway in meters
     D = 9  # 18m or 23m
     E = 12  # 23m
     F = 15  # 30m
+
+
+# ROUTING
+class ROUTING_ALGORITHMS(StrEnum):
+    DIJKSTRA = "dijkstra"
+    ASTAR = "astart"
+
+
+ROUTING_ALGORITHM = ROUTING_ALGORITHMS.ASTAR  # astar, dijkstra (default)
+USE_STRICT_MODE = True  # set to True at your own risk
+
+
+# INTERNALS
+#
+class MOVEMENT(StrEnum):
+    ARRIVAL = "arrival"
+    DEPARTURE = "departure"
+
+
+DISTANCE_TO_RAMPS = 100  # meters, if closer that this to a ramp, assume departure, otherwise, assume arrival
+TOO_FAR = 500  # meters, if further than this from a taxiway, does not kick in.
+WARNING_DISTANCE = 150  # When getting close to a STOP BAR, show main window.
+
+PLANE_MONITOR_DURATION = 3  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
+MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before getting potential stop bar
+
+ADD_LIGHT_AT_VERTEX = False  # Add a light at each taxiway network vertex on the path
+ADD_LIGHT_AT_LAST_VERTEX = False  # Add a light at the last vertex, even if it is closer than DISTANCE_BETWEEN_GREEN_LIGHTS
+ADD_STOPBAR_AT_LAST_VERTEX = False  # Add a stop bar at the end (artificial)
+
+# Follow the greens lighting constants
+#
+DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # meters, distance between lights on ground. I *think* that the standard for taxi center line lights is 60 meters.
+DISTANCE_BETWEEN_STOPLIGHTS = 2  # meters, distance between red stop lights on the ground. Should be small, like 2 meters
+DISTANCE_BETWEEN_LIGHTS = 40  # meters, when showing all taxiways. This can build numerous lights! Use 40-80 range.
+
+
+# ################################
+# RABBIT
+#
+class RABBIT_MODE(StrEnum):
+    SLOW = "slow"
+    SLOWER = "slower"
+    MED = "med"
+    FASTER = "faster"
+    FAST = "fast"
+
+
+LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
+RABBIT_LENGTH = 10  # number of lights that blink in front of aircraft
+RABBIT_DURATION = 0.15  # sec duration of "off" light in rabbit
+
+# As a first step, uses 5 standard rabbit (length, speed)
+FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
+    RABBIT_MODE.FAST: [
+        2 * RABBIT_LENGTH,
+        RABBIT_DURATION / 2,
+    ],  # accelerate (long and fast)
+    RABBIT_MODE.FASTER: [
+        RABBIT_LENGTH,
+        RABBIT_DURATION / 3,
+    ],  # go faster (same length, faster)
+    RABBIT_MODE.MED: [RABBIT_LENGTH, RABBIT_DURATION],  # normal
+    RABBIT_MODE.SLOWER: [
+        RABBIT_LENGTH,
+        3 * RABBIT_DURATION,
+    ],  # slow down (same length, slower)
+    RABBIT_MODE.SLOW: [
+        int(RABBIT_LENGTH / 2),
+        2 * RABBIT_DURATION,
+    ],  # slow down (short and slow)
+}
+
+
+# RABBIT SPEED CONTROL
+# Speed target, will soon move to Aircraft()
+class TAXI_SPEED(Enum):  # in m/s
+    FAST = [12, 18]
+    MED = [7, 10]
+    SLOW = [5, 8]
+    CAUTION = [3, 6]
+    TURN = [1, 3]
+
+
+BRAKING_DISTANCE = 200.0  # m, currently hardcoded, will soon be computed
+
+
+# ################################
+# LIGHTS
+#
+class LIGHT_TYPE(StrEnum):
+    OFF = "OFF"
+    DEFAULT = "DEFAULT"
+    FIRST = "FIRST"
+    TAXIWAY = "TAXIWAY"
+    TAXIWAY_ALT = "TAXIWAY_ALT"
+    STOP = "STOP"
+    LAST = "LAST"
+
+
+LIGHT_TYPE_OBJFILES = {  # key MUST be one of the above enum key
+    LIGHT_TYPE.OFF: "off_light.obj",  # physical taxiway off light, DO NOT CHANGE
+    LIGHT_TYPE.DEFAULT: "green.obj",  # or ("custom_green.obj", (0, 1, 0), 20, 20, 3) to define a custom light that will dynamically be generated
+    LIGHT_TYPE.FIRST: "green.obj",  # DO NOT use file name green.obj, amber.obj, red.obj to not override default files. It might break the entire app
+    LIGHT_TYPE.TAXIWAY: "green.obj",  # format is (filename, (red[0-1], green, blue), size[5-60], intensity[5-50], texture[0-3]) ([n-m]: value between n and m.)
+    LIGHT_TYPE.TAXIWAY_ALT: "amber.obj",
+    LIGHT_TYPE.STOP: "red.obj",
+    LIGHT_TYPE.LAST: "green.obj",
+}
+
+
+# ################################
+# MISCELLANEOUS
+#
+class ATC(StrEnum):
+    NONE = "None"
+    DELIVERY = "Delivery"
+    GROUND = "Ground"
+    TOWER = "Tower"
+    TRACON = "Tracon"
+    CENTER = "Center"
+
+
+# ATC greetings
+GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}  # hour time of day when to use appropriate greeting
+# GOOD = {"morning": 4, "day": 6, "afternoon": 9, "evening": 12, "night": 17}  # special US :-D

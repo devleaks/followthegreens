@@ -2,7 +2,7 @@
 #
 import xp
 
-from .globals import TAXIWAY_WIDTH_CODE
+from .globals import TAXIWAY_WIDTH_CODE, TAXI_SPEED, BRAKING_DISTANCE
 
 
 class Aircraft:
@@ -38,3 +38,11 @@ class Aircraft:
 
     def hourOfDay(self):
         return int(xp.getDataf(self.localTime) / 3600)  # seconds since midnight??
+
+    def taxi_speed_ranges(self):
+        return TAXI_SPEED
+
+    def braking_distance(self, target: float = 0.0):
+        # @todo: Estimate braking distance from current speed to target
+        # currently hardcoded to ~200m
+        return BRAKING_DISTANCE

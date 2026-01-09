@@ -15,7 +15,6 @@ from followthegreens import (
     ShowTaxiways,
     RABBIT_MODE,
     SHOW_TRACE,
-    SHOW_TAXIWAYS,
     FTG_CANCEL_COMMAND,
     FTG_CANCEL_COMMAND_DESC,
     FTG_OK_COMMAND,
@@ -104,7 +103,7 @@ class PythonInterface:
         else:
             self.debug(f"XPluginStart: menu item «{FTG_MENU}» added (index {self.menuIdx})")
 
-        if SHOW_TAXIWAYS:
+        if STW_MENU is not None:
             self.menuIdx_st = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), STW_MENU, self.CmdRefs[STW_COMMAND])
             if self.menuIdx_st is None or (self.menuIdx_st is not None and self.menuIdx_st < 0):
                 self.debug("XPluginStart: Show Taxiways menu not added")
@@ -145,6 +144,24 @@ class PythonInterface:
             else:
                 self.debug(f"XPluginStop: {k} command not unregistered")
 
+        if STW_MENU is not None:
+            oldidx = self.menuIdx_st
+            if self.menuIdx_st is not None and self.menuIdx_st >= 0:
+                xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx_st)
+                self.menuIdx_st = None
+                self.debug(f"XPluginStop: menu item «{STW_MENU}» removed (index was {oldidx})")
+            else:
+                self.debug(f"XPluginStop: menu item «{STW_MENU}» not removed (index {oldidx})")
+
+            if self.showTaxiways:
+                try:
+                    self.showTaxiways.stop()
+                    self.showTaxiways = None
+                    self.debug("XPluginStop: ShowTaxiways stopped")
+                except:
+                    self.debug("XPluginStop: exception", force=True)
+                    print_exc()
+
         # Follow the Greens
         oldidx = self.menuIdx
         if self.menuIdx is not None and self.menuIdx >= 0:
@@ -169,24 +186,6 @@ class PythonInterface:
             except:
                 self.debug("XPluginStop: exception", force=True)
                 print_exc()
-
-        if SHOW_TAXIWAYS:
-            oldidx = self.menuIdx_st
-            if self.menuIdx_st is not None and self.menuIdx_st >= 0:
-                xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx_st)
-                self.menuIdx_st = None
-                self.debug(f"XPluginStop: menu item «{STW_MENU}» removed (index was {oldidx})")
-            else:
-                self.debug(f"XPluginStop: menu item «{STW_MENU}» not removed (index {oldidx})")
-
-            if self.showTaxiways:
-                try:
-                    self.showTaxiways.stop()
-                    self.showTaxiways = None
-                    self.debug("XPluginStop: ShowTaxiways stopped")
-                except:
-                    self.debug("XPluginStop: exception", force=True)
-                    print_exc()
 
         self.debug("XPluginStop: ..stopped", force=True)
         return None
@@ -216,7 +215,7 @@ class PythonInterface:
             self.debug("XPluginEnable: exception", force=True)
             print_exc()
 
-        if SHOW_TAXIWAYS:
+        if STW_MENU is not None:
             try:
                 self.showTaxiways = ShowTaxiways(self)
                 self.debug("XPluginEnable: ShowTaxiways created")
