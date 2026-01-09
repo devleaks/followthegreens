@@ -11,11 +11,6 @@ followthegreens/geo.py|2855385451
 followthegreens/globals.py|1676834990
 followthegreens/graph.py|1206290830
 followthegreens/lights/amber.obj|957811461
-followthegreens/lights/cust_amber.obj|4061920889
-followthegreens/lights/cust_green.obj|2143052474
-followthegreens/lights/cust_red.obj|2187580619
-followthegreens/lights/custom_first.obj|3541924193
-followthegreens/lights/custom_green.obj|1116818482
 followthegreens/lights/green.obj|3235227304
 followthegreens/lights/lights.png|1859086726
 followthegreens/lights/off_light.obj|3966519702
