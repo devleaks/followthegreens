@@ -18,4 +18,3 @@ followthegreens/lights/red.obj|2597
 followthegreens/lightstring.py|29600
 followthegreens/showtaxiways.py|5399
 followthegreens/ui.py|19703
-ftg_log.txt|0
