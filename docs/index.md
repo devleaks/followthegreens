@@ -14,18 +14,18 @@ Follow the greens is part of the serious _Advanced Surface Movement Guidance and
 
 Please have a look at the [following video](https://vimeo.com/101564135) and search for "airport Follow the greens" to get more information.
 [http://followthegreens.com](http://followthegreens.com) if you are interested.
-There is nowaways a lot more information, manufacturers, and experimental project reports to learn from.
+There is nowadays a lot more information, manufacturers, and experimental project reports to learn from.
 
 Follow the greens has numerous advantages discussed in the above videos, ranking to ease of use, to smoother taxi rides,
 to lower interaction with ground control.
 
 Yeah, yeah, less fuel use also.
 
-Yeah, yeah, less CO2 produced.
+Yeah, yeah, less CO~2~ produced.
 
 Yeah, yeah, follow the greens is realllly green. Can't be greener than that.
 
-Serious. No green bashing.
+Seriously. No green bashing.
 
 I found amusing to bring Follow the greens concept to X-Plane as ATC and "AI" struggle to guide you on the ground.
 X-Plane yellow painted coach arrows on taxiways are fine, useful, but look too artificial.
@@ -38,9 +38,10 @@ Follow the greens is abbreviated FtG.
 
 # Installation
 
+Release 2 will not work on X-Plkane 11.
+
 FtG plugin is written in the python language.
-Therefore, you first need to install the [XPPython3 plugin](https://xppython3.readthedocs.io/en/latest/)
-to allow for use of python plugins in X-Plane.
+Therefore, you first need to install the [XPPython3 plugin](https://xppython3.readthedocs.io/en/latest/).
 
 This process is very similar to the Lua language plugin (XLua or FlyithLua) to use Lua scripts.
 Here, another language (Python), another plugin (XPPython3).
@@ -135,7 +136,7 @@ FtG won’t ask you to fly to your holding position.
 (🤔 we may here have a definite path for improvement in a future release.)
 
 Nowadays you know, you don’t sell anything if it does not have AI or 4D in its name.
-FtG 2.0 is therefore 4D compliant, with `alt=0` all the way.
+FtG 2.0 is therefore 4D compliant, with `altitude=0` all the way.
 There is absolutely not AI, just HFAB (human fun and bugs).
 
 If you’re rather safely go through your pre-takeoff checklist while taxiing,
@@ -143,7 +144,7 @@ gently blow the daffodils on the sides of the taxiway with warm air,
 take your time to get to the runway, you can stick with Release 1.
 
 But if you want to maximise your air time, never loose time in those unnecessary long runs around the airport,
-if you’d rather taxi at just below vr speed, give Release 2 a try.
+if you’d rather taxi at just below _v~r~_ speed, give Release 2 a try.
 And monitor your brakes temperature.
 
 
@@ -196,21 +197,24 @@ The goal of Release 2 is to supply taxi speed information to the pilot in additi
 The speed information is supplied with two «variables»:
 
 - The speed of the «rabbit» (the faster the rabbit, the faster you should run to catch it up, the slower the rabbit, the slower you should go.)
-- The length of the rabbit (the longer the rabbit, the more you can keep up with that speed, do not expect speed change.)
+- The length of the rabbit run (the longer the rabbit, the more you can keep up with that speed, do not expect speed change.)
 
 
 In this first instance, the control of the speed is simplified as such:
 
-- If the aircraft is at or below 10 knots (~5m/s), the rabbit will propose to accelerate (run faster). This is indicated by a faster rabbit sequence.
-- If the aircraft is at or above 25 knots (~13m/s), the rabbit will propose to slow down. This is indicated by a slower rabbit sequence.
+From the position of the aircraft and the distance to the next significan turn, a speed range is evaluated.
+
+- If the aircraft is at or below the lowest range speed, the rabbit will propose to accelerate (run faster). This is indicated by a faster rabbit sequence.
+- If the aircraft is at or above the upper range speed, the rabbit will propose to slow down. This is indicated by a slower rabbit sequence.
 - If the aircraft nears a stop bar or the end of the greens (at about 200 meters from it), the rabbit will also propose to slow down.
 
-Between 10 and 25 knots on a straight taxiway, the rabbit will run at normal speed.
+If the aircraft moves at a speed within its estimated range, the rabbit will run at normal speed.
 
-There currently is no difference between a GA and a A380. They all taxi at the same speed range 10 to 25 knots.
+There currently is no difference between a GA and a A380. They all taxi at the same speed range.
 
 In a later release, speed indication will be refined to anticipate turns (at slow speed) or long, straight taxiways.
-Speeds will also be adjusted for aircraft types and sizes.
+Speeds will also be adjusted for aircraft types, weight, and sizes.
+Braking distance will be estimeted from the current speed and aircraft type.
 
 
 # Configuration Parameters

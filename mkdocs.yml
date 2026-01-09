@@ -30,6 +30,7 @@ nav:
 
 markdown_extensions:
 - pymdownx.snippets
+- pymdownx.caret
 
 plugins:
   - search
