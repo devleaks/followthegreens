@@ -296,4 +296,4 @@ See [developer notes](devnotes.md).
 
 [Changelog](changelog.md)
 
-![FtG Logo](images/ftp.png)
+![FtG Logo](images/ftg.png)

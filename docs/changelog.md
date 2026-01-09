@@ -1,18 +1,17 @@
 
-# Future
+# Current, X-Plane 12 Only
 
-These are not released yet.
-
-- 2.2.0 - ??-???-???? - Adjust rabbit speed relative to aircraft ground speed vs. taxiway optimal speed.
-- 2.1.0 - ??-???-???? - Added optimal speed information on taxiway "edges".
-
-# Current
-
+- [2.1.5](https://github.com/devleaks/followthegreens/releases) - 08-JAN-2026 - Monitoring aircraft speed, recommending target speed range from position to next turn.
+- ...
+- 2.1.0 - 07-JAN-2026 - Estimate optimal speed range from distance to next significant turn.
+- ...
 - 2.0.2 - 06-JAN-2026 - Added aircraft ground speed monitoring and comparison to static speed.
 - 2.0.1 - 02-JAN-2026 - Added 5 commands to speed up or slow down rabbit.
 - 2.0.0 - 29-DEC-2025 - Added hooks for 4D FtG, updated README.
 
-- 1.6.7 - 21-FEB-2024 - Added skunkcrafts updater files
+# Older release, X-Plane 11, X-Plane 12
+
+- [1.6.7](https://github.com/devleaks/followthegreens/releases) - 21-FEB-2024 - Added skunkcrafts updater files
 - 1.6.6 - 21-FEB-2024 - Added Cancel and OK (finish, bye, etc.) commands
 - 1.6.5 - 20-FEB-2024 - Now opening all files as UTF-8 files. Code blackened.
 - 1.6.3 - 02-JAN-2024 - Added «clearance received» command
@@ -32,3 +31,9 @@ These are not released yet.
 - 1.1.0 - 06-APR-2021 - Green lights appears progressively in front of the plane.
 - 1.0.1 - 05-APR-2021 - Reset LastLit in flightloop.
 - 1.0.0 - 01-APR-2021 - Initial release.
+
+# Future
+
+These are not released yet.
+
+- 2.2.0 - ??-???-???? - Better estimate braking distance for different aircraft type/size/weight, better speed range recommendation.
