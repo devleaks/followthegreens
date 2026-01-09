@@ -8,7 +8,7 @@ from enum import StrEnum
 
 import xp
 
-from .geo import Point, distance, bearing, destination, convertAngleTo360
+from .geo import Point, distance, bearing, destination, convertAngleTo360, pointInPolygon
 from .globals import (
     logger,
     ADD_LIGHT_AT_LAST_VERTEX,
@@ -215,6 +215,9 @@ class Stopbar:
             light.destroy()
 
 
+OUT_OF_RUNWAY = 10  # number of alterning green/amber lights when leaving runway
+
+
 class LightString:
 
     def __init__(self, config: dict = {}):
@@ -236,6 +239,8 @@ class LightString:
         self.oldStart = -1
         self.lastLit = 0
         self.lightTypes = None
+        self.taxiway_alt = 0
+        self.rwy_twy_lights = OUT_OF_RUNWAY
         self.distance_between_lights = config.get("DISTANCE_BETWEEN_GREEN_LIGHTS", DISTANCE_BETWEEN_GREEN_LIGHTS)
 
         self.num_lights_ahead = config.get("LIGHTS_AHEAD", LIGHTS_AHEAD)  # if zero, all lights are shown, otherwise, must be >= self.rabbit_length
@@ -298,6 +303,7 @@ class LightString:
 
     def populate(self, route, onRunway=False):
         # @todo: If already populated, must delete lights first
+        logger.debug(f"populate: on runway = {onRunway}")
         self.route = route
         graph = route.graph
         thisLights = []
@@ -413,7 +419,7 @@ class LightString:
                 while distanceBeforeNextLight < distToNextVertex:
                     nextLightPos = destination(currPoint, brng, distanceBeforeNextLight)
                     brgn = bearing(lastLight, nextLightPos)
-                    thisLights.append(Light(LIGHT_TYPE.TAXIWAY, nextLightPos, brgn, i))
+                    thisLights.append(Light(self.next_taxiway_light(nextLightPos), nextLightPos, brgn, i))
                     lastLight = nextLightPos
                     distToNextVertex = distToNextVertex - distanceBeforeNextLight  # should be close to ftg_geoutil.distance(currPoint, nextVertex)
                     currPoint = nextLightPos
@@ -425,7 +431,7 @@ class LightString:
 
                 if ADD_LIGHT_AT_VERTEX:  # may be we insert a last light at the vertex?
                     brgn = bearing(lastLight, nextVertex)
-                    thisLights.append(Light(LIGHT_TYPE.TAXIWAY, nextVertex, brgn, i))
+                    thisLights.append(Light(self.next_taxiway_light(nextVertex), nextVertex, brgn, i))
                     lastLight = nextVertex
                     # logger.debug("added light at vertex %s", nextVertex.id)
 
@@ -564,6 +570,22 @@ class LightString:
 
         return [True, "green is set"]
 
+    def next_taxiway_light(self, position) -> LIGHT_TYPE:
+        if self.route.runway is None:  # no runway, all green
+            logger.debug("next_taxiway_light: no runway, all greens")
+            return LIGHT_TYPE.TAXIWAY
+        self.taxiway_alt = self.taxiway_alt + 1
+        if self.rwy_twy_lights == OUT_OF_RUNWAY:  # always on runway
+            if pointInPolygon(position, self.route.runway.polygon):
+                logger.debug(f"next_taxiway_light: on runway, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
+                return LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT
+        self.rwy_twy_lights = self.rwy_twy_lights - 1
+        if self.rwy_twy_lights > 0:
+            logger.debug(f"next_taxiway_light: not on runway, leaving, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
+            return LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT
+        logger.debug(f"next_taxiway_light: no longer on runway all greens")
+        return LIGHT_TYPE.TAXIWAY
+
     def nextStop(self):
         # index of light where should stop next
         if self.currentSegment < len(self.stopbars):
@@ -591,33 +613,6 @@ class LightString:
         point = Point(position[0], position[1])
         d = distance(point, light.position)
         return [ns, d]
-
-    # def toVertex(self, index, position):
-    #     # ilight index of next stop position and distance to it
-    #     if self.route is None:
-    #         logger.debug("no route to vertex ahead.")
-    #         return [0, 0]
-
-    #     currlight = self.lights[index]
-    #     currvertex = currlight.index
-    #     if currvertex > len(self.route.route):
-    #         logger.debug("index to large for vertex ahead.")
-    #         return [0, 0]
-
-    #     # find the first light with next index
-    #     light = None
-    #     i = 0
-    #     while light is None and i < len(self.lights):
-    #         if self.lights[i].index == currvertex + 1:
-    #             light = self.lights[i]
-    #         i = i + 1
-    #     if light is None:
-    #         logger.debug("no light for vertex ahead.")
-    #         return [0, 0]
-    #     point = Point(position[0], position[1])
-    #     d = distance(point, light.position)
-    #     logger.debug(f"light {index}: Next vertex at index={i-1}, d={round(d, 2)}.")
-    #     return [index, d]
 
     def offToIndex(self, idx):
         if idx < len(self.lights):

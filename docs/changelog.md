@@ -9,7 +9,7 @@
 - 2.0.1 - 02-JAN-2026 - Added 5 commands to speed up or slow down rabbit.
 - 2.0.0 - 29-DEC-2025 - Added hooks for 4D FtG, updated README.
 
-# Older release, X-Plane 11, X-Plane 12
+# Older releases, X-Plane 11, X-Plane 12
 
 - [1.6.7](https://github.com/devleaks/followthegreens/releases) - 21-FEB-2024 - Added skunkcrafts updater files
 - 1.6.6 - 21-FEB-2024 - Added Cancel and OK (finish, bye, etc.) commands

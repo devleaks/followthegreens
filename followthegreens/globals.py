@@ -272,7 +272,7 @@ BRAKING_DISTANCE = 200.0  # m, currently hardcoded, will soon be computed
 # ################################
 # LIGHTS
 #
-class LIGHT_TYPE(StrEnum):
+class LIGHT_TYPE(StrEnum):  # DO NOT CHANGE
     OFF = "OFF"
     DEFAULT = "DEFAULT"
     FIRST = "FIRST"

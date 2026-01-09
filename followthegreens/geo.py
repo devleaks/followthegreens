@@ -184,15 +184,15 @@ class Polygon(Feature):
         p2 = Point(lat2, lon2)
         brng = bearing(p1, p2)
         # one side of centerline
-        brng = brng + 90
-        a0 = destination(p1, brng, width / 2)
-        a2 = destination(p2, brng, width / 2)
+        brng1 = brng + 90
+        a0 = destination(p1, brng1, width / 2)
+        a2 = destination(p2, brng1, width / 2)
         # other side of centerline
-        brng = brng - 90
-        a1 = destination(p1, brng, width / 2)
-        a3 = destination(p2, brng, width / 2)
+        brng2 = brng - 90
+        a1 = destination(p1, brng2, width / 2)
+        a3 = destination(p2, brng2, width / 2)
         # join
-        return Polygon([a0, a1, a3, a2])
+        return Polygon([a0, a1, a3, a2, a0])
 
 
 def haversine(lat1, lat2, long1, long2):  # in radians.

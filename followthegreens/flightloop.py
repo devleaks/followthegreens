@@ -277,9 +277,7 @@ class FlightLoop:
             mode = RABBIT_MODE.SLOWER
             advise = "too fast, brake"
 
-        logger.debug(
-            f"adjustRabbit: current speed={round(speed, 1)}, target={target}; rabbit current mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})"
-        )
+        logger.debug(f"adjustRabbit: current speed={round(speed, 1)}, target={target}; rabbit current mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})")
 
         if self.rabbitMode != mode:
             self.rabbitMode = mode

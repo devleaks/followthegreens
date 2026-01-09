@@ -8,10 +8,9 @@ import math
 from .geo import Point, Line, Polygon, distance, pointInPolygon
 from .graph import Graph, Edge
 from .globals import (
-    TAXIWAY_WIDTH_CODE,
-    TAXIWAY_WIDTH,
     logger,
     DISTANCE_TO_RAMPS,
+    TAXIWAY_WIDTH_CODE,
     MOVEMENT,
     TOO_FAR,
     ROUTING_ALGORITHM,
@@ -46,7 +45,16 @@ class Runway(Line):
         Line.__init__(self, Point(lat, lon), Point(lat2, lon2))
         self.name = name
         self.width = width
-        self.polygon = pol  # avoid multiple inheritence from Line,Polygon.
+        if pol is None:
+            if width is not None and width > 0:
+                self.polygon = Polygon.mkPolygon(lat, lon, lat2, lon2, width)
+        else:
+            self.polygon = pol
+
+    def onRunway(self, point):
+        if self.polygon is None:
+            return False
+        return pointInPolygon(point, self.polygon)
 
 
 class Hold(Point):
@@ -78,6 +86,7 @@ class Route:
         self.turns = None
         self.smoothed = None
         self.algorithm = ROUTING_ALGORITHM  # default, unused
+        self.runway = None
 
     def __str__(self):
         if self.found():
@@ -471,7 +480,7 @@ class Airport:
 
     def onRunway(self, coord, width=None):
         # Width is in meter
-        logger.debug(f"onRunway? {coord}")
+        logger.debug(f"onRunway? {coord} (width={width})")
         point = Point(coord[0], coord[1])
         for name, rwy in self.runways.items():
             polygon = None
@@ -483,9 +492,9 @@ class Airport:
                 if width:
                     logger.debug(f"on {name} (buffer={width}m)")
                 else:
-                    logger.debug(f"on {name}")
+                    logger.debug(f"on {name} (width={rwy.width}m)")
                 return [True, rwy]
-            logger.debug(f"not on {name}")
+            logger.debug(f"not on runway {name} (buffer={'- ' if width is None else width}m, width={rwy.width}m)")  # , {polygon.coords()}
 
         return [False, None]
 
@@ -534,6 +543,7 @@ class Airport:
         pos = aircraft.position()
         dstpt = None
         runway = None
+        arrival_runway = None
         if not pos:
             logger.debug("plane could not be located")
             return (False, "We could not locate your plane.")
@@ -549,9 +559,9 @@ class Airport:
             if src is None or src[0] is None:  # tries a less constraining search...
                 logger.debug("no vertex ahead.")
                 src = self.findClosestVertex(pos)
-            onRwy, runway = self.onRunway(pos)
+            onRwy, arrival_runway = self.onRunway(pos, width=300)
             if onRwy:
-                logger.debug(f"Arrival: on runway {runway.name}.")
+                logger.debug(f"Arrival: on runway {arrival_runway.name}.")
             else:
                 logger.debug("Arrival: not on runway.")
 
@@ -625,6 +635,7 @@ class Airport:
                 route.find()
 
         if route.found():
+            route.runway = arrival_runway
             route.mkEdges()  # compute segment distances
             route.mkTurns()  # compute turn angles at end of segment
             return (True, route)
