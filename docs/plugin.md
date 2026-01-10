@@ -2,7 +2,7 @@
 
 Follow the greens (FtG) is a (real-life) taxiway guidance system.
 
-It works by highlighting taxiway lights to the pilot in front of the aircraft.
+It works by highlighting taxiway lights in front of the aircraft.
 The pilot only has to follow the green lights, and stop on red lights.
 
 But there is more now. There is a 4th dimension now. Read on.

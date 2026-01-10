@@ -281,6 +281,7 @@ FtG adds the follwoing commands:
 - `XPPython3/followthegreens/send_cancel`
 - `XPPython3/followthegreens/send_ok`
 - `XPPython3/followthegreens/highlight_taxiways_toggle`
+- `XPPython3/followthegreens/bookmark`
 
 
 FtG adds the following dataref:

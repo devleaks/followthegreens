@@ -4,6 +4,7 @@
 import xp
 import os
 import tomllib
+from datetime import datetime
 
 from .globals import logger, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE
 
@@ -296,6 +297,10 @@ class FollowTheGreens:
         # Info 16
         logger.info(f"cancelled: {reason}.")
         return [True, ""]
+
+    def bookmark(self, message: str = ""):
+        # @todo: fetch simulator date/time too
+        logger.info(f"BOOKMARK {datetime.utcnow().isoformat()} {message}")
 
     def disable(self):
         # alias to cancel

@@ -26,6 +26,8 @@ from followthegreens import (
     FTG_SPEED_COMMAND_DESC,
     FTG_COMMAND,
     FTG_COMMAND_DESC,
+    FTG_BOOKMARK_COMMAND,
+    FTG_BOOKMARK_COMMAND_DESC,
     FTG_MENU,
     STW_COMMAND,
     STW_COMMAND_DESC,
@@ -70,6 +72,7 @@ class PythonInterface:
             ],
             FTG_CANCEL_COMMAND: [FTG_CANCEL_COMMAND_DESC, self.cancelCmd],
             FTG_OK_COMMAND: [FTG_OK_COMMAND_DESC, self.okCmd],
+            FTG_BOOKMARK_COMMAND: [FTG_BOOKMARK_COMMAND_DESC, self.bookmarkCmd],
             STW_COMMAND: [STW_COMMAND_DESC, self.showTaxiwaysCmd],
         }
         self.commands = self.commands | {
@@ -327,6 +330,26 @@ class PythonInterface:
                 print_exc()
         elif not self.followTheGreens:
             self.debug("okCmd: no FollowTheGreens running", force=True)
+
+        return 0
+
+    def bookmarkCmd(self, commandRef, phase: int, refCon: Any):
+        # pylint: disable=unused-argument
+        if not self.enabled:
+            self.debug("bookmarkCmd: not enabled.")
+            return 0
+
+        if self.followTheGreens and phase == 0:
+            self.debug("bookmarkCmd: available.")
+            try:
+                self.followTheGreens.bookmark()
+                self.debug("bookmarkCmd: executed.")
+                return 1
+            except:
+                self.debug("bookmarkCmd: exception")
+                print_exc()
+        elif not self.followTheGreens:
+            self.debug("bookmarkCmd: no FollowTheGreens running", force=True)
 
         return 0
 

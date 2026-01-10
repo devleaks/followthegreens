@@ -76,6 +76,9 @@ STW_COMMAND_DESC = "Show / hide taxiway network"
 FTG_SPEED_COMMAND = FTG_PLUGIN_ROOT_PATH + "speed_"  # + FTP_SPEED
 FTG_SPEED_COMMAND_DESC = "Set Follow the Greens rabbit to "  # + FTP_SPEED
 
+FTG_BOOKMARK_COMMAND = FTG_PLUGIN_ROOT_PATH + "bookmark"
+FTG_BOOKMARK_COMMAND_DESC = "Log UTC timestamp in log file"
+
 # Data Accessor
 FTG_IS_RUNNING = FTG_PLUGIN_ROOT_PATH + "is_running"
 
@@ -308,3 +311,8 @@ class ATC(StrEnum):
 # ATC greetings
 GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}  # hour time of day when to use appropriate greeting
 # GOOD = {"morning": 4, "day": 6, "afternoon": 9, "evening": 12, "night": 17}  # special US :-D
+
+
+def get_global(name):
+    # most globals are defined defined above...
+    return globals().get(name)
