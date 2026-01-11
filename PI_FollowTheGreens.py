@@ -466,6 +466,10 @@ class PythonInterface:
         # Returns 1 if actually running (lights blinking on taxiways). 0 otherwise.
         return 1 if self.followTheGreens is not None and self.followTheGreens.flightLoop.rabbitRunning else 0
 
+    def getFTGIsHoldingCallback(self, inRefcon):
+        # Returns 1 if actually running (lights blinking on taxiways). 0 otherwise.
+        return 1 if self.followTheGreens is not None and self.followTheGreens.is_holding else 0
+
     # Future use
     def runningStatusChangedCallback(self, inRefcon):
         """

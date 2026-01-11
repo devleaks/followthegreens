@@ -172,6 +172,7 @@ class Stopbar:
         self.width = TAXIWAY_WIDTH[size.value].value
         self.distance_between_stoplights = distance_between_stoplights
         self._on = False
+        self._cleared = False
         self.make()
 
     def make(self):
