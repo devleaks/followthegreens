@@ -207,6 +207,8 @@ class MOVEMENT(StrEnum):
 DISTANCE_TO_RAMPS = 100  # meters, if closer that this to a ramp, assume departure, otherwise, assume arrival
 TOO_FAR = 500  # meters, if further than this from a taxiway, does not kick in.
 WARNING_DISTANCE = 150  # When getting close to a STOP BAR, show main window.
+DRIFTING_LIMIT = 5 # times DISTANCE_BETWEEN_GREEN_LIGHTS, after this limit, we consider data unreliable.
+DRIFTING_DISTANCE = 200  # When drifting away from "closest" light, after this distance, we should send a warning
 
 PLANE_MONITOR_DURATION = 3  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
 MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before getting potential stop bar
@@ -226,11 +228,11 @@ DISTANCE_BETWEEN_LIGHTS = 40  # meters, when showing all taxiways. This can buil
 # RABBIT
 #
 class RABBIT_MODE(StrEnum):
-    SLOW = "slow"
+    SLOWEST = "slowest"
     SLOWER = "slower"
     MED = "med"
     FASTER = "faster"
-    FAST = "fast"
+    FASTEST = "fastest"
 
 
 LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
@@ -239,7 +241,7 @@ RABBIT_DURATION = 0.15  # sec duration of "off" light in rabbit
 
 # As a first step, uses 5 standard rabbit (length, speed)
 FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
-    RABBIT_MODE.FAST: [
+    RABBIT_MODE.FASTEST: [
         2 * RABBIT_LENGTH,
         RABBIT_DURATION / 2,
     ],  # accelerate (long and fast)
@@ -252,7 +254,7 @@ FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
         RABBIT_LENGTH,
         3 * RABBIT_DURATION,
     ],  # slow down (same length, slower)
-    RABBIT_MODE.SLOW: [
+    RABBIT_MODE.SLOWEST: [
         int(RABBIT_LENGTH / 2),
         2 * RABBIT_DURATION,
     ],  # slow down (short and slow)

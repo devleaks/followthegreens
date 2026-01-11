@@ -12,7 +12,7 @@ from .globals import logger, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABB
 # THE FOLLOWING NEED TO BE IMPORTED HERE EVEN IF THEY ARE NOT USED IN THIS FILE
 # BECAUSE THEY CAN BE USED AS DEFAULT VALUES FOR USER SUPPLIED PARAMETERS
 #
-from .globals import RUNWAY_LIGHT_LEVEL_WHILE_FTG
+from .globals import get_global, RUNWAY_LIGHT_LEVEL_WHILE_FTG
 
 #
 from .aircraft import Aircraft
@@ -65,8 +65,9 @@ class FollowTheGreens:
         # return either the config value or the global value AMBIANT_RWY_LIGHT_VALUE.
         g = globals()
         g1 = g.get(name)
+        g2 = get_global(name)
         if name not in self.config:
-            logger.info(f"no config for {name}, returning global {name}={g1}")
+            logger.info(f"no config for {name}, returning global {name}={g1} ({g2})")
         return self.config.get(name, g1)
 
     def start(self):
@@ -189,7 +190,7 @@ class FollowTheGreens:
             self.cancel("new green requested")
             # now create new ones
 
-        logger.debug("Got route: %s.", route)
+        logger.debug(f"Got route: {route}.")
         self.destination = destination
         onRwy = False
         if self.move == MOVEMENT.ARRIVAL:

@@ -1,7 +1,7 @@
 # X-Plane Interaction Class
 # We currently have two loops, one for rabbit, one to monitor plane position.
 #
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import xp
 
@@ -11,11 +11,14 @@ from .globals import (
     PLANE_MONITOR_DURATION,
     DISTANCE_BETWEEN_GREEN_LIGHTS,
     WARNING_DISTANCE,
+    DRIFTING_DISTANCE,
+    DRIFTING_LIMIT,
     AMBIANT_RWY_LIGHT_CMDROOT,
     AMBIANT_RWY_LIGHT,
 )
 from .geo import EARTH, Point, distance
 
+MAX_UPDATE_FREQUENCY = 10  # seconds
 
 class FlightLoop:
     def __init__(self, ftg):
@@ -29,8 +32,8 @@ class FlightLoop:
         self.nextIter = PLANE_MONITOR_DURATION  # seconds
         self.lastLit = 0
         self.distance = EARTH
-        self.diftingLimit = 5 * DISTANCE_BETWEEN_GREEN_LIGHTS  # After that, we send a warning, and we may cancel FTG.
-        self.last_updated = datetime.now()
+        self.diftingLimit = DRIFTING_LIMIT * DISTANCE_BETWEEN_GREEN_LIGHTS  # After that, we send a warning, and we may cancel FTG.
+        self.last_updated = datetime.now() - timedelta(seconds=MAX_UPDATE_FREQUENCY)
         self._rabbit_mode = RABBIT_MODE.MED
         self._may_adjust_rabbit = True
         self.runway_level_original = 1
@@ -149,7 +152,6 @@ class FlightLoop:
         if not self._may_adjust_rabbit:
             logger.info("rabbit adjustment forbidden")
             return
-        MAX_UPDATE_FREQUENCY = 10  # seconds
         now = datetime.now()
         delay = (now - self.last_updated).total_seconds()
         if delay < MAX_UPDATE_FREQUENCY:
@@ -226,6 +228,7 @@ class FlightLoop:
         TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
         SMALL_TURN_LIMIT = 15.0  # °, below this, it is a small turn, recommended to slow down a bit but not too much
         MOVEIT_DIST = 400.0  # m no reason to not go fast
+        SPEED_DELTA = 5.0  # in m/s
 
         # 4. Find next "significant" turn of more than TURN_LIMIT
         idx = light.index + 1
@@ -271,11 +274,21 @@ class FlightLoop:
         if speed < STOPPED_SPEED:  # m/s
             advise = f"probably stopped ({round(speed, 1)}m/s < {STOPPED_SPEED})"
         elif speed < srange[0]:
-            mode = RABBIT_MODE.FASTER
-            advise = "too slow, accelerate"
+            delta = srange[0] - speed
+            if delta > SPEED_DELTA:
+                mode = RABBIT_MODE.FASTEST
+                advise = "really too slow, accelerate"
+            else:
+                mode = RABBIT_MODE.FASTER
+                advise = "too slow, accelerate"
         elif speed > srange[1]:
-            mode = RABBIT_MODE.SLOWER
-            advise = "too fast, brake"
+            delta = speed - srange[1]
+            if delta > SPEED_DELTA:
+                mode = RABBIT_MODE.SLOWEST
+                advise = "really too fast, brake"
+            else:
+                mode = RABBIT_MODE.SLOWER
+                advise = "too fast, brake"
 
         logger.debug(f"adjustRabbit: current speed={round(speed, 1)}, target={target}; rabbit current mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})")
 
@@ -301,6 +314,7 @@ class FlightLoop:
             logger.debug("no position.")
             return self.nextIter
 
+        # @todo: WARNING_DISTANCE should be computed from acf type (weigth, size) and speed
         nextStop, warn = self.ftg.lights.toNextStop(pos)
         if nextStop and warn < WARNING_DISTANCE:
             logger.debug("closing to stop.")
@@ -333,8 +347,8 @@ class FlightLoop:
         # @todo
         # Need to send warning when pilot moves away from the green.
         # if distance > 200m? send warning?
-        if distance > 200:
-            logger.debug(f"aircraft away from track? (d={distance})")
+        if distance > DRIFTING_DISTANCE:
+            logger.debug(f"aircraft drifting away from track? (d={round(distance, 1)} > {DRIFTING_DISTANCE})")
 
         self.distance = distance
         return self.nextIter

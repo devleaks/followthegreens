@@ -13,7 +13,7 @@ No more path or taxiway segment names to remember. Just green lights to follow.
 Follow the greens is part of the serious _Advanced Surface Movement Guidance and Control System_ (A-SMGCS).
 
 Please have a look at the [following video](https://vimeo.com/101564135) and search for "airport Follow the greens" to get more information.
-[http://followthegreens.com](http://followthegreens.com) if you are interested.
+See [http://followthegreens.com](http://followthegreens.com) if you are interested.
 There is nowadays a lot more information, manufacturers, and experimental project reports to learn from.
 
 Follow the greens has numerous advantages discussed in the above videos, ranking to ease of use, to smoother taxi rides,
@@ -27,7 +27,7 @@ Yeah, yeah, follow the greens is realllly green. Can't be greener than that.
 
 Seriously. No green bashing.
 
-I found amusing to bring Follow the greens concept to X-Plane as ATC and "AI" struggle to guide you on the ground.
+I brought Follow the greens concept to X-Plane as ATC and "AI" struggle to guide you on the ground.
 X-Plane yellow painted coach arrows on taxiways are fine, useful, but look too artificial.
 
 Follow the greens is an existing system used at a handful airports.
@@ -38,7 +38,7 @@ Follow the greens is abbreviated FtG.
 
 # Installation
 
-Release 2 will not work on X-Plkane 11.
+Release 2 will not work on X-Plane 11.
 
 FtG plugin is written in the python language.
 Therefore, you first need to install the [XPPython3 plugin](https://xppython3.readthedocs.io/en/latest/).
@@ -72,6 +72,8 @@ It should now contain a _Follow the greens..._ menu item.
 
 ![Plugin Menu](images/menu.png)
 
+For Release 1 users on X-Plane 12 with a recent version of XPPython3,
+FtG is a drop-in replacement.
 
 # Usage
 
@@ -129,15 +131,9 @@ XPPython3 release 4 or above is required.
 After reading [this paper](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
 I found it amusing to incorporate their model and suggestions into FtG.
 
-Please notice the « overhype » with _4D_ trajectories 🤣.
-
-FtG 1 is 2D (latitude and longitude guidance on the ground...), FtG 2 adds time information to get you there on time, that’s just a third dimension.
-FtG won’t ask you to fly to your holding position.
-(🤔 we may here have a definite path for improvement in a future release.)
-
-Nowadays you know, you don’t sell anything if it does not have AI or 4D in its name.
-FtG 2.0 is therefore 4D compliant, with `altitude=0` all the way.
-There is absolutely not AI, just HFAB (human fun and bugs).
+*Release 2 adds a monitoring of your current taxi speed,
+and a variation of the rabbit light speed and length to invite you to either expedite your taxi ride,
+or, on the opposite, to slow down before a sharp turn or stop.*
 
 If you’re rather safely go through your pre-takeoff checklist while taxiing,
 gently blow the daffodils on the sides of the taxiway with warm air,
@@ -147,6 +143,14 @@ But if you want to maximise your air time, never loose time in those unnecessary
 if you’d rather taxi at just below _v~r~_ speed, give Release 2 a try.
 And monitor your brakes temperature.
 
+Please notice the « overhype » with taxi _4D_ trajectories 🤣.
+FtG 1 is 2D (lateral guidance on the ground...), FtG 2 adds time information to get you there on time, that’s just a third dimension.
+FtG won’t ask you to fly to your holding position.
+(🤔 we may here have a definite path for improvement in a future release.)
+
+Nowadays you know, you don’t sell anything if it does not have AI or 4D in its name.
+FtG 2.0 is therefore 4D compliant, with `altitude=0` all the way.
+There is absolutely not AI, just HFAB (human fun and bugs).
 
 ## Runway Light Control
 
@@ -184,11 +188,11 @@ RABBIT_DURATION = 0.2  # sec duration of "off" light in rabbit
 
 You can manually adjust rabbit speed and length with the following FtG commands:
 
-- `XPPython3/followthegreens/speed_slow` (length x 2, speed x 2)
-- `XPPython3/followthegreens/speed_slower` (normal length, speed x 2, twice slower)
+- `XPPython3/followthegreens/speed_slowest` (length × 2, speed × 2)
+- `XPPython3/followthegreens/speed_slower` (normal length, speed × 2, twice slower)
 - `XPPython3/followthegreens/speed_med` (normal length, normal speed)
 - `XPPython3/followthegreens/speed_faster` (normal length, speed / 2, twice faster)
-- `XPPython3/followthegreens/speed_fast` (length x 2, speed / 2)
+- `XPPython3/followthegreens/speed_fastest` (length × 2, speed / 2)
 
 
 ## Automagic Rabbit Speed Control

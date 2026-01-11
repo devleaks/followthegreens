@@ -196,13 +196,23 @@ class Route:
             v.setProp("taxiway-width", e.width_code)
             v.setProp("ls", i)
             self.edges.append(e)
-        logger.debug(f"segments: {[round(e.cost, 1) for e in self.edges]}")
+        logger.debug(f"segment costs: {[round(e.cost, 1) for e in self.edges]}")
+        logger.debug("route (raw): " + "-".join([e.name for e in self.edges]))
 
     def mkVertices(self):
         self.vertices = list(map(lambda x: self.graph.get_vertex(x), self.route))
 
-    def text(self):
+    def text(self, destination: str = None):
         self.mkEdges()
+        route_str = ""
+        last = ""
+        for e in self.edges:
+            if e.name != last:
+                route_str = route_str + " " + e.name
+            last = e.name
+        logger.debug(f"route (via): {route_str}")
+        if destination is not None:
+            logger.debug(f"Speak: cleared to {destination} via {route_str}")
         return "-".join([e.name for e in self.edges])
 
     def mkTurns(self):
