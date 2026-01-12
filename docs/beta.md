@@ -74,3 +74,14 @@ BUT, it is now possible to have ugly bright light, or discreet nice looking taxi
 
 I'll keep investigting this a few more hours.
 
+
+# Skunkcraft Updater
+
+There are skunkcrafts updater file if you wish but I cannot manage to get a beta version with my setup (github).
+So it currently only install the production version.
+
+It might be easier for you to install it, that way each time I push a new update, you just have to skunkcrafts update it.
+
+Just drop `skunkcrafts_updater.cfg` file next to `PI_FollowTheGreens.py`.
+
+
