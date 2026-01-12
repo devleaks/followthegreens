@@ -189,7 +189,7 @@ class UIUtil:
     # MAIN WINDOW prompts
     #
     def greetings(self, text="Good %s."):
-        h = self.ftg.aircraft.hourOfDay()
+        h = self.ftg.hourOfDay()
         logger.debug(f"bye: {h}.")
         ss = list(GOOD.keys())[-1]
         for k, v in GOOD.items():
@@ -308,7 +308,8 @@ class UIUtil:
             btns[IAMLOST_TEXT] = self.cbNewGreen
         self.waiting_for_clearance = True
         return self.window(
-            intro + [
+            intro
+            + [
                 "Follow the greens until you encounter a line of red stop lights.",
                 "At the stop lights, contact TOWER for clearance. Press Clearance received when cleared.",
             ],

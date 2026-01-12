@@ -81,7 +81,7 @@ POINT_COUNTS    0 0 0 0
 """,
                 file=fp,
             )
-            ls = f"LIGHT_CUSTOM 0 0 0 {round(color[0],2)} {round(color[1],2)} {round(color[2],2)} {alpha} {fsize} {TEXTURES[texture]} UNUSED"
+            ls = f"LIGHT_CUSTOM 0 1 0 {round(color[0],2)} {round(color[1],2)} {round(color[2],2)} {alpha} {fsize} {TEXTURES[texture]} UNUSED"
             logger.debug(f"create light {name} ({size}, {intensity}): {ls}")
             for i in range(intensity):
                 print(ls, file=fp)

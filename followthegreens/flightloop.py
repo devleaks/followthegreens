@@ -19,6 +19,7 @@ from .geo import EARTH, Point, distance
 
 MAX_UPDATE_FREQUENCY = 10  # seconds
 
+
 class FlightLoop:
     def __init__(self, ftg):
         self.ftg = ftg
@@ -289,7 +290,9 @@ class FlightLoop:
                 mode = RABBIT_MODE.SLOWER
                 advise = "too fast, brake"
 
-        logger.debug(f"adjustRabbit: current speed={round(speed, 1)}, target={target}; rabbit current mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})")
+        logger.debug(
+            f"adjustRabbit: current speed={round(speed, 1)}, target={target}; rabbit current mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})"
+        )
 
         if self.rabbitMode != mode:
             self.rabbitMode = mode

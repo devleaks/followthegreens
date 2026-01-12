@@ -72,7 +72,7 @@ class ShowTaxiways:
             return self.ui.sorry("We could not locate your plane.")
 
         # Info 2
-        logger.info("Plane postion %s" % pos)
+        logger.info(f"Plane postion {pos}")
         airport = self.aircraft.airport(pos)
         if airport is None:
             logger.debug("no airport")
@@ -83,7 +83,7 @@ class ShowTaxiways:
             return self.ui.promptForAirport()  # prompt for airport will continue with getDestination(airport)
 
         # Info 3
-        logger.info("At %s" % airport.name)
+        logger.info(f"At {airport.name}")
         return self.showTaxiways(airport.navAidID)
 
     def showTaxiways(self, airport):
@@ -91,7 +91,7 @@ class ShowTaxiways:
             self.airport = Airport(airport)
             status = self.airport.prepare()  # [ok, errmsg]
             if not status[0]:
-                logger.debug("airport not ready: %s" % (status[1]))
+                logger.debug(f"airport not ready: {status[1]}")
                 return self.ui.sorry(status[1])
         else:
             logger.debug("airport already loaded")

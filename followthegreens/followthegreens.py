@@ -8,15 +8,8 @@ from datetime import datetime, timedelta
 from textwrap import wrap
 from functools import reduce
 
-from .globals import logger, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE
+from .globals import logger, get_global, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE
 from .nato import phonetic
-#
-# THE FOLLOWING NEED TO BE IMPORTED HERE EVEN IF THEY ARE NOT USED IN THIS FILE
-# BECAUSE THEY CAN BE USED AS DEFAULT VALUES FOR USER SUPPLIED PARAMETERS
-#
-from .globals import get_global, RUNWAY_LIGHT_LEVEL_WHILE_FTG
-
-#
 from .aircraft import Aircraft
 from .airport import Airport
 from .flightloop import FlightLoop
@@ -72,12 +65,9 @@ class FollowTheGreens:
     def get_config(self, name):
         # Example: get_config("AMBIANT_RWY_LIGHT_VALUE")
         # return either the config value or the global value AMBIANT_RWY_LIGHT_VALUE.
-        g = globals()
-        g1 = g.get(name)
-        g2 = get_global(name)
         if name not in self.config:
-            logger.info(f"no config for {name}, returning global {name}={g1} ({g2})")
-        return self.config.get(name, g1)
+            logger.info(f"no config for {name}, returning global {name}={get_global(name)})")
+        return self.config.get(name, get_global(name))
 
     def start(self):
         # Toggles visibility of main window.
@@ -125,7 +115,7 @@ class FollowTheGreens:
             return self.ui.sorry("We could not locate your plane.")
 
         # Info 2
-        logger.info("Plane postion %s" % pos)
+        logger.info(f"Plane postion {pos}")
         airport = self.aircraft.airport(pos)
         if airport is None:
             logger.debug("no airport")
@@ -136,7 +126,7 @@ class FollowTheGreens:
             return self.ui.promptForAirport()  # prompt for airport will continue with getDestination(airport)
 
         # Info 3
-        logger.info("At %s" % airport.name)
+        logger.info(f"At {airport.name}")
         return self.getDestination(airport.navAidID)
 
     def getDestination(self, airport):
@@ -147,7 +137,7 @@ class FollowTheGreens:
             # Info 4 to 8 in airport.prepare()
             status = airport.prepare()  # [ok, errmsg]
             if not status[0]:
-                logger.warning("airport not ready: %s" % (status[1]))
+                logger.warning(f"airport not ready: {status[1]}")
                 return self.ui.sorry(status[1])
             self.airport = airport
         else:
@@ -156,7 +146,7 @@ class FollowTheGreens:
         logger.debug("airport ready")
         self.move = self.airport.guessMove(self.aircraft.position())
         # Info 10
-        logger.info("Guessing %s", self.move)
+        logger.info(f"Guessing {self.move}")
 
         return self.ui.promptForDestination()
 
@@ -173,7 +163,7 @@ class FollowTheGreens:
         # If we find a route, we light it.
         if destination not in self.airport.getDestinations(self.move):
             logger.debug(f"destination not valid {destination} for {self.move}")
-            return self.ui.promptForDestination("Destination %s not valid for %s." % (destination, self.move))
+            return self.ui.promptForDestination(f"Destination {destination} not valid for {self.move}.")
 
         # Info 11
         logger.info(f"Route to {destination}.")
@@ -318,11 +308,14 @@ class FollowTheGreens:
         logger.info(f"cancelled: {reason}.")
         return [True, ""]
 
+    def hourOfDay(self):
+        return int(xp.getDataf(self.localTime) / 3600)  # seconds since midnight??
+
     def bookmark(self, message: str = ""):
         # @todo: fetch simulator date/time too
         zs = xp.getDataf(self.zuluTime)
         ls = xp.getDataf(self.localTime)
-        d =xp.getDatai(self.localDay)
+        d = xp.getDatai(self.localDay)
         u = datetime.utcnow()
         z = datetime(year=u.year, month=1, day=1) + timedelta(days=d, seconds=zs)
         l = datetime(year=u.year, month=1, day=1) + timedelta(days=d, seconds=ls)

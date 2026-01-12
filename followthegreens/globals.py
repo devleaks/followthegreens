@@ -83,6 +83,7 @@ FTG_BOOKMARK_COMMAND_DESC = "Log UTC timestamp in log file"
 FTG_IS_RUNNING = FTG_PLUGIN_ROOT_PATH + "is_running"
 FTG_IS_HOLDING = FTG_PLUGIN_ROOT_PATH + "is_holding"  # this is for the next stop, it is set for the *next* stop after clearing a stop
 
+
 # X-PLANE Runway Lights Datarefs
 class AMBIANT_RWY_LIGHT(StrEnum):
     OFF = "off"
@@ -207,7 +208,7 @@ class MOVEMENT(StrEnum):
 DISTANCE_TO_RAMPS = 100  # meters, if closer that this to a ramp, assume departure, otherwise, assume arrival
 TOO_FAR = 500  # meters, if further than this from a taxiway, does not kick in.
 WARNING_DISTANCE = 150  # When getting close to a STOP BAR, show main window.
-DRIFTING_LIMIT = 5 # times DISTANCE_BETWEEN_GREEN_LIGHTS, after this limit, we consider data unreliable.
+DRIFTING_LIMIT = 5  # times DISTANCE_BETWEEN_GREEN_LIGHTS, after this limit, we consider data unreliable.
 DRIFTING_DISTANCE = 200  # When drifting away from "closest" light, after this distance, we should send a warning
 
 PLANE_MONITOR_DURATION = 3  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
@@ -219,7 +220,7 @@ ADD_STOPBAR_AT_LAST_VERTEX = False  # Add a stop bar at the end (artificial)
 
 # Follow the greens lighting constants
 #
-DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # meters, distance between lights on ground. I *think* that the standard for taxi center line lights is 60 meters.
+DISTANCE_BETWEEN_GREEN_LIGHTS = 8  # meters, distance between lights on ground. I *think* that the standard for taxi center line lights is 60 meters.
 DISTANCE_BETWEEN_STOPLIGHTS = 2  # meters, distance between red stop lights on the ground. Should be small, like 2 meters
 DISTANCE_BETWEEN_LIGHTS = 40  # meters, when showing all taxiways. This can build numerous lights! Use 40-80 range.
 
@@ -236,8 +237,8 @@ class RABBIT_MODE(StrEnum):
 
 
 LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
-RABBIT_LENGTH = 10  # number of lights that blink in front of aircraft
-RABBIT_DURATION = 0.15  # sec duration of "off" light in rabbit
+RABBIT_LENGTH = 8  # number of lights that blink in front of aircraft
+RABBIT_DURATION = 0.10  # sec duration of "off" light in rabbit
 
 # As a first step, uses 5 standard rabbit (length, speed)
 FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
@@ -291,7 +292,13 @@ LIGHT_TYPE_OBJFILES = {  # key MUST be one of the above enum key
     LIGHT_TYPE.OFF: "off_light.obj",  # physical taxiway off light, DO NOT CHANGE
     LIGHT_TYPE.DEFAULT: "green.obj",  # or ("custom_green.obj", (0, 1, 0), 20, 20, 3) to define a custom light that will dynamically be generated
     LIGHT_TYPE.FIRST: "green.obj",  # DO NOT use file name green.obj, amber.obj, red.obj to not override default files. It might break the entire app
-    LIGHT_TYPE.TAXIWAY: "green.obj",  # format is (filename, (red[0-1], green, blue), size[5-60], intensity[5-50], texture[0-3]) ([n-m]: value between n and m.)
+    LIGHT_TYPE.TAXIWAY: (
+        "custom_green.obj",
+        (0, 1, 0),
+        18,
+        20,
+        3,
+    ),  # format is (filename, (red[0-1], green, blue), size[5-60], intensity[5-50], texture[0-3]) ([n-m]: value between n and m.)
     LIGHT_TYPE.TAXIWAY_ALT: "amber.obj",
     LIGHT_TYPE.STOP: "red.obj",
     LIGHT_TYPE.LAST: "green.obj",
@@ -320,8 +327,41 @@ def get_global(name):
     return globals().get(name)
 
 
-NATO = ["alpha", "bravo", "charlie", "delta", "echo", "fox-trot", "golf",
-    "hotel", "india","juliet", "kilo", "lima", "mike", "november", "oscar",
-    "papa", "quebec", "romeo", "sierra", "tango", "uniform", "victor", "whiskey",
-    "x-ray", "yankee", "zulu" , "zero", "one", "two", "three", "four", "five",
-    "six", "seven", "eight", "nine"]
+NATO = [
+    "alpha",
+    "bravo",
+    "charlie",
+    "delta",
+    "echo",
+    "fox-trot",
+    "golf",
+    "hotel",
+    "india",
+    "juliet",
+    "kilo",
+    "lima",
+    "mike",
+    "november",
+    "oscar",
+    "papa",
+    "quebec",
+    "romeo",
+    "sierra",
+    "tango",
+    "uniform",
+    "victor",
+    "whiskey",
+    "x-ray",
+    "yankee",
+    "zulu",
+    "zero",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+]
