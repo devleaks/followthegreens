@@ -24,7 +24,7 @@ Very much like car traffic lights.
 Follow the greens is part of the serious _Advanced Surface Movement Guidance and Control System_ (A-SMGCS).
 
 Please have a look at the [following video](https://vimeo.com/101564135) and search for "airport Follow the greens" to get more information.
-[http://followthegreens.com](http://followthegreens.com) if you are interested.
+See [http://followthegreens.com](http://followthegreens.com) if you are interested.
 There is nowaways a lot more information, manufacturers, and experimental project reports to learn from.
 
 Follow the greens has numerous advantages discussed in the above documents, ranking to ease of use, to smoother taxi rides,
