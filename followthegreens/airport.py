@@ -256,29 +256,29 @@ class Airport:
     def prepare(self):
         status = self.load()
         if not status:
-            return [False, "We could not find airport named '%s'." % self.icao]
+            return [False, f"We could not find airport named '{self.icao}'."]
 
         # Info 5
-        logger.debug("Has ATC %s." % (self.hasATC()))  # actually, we don't care.
+        logger.debug(f"Has ATC {self.hasATC()}.")  # actually, we don't care.
 
         status = self.mkRoutingNetwork()
         if not status:
-            return [False, "We could not build taxiway network for %s." % self.icao]
+            return [False, f"We could not build taxiway network for {self.icao}."]
 
         status = self.ldRunways()
         if len(status) == 0:
-            return [False, "We could not find runways for %s." % self.icao]
+            return [False, f"We could not find runways for {self.icao}."]
         # Info 7
-        logger.debug("runways: %s" % (status.keys()))
+        logger.debug(f"runways: {status.keys()}")
 
         status = self.ldHolds()
-        logger.debug("holding positions: %s" % (status.keys()))
+        logger.debug(f"holding positions: {status.keys()}")
 
         status = self.ldRamps()
         if len(status) == 0:
-            return [False, "We could not find ramps/parking for %s." % self.icao]
+            return [False, f"We could not find ramps/parking for {self.icao}."]
         # Info 8
-        logger.debug("ramps: %s" % (status.keys()))
+        logger.debug(f"ramps: {status.keys()}")
 
         return [True, "Airport ready"]
 
@@ -328,7 +328,7 @@ class Airport:
             while not self.loaded and line:  # while we have not found our airport and there are more lines in this pack
                 if re.match("^1 ", line, flags=0):  # if it is a "startOfAirport" line
                     newparam = line.split()  # if no characters supplied to split(), multiple space characters as one
-                    # logger.debug("airport: %s" % newparam[4])
+                    # logger.debug(f"airport: {newparam[4]}")
                     if newparam[4] == self.icao:  # it is the airport we are looking for
                         self.name = " ".join(newparam[5:])
                         self.altitude = newparam[1]
@@ -358,7 +358,7 @@ class Airport:
     def dump(self, filename):
         aptfile = open(filename, "w")
         for line in self.lines:
-            aptfile.write("%d %s\n" % (line.linecode(), line.content()))
+            aptfile.write(f"{line.linecode()} {line.content()}\n")
         aptfile.close()
 
     # Collect 1201 and (102,1204) line codes and create routing network (graph) of taxiways
@@ -370,7 +370,7 @@ class Airport:
 
         vertexlines = list(filter(lambda x: x.linecode() == 1201, self.lines))
         v = list(map(addVertex, vertexlines))
-        logger.debug("added %d vertices" % len(v))
+        logger.debug(f"added {len(v)} vertices")
 
         # 1202 20 21 twoway runway 16L/34R
         # 1204 departure 16L,34R
@@ -591,7 +591,7 @@ class Airport:
             logger.debug("plane too far from taxiways")
             return (False, "Your plane is too far from the taxiways.")
 
-        logger.debug("got starting vertex %s", src)
+        logger.debug(f"got starting vertex {src}")
 
         # ..to destination
         dst = None
@@ -603,7 +603,7 @@ class Airport:
                     dstpt = runway.end  # Last "nice" turn will towards runways' end.
                     dst = self.findClosestVertex(runway.start.coords())
                 else:
-                    return (False, "We could not find runway %s." % destination)
+                    return (False, f"We could not find runway {destination}.")
             elif destination in self.holds.keys():
                 dst = self.findClosestVertex(self.holds[destination].coords())
                 # dstpt: We don't know which way for takeoff.
@@ -613,18 +613,15 @@ class Airport:
                 dstpt = ramp
                 dst = self.findClosestVertex(ramp.coords())
             else:
-                return (False, "We could not find parking or ramp %s." % destination)
+                return (False, f"We could not find parking or ramp {destination}.")
 
         if dst is None:
             logger.debug("no return from findClosestVertex")
-            return (False, "We could not find parking or ramp %s." % destination)
+            return (False, f"We could not find parking or ramp {destination}.")
 
         if dst[0] is None:
             logger.debug("no close vertex")
-            return (
-                False,
-                "We could not find a taxiway near parking or ramp %s." % destination,
-            )
+            return (False, f"We could not find a taxiway near parking or ramp {destination}.")
 
         if dst[1] > TOO_FAR:
             logger.debug("plane too far from taxiways")
