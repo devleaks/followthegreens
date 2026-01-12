@@ -143,6 +143,7 @@ class Route:
                     logger.debug("all constraints satisfied")
                     return self
                 # Use runway
+                logger.debug(f"failed algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=True, use_runway=False, respect_oneway=True")
                 self.route = self._find(
                     algorithm=algorithm,
                     width_code=width_code,
@@ -155,6 +156,7 @@ class Route:
                 if self.found():
                     logger.debug(f"found algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=False, use_runway=True, respect_oneway=True")
                     return self
+                logger.debug(f"failed algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=False, use_runway=True, respect_oneway=True")
                 # Do not respect one ways
                 self.route = self._find(
                     algorithm=algorithm,
@@ -168,8 +170,9 @@ class Route:
                 if self.found():
                     logger.debug(f"found algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=False, use_runway=True, respect_oneway=False")
                     return self
+                logger.debug(f"failed algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=False, use_runway=True, respect_oneway=False")
         # We're desperate
-        logger.debug(f"findExtended found not restricted route, returning default wide search using algorith {self.algorithm}")
+        logger.debug(f"findExtended failed to find restricted route, returning default wide search using algorith {self.algorithm}")
         self.options = {}
         logger.debug("all constraints relaxed")
         # self.route = self._find(algorithm=ROUTING_ALGORITHM, width_code=width_code, move=move) # no other restriction
