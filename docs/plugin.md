@@ -141,7 +141,7 @@ It is equivalent to selecting X-Plane Plugin menu entry.
 
 ## Release 2
 
-- [2.1.5](https://github.com/devleaks/followthegreens/releases) - 08-JAN-2026 - Monitoring aircraft speed, recommending target speed range from position to next turn.
+- [2.1.12](https://github.com/devleaks/followthegreens/releases) - 12-JAN-2026 - Monitoring aircraft speed, recommending target speed range from position to next turn. WIP
 - ...
 - 2.0.0 - 29-DEC-2025 - Added hooks for 4D FtG, updated README.
 

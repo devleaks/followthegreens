@@ -1,7 +1,7 @@
 
 # Current, X-Plane 12 Only
 
-- [2.1.7](https://github.com/devleaks/followthegreens/releases) - 08-JAN-2026 - Monitoring aircraft speed, recommending target speed range from position to next turn.
+- [2.1.12](https://github.com/devleaks/followthegreens/releases) - 12-JAN-2026 - Monitoring aircraft speed, recommending target speed range from position to next turn.
 - ...
 - 2.1.0 - 07-JAN-2026 - Estimate optimal speed range from distance to next significant turn.
 - ...
