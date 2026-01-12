@@ -468,7 +468,7 @@ class PythonInterface:
 
     def getFTGIsHoldingCallback(self, inRefcon):
         # Returns 1 if actually running (lights blinking on taxiways). 0 otherwise.
-        return 1 if self.followTheGreens is not None and self.followTheGreens.is_holding else 0
+        return 1 if self.followTheGreens is not None and self.followTheGreens.ui.waiting_for_clearance else 0
 
     # Future use
     def runningStatusChangedCallback(self, inRefcon):

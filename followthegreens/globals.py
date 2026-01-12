@@ -318,3 +318,10 @@ GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}  # 
 def get_global(name):
     # most globals are defined defined above...
     return globals().get(name)
+
+
+NATO = ["alpha", "bravo", "charlie", "delta", "echo", "fox-trot", "golf",
+    "hotel", "india","juliet", "kilo", "lima", "mike", "november", "oscar",
+    "papa", "quebec", "romeo", "sierra", "tango", "uniform", "victor", "whiskey",
+    "x-ray", "yankee", "zulu" , "zero", "one", "two", "three", "four", "five",
+    "six", "seven", "eight", "nine"]

@@ -4,10 +4,12 @@
 import xp
 import os
 import tomllib
-from datetime import datetime
+from datetime import datetime, timedelta
+from textwrap import wrap
+from functools import reduce
 
 from .globals import logger, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE
-
+from .nato import phonetic
 #
 # THE FOLLOWING NEED TO BE IMPORTED HERE EVEN IF THEY ARE NOT USED IN THIS FILE
 # BECAUSE THEY CAN BE USED AS DEFAULT VALUES FOR USER SUPPLIED PARAMETERS
@@ -36,7 +38,9 @@ class FollowTheGreens:
         self.ui = UIUtil(self)  # Where windows are built
         self.flightLoop = FlightLoop(self)  # where the magic is done
         self.airport_light_level = xp.findDataRef(AMBIANT_RWY_LIGHT_VALUE)  # [off, lo, med, hi] = [0, 0.25, 0.5, 0.75, 1]
-        self.is_holding = False
+        self.zuluTime = xp.findDataRef("sim/time/zulu_time_sec")
+        self.localTime = xp.findDataRef("sim/time/local_time_sec")
+        self.localDay = xp.findDataRef("sim/time/local_date_days")
 
         # Load optional config file (Rel. 2 onwards)
         # Parameters in this file will overwrite (with constrain)
@@ -60,6 +64,10 @@ class FollowTheGreens:
                 logger.debug(f"config: {self.config}")
             else:
                 logger.debug(f"no config file {filename}")
+
+    @property
+    def is_holding(self) -> bool:
+        return self.ui.waiting_for_clearance
 
     def get_config(self, name):
         # Example: get_config("AMBIANT_RWY_LIGHT_VALUE")
@@ -221,11 +229,21 @@ class FollowTheGreens:
         logger.info("Flightloop started.")
 
         # Hint: distance and heading to first light
+        intro = f"Follow the greens to {destination}"
+        speak = f"Follow the greens to {phonetic(destination)}"
+        rt = route.text()
+        if len(rt) > 0:
+            intro = intro + f" via taxiways {rt}"
+            speak = speak + f" via taxiways {phonetic(rt)}"
+        intro = wrap(intro + ".", width=80)  # might be long
+        speak = speak + "."
         if initdiff > 20 or initdist > 200:
+            dist_str = " ".join(f"{int(initdist):d}")
             hdg_str = " ".join(f"{int(initbrgn):03d}")
-            xp.speakString("Follow the greens. Taxiway is at about %d meters heading %s." % (initdist, hdg_str))
-        else:
-            xp.speakString("Follow the greens.")
+            intro = intro + [f"Start is at about {int(initdist):d} meters heading {int(initbrgn):03d}."]
+            speak = speak + f" Start is at about {phonetic(dist_str)} meters heading {phonetic(hdg_str)}."
+        logger.debug(" ".join(intro))
+        xp.speakString(speak)
 
         # self.segment = 0
         if self.lights.segments == 0:  # just one segment
@@ -242,7 +260,7 @@ class FollowTheGreens:
                     logger.debug("1 segment with 0 stopbar on departure?")
                     return self.ui.promptForDeparture()
 
-        return self.ui.promptForClearance()
+        return self.ui.promptForClearance(intro=intro)
         # return self.ui.sorry("Follow the greens is not completed yet.")  # development
 
     def nextLeg(self):
@@ -302,7 +320,14 @@ class FollowTheGreens:
 
     def bookmark(self, message: str = ""):
         # @todo: fetch simulator date/time too
-        logger.info(f"BOOKMARK {datetime.utcnow().isoformat()} {message}")
+        zs = xp.getDataf(self.zuluTime)
+        ls = xp.getDataf(self.localTime)
+        d =xp.getDatai(self.localDay)
+        u = datetime.utcnow()
+        z = datetime(year=u.year, month=1, day=1) + timedelta(days=d, seconds=zs)
+        l = datetime(year=u.year, month=1, day=1) + timedelta(days=d, seconds=ls)
+        logger.info(f"BOOKMARK {u.isoformat()} {message}")
+        logger.info(f"simulator zulu time is {z.isoformat()}, local time is {l.isoformat()}")
 
     def disable(self):
         # alias to cancel

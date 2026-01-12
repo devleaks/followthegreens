@@ -179,16 +179,14 @@ Follow the greens.
 
 # Weekly digest
 
-[Follow the greens](https://forums.x-plane.org/files/file/71124-follow-the-greens/) is not 4D
+Follow the greens is now «4D».
+[Instructions and download.](https://forums.x-plane.org/files/file/71124-follow-the-greens/)
 
 Follow the greens (FtG) is a (real-life) taxiway guidance system.
 It works by highlighting taxiway lights in front of the aircraft.
 The pilot only has to follow the green lights, and stop on red lights.
 
-4D version adds aircraft taxi speed monitoring and invite the pilot to adapt it
-by altering the speed of the «rabbit» light in front of the aircraft,
-and the length of the rabbit run.
+The new _«4D»_ release monitors aircraft taxi speed and invite the pilot to adapt it
+by altering the speed and the length of the run of the «rabbit» light in front of the aircraft.
 If the rabbit runs fast and far, pilot can safely accelerate the taxi pace.
 If the rabbit is slow and short, pilot brake because nearing a sharp turn or a mandatory stop.
-
-Instructions and download from the link above.

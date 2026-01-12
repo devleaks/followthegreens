@@ -301,16 +301,16 @@ class UIUtil:
             btns,
         )
 
-    def promptForClearance(self):
+    def promptForClearance(self, intro: list = []):
         # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
         btns = {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel}
         if self.dest:
             btns[IAMLOST_TEXT] = self.cbNewGreen
         self.waiting_for_clearance = True
         return self.window(
-            [
+            intro + [
                 "Follow the greens until you encounter a line of red stop lights.",
-                "At the stop lights, contact TOWER for clearance. Press Continue when cleared.",
+                "At the stop lights, contact TOWER for clearance. Press Clearance received when cleared.",
             ],
             btns,
         )
@@ -334,7 +334,7 @@ class UIUtil:
         return self.window(
             [
                 "Follow the greens until you encounter a line of red stop lights at departure runway.",
-                "Press Continue when cleared for runway.",
+                "Press Clearance received when cleared for runway.",
             ],
             {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel},
         )

@@ -290,9 +290,14 @@ FtG adds the follwoing commands:
 
 FtG adds the following dataref:
 
-- `XPPython3/followthegreens/is_running`
+- `XPPython3/followthegreens/is_running`, which is 0 if FtG is not running and 1 when FtG is running,
+- `XPPython3/followthegreens/is_holding`, is 1 when FtG expects a clearance to progress.
 
-which is 0 if FtG is not running and 1 when FtG is running.
+## Use by External Plugins
+
+`XPPython3/followthegreens/is_holding` is meant to be used by other plugins to let them know FtG is waiting for clearance.
+And `XPPython3/followthegreens/send_clearance_ok` is the command to be used by other plugins to signal FtG that the clearance was received.
+
 
 
 # Developer Notes

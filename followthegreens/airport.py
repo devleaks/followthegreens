@@ -202,18 +202,22 @@ class Route:
     def mkVertices(self):
         self.vertices = list(map(lambda x: self.graph.get_vertex(x), self.route))
 
-    def text(self, destination: str = None):
-        self.mkEdges()
+    def text(self, destination: str = None) -> str:
+        if self.edges is None or len(self.edges) == 0:
+            self.mkEdges()
         route_str = ""
         last = ""
         for e in self.edges:
             if e.name != last:
                 route_str = route_str + " " + e.name
             last = e.name
+        route_str = route_str.strip()
         logger.debug(f"route (via): {route_str}")
         if destination is not None:
-            logger.debug(f"Speak: cleared to {destination} via {route_str}")
-        return "-".join([e.name for e in self.edges])
+            logger.debug(f"cleared to {destination} via {route_str}")
+        else:
+            logger.debug(f"taxi route {route_str}")
+        return route_str
 
     def mkTurns(self):
         # At end of edge x, turn will be turns[x] degrees
@@ -648,6 +652,7 @@ class Airport:
             route.runway = arrival_runway
             route.mkEdges()  # compute segment distances
             route.mkTurns()  # compute turn angles at end of segment
+            logger.debug(f"route {route.text(destination=destination)}")
             return (True, route)
 
         return (False, "We could not find a route to your destination.")

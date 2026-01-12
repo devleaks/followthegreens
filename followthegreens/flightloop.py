@@ -10,7 +10,6 @@ from .globals import (
     RABBIT_MODE,
     PLANE_MONITOR_DURATION,
     DISTANCE_BETWEEN_GREEN_LIGHTS,
-    WARNING_DISTANCE,
     DRIFTING_DISTANCE,
     DRIFTING_LIMIT,
     AMBIANT_RWY_LIGHT_CMDROOT,
@@ -316,7 +315,7 @@ class FlightLoop:
 
         # @todo: WARNING_DISTANCE should be computed from acf type (weigth, size) and speed
         nextStop, warn = self.ftg.lights.toNextStop(pos)
-        if nextStop and warn < WARNING_DISTANCE:
+        if nextStop and warn < self.ftg.aircraft.warning_distance():
             logger.debug("closing to stop.")
             if self.has_rabbit():
                 self.rabbitMode = RABBIT_MODE.SLOW
@@ -346,7 +345,7 @@ class FlightLoop:
 
         # @todo
         # Need to send warning when pilot moves away from the green.
-        # if distance > 200m? send warning?
+        # if distance > DRIFTING_DISTANCE send warning?
         if distance > DRIFTING_DISTANCE:
             logger.debug(f"aircraft drifting away from track? (d={round(distance, 1)} > {DRIFTING_DISTANCE})")
 
