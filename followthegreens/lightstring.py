@@ -28,6 +28,7 @@ from .globals import (
     TAXIWAY_WIDTH,
     LIGHT_TYPE,
     LIGHT_TYPE_OBJFILES,
+    LEAD_OFF_RUNWAY_DISTANCE,
 )
 
 HARDCODED_MIN_DISTANCE = 10  # meters
@@ -216,9 +217,6 @@ class Stopbar:
             light.destroy()
 
 
-OUT_OF_RUNWAY = 10  # number of alterning green/amber lights when leaving runway
-
-
 class LightString:
 
     def __init__(self, config: dict = {}):
@@ -241,8 +239,11 @@ class LightString:
         self.lastLit = 0
         self.lightTypes = None
         self.taxiway_alt = 0
-        self.rwy_twy_lights = OUT_OF_RUNWAY
         self.distance_between_lights = config.get("DISTANCE_BETWEEN_GREEN_LIGHTS", DISTANCE_BETWEEN_GREEN_LIGHTS)
+        if self.distance_between_lights == 0:
+            self.distance_between_lights = 10
+        self.lead_off_lights = LEAD_OFF_RUNWAY_DISTANCE / self.distance_between_lights
+        self.rwy_twy_lights = self.lead_off_lights
 
         self.num_lights_ahead = config.get("LIGHTS_AHEAD", LIGHTS_AHEAD)  # if zero, all lights are shown, otherwise, must be >= self.rabbit_length
         self.rabbit_length = config.get("RABBIT_LENGTH", RABBIT_LENGTH)
@@ -572,11 +573,16 @@ class LightString:
         return [True, "green is set"]
 
     def next_taxiway_light(self, position) -> LIGHT_TYPE:
+        # This is to provide alternate green/amber light
+        # on runway Lead-Off lights to taxiway.
+        # Lights are green/amber on runway, then a few more until on taxiway.
+        # Then all green as normal taxiway.
+        #
         if self.route.runway is None:  # no runway, all green
             logger.debug("next_taxiway_light: no runway, all greens")
             return LIGHT_TYPE.TAXIWAY
         self.taxiway_alt = self.taxiway_alt + 1
-        if self.rwy_twy_lights == OUT_OF_RUNWAY:  # always on runway
+        if self.rwy_twy_lights == self.lead_off_lights:  # always on runway
             if pointInPolygon(position, self.route.runway.polygon):
                 logger.debug(f"next_taxiway_light: on runway, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
                 return LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT

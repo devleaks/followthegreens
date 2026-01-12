@@ -224,6 +224,8 @@ DISTANCE_BETWEEN_GREEN_LIGHTS = 8  # meters, distance between lights on ground. 
 DISTANCE_BETWEEN_STOPLIGHTS = 2  # meters, distance between red stop lights on the ground. Should be small, like 2 meters
 DISTANCE_BETWEEN_LIGHTS = 40  # meters, when showing all taxiways. This can build numerous lights! Use 40-80 range.
 
+LEAD_OFF_RUNWAY_DISTANCE = 100  # meters, will determine number of alterning green/amber lights when leaving runway
+
 
 # ################################
 # RABBIT
@@ -292,13 +294,14 @@ LIGHT_TYPE_OBJFILES = {  # key MUST be one of the above enum key
     LIGHT_TYPE.OFF: "off_light.obj",  # physical taxiway off light, DO NOT CHANGE
     LIGHT_TYPE.DEFAULT: "green.obj",  # or ("custom_green.obj", (0, 1, 0), 20, 20, 3) to define a custom light that will dynamically be generated
     LIGHT_TYPE.FIRST: "green.obj",  # DO NOT use file name green.obj, amber.obj, red.obj to not override default files. It might break the entire app
-    LIGHT_TYPE.TAXIWAY: (
-        "custom_green.obj",
-        (0, 1, 0),
-        18,
-        20,
-        3,
-    ),  # format is (filename, (red[0-1], green, blue), size[5-60], intensity[5-50], texture[0-3]) ([n-m]: value between n and m.)
+    LIGHT_TYPE.TAXIWAY: "green.obj",  # DO NOT use file name green.obj, amber.obj, red.obj to not override default files. It might break the entire app
+    # LIGHT_TYPE.TAXIWAY: (
+    #     "custom_green.obj",
+    #     (0, 1, 0),
+    #     18,
+    #     20,
+    #     3,
+    # ),  # format is (filename, (red[0-1], green, blue), size[5-60], intensity[5-50], texture[0-3]) ([n-m]: value between n and m.)
     LIGHT_TYPE.TAXIWAY_ALT: "amber.obj",
     LIGHT_TYPE.STOP: "red.obj",
     LIGHT_TYPE.LAST: "green.obj",

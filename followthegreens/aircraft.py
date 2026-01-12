@@ -2,18 +2,18 @@
 #
 import xp
 
-from .globals import logger, TAXIWAY_WIDTH_CODE
+from .globals import logger, TAXIWAY_WIDTH_CODE, TAXI_SPEED
 
 # Static definition for now, will soon be dynamically computed
 AIRCRAFT_TYPES = {
     TAXIWAY_WIDTH_CODE.A: {  # General aviation
         "AIRCRAFTS": ["C172"],
         "TAXI_SPEED": {
-            "FAST": [12, 18],
-            "MED": [7, 10],
-            "SLOW": [5, 8],
-            "CAUTION": [3, 6],
-            "TURN": [1, 3],
+            TAXI_SPEED.FAST: [12, 18],
+            TAXI_SPEED.MED: [7, 10],
+            TAXI_SPEED.SLOW: [5, 8],
+            TAXI_SPEED.CAUTION: [3, 6],
+            TAXI_SPEED.TURN: [1, 3],
         },
         "BRAKING_DISTANCE": 200.0,
         "WARNING_DISTANCE": 150.0,
@@ -21,11 +21,11 @@ AIRCRAFT_TYPES = {
     TAXIWAY_WIDTH_CODE.B: {  # Business jet, small regional jet
         "AIRCRAFTS": ["FX8"],
         "TAXI_SPEED": {
-            "FAST": [12, 18],
-            "MED": [7, 10],
-            "SLOW": [5, 8],
-            "CAUTION": [3, 6],
-            "TURN": [1, 3],
+            TAXI_SPEED.FAST: [12, 18],
+            TAXI_SPEED.MED: [7, 10],
+            TAXI_SPEED.SLOW: [5, 8],
+            TAXI_SPEED.CAUTION: [3, 6],
+            TAXI_SPEED.TURN: [1, 3],
         },
         "BRAKING_DISTANCE": 200.0,
         "WARNING_DISTANCE": 150.0,
@@ -33,11 +33,11 @@ AIRCRAFT_TYPES = {
     TAXIWAY_WIDTH_CODE.C: {  # Large regional jet, single aisle
         "AIRCRAFTS": ["A320", "B737", "B738", "B739", "A321", "A21N", "A319", "A20N", "A318"],
         "TAXI_SPEED": {
-            "FAST": [12, 18],
-            "MED": [7, 10],
-            "SLOW": [5, 8],
-            "CAUTION": [3, 6],
-            "TURN": [1, 3],
+            TAXI_SPEED.FAST: [12, 18],
+            TAXI_SPEED.MED: [7, 10],
+            TAXI_SPEED.SLOW: [5, 8],
+            TAXI_SPEED.CAUTION: [3, 6],
+            TAXI_SPEED.TURN: [1, 3],
         },
         "BRAKING_DISTANCE": 200.0,
         "WARNING_DISTANCE": 150.0,
@@ -45,11 +45,11 @@ AIRCRAFT_TYPES = {
     TAXIWAY_WIDTH_CODE.D: {  # Large narrow body, small wide body
         "AIRCRAFTS": ["A330", "B787", "A338", "A339"],
         "TAXI_SPEED": {
-            "FAST": [12, 18],
-            "MED": [7, 10],
-            "SLOW": [5, 8],
-            "CAUTION": [3, 6],
-            "TURN": [1, 3],
+            TAXI_SPEED.FAST: [12, 18],
+            TAXI_SPEED.MED: [7, 10],
+            TAXI_SPEED.SLOW: [5, 8],
+            TAXI_SPEED.CAUTION: [3, 6],
+            TAXI_SPEED.TURN: [1, 3],
         },
         "BRAKING_DISTANCE": 200.0,
         "WARNING_DISTANCE": 150.0,
@@ -57,11 +57,11 @@ AIRCRAFT_TYPES = {
     TAXIWAY_WIDTH_CODE.E: {  # Large wide body
         "AIRCRAFTS": ["A350", "B777", "A358", "A359", "A35K"],
         "TAXI_SPEED": {
-            "FAST": [12, 18],
-            "MED": [7, 10],
-            "SLOW": [5, 8],
-            "CAUTION": [3, 6],
-            "TURN": [1, 3],
+            TAXI_SPEED.FAST: [12, 18],
+            TAXI_SPEED.MED: [7, 10],
+            TAXI_SPEED.SLOW: [5, 8],
+            TAXI_SPEED.CAUTION: [3, 6],
+            TAXI_SPEED.TURN: [1, 3],
         },
         "BRAKING_DISTANCE": 200.0,
         "WARNING_DISTANCE": 150.0,
@@ -69,11 +69,11 @@ AIRCRAFT_TYPES = {
     TAXIWAY_WIDTH_CODE.F: {  # Jumbo jets
         "AIRCRAFTS": ["A380", "A388", "B747"],
         "TAXI_SPEED": {
-            "FAST": [12, 18],
-            "MED": [7, 10],
-            "SLOW": [5, 8],
-            "CAUTION": [3, 6],
-            "TURN": [1, 3],
+            TAXI_SPEED.FAST: [12, 18],
+            TAXI_SPEED.MED: [7, 10],
+            TAXI_SPEED.SLOW: [5, 8],
+            TAXI_SPEED.CAUTION: [3, 6],
+            TAXI_SPEED.TURN: [1, 3],
         },
         "BRAKING_DISTANCE": 200.0,
         "WARNING_DISTANCE": 150.0,

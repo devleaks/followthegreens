@@ -182,7 +182,7 @@ class FlightLoop:
     def adjustRabbit(self, position, closestLight):
         # Important note:
         # In planeFLCB(), if we are closing to a STOP, the following is set:
-        #   self.rabbitMode = RABBIT_MODE.SLOW
+        #   self.rabbitMode = RABBIT_MODE.SLOWEST
         # If we are not close to a stop, here we are to check for turns.
         #
         # logger.debug("adjusting rabbit..")
@@ -321,7 +321,7 @@ class FlightLoop:
         if nextStop and warn < self.ftg.aircraft.warning_distance():
             logger.debug("closing to stop.")
             if self.has_rabbit():
-                self.rabbitMode = RABBIT_MODE.SLOW
+                self.rabbitMode = RABBIT_MODE.SLOWEST
                 # prevent rabbit auto-tuning, must remain slow until stop bar cleared
                 self.disallow_rabbit_autotune()
             if not self.ftg.ui.isMainWindowVisible():
