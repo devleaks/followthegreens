@@ -11,6 +11,7 @@ from .globals import (
     logger,
     DISTANCE_TO_RAMPS,
     TAXIWAY_WIDTH_CODE,
+    RUNWAY_BUFFER_WIDTH,
     MOVEMENT,
     TOO_FAR,
     ROUTING_ALGORITHM,
@@ -576,7 +577,7 @@ class Airport:
             if src is None or src[0] is None:  # tries a less constraining search...
                 logger.debug("no vertex ahead.")
                 src = self.findClosestVertex(pos)
-            onRwy, arrival_runway = self.onRunway(pos, width=300)
+            onRwy, arrival_runway = self.onRunway(pos, width=RUNWAY_BUFFER_WIDTH)
             if onRwy:
                 logger.debug(f"Arrival: on runway {arrival_runway.name}.")
             else:
