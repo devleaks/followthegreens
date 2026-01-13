@@ -29,7 +29,7 @@ LIGHT_CUSTOM       0   0   0    0.7 0.7 0.0 1   0.18  0.0  0.5  0.5  0.0  UNUSED
 LIGHT_CUSTOM       0   0   0    0.7 0.7 0.0 1   0.18  0.0  0.5  0.5  0.0  UNUSED
 LIGHT_CUSTOM       0   0   0    0.7 0.7 0.0 1   0.18  0.0  0.5  0.5  0.0  UNUSED
 LIGHT_CUSTOM       0   0   0    0.7 0.7 0.0 1   0.18  0.0  0.5  0.5  0.0  UNUSED
-# 10% more lights to compensate for 0.7 luminosity
+# 40% more lights to compensate for 0.7 luminosity
 LIGHT_CUSTOM       0   0   0    0.7 0.7 0.0 1   0.18  0.0  0.5  0.5  0.0  UNUSED
 LIGHT_CUSTOM       0   0   0    0.7 0.7 0.0 1   0.18  0.0  0.5  0.5  0.0  UNUSED
 LIGHT_CUSTOM       0   0   0    0.7 0.7 0.0 1   0.18  0.0  0.5  0.5  0.0  UNUSED
