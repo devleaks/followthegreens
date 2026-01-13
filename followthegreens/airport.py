@@ -55,6 +55,7 @@ class Runway(Line):
         else:
             self.polygon = pol
         self.threshold = self.start
+        self.first_exit = self.threshold
         self.mkThreshold()
 
     def onRunway(self, point):
@@ -68,6 +69,7 @@ class Runway(Line):
         if move == 0:
             return
         self.threshold = destination(src=self.start, brngDeg=self.bearing(), d=move)
+        self.first_exit = self.threshold
         logger.debug(f"displaced threshold at {self.threshold}")
 
     def firstExit(self, graph):
@@ -93,9 +95,10 @@ class Runway(Line):
                 closest = v
         if closest is not None:
             self.first_exit = closest
-            logger.debug(f"first exit {closest.id} at {shortest}")
+            logger.debug(f"first exit {closest.id} at {round(shortest, 2)}m from threshold")
             return [closest.id, shortest]
-        logger.debug(f"first exit not found")
+        self.first_exit = self.threshold
+        logger.debug("first exit not found, using threshold")
         return None
 
 
