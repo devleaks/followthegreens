@@ -6,11 +6,7 @@ followthegreens/aircraft.py|6765
 followthegreens/airport.py|27261
 followthegreens/flightloop.py|15407
 followthegreens/followthegreens.py|13985
-followthegreens/ftgconfig-future.toml|1201
-followthegreens/ftgconfig-template.toml|894
 followthegreens/geo.py|13162
-followthegreens/globals-dev.py|10898
-followthegreens/globals-prod.py|10898
 followthegreens/globals.py|10623
 followthegreens/graph.py|22435
 followthegreens/lights/amber.obj|2516
