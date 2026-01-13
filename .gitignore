@@ -143,3 +143,4 @@ followthegreens/lights/custom_first.obj
 followthegreens/lights/custom_green.obj
 followthegreens/globals-dev.py
 followthegreens/globals-prod.py
+followthegreens/ftgconfig-future.toml

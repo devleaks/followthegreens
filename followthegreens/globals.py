@@ -264,19 +264,6 @@ FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
 }
 
 
-# RABBIT SPEED CONTROL
-# Speed target, will soon move to Aircraft()
-class TAXI_SPEED(Enum):  # in m/s
-    FAST = [12, 18]
-    MED = [7, 10]
-    SLOW = [5, 8]
-    CAUTION = [3, 6]
-    TURN = [1, 3]
-
-
-BRAKING_DISTANCE = 200.0  # m, currently hardcoded, will soon be computed
-
-
 # ################################
 # LIGHTS
 #
