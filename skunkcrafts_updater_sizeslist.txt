@@ -3,7 +3,7 @@ PI_FollowTheGreens.py|17642
 README.md|75
 followthegreens/__init__.py|766
 followthegreens/aircraft.py|6765
-followthegreens/airport.py|27253
+followthegreens/airport.py|27261
 followthegreens/flightloop.py|15407
 followthegreens/followthegreens.py|13985
 followthegreens/ftgconfig-future.toml|1201
@@ -21,6 +21,6 @@ followthegreens/lights/off_light.obj|10640
 followthegreens/lights/on_light.obj|617
 followthegreens/lights/red.obj|1797
 followthegreens/lightstring.py|30355
-followthegreens/nato.py|2015
+followthegreens/nato.py|1769
 followthegreens/showtaxiways.py|5391
 followthegreens/ui.py|19752

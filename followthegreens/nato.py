@@ -70,17 +70,7 @@ nato = {
 
 
 def nato_convert(source: str) -> str:
-    outarr = []
-    for s in source:
-        if s.upper() in nato.keys():
-            if s.isupper():
-                outarr.append("UPPERCASE " + nato[s.upper()].upper())
-            else:
-                outarr.append(nato[s.upper()])
-        else:
-            outarr.append(s)
-    return " ".join(outarr)
-
+    return " ".join([nato.get(c, "") for c in source.upper()])
 
 def phonetic(instr: str) -> str:
     if type(instr) is not str:

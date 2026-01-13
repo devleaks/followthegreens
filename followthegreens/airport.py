@@ -214,7 +214,7 @@ class Route:
             if e.name != last:
                 route_str = route_str + " " + e.name
             last = e.name
-        route_str = route_str.strip()
+        route_str = route_str.strip().upper()
         logger.debug(f"route (via): {route_str}")
         if destination is not None:
             logger.debug(f"cleared to {destination} via {route_str}")
