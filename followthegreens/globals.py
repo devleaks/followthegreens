@@ -294,6 +294,13 @@ LIGHT_TYPE_OBJFILES = {  # key MUST be one of the above enum key
     LIGHT_TYPE.TAXIWAY_ALT: "amber.obj",
     LIGHT_TYPE.STOP: "red.obj",
     LIGHT_TYPE.WARNING: "amber.obj",
+    # LIGHT_TYPE.WARNING: (  # exagerate big light to see it from space
+    #     "custom_warning.obj",
+    #     (1, 0, 1),
+    #     70,
+    #     40,
+    #     3,
+    # ),  # format is (filename, (red[0-1], green, blue), size[5-60], intensity[5-50], texture[0-3]) ([n-m]: value between n and m.)
     LIGHT_TYPE.LAST: "green.obj",
 }
 

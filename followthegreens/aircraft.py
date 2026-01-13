@@ -215,7 +215,7 @@ AIRCRAFT_TYPES = {
         "WARNING_DISTANCE": 200.0,
     },
     TAXIWAY_WIDTH_CODE.E: {  # Large wide body
-        "AIRCRAFTS": ["A330", "A340", "A350", "B777", "B787", "A358", "A359", "A35K"],
+        "AIRCRAFTS": ["A330", "A332", "A333", "A338", "A339", "A340", "A350", "A358", "A359", "A35K", "B777", "B787"],
         "TAXI_SPEED": {
             TAXI_SPEED.FAST: [10, 14],
             TAXI_SPEED.MED: [7, 10],

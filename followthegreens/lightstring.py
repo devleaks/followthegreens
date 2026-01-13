@@ -29,6 +29,8 @@ from .globals import (
 HARDCODED_MIN_DISTANCE = 10  # meters
 HARDCODED_MIN_TIME = 0.1  # secs
 
+SPECIAL_DEBUG = True
+
 
 class LightType:
     # A light to follow, or a stopbar light
@@ -226,11 +228,11 @@ class LightString:
         self.rabbitIdx = 0
         self.rabbitCanRun = False
 
-        self.route = None  # route as returned by graph.Dijkstra, i.e. a list of vertex indices.
+        self.route = None  # route as returned by graph.find(), i.e. a list of vertex indices.
 
         # g_ and r_ are for graphic objects (lights, green and red)
         self.drefs = []
-        self.params = []  # LIGHT_PARAM_DEF       full_custom_halo        9   R   G   B   A   S       X   Y   Z   F
+        self.params = []
         self.txy_light_obj = None
         self.stp_light_obj = None
         self.xyzPlaced = False
@@ -238,28 +240,21 @@ class LightString:
         self.lastLit = 0
         self.lightTypes = None
         self.taxiway_alt = 0
-        self.distance_between_lights = float(self.get_config("DISTANCE_BETWEEN_GREEN_LIGHTS"))
+        self.distance_between_lights = float(get_global("DISTANCE_BETWEEN_GREEN_LIGHTS", config=config))
         if self.distance_between_lights == 0:
             self.distance_between_lights = 10
-        self.lead_off_lights = int(float(self.get_config("LEAD_OFF_RUNWAY_DISTANCE")) / self.distance_between_lights)
+        self.lead_off_lights = int(float(get_global("LEAD_OFF_RUNWAY_DISTANCE", config=config)) / self.distance_between_lights)
         self.rwy_twy_lights = self.lead_off_lights  # initial value
 
-        self.num_lights_ahead = self.get_config("LIGHTS_AHEAD")  # if zero, all lights are shown, otherwise, must be >= self.rabbit_length
-        self.rabbit_length = self.get_config("RABBIT_LENGTH")
-        self.rabbit_duration = self.get_config("RABBIT_DURATION")
+        self.num_lights_ahead = get_global("LIGHTS_AHEAD", config=config)  # if zero, all lights are shown, otherwise, must be >= self.rabbit_length
+        self.rabbit_length = get_global("RABBIT_LENGTH", config=config)
+        self.rabbit_duration = get_global("RABBIT_DURATION", config=config)
         self.rabbit_mode = RABBIT_MODE.MED
 
         logger.debug(f"LightString created {self.rabbit_length}, {abs(self.rabbit_duration)}")
 
     def __str__(self):
         return json.dumps({"type": "FeatureCollection", "features": self.features()})
-
-    def get_config(self, name) -> int|float|str:
-        # Example: get_config("AMBIANT_RWY_LIGHT_VALUE")
-        # return either the config value or the global value AMBIANT_RWY_LIGHT_VALUE.
-        if name not in self.config:
-            logger.info(f"no config for {name}, returning global {name}={get_global(name)})")
-        return self.config.get(name, get_global(name))
 
     def has_rabbit(self) -> bool:
         return abs(self.rabbit_duration) > 0 and self.rabbit_length > 0
@@ -325,6 +320,8 @@ class LightString:
         currVertex = graph.get_vertex(route.route[0])
         currPoint = currVertex
         thisLights.append(Light(LIGHT_TYPE.FIRST, currPoint, 0, 0))
+        if SPECIAL_DEBUG:
+            thisLights.append(Light(LIGHT_TYPE.WARNING, currPoint, 0, 0))
         lastLight = currPoint
         # logger.debug("placed first light")
         distanceBeforeNextLight = self.distance_between_lights
@@ -448,10 +445,15 @@ class LightString:
 
         if ADD_LIGHT_AT_LAST_VERTEX:  # may be we insert a last light at the last vertex?
             lastPoint = route.route[len(route.route) - 1]
+            lastVertex = graph.get_vertex(route.route[len(route.route) - 1])
             brgn = bearing(lastLight, lastPoint)
-            thisLights.append(Light(LIGHT_TYPE.TAXIWAY, lastPoint, brgn, i))
+            thisLights.append(Light(LIGHT_TYPE.TAXIWAY, lastVertex, brgn, i))
             lastLight = lastPoint
             logger.debug(f"added light at last vertex {route.route[len(route.route) - 1].id}")
+
+        if SPECIAL_DEBUG:
+            lastVertex = graph.get_vertex(route.route[len(route.route) - 1])
+            thisLights.append(Light(LIGHT_TYPE.WARNING, lastVertex, brgn, i))
 
         last = 0
         for i in range(len(self.stopbars)):
