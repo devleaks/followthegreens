@@ -1,6 +1,6 @@
 # Notes to Beta Testers
 
-Release 2 adds VERY little change.
+Release 2 adds VERY little changes.
 
 Code has been refactored heavily but not changed.
 
@@ -13,13 +13,13 @@ FtG logs everything in a file called ftg_log.txt in the folder `followthegreens`
 
 If you have an issue, please submit this file with the issue.
 
-Pleas DO INCLUDE the `XPPython3Log.txt` file as well as it contains Python specific errors
-(that might not prevent FtG from PARTIALLY working).
+Please DO ALSO INCLUDE the `XPPython3Log.txt` file as well as it contains Python specific errors
+(that might not prevent FtG from working).
 
 
 # Rabbit Loop
 
-Rabbit Loop has had little change. I just added a clean stop function and a clean restart function.
+Rabbit Loop had little change. I just added a clean stop function and a clean restart function.
 
 
 # Flight Loop
@@ -51,7 +51,7 @@ If you have been using FtG for a long time, you know I struggle and keep struggl
 
 I have a solution that works, but it is not very nice looking if people exagerate on parameters.
 
-Here is "my" light:
+Here is FtG light: (See [Custom Lights](https://developer.x-plane.com/article/custom-lights/))
 
 ```
 I
