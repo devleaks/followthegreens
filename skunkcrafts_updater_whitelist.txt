@@ -17,7 +17,7 @@ followthegreens/lights/on_light.obj|154663482
 followthegreens/lights/red.obj|3631446016
 followthegreens/lightstring.py|870823007
 followthegreens/nato.py|634410671
-followthegreens/showtaxiways.py|4133595352
+followthegreens/showtaxiways.py|293483243
 followthegreens/ui.py|648045793
 followthegreens/version.py|2270327286
 out/EBBR.linear_features.geojson|3244707681
