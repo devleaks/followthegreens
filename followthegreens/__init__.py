@@ -1,7 +1,8 @@
 __NAME__ = "Follow the greens"
 __SIGNATURE__ = "xppython3.followthegreens"
 __DESCRIPTION__ = "Follow the greens, a 4D X-Plane ATC A-SMGCS experience"
-__VERSION__ = "2.1.14"
+
+from .version import __VERSION__
 
 from .followthegreens import FollowTheGreens
 from .showtaxiways import ShowTaxiways

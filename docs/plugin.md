@@ -82,6 +82,15 @@ if you’d rather taxi at just below _vr_ speed, give Release 2 a try.
 And monitor your brakes temperature.
 
 
+## What's New in Release 2
+
+- Follow the greens «rabbit» light speed and length automagically adjusted to invite pilots to speed up or slow down taxi ride.
+- A few parameters can be adjusted in a configuration file.
+- Routing algorithms attempt to respect taxiway network constraints.
+- Better taxiway network specification, which leads to better route finding.
+- FtG specific log file created to help us improve the plugin in case of trouble.
+
+
 # Installation
 
 FtG plugin is a «python plugin».
@@ -141,26 +150,20 @@ It is equivalent to selecting X-Plane Plugin menu entry.
 
 ## Release 2
 
-- [2.1.12](https://github.com/devleaks/followthegreens/releases) - 12-JAN-2026 - Monitoring aircraft speed, recommending target speed range from position to next turn. WIP
-- ...
+- [2.2.1](https://github.com/devleaks/followthegreens/releases) - ??-??-2026 - First publicly available Release 2. Monitoring aircraft speed, recommending target speed range for taxiing.
+- ... (numerous development releases with little interest for production system...)
 - 2.0.0 - 29-DEC-2025 - Added hooks for 4D FtG, updated README.
 
 
 ## Release 1
 
-- [1.6.7](https://github.com/devleaks/followthegreens/releases) - 21-FEB-2024 - Added skunkcrafts updater files
+- [1.7.0](https://github.com/devleaks/followthegreens/releases) - ??-JAN-2026 - Last Release 1 version (will only provide critical fixes).
+- 1.6.7 - 21-FEB-2024 - Added skunkcrafts updater files
 - 1.6.6 - 21-FEB-2024 - Added Cancel and OK (finish, bye, etc.) commands
 - 1.6.5 - 20-FEB-2024 - Now opening all files as UTF-8 files. Code blackened.
 - ...
 - 1.0.0 - 01-APR-2021 - Initial release.
 
-
-## Future Development
-
-Recommended speed targets and parameters are statically defined.
-They should be adjusted for aircraft size and weight.
-
-Current parameters are OK for small to mid-sized airliners, narrow and wide bodies.
 
 # License
 
@@ -187,6 +190,6 @@ It works by highlighting taxiway lights in front of the aircraft.
 The pilot only has to follow the green lights, and stop on red lights.
 
 The new _«4D»_ release monitors aircraft taxi speed and invite the pilot to adapt it
-by altering the speed and the length of the run of the «rabbit» light in front of the aircraft.
+by adjusting the speed and the length of the run of the «rabbit» light in front of the aircraft.
 If the rabbit runs fast and far, pilot can safely accelerate the taxi pace.
 If the rabbit is slow and short, pilot brake because nearing a sharp turn or a mandatory stop.

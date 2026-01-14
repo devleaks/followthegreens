@@ -39,6 +39,7 @@ Follow the greens is abbreviated FtG.
 # Installation
 
 Release 2 will not work on X-Plane 11.
+If you want to use Follow the greens on X-Plane 11, you have to use Release 1(.6.7).
 
 FtG plugin is written in the python language.
 Therefore, you first need to install the [XPPython3 plugin](https://xppython3.readthedocs.io/en/latest/).
@@ -46,11 +47,11 @@ Therefore, you first need to install the [XPPython3 plugin](https://xppython3.re
 This process is very similar to the Lua language plugin (XLua or FlyithLua) to use Lua scripts.
 Here, another language (Python), another plugin (XPPython3).
 
-For the Release 2 of FtG, Version 4 of the XPPython3 plugin is required.
+For the Release 2 of FtG, Version 4.5 of the XPPython3 plugin is required.
 Newer version of XPPython3 contain all you need to run Python plugin, including a version of the python language interpreter.
 There is no need to install other software.
 
-Once XPPython3 plugin is installed, plugins written in the python language are located in
+Once XPPython3 plugin is installed, python plugin scripts are located in
 
 ```
 <X-Plane 12 Folder> / resources / plugins / PythonPlugins
@@ -74,6 +75,7 @@ It should now contain a _Follow the greens..._ menu item.
 
 For Release 1 users on X-Plane 12 with a recent version of XPPython3,
 FtG is a drop-in replacement.
+
 
 # Usage
 
@@ -118,15 +120,7 @@ It will do so until you reach your destination.
 That is it. Nothing more. Nothing less.
 
 
-
-# New in Release 2
-
-Release 2 no longer works on X-Plane 11 because of the use of new X-Plane SDK API calls and XPPython3 simplifications.
-
-XPPython3 release 4 or above is required.
-
-
-# Rationale for Release 2
+# What's New in Release 2
 
 After reading [this paper](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
 I found it amusing to incorporate their model and suggestions into FtG.
@@ -152,6 +146,45 @@ Nowadays you know, you don’t sell anything if it does not have AI or 4D in its
 FtG 2.0 is therefore 4D compliant, with `altitude=0` all the way.
 There is absolutely not AI, just HFAB (human fun and bugs).
 
+Release 2 no longer works on X-Plane 11 because of the use of new X-Plane SDK API calls and XPPython3 simplifications.
+XPPython3 release 4 or above is required.
+
+
+# Configuration Parameters
+
+Follow the greens exposes a few limited set of configuration parameters.
+Parameters are specified in a configuration file that can be found at
+on of the two following locations:
+
+Either
+
+`<X-Plane 12 Folder> / Resources / plugins / PythonPlugins / followthegreens / ftgconfig.toml`
+
+or
+
+`<X-Plane 12 Folder> / Output / preferences / ftgconfig.toml`
+
+
+Here is a template of the configutation file.
+It is a [TOML](https://toml.io/en/) formatted file.
+
+```
+DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # meters
+DISTANCE_BETWEEN_LIGHTS = 40  # meters
+
+LIGHTS_AHEAD = 0   # number of green lights
+RABBIT_LENGTH = 10   # number of green lights
+RABBIT_DURATION = 0.2   # seconds, no less than 0.1
+
+RUNWAY_LIGHT_LEVEL_WHILE_FTG = "lo"  # off, lo, med, hi
+```
+
+![Parameters](images/parameters.png)
+
+Please note that the values you enter here may affect X-Plane performances (faster rabbit, numerous taxiway lights...)
+
+Here is description of the parameters available for customization.
+
 ## Runway Light Control
 
 While FtG rabbit runs, all runway lights are dimmed to a preference value:
@@ -161,15 +194,17 @@ While FtG rabbit runs, all runway lights are dimmed to a preference value:
 So if you set it to
 
 ```
-RUNWAY_LIGHT_LEVEL_WHILE_FTG = AMBIANT_RWY_LIGHT.LOW
+RUNWAY_LIGHT_LEVEL_WHILE_FTG = "lo"
 ```
 
 all runway lights will be dimmed to low while FtG is running.
 Even completely OFF if you choose to do so.
+Possible values are `lo`, `med`, `hi` and `off`.
 
 Runway light luminosity will be restored to its original value after FtG terminates.
 
-Alternatively, independently of FtG, runway lights can be dimmed thanks to following X-Plane commands:
+Alternatively, independently of FtG, runway lights can be dimmed thanks to the following
+standard X-Plane commands:
 
 - `sim/operation/rwy_lights_off` (sim/graphics/scenery/airport_light_level=0)
 - `sim/operation/rwy_lights_lo` (sim/graphics/scenery/airport_light_level=0.25)
@@ -194,6 +229,9 @@ You can manually adjust rabbit speed and length with the following FtG commands:
 - `XPPython3/followthegreens/speed_faster` (normal length, speed / 2, twice faster)
 - `XPPython3/followthegreens/speed_fastest` (length × 2, speed / 2)
 
+If you force the rabbit speed and length using one of the above command,
+rabbit auto-tuning will be disabled for this run of Follow the greeens.
+
 
 ## Automagic Rabbit Speed Control
 
@@ -204,58 +242,30 @@ The speed information is supplied with two «variables»:
 - The length of the rabbit run (the longer the rabbit, the more you can keep up with that speed, do not expect speed change.)
 
 
-In this first instance, the control of the speed is simplified as such:
+The control of the speed works as follow:
 
-From the position of the aircraft and the distance to the next significan turn, a speed range is evaluated.
+From the position of the aircraft, the distance to the next significan turn,
+and the type of the aircraft (if available), a speed range is estimated (min value, max value).
 
-- If the aircraft is at or below the lowest range speed, the rabbit will propose to accelerate (run faster). This is indicated by a faster rabbit sequence.
-- If the aircraft is at or above the upper range speed, the rabbit will propose to slow down. This is indicated by a slower rabbit sequence.
-- If the aircraft nears a stop bar or the end of the greens (at about 200 meters from it), the rabbit will also propose to slow down.
+- If the aircraft is at or below the minimum range speed, the rabbit will propose to accelerate (run faster). This is indicated by a faster rabbit sequence.
+- If the aircraft is at or above the maximum range speed, the rabbit will propose to slow down. This is indicated by a slower rabbit sequence.
+- If the aircraft nears a stop light or the end of the greens (at about 200 meters from it), the rabbit will propose to slow down.
+- If the aircraft moves at a speed within its estimated range, the rabbit runs at normal speed.
 
-If the aircraft moves at a speed within its estimated range, the rabbit will run at normal speed.
+Warning and braking distances are estimeted from the current speed and aircraft type if available.
 
-There currently is no difference between a GA and a A380. They all taxi at the same speed range.
-
-In a later release, speed indication will be refined to anticipate turns (at slow speed) or long, straight taxiways.
-Speeds will also be adjusted for aircraft types, weight, and sizes.
-Braking distance will be estimeted from the current speed and aircraft type.
-
-
-# Configuration Parameters
-
-Configuration file is either
-
-`<X-Plane 12 Folder> / Resources / plugins / PythonPlugins / followthegreens / ftgconfig.toml`
-
-or
-
-`<X-Plane 12 Folder> / Output / preferences / ftgconfig.toml`
-
-```
-DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # meters
-DISTANCE_BETWEEN_LIGHTS = 40  # meters
-
-LIGHTS_AHEAD = 0   # number of green lights
-RABBIT_LENGTH = 10   # number of green lights
-RABBIT_DURATION = 0.2   # seconds, no less than 0.1
-
-RUNWAY_LIGHT_LEVEL_WHILE_FTG = "lo"  # off, lo, med, hi
-```
-
-![Parameters](images/parameters.png)
-
-Please note that the values you enter here may degrade X-Plane performances (faster rabbit, numerous taxiway lights...)
-The plugin enforces certain constraints to prevent X-Plane from crashing.
 
 # Notes on Performances
 
 Follow the greens uses little resources.
 
-1. Every 10 seconds or so, FtG checks the aircraft position and speed and adjust greens accordingly.
-2. The rabbit is called more often, depending on its speed. The faster the rabbit, the more pressure on X-Plane. With 0.2 seconds rabbit, FtG is unnoticable.
+1. Every 10 seconds or so, FtG checks the aircraft position and speed and adjust greens accordingly. («aircraft flight loop»)
+2. The rabbit flight loop» is called more often, depending on the rabbit speed. The faster the rabbit, the more pressure on X-Plane. With 0.2 seconds rabbit, FtG is unnoticable.
 
 One might expect a slight hiccup when looking for a route at a large airport with numerous taxiways.
 Hiccup should not last more than one or two seconds in this case.
+During the computation, X-Plane seems to freeze for a couple of seconds.
+
 
 ### About Strict Route Search Mode
 
@@ -267,16 +277,21 @@ But!
 
 Taxiways may have contraints.
 
-First, there might be aircraft size/width/weight constraints. A narrow taxiway is not suitable for an airliner.
-Second, there might be local constrainst like one-way taxiways, taxiways used for inner/outer traffic.
-Third, runways may sometime be used as taxiways, usually with a U-turn facility at its edges.
+1. First, there might be aircraft size/width/weight constraints. A narrow taxiway is not suitable for an airliner.
+2. Second, there might be local constrainst like one-way taxiways, taxiways used for inner/outer traffic.
+3. Third, runways may sometime be used as taxiways, usually with a U-turn surface at its ends.
 
 X-Plane airport designer sometimes provides detailed taxiway information, sometimes not.
 
 Follow the greens has to cope with what is available in airport definition files.
 
+To do this, a sophisticate algorithm first tries to find a route respecting all constraints.
+If no route is found, the algorith will relax some constraints, one by one until a route is found.
+
 
 # FtG Control and Monitoring
+
+## FtG Commands
 
 FtG adds the follwoing commands:
 
@@ -288,22 +303,29 @@ FtG adds the follwoing commands:
 - `XPPython3/followthegreens/bookmark`
 
 
+## FtG Monitoring Datarefs
+
 FtG adds the following dataref:
 
 - `XPPython3/followthegreens/is_running`, which is 0 if FtG is not running and 1 when FtG is running,
 - `XPPython3/followthegreens/is_holding`, is 1 when FtG expects a clearance to progress.
 
+
 ## Use by External Plugins
 
-`XPPython3/followthegreens/is_holding` is meant to be used by other plugins to let them know FtG is waiting for clearance.
-And `XPPython3/followthegreens/send_clearance_ok` is the command to be used by other plugins to signal FtG that the clearance was received.
+Monitoring datarefs and commands are designed to be used by other software to instruct
+Follow the greens to proceed. Namely:
+
+- `XPPython3/followthegreens/is_holding` is meant to be used by other plugins to let them know FtG is waiting for clearance.
+- `XPPython3/followthegreens/send_clearance_ok` is the command to be used by other plugins to signal FtG that the clearance was received.
 
 
+# See Also
 
-# Developer Notes
-
-See [developer notes](devnotes.md).
+[Developer notes](devnotes.md).
 
 [Changelog](changelog.md)
 
 ![FtG Logo](images/ftg.png)
+
+Taxi safely

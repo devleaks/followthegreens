@@ -4,35 +4,32 @@
 import math
 import json
 import os.path
-from enum import StrEnum
 
 import xp
 
 from .geo import Point, distance, bearing, destination, convertAngleTo360, pointInPolygon
 from .globals import (
     logger,
+    get_global,
     ADD_LIGHT_AT_LAST_VERTEX,
     ADD_LIGHT_AT_VERTEX,
-    DISTANCE_BETWEEN_GREEN_LIGHTS,
     DISTANCE_BETWEEN_LIGHTS,
     DISTANCE_BETWEEN_STOPLIGHTS,
     FTG_SPEED_PARAMS,
-    LIGHTS_AHEAD,
     MIN_SEGMENTS_BEFORE_HOLD,
     MOVEMENT,
-    RABBIT_DURATION,
-    RABBIT_LENGTH,
     RABBIT_MODE,
     TAXIWAY_ACTIVE,
     TAXIWAY_WIDTH_CODE,
     TAXIWAY_WIDTH,
     LIGHT_TYPE,
     LIGHT_TYPE_OBJFILES,
-    LEAD_OFF_RUNWAY_DISTANCE,
 )
 
 HARDCODED_MIN_DISTANCE = 10  # meters
 HARDCODED_MIN_TIME = 0.1  # secs
+
+SPECIAL_DEBUG = True
 
 
 class LightType:
@@ -165,6 +162,7 @@ class Stopbar:
         index,
         size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.F,
         distance_between_stoplights: int = DISTANCE_BETWEEN_STOPLIGHTS,
+        light: LIGHT_TYPE = LIGHT_TYPE.STOP,
     ):
         self.lights = []
         self.position = position
@@ -172,6 +170,7 @@ class Stopbar:
         self.lightStringIndex = index
         self.width = TAXIWAY_WIDTH[size.value].value
         self.distance_between_stoplights = distance_between_stoplights
+        self.light = light
         self._on = False
         self._cleared = False
         self.make()
@@ -184,19 +183,19 @@ class Stopbar:
             numlights = 4
 
         # centerline
-        self.lights.append(Light(LIGHT_TYPE.STOP, self.position, 0, 0))
+        self.lights.append(Light(self.light, self.position, 0, 0))
 
         # one side of centerline
         brng = self.heading + 90
         for i in range(numlights):
             pos = destination(self.position, brng, i * self.distance_between_stoplights)
-            self.lights.append(Light(LIGHT_TYPE.STOP, pos, 0, i))
+            self.lights.append(Light(self.light, pos, 0, i))
 
         # the other side of centerline
         brng = self.heading - 90
         for i in range(numlights):
             pos = destination(self.position, brng, i * self.distance_between_stoplights)
-            self.lights.append(Light(LIGHT_TYPE.STOP, pos, 0, numlights + i))
+            self.lights.append(Light(self.light, pos, 0, numlights + i))
 
     def place(self, lightTypes):
         for light in self.lights:
@@ -220,6 +219,8 @@ class Stopbar:
 class LightString:
 
     def __init__(self, config: dict = {}):
+        self.config = config
+
         self.lights = []  # all green lights from start to destination indexed from 0 to len(lights)
         self.stopbars = []  # Keys of this dict are green light indices.
         self.segments = 0
@@ -227,11 +228,11 @@ class LightString:
         self.rabbitIdx = 0
         self.rabbitCanRun = False
 
-        self.route = None  # route as returned by graph.Dijkstra, i.e. a list of vertex indices.
+        self.route = None  # route as returned by graph.find(), i.e. a list of vertex indices.
 
         # g_ and r_ are for graphic objects (lights, green and red)
         self.drefs = []
-        self.params = []  # LIGHT_PARAM_DEF       full_custom_halo        9   R   G   B   A   S       X   Y   Z   F
+        self.params = []
         self.txy_light_obj = None
         self.stp_light_obj = None
         self.xyzPlaced = False
@@ -239,24 +240,24 @@ class LightString:
         self.lastLit = 0
         self.lightTypes = None
         self.taxiway_alt = 0
-        self.distance_between_lights = config.get("DISTANCE_BETWEEN_GREEN_LIGHTS", DISTANCE_BETWEEN_GREEN_LIGHTS)
+        self.distance_between_lights = float(get_global("DISTANCE_BETWEEN_GREEN_LIGHTS", config=config))
         if self.distance_between_lights == 0:
             self.distance_between_lights = 10
-        self.lead_off_lights = LEAD_OFF_RUNWAY_DISTANCE / self.distance_between_lights
-        self.rwy_twy_lights = self.lead_off_lights
+        self.lead_off_lights = int(float(get_global("LEAD_OFF_RUNWAY_DISTANCE", config=config)) / self.distance_between_lights)
+        self.rwy_twy_lights = self.lead_off_lights  # initial value
 
-        self.num_lights_ahead = config.get("LIGHTS_AHEAD", LIGHTS_AHEAD)  # if zero, all lights are shown, otherwise, must be >= self.rabbit_length
-        self.rabbit_length = config.get("RABBIT_LENGTH", RABBIT_LENGTH)
-        self.rabbit_duration = config.get("RABBIT_DURATION", RABBIT_DURATION)
+        self.num_lights_ahead = get_global("LIGHTS_AHEAD", config=config)  # if zero, all lights are shown, otherwise, must be >= self.rabbit_length
+        self.rabbit_length = get_global("RABBIT_LENGTH", config=config)
+        self.rabbit_duration = get_global("RABBIT_DURATION", config=config)
         self.rabbit_mode = RABBIT_MODE.MED
 
-        logger.debug(f"LightString created {self.rabbit_length}, {self.rabbit_duration}")
+        logger.debug(f"LightString created {self.rabbit_length}, {abs(self.rabbit_duration)}")
 
     def __str__(self):
         return json.dumps({"type": "FeatureCollection", "features": self.features()})
 
     def has_rabbit(self) -> bool:
-        return self.rabbit_duration > 0 and self.rabbit_length > 0
+        return abs(self.rabbit_duration) > 0 and self.rabbit_length > 0
 
     def features(self):
         fc = []
@@ -301,7 +302,7 @@ class LightString:
             return
         self.rabbit_length = length
         self.rabbit_duration = duration
-        logger.info(f"rabbit mode: {self.rabbit_length}, {self.rabbit_duration}")
+        logger.info(f"rabbit mode: {self.rabbit_length}, {abs(self.rabbit_duration)}")
 
     def populate(self, route, onRunway=False):
         # @todo: If already populated, must delete lights first
@@ -319,6 +320,8 @@ class LightString:
         currVertex = graph.get_vertex(route.route[0])
         currPoint = currVertex
         thisLights.append(Light(LIGHT_TYPE.FIRST, currPoint, 0, 0))
+        if SPECIAL_DEBUG:
+            thisLights.append(Light(LIGHT_TYPE.WARNING, currPoint, 0, 0))
         lastLight = currPoint
         # logger.debug("placed first light")
         distanceBeforeNextLight = self.distance_between_lights
@@ -358,12 +361,12 @@ class LightString:
                 # Yup, orientation may be funny, may be not square to [currVertex,nextVertex].  @todo
                 if not onRwy:  # If we are on a runway, we assume that no stopbar is necessary to leave the runway
                     logger.debug(f"departure: not on runway at edge {i}, {thisEdge.usage}")
-                    self.mkStopBar(
-                        lightAtStopbar,
-                        stopbarAt,
-                        nextVertex,
-                        "start",
-                        thisEdge.width_code,
+                    self.mkStopbar(
+                        lightIndex=lightAtStopbar,
+                        src=stopbarAt,
+                        dst=nextVertex,
+                        extremity="start",
+                        size=thisEdge.width_code,
                     )
                     self.segments += 1
                     onRwy = True  # We assume that we a setting a stopbar before a runway crossing.
@@ -393,12 +396,12 @@ class LightString:
                 # We remember the light index in the stopbar name. That way we can light the green up to the stopbar and light the stopbar
                 if not onRwy:  # If we are on a runway, we assume that no stopbar is necessary to leave the runway
                     logger.debug(f"arrival: on runway {i}, {thisEdge.usage}")
-                    self.mkStopBar(
-                        lightAtStopbar,
-                        stopbarAt,
-                        nextVertex,
-                        "start",
-                        thisEdge.width_code,
+                    self.mkStopbar(
+                        lightIndex=lightAtStopbar,
+                        src=stopbarAt,
+                        dst=nextVertex,
+                        extremity="start",
+                        size=thisEdge.width_code,
                     )
                     self.segments += 1
                     onRwy = True  # We assume that we a setting a stopbar before a runway crossing.
@@ -442,10 +445,15 @@ class LightString:
 
         if ADD_LIGHT_AT_LAST_VERTEX:  # may be we insert a last light at the last vertex?
             lastPoint = route.route[len(route.route) - 1]
+            lastVertex = graph.get_vertex(route.route[len(route.route) - 1])
             brgn = bearing(lastLight, lastPoint)
-            thisLights.append(Light(LIGHT_TYPE.TAXIWAY, lastPoint, brgn, i))
+            thisLights.append(Light(LIGHT_TYPE.TAXIWAY, lastVertex, brgn, i))
             lastLight = lastPoint
             logger.debug(f"added light at last vertex {route.route[len(route.route) - 1].id}")
+
+        if SPECIAL_DEBUG:
+            lastVertex = graph.get_vertex(route.route[len(route.route) - 1])
+            thisLights.append(Light(LIGHT_TYPE.WARNING, lastVertex, brgn, i))
 
         last = 0
         for i in range(len(self.stopbars)):
@@ -458,14 +466,7 @@ class LightString:
         return thisLights
 
     # We make a stopbar after the green light index lightIndex
-    def mkStopBar(
-        self,
-        lightIndex,
-        src,
-        dst,
-        extremity="end",
-        size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.E,
-    ):
+    def mkStopbar(self, lightIndex, src, dst, extremity="end", size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.E, light: LIGHT_TYPE = LIGHT_TYPE.STOP):
         if size is None:
             size = TAXIWAY_WIDTH_CODE.E
         brng = bearing(src, dst)
@@ -474,8 +475,7 @@ class LightString:
             start = dst
         else:
             start = src
-        stopbar = Stopbar(start, brng, lightIndex, size)
-
+        stopbar = Stopbar(position=start, heading=brng, index=lightIndex, size=size, light=light)
         self.stopbars.append(stopbar)
         logger.debug(f"added stopbar at {lightIndex}")
 
@@ -581,16 +581,18 @@ class LightString:
         if self.route.runway is None:  # no runway, all green
             logger.debug("next_taxiway_light: no runway, all greens")
             return LIGHT_TYPE.TAXIWAY
-        self.taxiway_alt = self.taxiway_alt + 1
+        self.taxiway_alt = self.taxiway_alt + 1  # alternate
         if self.rwy_twy_lights == self.lead_off_lights:  # always on runway
             if pointInPolygon(position, self.route.runway.polygon):
                 logger.debug(f"next_taxiway_light: on runway, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
                 return LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT
+        # no longer on runway, keep alterning for a few lights
         self.rwy_twy_lights = self.rwy_twy_lights - 1
         if self.rwy_twy_lights > 0:
             logger.debug(f"next_taxiway_light: not on runway, leaving, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
             return LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT
-        logger.debug(f"next_taxiway_light: no longer on runway all greens")
+        # no longer on runway, on regular taxiway
+        logger.debug(f"next_taxiway_light: no longer on runway, all greens")
         return LIGHT_TYPE.TAXIWAY
 
     def nextStop(self):
@@ -677,7 +679,8 @@ class LightString:
 
         self.rabbitIdx += 1
 
-        return max(self.rabbit_duration, HARDCODED_MIN_TIME)
+        # negative duration is not limited
+        return max(self.rabbit_duration, HARDCODED_MIN_TIME) if self.rabbit_duration > 0 else abs(self.rabbit_duration)
 
     def showAll(self, airport):
         def showSegment(s, cnt):

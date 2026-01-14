@@ -8,13 +8,14 @@ from datetime import datetime, timedelta
 from textwrap import wrap
 from functools import reduce
 
-from .globals import logger, get_global, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE
-from .nato import phonetic
+from .version import __VERSION__
+from .globals import logger, get_global, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE
 from .aircraft import Aircraft
 from .airport import Airport
 from .flightloop import FlightLoop
 from .lightstring import LightString
 from .ui import UIUtil
+from .nato import phonetic
 
 
 class FollowTheGreens:
@@ -28,12 +29,17 @@ class FollowTheGreens:
         self.segment = 0  # counter for green segments currently lit -0-----|-1-----|-2---------|-3---
         self.move = None  # departure or arrival, guessed first, can be changed by pilot.
         self.destination = None  # Handy
+
         self.ui = UIUtil(self)  # Where windows are built
         self.flightLoop = FlightLoop(self)  # where the magic is done
+
         self.airport_light_level = xp.findDataRef(AMBIANT_RWY_LIGHT_VALUE)  # [off, lo, med, hi] = [0, 0.25, 0.5, 0.75, 1]
         self.zuluTime = xp.findDataRef("sim/time/zulu_time_sec")
         self.localTime = xp.findDataRef("sim/time/local_time_sec")
         self.localDay = xp.findDataRef("sim/time/local_date_days")
+
+        logger.info("=-" * 50)
+        logger.info(f"Starting new session FtG {__VERSION__} at {datetime.now().astimezone().isoformat()}")
 
         # Load optional config file (Rel. 2 onwards)
         # Parameters in this file will overwrite (with constrain)
@@ -92,7 +98,7 @@ class FollowTheGreens:
         return 0
 
     def rabbitMode(self, mode: RABBIT_MODE):
-        self.flightLoop.rabbitMode = mode
+        self.flightLoop.manualRabbitMode(mode)
 
     def getAirport(self):
         # Search for airport or prompt for one.
@@ -193,7 +199,9 @@ class FollowTheGreens:
         self.destination = destination
         onRwy = False
         if self.move == MOVEMENT.ARRIVAL:
-            onRwy, runway = self.airport.onRunway(pos, 300)  # 150m either side of runway, return [True,Runway()] or [False, None]
+            onRwy, runway = self.airport.onRunway(
+                pos, width=RUNWAY_BUFFER_WIDTH
+            )  # RUNWAY_BUFFER_WIDTH either side of runway, return [True,Runway()] or [False, None]
         self.lights = LightString(config=self.config)
         self.lights.populate(route, onRwy)
         if len(self.lights.lights) == 0:
@@ -221,18 +229,19 @@ class FollowTheGreens:
         # Hint: distance and heading to first light
         intro = f"Follow the greens to {destination}"
         speak = f"Follow the greens to {phonetic(destination)}"
-        rt = route.text()
-        if len(rt) > 0:
-            intro = intro + f" via taxiways {rt}"
-            speak = speak + f" via taxiways {phonetic(rt)}"
-        intro = wrap(intro + ".", width=80)  # might be long
-        speak = speak + "."
+        if SAY_ROUTE:
+            rt = route.text()
+            if len(rt) > 0:
+                intro = intro + f" via taxiways {rt}"
+                speak = speak + f" via taxiways {phonetic(rt)}"
+            intro_arr = wrap(intro + ".", width=80)  # might be long
+            speak = speak + "."
         if initdiff > 20 or initdist > 200:
             dist_str = " ".join(f"{int(initdist):d}")
             hdg_str = " ".join(f"{int(initbrgn):03d}")
-            intro = intro + [f"Start is at about {int(initdist):d} meters heading {int(initbrgn):03d}."]
+            intro_arr = intro_arr + [f"Start is at about {int(initdist):d} meters heading {int(initbrgn):03d}."]
             speak = speak + f" Start is at about {phonetic(dist_str)} meters heading {phonetic(hdg_str)}."
-        logger.debug(" ".join(intro))
+        logger.debug(" ".join(intro_arr))
         xp.speakString(speak)
 
         # self.segment = 0
@@ -250,7 +259,7 @@ class FollowTheGreens:
                     logger.debug("1 segment with 0 stopbar on departure?")
                     return self.ui.promptForDeparture()
 
-        return self.ui.promptForClearance(intro=intro)
+        return self.ui.promptForClearance(intro=intro_arr)
         # return self.ui.sorry("Follow the greens is not completed yet.")  # development
 
     def nextLeg(self):
@@ -306,6 +315,8 @@ class FollowTheGreens:
 
         # Info 16
         logger.info(f"cancelled: {reason}.")
+        logger.info(f"Ending new session at {datetime.now().astimezone().isoformat()}")
+        logger.info("==" * 50)
         return [True, ""]
 
     def hourOfDay(self):

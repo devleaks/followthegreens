@@ -5,12 +5,13 @@ import os.path
 import re
 import math
 
-from .geo import Point, Line, Polygon, distance, pointInPolygon
+from .geo import Point, Line, Polygon, destination, distance, pointInPolygon
 from .graph import Graph, Edge
 from .globals import (
     logger,
     DISTANCE_TO_RAMPS,
     TAXIWAY_WIDTH_CODE,
+    RUNWAY_BUFFER_WIDTH,
     MOVEMENT,
     TOO_FAR,
     ROUTING_ALGORITHM,
@@ -19,6 +20,87 @@ from .globals import (
 )
 
 SYSTEM_DIRECTORY = "."
+
+
+class Runway(Line):
+    # A place to be. But not too long.
+    def __init__(self, name, width, lat, lon, dt, dbo, lat2, lon2, pol):
+        Line.__init__(self, Point(lat, lon), Point(lat2, lon2))
+        self.name = name
+        self.width = width
+        self.displaced_threshold = float(dt)
+        self.overrun = float(dbo)
+        if pol is None:
+            if width is not None and width > 0:
+                self.polygon = Polygon.mkPolygon(lat, lon, lat2, lon2, width)
+        else:
+            self.polygon = pol
+        self.threshold = self.start
+        self.first_exit = self.threshold
+        self.mkThreshold()
+
+    def onRunway(self, point):
+        if self.polygon is None:
+            return False
+        return pointInPolygon(point, self.polygon)
+
+    def mkThreshold(self):
+        # If no displaced threshold, the threshold is the start
+        move = self.displaced_threshold + self.overrun
+        if move == 0:
+            return
+        self.threshold = destination(src=self.start, brngDeg=self.bearing(), d=move)
+        self.first_exit = self.threshold
+        logger.debug(f"displaced threshold at {self.threshold}")
+
+    def firstEntry(self, graph):
+        # return vertex that this on taxiway network, that is NOT a on a runway edge
+        # and that is the closest to runway threshold
+        # Select vertices from segments that are not runway
+        # Select vertices that are "inside" a buffer around the runway
+        # Select the vertex closest to the start or threshold
+        buffer = Polygon.mkPolygon(self.start.lat, self.start.lon, self.end.lat, self.end.lon, RUNWAY_BUFFER_WIDTH)
+        candidates1 = []
+        for e in graph.edges_arr:
+            if e.usage == TAXIWAY_TYPE.TAXIWAY:
+                if pointInPolygon(e.start, buffer):
+                    candidates1.append(e.start)
+                if pointInPolygon(e.start, buffer):
+                    candidates1.append(e.end)
+        logger.debug(f"runway has {len(candidates1)} vertices in buffering zone")
+        # 1. keep those that are close to the runway center line
+        # @todo
+        candidates2 = candidates1
+        # 2. keep closest to threshold
+        closest = None
+        shortest = math.inf
+        for v in candidates2:
+            d = distance(v, self.threshold)
+            if d < shortest:
+                shortest = d
+                closest = v
+        if closest is not None:
+            self.first_exit = closest
+            logger.debug(f"first exit {closest.id} at {round(shortest, 2)}m from threshold")
+            return [closest.id, shortest]
+        self.first_exit = self.threshold
+        logger.debug("first exit not found, using threshold")
+        return None
+
+
+class Hold(Point):
+    # A parking area for plane
+    def __init__(self, name, lat, lon):
+        Point.__init__(self, lat, lon)
+        self.name = name
+
+
+class Ramp(Point):
+    # A parking area for plane
+    def __init__(self, name, heading, lat, lon):
+        Point.__init__(self, lat, lon)
+        self.name = name
+        self.heading = heading
 
 
 class AptLine:
@@ -39,205 +121,6 @@ class AptLine:
         return None  # line has no content
 
 
-class Runway(Line):
-    # A place to be. But not too long.
-    def __init__(self, name, width, lat, lon, lat2, lon2, pol):
-        Line.__init__(self, Point(lat, lon), Point(lat2, lon2))
-        self.name = name
-        self.width = width
-        if pol is None:
-            if width is not None and width > 0:
-                self.polygon = Polygon.mkPolygon(lat, lon, lat2, lon2, width)
-        else:
-            self.polygon = pol
-
-    def onRunway(self, point):
-        if self.polygon is None:
-            return False
-        return pointInPolygon(point, self.polygon)
-
-
-class Hold(Point):
-    # A parking area for plane
-    def __init__(self, name, lat, lon):
-        Point.__init__(self, lat, lon)
-        self.name = name
-
-
-class Ramp(Point):
-    # A parking area for plane
-    def __init__(self, name, heading, lat, lon):
-        Point.__init__(self, lat, lon)
-        self.name = name
-        self.heading = heading
-
-
-class Route:
-    # Container for route from src to dst on graph
-    def __init__(self, graph, src, dst, move, options):
-        self.graph = graph
-        self.src = src
-        self.dst = dst
-        self.move = move
-        self.options = options
-        self.route = []
-        self.vertices = None
-        self.edges = None
-        self.turns = None
-        self.smoothed = None
-        self.algorithm = ROUTING_ALGORITHM  # default, unused
-        self.runway = None
-
-    def __str__(self):
-        if self.found():
-            return "-".join(self.route)
-        return ""
-
-    def _find(
-        self,
-        algorithm: ROUTING_ALGORITHMS,
-        width_code: TAXIWAY_WIDTH_CODE,
-        move: MOVEMENT,
-        respect_width: bool = False,
-        respect_inner: bool = False,
-        use_runway: bool = True,
-        respect_oneway: bool = True,
-    ):
-        # Preselect edge set with supplied constraints
-        logger.debug("_find clone")
-        graph = self.graph.clone(
-            width_code=width_code,
-            move=self.move,
-            respect_width=respect_width,
-            respect_inner=respect_inner,
-            use_runway=use_runway,
-            respect_oneway=respect_oneway,
-        )
-
-        logger.debug(f"_find route {algorithm}")
-        if algorithm == ROUTING_ALGORITHMS.ASTAR:
-            return graph.AStar(self.src, self.dst)
-
-        return graph.Dijkstra(self.src, self.dst)  # no option
-
-    def findExtended(self, width_code: TAXIWAY_WIDTH_CODE, move: MOVEMENT):
-        # Clone orignal graph as collected from apt.dat file
-        # while relaxing some constraints during the cloning
-        # Starts with original graph, then relax constraints until route is found
-        logger.debug("findExtended started")
-        for algorithm in ROUTING_ALGORITHMS:
-            logger.debug(f"findExtended {algorithm}")
-            for respect_width_code in [True, False]:
-                # Strict
-                self.route = self._find(
-                    algorithm=algorithm,
-                    width_code=width_code,
-                    move=move,
-                    respect_width=respect_width_code,
-                    respect_inner=True,
-                    use_runway=False,
-                    respect_oneway=True,
-                )
-                if self.found():
-                    logger.debug(f"found algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=True, use_runway=False, respect_oneway=True")
-                    logger.debug("all constraints satisfied")
-                    return self
-                # Use runway
-                logger.debug(f"failed algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=True, use_runway=False, respect_oneway=True")
-                self.route = self._find(
-                    algorithm=algorithm,
-                    width_code=width_code,
-                    move=move,
-                    respect_width=respect_width_code,
-                    respect_inner=False,  # unsued anyway
-                    use_runway=True,
-                    respect_oneway=True,
-                )
-                if self.found():
-                    logger.debug(f"found algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=False, use_runway=True, respect_oneway=True")
-                    return self
-                logger.debug(f"failed algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=False, use_runway=True, respect_oneway=True")
-                # Do not respect one ways
-                self.route = self._find(
-                    algorithm=algorithm,
-                    width_code=width_code,
-                    move=move,
-                    respect_width=respect_width_code,
-                    respect_inner=False,  # unsued anyway
-                    use_runway=True,
-                    respect_oneway=False,
-                )
-                if self.found():
-                    logger.debug(f"found algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=False, use_runway=True, respect_oneway=False")
-                    return self
-                logger.debug(f"failed algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=False, use_runway=True, respect_oneway=False")
-        # We're desperate
-        logger.debug(f"findExtended failed to find restricted route, returning default wide search using algorith {self.algorithm}")
-        self.options = {}
-        logger.debug("all constraints relaxed")
-        # self.route = self._find(algorithm=ROUTING_ALGORITHM, width_code=width_code, move=move) # no other restriction
-        # logger.debug(f"find extended return {self.route}, {self.graph.Dijkstra(self.src, self.dst)}")
-        return self.find()
-
-    def find(self):
-        if self.algorithm == ROUTING_ALGORITHMS.ASTAR:
-            self.route = self.graph.AStar(self.src, self.dst)
-            return self
-        self.route = self.graph.Dijkstra(self.src, self.dst, self.options)
-        return self
-
-    def found(self):
-        return self.route is not None and len(self.route) > 2
-
-    def mkEdges(self):
-        # From liste of vertices, build list of edges
-        # but also set the size of the taxiway in the vertex
-        self.edges = []
-        for i in range(len(self.route) - 1):
-            e = self.graph.get_edge(self.route[i], self.route[i + 1])
-            v = self.graph.get_vertex(self.route[i])
-            v.setProp("taxiway-width", e.width_code)
-            v.setProp("ls", i)
-            self.edges.append(e)
-        logger.debug(f"segment costs: {[round(e.cost, 1) for e in self.edges]}")
-        logger.debug("route (raw): " + "-".join([e.name for e in self.edges]))
-
-    def mkVertices(self):
-        self.vertices = list(map(lambda x: self.graph.get_vertex(x), self.route))
-
-    def text(self, destination: str = None) -> str:
-        if self.edges is None or len(self.edges) == 0:
-            self.mkEdges()
-        route_str = ""
-        last = ""
-        for e in self.edges:
-            if e.name != last:
-                route_str = route_str + " " + e.name
-            last = e.name
-        route_str = route_str.strip()
-        logger.debug(f"route (via): {route_str}")
-        if destination is not None:
-            logger.debug(f"cleared to {destination} via {route_str}")
-        else:
-            logger.debug(f"taxi route {route_str}")
-        return route_str
-
-    def mkTurns(self):
-        # At end of edge x, turn will be turns[x] degrees
-        # Idea: while walking the lights, determine how far is next turn (position to vertex) and how much it will turn.
-        #       when closing to edge, invide to slow down if turn is important
-        #       if turn is unimportant, anticipate to next vertex
-        self.turns = [0]
-        v0 = self.graph.get_vertex(self.route[0])
-        v1 = self.graph.get_vertex(self.route[1])
-        for i in range(1, len(self.route) - 1):
-            v2 = self.graph.get_vertex(self.route[i + 1])
-            self.turns.append(v1.turn(v0, v2))
-            v0 = v1
-            v1 = v2
-        logger.debug(f"turns: {[round(t, 0) for t in self.turns]}")
-
-
 class Airport:
     """Airport represetation (limited to FTG needs)"""
 
@@ -255,6 +138,10 @@ class Airport:
         self.runways = {}
         self.holds = {}
         self.ramps = {}
+        #
+        self.smooth_line = 0
+        self.smoothGraph = Graph()
+        self.tempSmoothCurve = []
 
     def prepare(self):
         status = self.load()
@@ -364,6 +251,15 @@ class Airport:
             aptfile.write(f"{line.linecode()} {line.content()}\n")
         aptfile.close()
 
+    def smoothTaxiways(self, aptline):
+        # Create a smooth taxiway centerline network
+        # from Bézier points for strings line
+        #  - taxiway center line (1, 51)
+        #  - taxiway light line (101)
+        #  - runway safery zone green/amber lights (105) (LATER)
+        # Add Bézier curve to smoothGraph
+        self.smooth_line = self.smooth_line + 1
+
     # Collect 1201 and (102,1204) line codes and create routing network (graph) of taxiways
     def mkRoutingNetwork(self):
         # 1201  25.29549372  051.60759816 both 16 unnamed entity(split)
@@ -408,6 +304,9 @@ class Airport:
             else:
                 edge = None
 
+            if 111 <= aptline.linecode() <= 116:
+                self.smoothTaxiways(aptline)
+
         # Info 6
         logger.info(f"added {len(vertexlines)} nodes, {edgeCount} edges ({edgeActiveCount} enhanced).")
         return True
@@ -420,9 +319,13 @@ class Airport:
         for aptline in self.lines:
             if aptline.linecode() == 100:  # runway
                 args = aptline.content().split()
-                runway = Polygon.mkPolygon(args[8], args[9], args[17], args[18], float(args[0]))
-                runways[args[7]] = Runway(args[7], args[0], args[8], args[9], args[17], args[18], runway)
-                runways[args[16]] = Runway(args[16], args[0], args[17], args[18], args[8], args[9], runway)
+                runway = Polygon.mkPolygon(lat1=args[8], lon1=args[9], lat2=args[17], lon2=args[18], width=float(args[0]))
+                runways[args[7]] = Runway(
+                    name=args[7], width=args[0], lat=args[8], lon=args[9], dt=args[10], dbo=args[11], lat2=args[17], lon2=args[18], pol=runway
+                )
+                runways[args[16]] = Runway(
+                    name=args[16], width=args[0], lat=args[17], lon=args[18], dt=args[19], dbo=args[20], lat2=args[8], lon2=args[9], pol=runway
+                )
 
         self.runways = runways
         logger.debug(f"added {len(runways.keys())} runways")
@@ -576,7 +479,7 @@ class Airport:
             if src is None or src[0] is None:  # tries a less constraining search...
                 logger.debug("no vertex ahead.")
                 src = self.findClosestVertex(pos)
-            onRwy, arrival_runway = self.onRunway(pos, width=300)
+            onRwy, arrival_runway = self.onRunway(pos, width=RUNWAY_BUFFER_WIDTH)
             if onRwy:
                 logger.debug(f"Arrival: on runway {arrival_runway.name}.")
             else:
@@ -604,7 +507,7 @@ class Airport:
                 runway = self.getRunway(destination)
                 if runway:  # we sure to find one because first test
                     dstpt = runway.end  # Last "nice" turn will towards runways' end.
-                    dst = self.findClosestVertex(runway.start.coords())
+                    dst = self.findClosestVertex(runway.threshold.coords())
                 else:
                     return (False, f"We could not find runway {destination}.")
             elif destination in self.holds.keys():
@@ -636,10 +539,11 @@ class Airport:
         opts = {"taxiwayOnly": True}
         route = Route(self.graph, src[0], dst[0], move, opts)
         if USE_STRICT_MODE:
-            logger.debug("searching with all constraints..")
+            logger.debug("searching with constraints..")
             route.findExtended(width_code=aircraft.width_code, move=move)
             logger.debug("..done")
         else:
+            logger.debug("searching with loose constraints..")
             # use specified algorithm
             route.find()
             if not route.found() and len(opts.keys()) > 0:  # if there were options, we try to find a route without option
@@ -679,3 +583,173 @@ class Airport:
     # Returns all lines with supplied linecode
     def getLines(self, code):
         return list(filter(lambda x: x.linecode() == code, self.lines))
+
+
+class Route:
+    # Container for route from src to dst on graph
+    def __init__(self, graph, src, dst, move, options):
+        self.graph = graph
+        self.src = src
+        self.dst = dst
+        self.move = move
+        self.options = options
+        self.route = []
+        self.vertices = None
+        self.edges = None
+        self.turns = None
+        self.smoothed = None
+        self.algorithm = ROUTING_ALGORITHM  # default, unused
+        self.runway = None
+
+    def __str__(self):
+        if self.found():
+            return "-".join(self.route)
+        return ""
+
+    def _find(
+        self,
+        algorithm: ROUTING_ALGORITHMS,
+        width_code: TAXIWAY_WIDTH_CODE,
+        move: MOVEMENT,
+        respect_width: bool = False,
+        respect_inner: bool = False,
+        use_runway: bool = True,
+        respect_oneway: bool = True,
+    ):
+        # Preselect edge set with supplied constraints
+        logger.debug("_find clone")
+        graph = self.graph.clone(
+            width_code=width_code,
+            move=self.move,
+            respect_width=respect_width,
+            respect_inner=respect_inner,
+            use_runway=use_runway,
+            respect_oneway=respect_oneway,
+        )
+
+        logger.debug(f"_find route {algorithm}")
+        if algorithm == ROUTING_ALGORITHMS.ASTAR:
+            return graph.AStar(self.src, self.dst)
+
+        return graph.Dijkstra(self.src, self.dst)  # no option
+
+    def findExtended(self, width_code: TAXIWAY_WIDTH_CODE, move: MOVEMENT):
+        # Clone orignal graph as collected from apt.dat file
+        # while relaxing some constraints during the cloning
+        # Starts with original graph, then relax constraints until route is found
+        logger.debug("findExtended started")
+        for algorithm in [ROUTING_ALGORITHMS.ASTAR, ROUTING_ALGORITHMS.DIJKSTRA]:  # try A*Star first
+            logger.debug(f"findExtended {algorithm}")
+            for respect_width_code in [True, False]:
+
+                # Strict, do not use runways, respect oneway, respect minimal width for acf
+                self.route = self._find(
+                    algorithm=algorithm,
+                    width_code=width_code,
+                    move=move,
+                    respect_width=respect_width_code,
+                    respect_inner=True,
+                    use_runway=False,
+                    respect_oneway=True,
+                )
+                if self.found():
+                    logger.debug(f"found algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=True, use_runway=False, respect_oneway=True")
+                    logger.debug("all constraints satisfied")
+                    return self
+
+                # Do not respect one ways
+                self.route = self._find(
+                    algorithm=algorithm,
+                    width_code=width_code,
+                    move=move,
+                    respect_width=respect_width_code,
+                    respect_inner=False,  # unsued anyway
+                    use_runway=True,
+                    respect_oneway=False,
+                )
+                if self.found():
+                    logger.debug(f"found algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=False, use_runway=True, respect_oneway=False")
+                    return self
+                logger.debug(f"failed algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=False, use_runway=True, respect_oneway=False")
+
+                # Use runway
+                logger.debug(f"failed algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=True, use_runway=False, respect_oneway=True")
+                self.route = self._find(
+                    algorithm=algorithm,
+                    width_code=width_code,
+                    move=move,
+                    respect_width=respect_width_code,
+                    respect_inner=False,  # unsued anyway
+                    use_runway=True,
+                    respect_oneway=True,
+                )
+                if self.found():
+                    logger.debug(f"found algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=False, use_runway=True, respect_oneway=True")
+                    return self
+                logger.debug(f"failed algorithm={algorithm}, respect_width={respect_width_code}, respect_inner=False, use_runway=True, respect_oneway=True")
+
+        # We're desperate
+        logger.debug(f"findExtended failed to find restricted route, returning default wide search using algorith {self.algorithm}")
+        self.options = {}
+        logger.debug("all constraints relaxed")
+        # self.route = self._find(algorithm=ROUTING_ALGORITHM, width_code=width_code, move=move) # no other restriction
+        # logger.debug(f"find extended return {self.route}, {self.graph.Dijkstra(self.src, self.dst)}")
+        return self.find()
+
+    def find(self):
+        if self.algorithm == ROUTING_ALGORITHMS.ASTAR:
+            self.route = self.graph.AStar(self.src, self.dst)
+            return self
+        self.route = self.graph.Dijkstra(self.src, self.dst, self.options)
+        return self
+
+    def found(self):
+        return self.route is not None and len(self.route) > 2
+
+    def mkEdges(self):
+        # From liste of vertices, build list of edges
+        # but also set the size of the taxiway in the vertex
+        self.edges = []
+        for i in range(len(self.route) - 1):
+            e = self.graph.get_edge(self.route[i], self.route[i + 1])
+            v = self.graph.get_vertex(self.route[i])
+            v.setProp("taxiway-width", e.width_code)
+            v.setProp("ls", i)
+            self.edges.append(e)
+        logger.debug(f"segment costs: {[round(e.cost, 1) for e in self.edges]}")
+        logger.debug("route (raw): " + "-".join([e.name for e in self.edges]))
+
+    def mkVertices(self):
+        self.vertices = list(map(lambda x: self.graph.get_vertex(x), self.route))
+
+    def text(self, destination: str = None) -> str:
+        if self.edges is None or len(self.edges) == 0:
+            self.mkEdges()
+        route_str = ""
+        last = ""
+        for e in self.edges:
+            if e.name != last:
+                route_str = route_str + " " + e.name
+            last = e.name
+        route_str = route_str.strip().upper()
+        logger.debug(f"route (via): {route_str}")
+        if destination is not None:
+            logger.debug(f"cleared to {destination} via {route_str}")
+        else:
+            logger.debug(f"taxi route {route_str}")
+        return route_str
+
+    def mkTurns(self):
+        # At end of edge x, turn will be turns[x] degrees
+        # Idea: while walking the lights, determine how far is next turn (position to vertex) and how much it will turn.
+        #       when closing to edge, invide to slow down if turn is important
+        #       if turn is unimportant, anticipate to next vertex
+        self.turns = [0]
+        v0 = self.graph.get_vertex(self.route[0])
+        v1 = self.graph.get_vertex(self.route[1])
+        for i in range(1, len(self.route) - 1):
+            v2 = self.graph.get_vertex(self.route[i + 1])
+            self.turns.append(v1.turn(v0, v2))
+            v0 = v1
+            v1 = v2
+        logger.debug(f"turns: {[round(t, 0) for t in self.turns]}")

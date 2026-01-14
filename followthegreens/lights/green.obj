@@ -9,44 +9,23 @@ POINT_COUNTS    0 0 0 0
 
 # Light repeated to make it brighter
 # NAME             X   Y   Z    R   G   B   A   size <s1> <t1> <s2> <t2> dataref
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.2  0.0  0.5  0.5  0.0  UNUSED
-
-
-#            <s1> <t1> <s2> <t2>
-# TOP RIGHT: 0.5  1.0  1.0  0.5
-# TOP LEFT : 0.0  1.0  0.5  0.5
-# BOT RIGHT: 0.5  0.5  1.0  0.0
-# BOT LEFT : 0.0  0.5  0.5  0.0
-
-# LIGHT_CUSTOM       0   0   0 0.1 1.0 0.9 1   0.20 0.0  0.5  0.5  0.0  UNUSED
-
-# LIGHT_SPILL_CUSTOM -2.95 1.05 31.2 1 1 1 1 25 0.5879 0.7839 -0.2 0.85 AirbusFBW/LeftLogoSpill
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
+LIGHT_CUSTOM       0   0   0    0.1 1.0 0.1 1   0.18  0.0  0.5  0.5  0.0  UNUSED
