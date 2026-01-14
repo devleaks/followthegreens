@@ -220,7 +220,6 @@ MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before 
 
 ADD_LIGHT_AT_VERTEX = False  # Add a light at each taxiway network vertex on the path
 ADD_LIGHT_AT_LAST_VERTEX = False  # Add a light at the last vertex, even if it is closer than DISTANCE_BETWEEN_GREEN_LIGHTS
-ADD_STOPBAR_AT_LAST_VERTEX = False  # Add a stop bar at the end (artificial)
 
 # Follow the greens lighting constants
 #
@@ -279,29 +278,17 @@ class LIGHT_TYPE(StrEnum):  # DO NOT CHANGE
     STOP = "STOP"
     WARNING = "WARNING"
     LAST = "LAST"
+    VERTEX = "VERTEX"
 
 
-LIGHT_TYPE_OBJFILES = {  # key MUST be one of the above enum key
-    LIGHT_TYPE.OFF: "off_light.obj",  # physical taxiway off light, DO NOT CHANGE
-    LIGHT_TYPE.FIRST: "green.obj",  # DO NOT use file name green.obj, amber.obj, red.obj to not override default files. It might break the entire app
-    LIGHT_TYPE.TAXIWAY: "green.obj",  # DO NOT use file name green.obj, amber.obj, red.obj to not override default files. It might break the entire app
-    # LIGHT_TYPE.TAXIWAY: (
-    #     "custom_green.obj",
-    #     (0, 1, 0),
-    #     18,
-    #     20,
-    #     3,
-    # ),  # format is (filename, (red[0-1], green, blue), size[5-60], intensity[5-50], texture[0-3]) ([n-m]: value between n and m.)
+LIGHT_TYPE_OBJFILES = {
+    LIGHT_TYPE.OFF: "off_light.obj",
+    LIGHT_TYPE.FIRST: "green.obj",
+    LIGHT_TYPE.TAXIWAY: "green.obj",
     LIGHT_TYPE.TAXIWAY_ALT: "amber.obj",
     LIGHT_TYPE.STOP: "red.obj",
+    LIGHT_TYPE.VERTEX: "green.obj",
     LIGHT_TYPE.WARNING: "amber.obj",
-    # LIGHT_TYPE.WARNING: (  # exagerate big light to see it from space
-    #     "custom_warning.obj",
-    #     (1, 0, 1),
-    #     70,
-    #     40,
-    #     3,
-    # ),  # format is (filename, (red[0-1], green, blue), size[5-60], intensity[5-50], texture[0-3]) ([n-m]: value between n and m.)
     LIGHT_TYPE.LAST: "green.obj",
 }
 

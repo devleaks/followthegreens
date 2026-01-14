@@ -185,10 +185,7 @@ class Graph:  # Graph(FeatureCollection)?
         return new_vertex
 
     def get_vertex(self, n):
-        if n in self.vert_dict:
-            return self.vert_dict[n]
-        else:
-            return None
+        return self.vert_dict.get(n)
 
     # Options taxiwayOnly = True|False, minSizeCode = {A,B,C,D,E,F}
     def get_connections(self, src, options={}):
@@ -237,10 +234,10 @@ class Graph:  # Graph(FeatureCollection)?
     ):
         width_strict = False
         oneways = 0
-        logger.debug(
-            f"cloning.. width_code={width_code} (strict={width_strict}), move={move} "
-            + f"respect_width={respect_width} respect_inner={respect_inner} use_runway={use_runway} respect_oneway={respect_oneway}"
-        )
+        # logger.debug(
+        #     f"cloning.. width_code={width_code} (strict={width_strict}), move={move} "
+        #     + f"respect_width={respect_width} respect_inner={respect_inner} use_runway={use_runway} respect_oneway={respect_oneway}"
+        # )
 
         candidates = []
         for e in self.edges_arr:
@@ -282,7 +279,11 @@ class Graph:  # Graph(FeatureCollection)?
                 t = t + "_" + e.width_code.value
             graph.add_edge(Edge(start, end, e.cost, e.direction.value, t, e.name))
 
-        logger.debug(f"..cloned: {len(graph.edges_arr)}/{len(self.edges_arr)}, {oneways}.")
+        logger.debug(
+            f"cloned {len(graph.edges_arr)}/{len(self.edges_arr)}: width_code={width_code} (strict={width_strict}), move={move} "
+            + f"respect_width={respect_width} respect_inner={respect_inner} use_runway={use_runway} respect_oneway={respect_oneway}"
+        )
+        # logger.debug(f"..cloned: {len(graph.edges_arr)}/{len(self.edges_arr)}, {oneways}.")
         return graph
 
     def get_edge(self, src, dst):
@@ -497,7 +498,11 @@ class Graph:  # Graph(FeatureCollection)?
         """
         Returns a vertex's neighbors with weight to reach.
         """
-        return self.get_vertex(a).get_neighbors()
+        v = self.get_vertex(a)
+        if v is None:
+            logger.warning(f"vertex not found: {a}")
+            return []
+        return v.get_neighbors()
 
     def AStar(self, start_node, stop_node):
         # open_list is a list of nodes which have been visited, but who's neighbors

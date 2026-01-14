@@ -85,7 +85,8 @@ class PythonInterface:
         }
         # Add back to automatic mode after manual mode
         self.commands = self.commands | {
-            FTG_SPEED_COMMAND + "auto": [
+            FTG_SPEED_COMMAND
+            + "auto": [
                 FTG_SPEED_COMMAND_DESC + " autotune",
                 self.rabbitModeAuto,
             ]

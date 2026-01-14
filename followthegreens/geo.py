@@ -148,6 +148,12 @@ class Line(Feature):
     def bearing(self):
         return bearing(self.start, self.end)
 
+    def side(self, point) -> int:
+        # "formula" is 𝑑=(𝑥−𝑥1)(𝑦2−𝑦1)−(𝑦−𝑦1)(𝑥2−𝑥1), check d <,> or = 0.
+        # 1=start, 2=end, x=lat, y=lon
+        r = (point.lat - self.start.lat) * (self.end.lon - self.start.lon) - (point.lon - self.start.lon) * (self.end.lat - self.start.lat)
+        return 0 if r == 0 else (1 if r > 0 else -1)
+
 
 class LineString(Feature):
     def __init__(self, points):
