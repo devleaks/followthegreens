@@ -83,6 +83,13 @@ class PythonInterface:
             ]
             for mode in RABBIT_MODE
         }
+        # Add back to automatic mode after manual mode
+        self.commands = self.commands | {
+            FTG_SPEED_COMMAND + "auto": [
+                FTG_SPEED_COMMAND_DESC + " autotune",
+                self.rabbitModeAuto,
+            ]
+        }
 
     def debug(self, message, force: bool = False):
         if self.trace or force:
@@ -451,6 +458,26 @@ class PythonInterface:
             self.debug("rabbitMode: FollowTheGreens available.")
             try:
                 self.followTheGreens.rabbitMode(mode)
+                self.debug("rabbitMode: set.")
+                return 1
+            except:
+                self.debug("rabbitMode: exception", force=True)
+                print_exc()
+                return 0
+        elif not self.followTheGreens:
+            self.debug("rabbitMode: Error: could not create FollowTheGreens", force=True)
+        return 0
+
+    def rabbitModeAuto(self, commandRef, phase: int, refCon: Any):
+        # pylint: disable=unused-argument
+        if not self.enabled:
+            self.debug("rabbitMode: not enabled", force=True)
+            return 0
+
+        if self.followTheGreens and phase == 0:
+            self.debug("rabbitMode: FollowTheGreens available.")
+            try:
+                self.followTheGreens.rabbitModeAuto()
                 self.debug("rabbitMode: set.")
                 return 1
             except:

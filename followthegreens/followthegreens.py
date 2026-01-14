@@ -100,6 +100,9 @@ class FollowTheGreens:
     def rabbitMode(self, mode: RABBIT_MODE):
         self.flightLoop.manualRabbitMode(mode)
 
+    def rabbitModeAuto(self):
+        self.flightLoop.automaticRabbitMode()
+
     def getAirport(self):
         # Search for airport or prompt for one.
         # If airport is not equiped, we loop here until we get a suitable airport.

@@ -39,6 +39,8 @@ class FlightLoop:
         self.manual_mode = False
         self.runway_level_original = 1
 
+        self.closestLight_cnt = 0
+
     def startFlightLoop(self):
         # @todo schedule/unschedule without destroying
         phase = xp.FlightLoop_Phase_AfterFlightModel
@@ -341,9 +343,13 @@ class FlightLoop:
                 self.ftg.ui.showMainWindow(False)
 
         closestLight, distance = self.ftg.lights.closest(pos)
-        if not closestLight:
-            logger.debug("no close light.")
+        if closestLight is None:
+            if self.closestLight_cnt % 20:
+                logger.debug("no close light.")
+            self.closestLight_cnt = self.closestLight_cnt + 1
             return self.nextIter
+
+        self.closestLight_cnt = 0
 
         if self.has_rabbit():
             self.adjustRabbit(position=pos, closestLight=closestLight)  # Here is the 4D!

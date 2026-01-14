@@ -152,9 +152,9 @@ It is equivalent to selecting X-Plane Plugin menu entry.
 
 ## Release 2
 
-- [2.2.1](https://github.com/devleaks/followthegreens/releases) - ??-??-2026 - First publicly available Release 2. Monitoring aircraft speed, recommending target speed range for taxiing.
+- [2.2.1](https://github.com/devleaks/followthegreens/releases) - ??-??-2026 - First public Release 2. Monitoring aircraft speed, recommending target speed range for taxiing, better routing.
 - ... (numerous development releases with little interest for production system...)
-- 2.0.0 - 29-DEC-2025 - Added hooks for 4D FtG, updated README.
+- 2.0.0 - 29-DEC-2025 - Added hooks for FtG _4D_, updated README.
 
 
 ## Release 1
