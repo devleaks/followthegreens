@@ -421,14 +421,14 @@ class PythonInterface:
                     self.debug("showTaxiwaysCmd: exception", force=True)
                     print_exc()
                 return 0
-
-            try:
-                self.showTaxiways.start()
-                self.debug("showTaxiwaysCmd: started.")
-                return 1
-            except:
-                self.debug("showTaxiwaysCmd: exception", force=True)
-                print_exc()
+            else:
+                try:
+                    self.showTaxiways.start()
+                    self.debug("showTaxiwaysCmd: started.")
+                    return 1
+                except:
+                    self.debug("showTaxiwaysCmd: exception", force=True)
+                    print_exc()
         elif not self.showTaxiways:
             self.debug("showTaxiwaysCmd: Error: could not create ShowTaxiways.")
 
