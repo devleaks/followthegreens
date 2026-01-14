@@ -185,7 +185,7 @@ class Polygon(Feature):
         a0 = destination(p1, brng, width / 2)
         a2 = destination(p2, brng, width / 2)
         # other side of centerline
-        brng = brng - 90
+        brng = brng - 180
         a1 = destination(p1, brng, width / 2)
         a3 = destination(p2, brng, width / 2)
         # join
