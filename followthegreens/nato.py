@@ -1,4 +1,10 @@
-nato = {
+"""Convert string to NATO phonetic alphabet
+
+Attributes:
+    NATO_CHAR: Character mapping
+"""
+
+NATO_CHAR = {
     "A": "alpha",
     "B": "bravo",
     "C": "charlie",
@@ -69,17 +75,25 @@ nato = {
 }
 
 
-def nato_convert(source: str) -> str:
-    return " ".join([nato.get(c, "") for c in source.upper()])
+def nato_say(source: str) -> str:
+    """Convert word to phonetic alphabet words
+
+    Args:
+        source (str): String to convert
+
+    Returns:
+        str: String to speak
+    """
+    return " ".join([NATO_CHAR.get(c, c) for c in source.upper()])
+
 
 def phonetic(instr: str) -> str:
-    if type(instr) is not str:
-        instr = str(instr)
-    a = instr.split(" ")
-    say = []
-    for s in a:
-        if s.isalpha() and len(s) > 1:
-            say.append(s)
-        else:
-            say.append(nato_convert(s.lower()))
-    return " ".join(say)
+    """Convert entire phrase into phonetic alphabet string
+
+    Args:
+        instr (str): Phrase to convert
+
+    Returns:
+        str: Phrase to speak
+    """
+    return " ".join([w if w.isalpha() and len(w) > 1 else nato_say(w) for w in str(instr).split(" ")])

@@ -162,7 +162,7 @@ class Stopbar:
         index,
         size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.F,
         distance_between_stoplights: int = DISTANCE_BETWEEN_STOPLIGHTS,
-        light: LIGHT_TYPE = LIGHT_TYPE.STOP
+        light: LIGHT_TYPE = LIGHT_TYPE.STOP,
     ):
         self.lights = []
         self.position = position
@@ -466,15 +466,7 @@ class LightString:
         return thisLights
 
     # We make a stopbar after the green light index lightIndex
-    def mkStopbar(
-        self,
-        lightIndex,
-        src,
-        dst,
-        extremity="end",
-        size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.E,
-        light: LIGHT_TYPE = LIGHT_TYPE.STOP
-    ):
+    def mkStopbar(self, lightIndex, src, dst, extremity="end", size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.E, light: LIGHT_TYPE = LIGHT_TYPE.STOP):
         if size is None:
             size = TAXIWAY_WIDTH_CODE.E
         brng = bearing(src, dst)

@@ -60,6 +60,9 @@ def sign(x):  # there is no sign function in python...
     return 0
 
 
+MAX_SAME_POINT = 0.25  # m, 25cm
+
+
 class Feature:
     def __init__(self):
         self.properties = {}
@@ -121,6 +124,9 @@ class Point(Feature):
         if lonLat:
             return [self.lon, self.lat]
         return [self.lat, self.lon]  # should be lon, lat for pure geojson.
+
+    def isSame(self, point, maxdist: float = MAX_SAME_POINT):
+        return distance(self, point) < maxdist
 
 
 class Line(Feature):

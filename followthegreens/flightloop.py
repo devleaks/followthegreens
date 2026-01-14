@@ -36,6 +36,7 @@ class FlightLoop:
         self.last_updated = datetime.now() - timedelta(seconds=MAX_UPDATE_FREQUENCY)
         self._rabbit_mode = RABBIT_MODE.MED
         self._may_adjust_rabbit = True
+        self.manual_mode = False
         self.runway_level_original = 1
 
     def startFlightLoop(self):
@@ -130,6 +131,10 @@ class FlightLoop:
     def has_rabbit(self) -> bool:
         return self.ftg.lights.has_rabbit() if self.ftg.lights is not None else False
 
+    @property
+    def may_rabbit_autotune(self) -> bool:
+        return self._may_adjust_rabbit and not self.manual_mode
+
     def allow_rabbit_autotune(self):
         self._may_adjust_rabbit = True
         logger.debug("rabbit adjustment authorized")
@@ -137,6 +142,13 @@ class FlightLoop:
     def disallow_rabbit_autotune(self):
         self._may_adjust_rabbit = False
         logger.debug("rabbit adjustment forbidden")
+
+    def manualRabbitMode(self, mode: RABBIT_MODE):
+        self.manual_mode = True
+        self.rabbitMode = mode
+
+    def automaticRabbitMode(self):
+        self.manual_mode = False
 
     @property
     def rabbitMode(self) -> RABBIT_MODE:
@@ -149,7 +161,7 @@ class FlightLoop:
             return
         if self.rabbitMode == mode:
             return
-        if not self._may_adjust_rabbit:
+        if not self.may_rabbit_autotune:
             logger.info("rabbit adjustment forbidden")
             return
         now = datetime.now()
@@ -189,7 +201,7 @@ class FlightLoop:
         if not self.has_rabbit():
             logger.debug("..no rabbit")
             return
-        if not self._may_adjust_rabbit:
+        if not self.may_rabbit_autotune:
             logger.debug("..autotune not permitted")
             return
 

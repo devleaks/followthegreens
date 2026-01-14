@@ -198,6 +198,7 @@ class ROUTING_ALGORITHMS(StrEnum):
 
 ROUTING_ALGORITHM = ROUTING_ALGORITHMS.ASTAR  # astar, dijkstra (default)
 USE_STRICT_MODE = True  # set to True at your own risk
+SAY_ROUTE = True
 
 
 # INTERNALS
@@ -322,6 +323,6 @@ GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}  # 
 # GOOD = {"morning": 4, "day": 6, "afternoon": 9, "evening": 12, "night": 17}  # special US :-D
 
 
-def get_global(name):
+def get_global(name: str, config: dict = {}):
     # most globals are defined defined above...
-    return globals().get(name)
+    return config.get(name, globals().get(name))
