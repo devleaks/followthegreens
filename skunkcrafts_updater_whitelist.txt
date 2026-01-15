@@ -6,7 +6,6 @@ followthegreens/aircraft.py|1992493414
 followthegreens/airport.py|3287669591
 followthegreens/flightloop.py|1761835391
 followthegreens/followthegreens.py|510480389
-followthegreens/ftgconfig.toml|2891673301
 followthegreens/geo.py|4074793909
 followthegreens/globals.py|1917920887
 followthegreens/graph.py|39909128
