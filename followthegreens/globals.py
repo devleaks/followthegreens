@@ -6,14 +6,14 @@ from enum import Enum, StrEnum
 
 #
 #
-LOGGING_LEVEL = logging.INFO
+LOGGING_LEVEL = logging.DEBUG
 #
 #   You can change the above level by using logging.WARN, logging.INFO, or logging.DEBUG.
 #   In case of problem, the developer may ask you to set the level
 #   to a specific value.
 #   Messages are logged in the file called ftg_log.txt that is located
 #   in the followthegreens folder.
-#
+#   You may also change LOGGING_LEBEL in ftgconfig.toml file.
 #
 
 # ################################
@@ -316,3 +316,56 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger("FtG")
+
+MONITOR = [
+    "ADD_LIGHT_AT_LAST_VERTEX",
+    "ADD_LIGHT_AT_VERTEX",
+    "AIRPORTLIGHT_ON",
+    "AMBIANT_RWY_LIGHT_CMDROOT",
+    "AMBIANT_RWY_LIGHT_VALUE",
+    "DISTANCE_BETWEEN_GREEN_LIGHTS",
+    "DISTANCE_BETWEEN_LIGHTS",
+    "DISTANCE_BETWEEN_STOPLIGHTS",
+    "DISTANCE_TO_RAMPS",
+    "DRIFTING_DISTANCE",
+    "DRIFTING_LIMIT",
+    "FTG_BOOKMARK_COMMAND",
+    "FTG_BOOKMARK_COMMAND_DESC",
+    "FTG_CANCEL_COMMAND",
+    "FTG_CANCEL_COMMAND_DESC",
+    "FTG_CLEARANCE_COMMAND",
+    "FTG_CLEARANCE_COMMAND_DESC",
+    "FTG_COMMAND",
+    "FTG_COMMAND_DESC",
+    "FTG_IS_HOLDING",
+    "FTG_IS_RUNNING",
+    "FTG_MENU",
+    "FTG_OK_COMMAND",
+    "FTG_OK_COMMAND_DESC",
+    "FTG_PLUGIN_ROOT_PATH",
+    "FTG_SPEED_COMMAND",
+    "FTG_SPEED_COMMAND_DESC",
+    "FTG_SPEED_PARAMS",
+    "LEAD_OFF_RUNWAY_DISTANCE",
+    "LIGHT_TYPE_OBJFILES",
+    "LIGHTS_AHEAD",
+    "LOGGING_LEVEL",
+    "MAINWINDOW_FROM_BOTTOM",
+    "MAINWINDOW_FROM_LEFT",
+    "MAINWINDOW_HEIGHT",
+    "MAINWINDOW_WIDTH",
+    "MIN_SEGMENTS_BEFORE_HOLD",
+    "PLANE_MONITOR_DURATION",
+    "RABBIT_DURATION",
+    "RABBIT_LENGTH",
+    "ROUTING_ALGORITHM",
+    "RUNWAY_BUFFER_WIDTH",
+    "RUNWAY_LIGHT_LEVEL_WHILE_FTG",
+    "SAY_ROUTE",
+    "STW_COMMAND",
+    "STW_COMMAND_DESC",
+    "STW_MENU",
+    "TOO_FAR",
+    "USE_STRICT_MODE",
+    "WARNING_DISTANCE",
+]

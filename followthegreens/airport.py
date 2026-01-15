@@ -626,11 +626,11 @@ class Airport:
         opts = {"taxiwayOnly": True}
         route = Route(self.graph, src[0], dst[0], move, opts)
         if use_strict_mode:
-            logger.debug("searching with constraints..")
+            logger.info("searching with constraints..")
             route.findExtended(width_code=aircraft.width_code, move=move, use_runway=arrival_runway is not None)
             logger.debug("..done")
         else:
-            logger.debug("searching with loose constraints..")
+            logger.info("searching with loose constraints..")
             # use specified algorithm
             route.find()
             if not route.found() and len(opts.keys()) > 0:  # if there were options, we try to find a route without option
@@ -730,7 +730,7 @@ class Route:
                 f"found algorithm={algorithm}, respect_width={respect_width}, respect_inner={respect_inner}, use_runway={use_runway}, respect_oneway={respect_oneway}"
             )
         else:
-            logger.debug(
+            logger.info(
                 f"failed algorithm={algorithm}, respect_width={respect_width}, respect_inner={respect_inner}, use_runway={use_runway}, respect_oneway={respect_oneway}"
             )
         return r
@@ -786,7 +786,7 @@ class Route:
                     return self
 
         # We're desperate
-        logger.debug(f"failed to find restricted route, returning default wide search using preferred algorith {self.algorithm}")
+        logger.info(f"failed to find restricted route, trying wide search using preferred algorith {self.algorithm}")
         self.options = {}
         logger.debug("all constraints relaxed")
         # self.route = self._find(algorithm=ROUTING_ALGORITHM, width_code=width_code, move=move) # no other restriction
