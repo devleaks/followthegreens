@@ -21,8 +21,3 @@ followthegreens/nato.py|2018
 followthegreens/showtaxiways.py|6001
 followthegreens/ui.py|19752
 followthegreens/version.py|23
-out/EBBR.linear_features.geojson|809208
-out/EDDF.linear_features.geojson|1401906
-out/LFBO.linear_features.geojson|450706
-out/OMDB.linear_features.geojson|1261133
-out/OTHH.linear_features.geojson|506195
