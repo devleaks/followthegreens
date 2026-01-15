@@ -447,7 +447,7 @@ class LightString:
             lastPoint = route.route[len(route.route) - 1]
             lastVertex = graph.get_vertex(route.route[len(route.route) - 1])
             brgn = bearing(lastLight, lastPoint)
-            thisLights.append(Light(LIGHT_TYPE.TAXIWAY, lastVertex, brgn, i))
+            thisLights.append(Light(LIGHT_TYPE.VERTEX, lastVertex, brgn, i))
             lastLight = lastPoint
             logger.debug(f"added light at last vertex {route.route[len(route.route) - 1].id}")
 

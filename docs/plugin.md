@@ -84,6 +84,8 @@ And monitor your brakes temperature.
 
 ## What's New in Release 2
 
+Release 2 is called _Follow the greens 4D_ (and may be abbreviated FtG4D).
+
 - Follow the greens «rabbit» light speed and length automagically adjusted to invite pilots to speed up or slow down taxi ride.
 - A few parameters can be adjusted in a configuration file.
 - Routing algorithms attempt to respect taxiway network constraints.
@@ -150,15 +152,14 @@ It is equivalent to selecting X-Plane Plugin menu entry.
 
 ## Release 2
 
-- [2.2.1](https://github.com/devleaks/followthegreens/releases) - ??-??-2026 - First publicly available Release 2. Monitoring aircraft speed, recommending target speed range for taxiing.
+- [2.2.1](https://github.com/devleaks/followthegreens/releases) - ??-??-2026 - First public Release 2. Monitoring aircraft speed, recommending target speed range for taxiing, better routing.
 - ... (numerous development releases with little interest for production system...)
-- 2.0.0 - 29-DEC-2025 - Added hooks for 4D FtG, updated README.
+- 2.0.0 - 29-DEC-2025 - Added hooks for FtG _4D_, updated README.
 
 
 ## Release 1
 
-- [1.7.0](https://github.com/devleaks/followthegreens/releases) - ??-JAN-2026 - Last Release 1 version (will only provide critical fixes).
-- 1.6.7 - 21-FEB-2024 - Added skunkcrafts updater files
+- [1.7.0](https://github.com/devleaks/followthegreens/releases/tag/1.7.0) - 14-JAN-2026 - Last Release 1 version (will only provide critical fixes).
 - 1.6.6 - 21-FEB-2024 - Added Cancel and OK (finish, bye, etc.) commands
 - 1.6.5 - 20-FEB-2024 - Now opening all files as UTF-8 files. Code blackened.
 - ...

@@ -7,6 +7,7 @@ import xp
 
 from .globals import (
     logger,
+    get_global,
     RABBIT_MODE,
     PLANE_MONITOR_DURATION,
     DISTANCE_BETWEEN_GREEN_LIGHTS,
@@ -38,6 +39,8 @@ class FlightLoop:
         self._may_adjust_rabbit = True
         self.manual_mode = False
         self.runway_level_original = 1
+
+        self.closestLight_cnt = 0
 
     def startFlightLoop(self):
         # @todo schedule/unschedule without destroying
@@ -73,7 +76,7 @@ class FlightLoop:
             logger.debug("plane tracked.")
 
         # Dim runway lights according to preferences
-        ll = self.ftg.get_config("RUNWAY_LIGHT_LEVEL_WHILE_FTG")
+        ll = get_global("RUNWAY_LIGHT_LEVEL_WHILE_FTG", config=self.ftg.config)
         if self.planeRunning and self.ftg.airport_light_level is not None:
             self.runway_level_original = xp.getDataf(self.ftg.airport_light_level)
             if ll is not None:
@@ -145,10 +148,12 @@ class FlightLoop:
 
     def manualRabbitMode(self, mode: RABBIT_MODE):
         self.manual_mode = True
+        logger.debug("manual rabbit mode")
         self.rabbitMode = mode
 
     def automaticRabbitMode(self):
         self.manual_mode = False
+        logger.debug("rabbit mode automagic")
 
     @property
     def rabbitMode(self) -> RABBIT_MODE:
@@ -341,9 +346,13 @@ class FlightLoop:
                 self.ftg.ui.showMainWindow(False)
 
         closestLight, distance = self.ftg.lights.closest(pos)
-        if not closestLight:
-            logger.debug("no close light.")
+        if closestLight is None:
+            if self.closestLight_cnt % 20:
+                logger.debug("no close light.")
+            self.closestLight_cnt = self.closestLight_cnt + 1
             return self.nextIter
+
+        self.closestLight_cnt = 0
 
         if self.has_rabbit():
             self.adjustRabbit(position=pos, closestLight=closestLight)  # Here is the 4D!

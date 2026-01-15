@@ -31,6 +31,7 @@ class ShowTaxiways:
         self.airport = None
         self.aircraft = None
         self.lights = None
+        self.localTime = xp.findDataRef("sim/time/local_time_sec")
         self.ui = UIUtil(self)  # Where windows are built
 
     def start(self):
@@ -48,6 +49,7 @@ class ShowTaxiways:
         if mainWindow and not xp.isWidgetVisible(mainWindow):
             xp.showWidget(mainWindow)
             logger.debug("mainWindow shown")
+        self.__status = ShowTaxiways.STATUS["ACTIVE"]
         logger.info("..started.")
         return 1  # window displayed
 
@@ -107,28 +109,39 @@ class ShowTaxiways:
         # Info 13
         logger.info(f"Added {len(self.lights.lights)} lights.")
 
-        if self.pi is not None and self.pi.menuIdx is not None and self.pi.menuIdx >= 0:
-            xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Checked)
-            logger.debug(f"menu checked ({self.pi.menuIdx})")
-        else:
-            logger.debug(f"menu not checked ({self.pi.menuIdx})")
+        # if self.pi is not None and self.pi.menuIdx_st is not None and self.pi.menuIdx_st >= 0:
+        #     try:
+        #         xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx_st, xp.Menu_Checked)
+        #         logger.debug(f"menu checked ({self.pi.menuIdx_st})")
+        #     except:
+        #         logger.debug(
+        #             f"menu not checked ({self.pi.menuIdx_st}, {xp.Menu_Unchecked})",
+        #             exc_info=True,
+        #         )
+        # else:
+        #     logger.debug(f"menu not checked ({self.pi.menuIdx_st})")
 
         return self.ui.enjoy()
         # return self.ui.sorry("Follow the greens is not completed yet.")  # development
+
+    def hourOfDay(self):
+        return int(xp.getDataf(self.localTime) / 3600)  # seconds since midnight??
 
     def cancel(self, reason="unspecified"):
         if self.lights:
             self.lights.destroy()
             self.lights = None
-            if self.pi is not None and self.pi.menuIdx is not None and self.pi.menuIdx >= 0:
-                try:
-                    xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx, xp.Menu_Unchecked)
-                    logger.debug(f"menu unchecked ({self.pi.menuIdx})")
-                except:
-                    logger.debug(
-                        f"menu not unchecked ({self.pi.menuIdx}, {xp.Menu_Unchecked})",
-                        exc_info=True,
-                    )
+            # if self.pi is not None and self.pi.menuIdx_st is not None and self.pi.menuIdx_st >= 0:
+            #     try:
+            #         xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx_st, xp.Menu_Unchecked)
+            #         logger.debug(f"menu unchecked ({self.pi.menuIdx_st})")
+            #     except:
+            #         logger.debug(
+            #             f"menu not unchecked ({self.pi.menuIdx_st}, {xp.Menu_Unchecked})",
+            #             exc_info=True,
+            #         )
+            # else:
+            #     logger.debug(f"menu not unchecked ({self.pi.menuIdx_st})")
 
         if self.ui.mainWindowExists():
             self.ui.destroyMainWindow()

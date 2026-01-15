@@ -4,33 +4,25 @@ import os
 import logging
 from enum import Enum, StrEnum
 
-# Setup logging
-plugin_path = os.path.dirname(__file__)
-FORMAT = "%(levelname)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
-LOGFILENAME = "ftg_log.txt"
-logging.basicConfig(
-    #
-    #
-    level=logging.DEBUG,
-    #
-    #   You can change the above level by using WARN, INFO, or DEBUG.
-    #   In case of problem, the developer may ask you to set the level
-    #   to a specific value.
-    #   Messages are logged in the file called ftg_log.txt that is located
-    #   in the followthegreens folder.
-    #
-    #
-    format=FORMAT,
-    handlers=[
-        logging.FileHandler(os.path.join(plugin_path, "..", LOGFILENAME)),
-        logging.StreamHandler(),
-    ],
-)
-logger = logging.getLogger("FtG")
+#
+#
+LOGGING_LEVEL = logging.INFO
+#
+#   You can change the above level by using logging.WARN, logging.INFO, or logging.DEBUG.
+#   In case of problem, the developer may ask you to set the level
+#   to a specific value.
+#   Messages are logged in the file called ftg_log.txt that is located
+#   in the followthegreens folder.
+#
+#
 
-SHOW_TRACE = True
-
-# X-Plane Interface
+# ################################
+# FTG INTERNALS
+#
+# TAXIWAY NETWORK
+#
+# X-Plane APT files constants and keywords
+#
 FTG_PLUGIN_ROOT_PATH = "XPPython3/followthegreens/"
 
 
@@ -48,6 +40,33 @@ class FTG_FSM(StrEnum):
     RUNNING = "RUNNING"
     WAIT_CLR = "WAIT FOR CLEARANCE"
     WAIT_END = "WAIT END"
+
+
+class NODE_TYPE(StrEnum):
+    BOTH = "both"
+    DESTNATION = "dest"
+    DEPART = "init"
+    JUNCTION = "junc"
+
+
+class TAXIWAY_DIRECTION(StrEnum):
+    ONEWAY = "oneway"
+    TWOWAY = "twoway"
+    INNER = "inner"
+    OUTER = "outer"
+    BOTH = "both"
+
+
+class TAXIWAY_TYPE(StrEnum):
+    TAXIWAY = "taxiway"
+    RUNWAY = "runway"
+    BOTH = "both"
+
+
+class TAXIWAY_ACTIVE(StrEnum):
+    DEPARTURE = "departure"
+    ARRIVAL = "arrival"
+    ILS = "ils"
 
 
 # ################################
@@ -100,6 +119,7 @@ AIRPORTLIGHT_ON = "sim/graphics/scenery/airport_lights_on"
 # Preferences
 RUNWAY_LIGHT_LEVEL_WHILE_FTG = AMBIANT_RWY_LIGHT.LOW
 
+
 # ################################
 # FTG USER INTERFACE
 #
@@ -115,40 +135,6 @@ MAINWINDOW_FROM_BOTTOM = 80  # Distance of the bottom of the main window from th
 # don't touch those:
 MAINWINDOW_WIDTH = 500  # Normal main window width. May need adjustment if font size is changed
 MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from space and title bar
-
-
-# ################################
-# FTG INTERNALS
-#
-# TAXIWAY NETWORK
-#
-# X-Plane APT files constants and keywords
-#
-class NODE_TYPE(StrEnum):
-    BOTH = "both"
-    DESTNATION = "dest"
-    DEPART = "init"
-    JUNCTION = "junc"
-
-
-class TAXIWAY_DIRECTION(StrEnum):
-    ONEWAY = "oneway"
-    TWOWAY = "twoway"
-    INNER = "inner"
-    OUTER = "outer"
-    BOTH = "both"
-
-
-class TAXIWAY_TYPE(StrEnum):
-    TAXIWAY = "taxiway"
-    RUNWAY = "runway"
-    BOTH = "both"
-
-
-class TAXIWAY_ACTIVE(StrEnum):
-    DEPARTURE = "departure"
-    ARRIVAL = "arrival"
-    ILS = "ils"
 
 
 # AIRPORT/AERONAUTICAL CONSTANTS
@@ -220,7 +206,6 @@ MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before 
 
 ADD_LIGHT_AT_VERTEX = False  # Add a light at each taxiway network vertex on the path
 ADD_LIGHT_AT_LAST_VERTEX = False  # Add a light at the last vertex, even if it is closer than DISTANCE_BETWEEN_GREEN_LIGHTS
-ADD_STOPBAR_AT_LAST_VERTEX = False  # Add a stop bar at the end (artificial)
 
 # Follow the greens lighting constants
 #
@@ -279,29 +264,17 @@ class LIGHT_TYPE(StrEnum):  # DO NOT CHANGE
     STOP = "STOP"
     WARNING = "WARNING"
     LAST = "LAST"
+    VERTEX = "VERTEX"
 
 
-LIGHT_TYPE_OBJFILES = {  # key MUST be one of the above enum key
-    LIGHT_TYPE.OFF: "off_light.obj",  # physical taxiway off light, DO NOT CHANGE
-    LIGHT_TYPE.FIRST: "green.obj",  # DO NOT use file name green.obj, amber.obj, red.obj to not override default files. It might break the entire app
-    LIGHT_TYPE.TAXIWAY: "green.obj",  # DO NOT use file name green.obj, amber.obj, red.obj to not override default files. It might break the entire app
-    # LIGHT_TYPE.TAXIWAY: (
-    #     "custom_green.obj",
-    #     (0, 1, 0),
-    #     18,
-    #     20,
-    #     3,
-    # ),  # format is (filename, (red[0-1], green, blue), size[5-60], intensity[5-50], texture[0-3]) ([n-m]: value between n and m.)
+LIGHT_TYPE_OBJFILES = {
+    LIGHT_TYPE.OFF: "off_light.obj",
+    LIGHT_TYPE.FIRST: "green.obj",
+    LIGHT_TYPE.TAXIWAY: "green.obj",
     LIGHT_TYPE.TAXIWAY_ALT: "amber.obj",
     LIGHT_TYPE.STOP: "red.obj",
+    LIGHT_TYPE.VERTEX: "green.obj",
     LIGHT_TYPE.WARNING: "amber.obj",
-    # LIGHT_TYPE.WARNING: (  # exagerate big light to see it from space
-    #     "custom_warning.obj",
-    #     (1, 0, 1),
-    #     70,
-    #     40,
-    #     3,
-    # ),  # format is (filename, (red[0-1], green, blue), size[5-60], intensity[5-50], texture[0-3]) ([n-m]: value between n and m.)
     LIGHT_TYPE.LAST: "green.obj",
 }
 
@@ -326,3 +299,20 @@ GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}  # 
 def get_global(name: str, config: dict = {}):
     # most globals are defined defined above...
     return config.get(name, globals().get(name))
+
+
+# ################################
+# LOGGING
+#
+plugin_path = os.path.dirname(__file__)
+FORMAT = "%(levelname)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
+LOGFILENAME = "ftg_log.txt"
+logging.basicConfig(
+    level=get_global("LOGGING_LEVEL"),
+    format=FORMAT,
+    handlers=[
+        logging.FileHandler(os.path.join(plugin_path, "..", LOGFILENAME)),
+        logging.StreamHandler(),
+    ],
+)
+logger = logging.getLogger("FtG")

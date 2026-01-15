@@ -152,7 +152,7 @@ XPPython3 release 4 or above is required.
 
 # Configuration Parameters
 
-Follow the greens exposes a few limited set of configuration parameters.
+Follow the greens exposes a few limited set of preference parameters.
 Parameters are specified in a configuration file that can be found at
 on of the two following locations:
 
@@ -164,6 +164,7 @@ or
 
 `<X-Plane 12 Folder> / Output / preferences / ftgconfig.toml`
 
+(The first one takes precedence on the second one.)
 
 Here is a template of the configutation file.
 It is a [TOML](https://toml.io/en/) formatted file.
@@ -179,13 +180,17 @@ RABBIT_DURATION = 0.2   # seconds, no less than 0.1
 RUNWAY_LIGHT_LEVEL_WHILE_FTG = "lo"  # off, lo, med, hi
 ```
 
+Parameters in the above file refer to the following items:
+
 ![Parameters](images/parameters.png)
+
 
 Please note that the values you enter here may affect X-Plane performances (faster rabbit, numerous taxiway lights...)
 
 Here is description of the parameters available for customization.
 
-## Runway Light Control
+
+## Runway Light Intensity Control
 
 While FtG rabbit runs, all runway lights are dimmed to a preference value:
 
@@ -212,7 +217,29 @@ standard X-Plane commands:
 - `sim/operation/rwy_lights_hi` (sim/graphics/scenery/airport_light_level=1)
 
 
-## Rabbit Speed
+## Automagic Rabbit Speed Control
+
+The goal of Release 2 is to supply taxi speed information to the pilot in addition to the direction (follow the greens).
+The speed information is supplied with two _indicators_:
+
+- The *speed of the «rabbit»* (the faster the rabbit, the faster you should run to catch it up, the slower the rabbit, the slower you should go.)
+- The *length of the rabbit run* (the longer the rabbit, the more you can keep up with that speed, do not expect speed change.)
+
+
+The control of the speed works as follow:
+
+From the position of the aircraft, the distance to the next significan turn,
+and the type of the aircraft (if available), a speed range is estimated (min value, max value).
+
+- If the aircraft is at or below the minimum range speed, the rabbit will propose to accelerate (run faster). This is indicated by a faster rabbit sequence.
+- If the aircraft is at or above the maximum range speed, the rabbit will propose to slow down. This is indicated by a slower rabbit sequence.
+- If the aircraft nears a stop light or the end of the greens (at about 200 meters from it), the rabbit will propose to slow down.
+- If the aircraft moves at a speed within its estimated range, the rabbit runs at normal speed.
+
+Warning and braking distances are estimeted from the current speed and aircraft type if available.
+
+
+## Manual Rabbit Speed Control
 
 The speed and length of the rabbit can be controlled by two preference parameters:
 
@@ -232,27 +259,9 @@ You can manually adjust rabbit speed and length with the following FtG commands:
 If you force the rabbit speed and length using one of the above command,
 rabbit auto-tuning will be disabled for this run of Follow the greeens.
 
+- `XPPython3/followthegreens/speed_auto`
 
-## Automagic Rabbit Speed Control
-
-The goal of Release 2 is to supply taxi speed information to the pilot in addition to the direction (Follow the greens).
-The speed information is supplied with two «variables»:
-
-- The speed of the «rabbit» (the faster the rabbit, the faster you should run to catch it up, the slower the rabbit, the slower you should go.)
-- The length of the rabbit run (the longer the rabbit, the more you can keep up with that speed, do not expect speed change.)
-
-
-The control of the speed works as follow:
-
-From the position of the aircraft, the distance to the next significan turn,
-and the type of the aircraft (if available), a speed range is estimated (min value, max value).
-
-- If the aircraft is at or below the minimum range speed, the rabbit will propose to accelerate (run faster). This is indicated by a faster rabbit sequence.
-- If the aircraft is at or above the maximum range speed, the rabbit will propose to slow down. This is indicated by a slower rabbit sequence.
-- If the aircraft nears a stop light or the end of the greens (at about 200 meters from it), the rabbit will propose to slow down.
-- If the aircraft moves at a speed within its estimated range, the rabbit runs at normal speed.
-
-Warning and braking distances are estimeted from the current speed and aircraft type if available.
+will set rabbit mode back to automagic tuning depending on aircraft speed and recommended speed range.
 
 
 # Notes on Performances
