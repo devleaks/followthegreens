@@ -9,12 +9,12 @@ from typing import Any
 
 import xp
 
-from followthegreens import __VERSION__, __NAME__, __SIGNATURE__, __DESCRIPTION__
+from followthegreens import __VERSION__, __NAME__, __DESCRIPTION__
 from followthegreens import (
     FollowTheGreens,
     ShowTaxiways,
     RABBIT_MODE,
-    SHOW_TRACE,
+    FTG_PLUGIN_ROOT_PATH,
     FTG_CANCEL_COMMAND,
     FTG_CANCEL_COMMAND_DESC,
     FTG_OK_COMMAND,
@@ -34,12 +34,15 @@ from followthegreens import (
     STW_MENU,
 )
 
+# Produces additional debugging information in XPPython3Log.txt file if set to True
+SHOW_TRACE = False
+
 
 class PythonInterface:
 
     def __init__(self):
         self.Name = __NAME__
-        self.Sig = __SIGNATURE__
+        self.Sig = FTG_PLUGIN_ROOT_PATH.strip("/").replace("/", ".")
         self.Desc = __DESCRIPTION__ + " (Rel. " + __VERSION__ + ")"
         self.Info = self.Name + f" {__VERSION__}"
 

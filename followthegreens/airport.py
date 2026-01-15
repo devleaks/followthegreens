@@ -1,12 +1,13 @@
 # Airport Utility Class
 # Airport information container: name, taxi routes, runways, ramps, holding positions, etc.
 #
-import os.path
+import os
 import re
 import math
+from typing import Tuple, Dict
 
 from .geo import Point, Line, Polygon, destination, distance, pointInPolygon
-from .graph import Graph, Edge
+from .graph import Graph, Edge, Vertex
 from .globals import (
     logger,
     DISTANCE_TO_RAMPS,
@@ -17,7 +18,6 @@ from .globals import (
     TOO_FAR,
     ROUTING_ALGORITHM,
     ROUTING_ALGORITHMS,
-    USE_STRICT_MODE,
 )
 from followthegreens import graph
 
@@ -53,9 +53,9 @@ class Runway(Line):
             return
         self.threshold = destination(src=self.start, brngDeg=self.bearing(), d=move)
         self.first_exit = self.threshold
-        logger.debug(f"displaced threshold at {self.threshold}")
+        logger.debug(f"displaced threshold at {round(move,1)}m")
 
-    def runwayExits(self, graph) -> set:
+    def runwayExits(self, graph: Graph) -> set:
         # return vertex that this on taxiway network, that is NOT a on a runway edge
         # and that is the closest to runway threshold
         # Select vertices from segments that are not runway
@@ -72,7 +72,7 @@ class Runway(Line):
         logger.debug(f"runway has {len(candidates)} vertices in buffering zone (width={RUNWAY_BUFFER_WIDTH}m)")
         return candidates
 
-    def firstEntry(self, graph):
+    def firstEntry(self, graph: Graph):
         # return vertex that this on taxiway network, that is NOT a on a runway edge
         # and that is the closest to runway threshold
         # Select vertices from segments that are not runway
@@ -95,7 +95,7 @@ class Runway(Line):
         logger.debug("entry closest to threshold not found, using threshold")
         return None
 
-    def nextExit(self, graph, pos, destination):
+    def nextExit(self, graph: Graph, pos: tuple, destination: Vertex) -> Tuple[str, float] | None:
         # return next vertex that this on taxiway network, that is NOT a on a runway edge
         # and that is the closest to position and "in front of" the position (i.e. close to end edge than position)
         # Aircraft landed, is rolling out, prompt for the greens.
@@ -258,7 +258,7 @@ class Airport:
             if self.loaded:
                 return self.loaded
 
-            logger.debug(f"scenery pack {scenery}..")
+            logger.debug(f"scenery pack {scenery.strip()}..")
             apt_dat = open(filename, "r", encoding="utf-8", errors="ignore")
             line = apt_dat.readline()
 
@@ -272,14 +272,14 @@ class Airport:
                         # Info 4.a
                         logger.info(f"Found airport {newparam[4]} '{self.name}' in '{filename}'.")
                         self.scenery_pack = filename  # remember where we found it
-                        self.lines.append(AptLine(line))  # keep first line
+                        self.lines.append(AptLine(line.strip()))  # keep first line
                         line = apt_dat.readline()  # next line in apt.dat
                         while line and not re.match("^1 ", line, flags=0):  # while we do not encounter a line defining a new airport...
-                            testline = AptLine(line)
+                            testline = AptLine(line.strip())
                             if testline.linecode() is not None:
                                 self.lines.append(testline)
                             else:
-                                logger.debug(f"did not load empty line '{line}'")
+                                logger.debug(f"did not load empty line '{line.strip()}'")
                             line = apt_dat.readline()  # next line in apt.dat
                         # Info 4.b
                         logger.info(f"Read {len(self.lines)} lines for {self.name}")
@@ -445,23 +445,50 @@ class Airport:
         logger.debug(f"{closest} at {shortest}")
         return [closest, shortest]
 
-    def onRunway(self, coord, width=None):
+    def onRunway(self, position, width: float | None = None, heading: float | None = None):
         # Width is in meter
-        logger.debug(f"onRunway? {coord} (width={width})")
-        point = Point(coord[0], coord[1])
+        logger.debug(f"onRunway? position={position}, width={width}, heading={heading}")
+        point = Point(position[0], position[1])
+
+        if heading is not None:
+            for name, rwy in self.runways.items():
+                polygon = None
+                if width is None:
+                    polygon = rwy.polygon
+                else:  # make a larger area around/along runway (larger than runway width)
+                    polygon = Polygon.mkPolygon(rwy.start.lat, rwy.start.lon, rwy.end.lat, rwy.end.lon, float(width))
+                if polygon is not None:
+                    if pointInPolygon(point, polygon):
+                        d = abs(heading - rwy.bearing())
+                        # logger.debug(f"orientation (ac heading={round(heading, 1)}, rwy heading={round(rwy.bearing(), 1)}, delta={round(d, 2)}")
+                        if d > 330:
+                            d = abs(d - 360)
+                        logger.debug(f"orientation (ac heading={round(heading, 1)}, rwy heading={round(rwy.bearing(), 1)}, delta={round(d, 2)}")
+                        if d < 90:  # assume same heading
+                            logger.debug(
+                                f"on {name}, same orientation (rwy width={rwy.width}m, ac heading={round(heading, 1)}, rwy heading={round(rwy.bearing(), 1)}, delta={round(d, 2)})"
+                            )
+                            return [True, rwy]
+                    else:
+                        logger.debug(f"not on runway {name} (rwy width={rwy.width}m)")  # , {polygon.coords()}
+                else:
+                    logger.debug(f"no polygon for runway {name}")
+            # 2nd attempt if not found above: ignore heading
+
         for name, rwy in self.runways.items():
             polygon = None
             if width is None:
                 polygon = rwy.polygon
             else:  # make a larger area around/along runway (larger than runway width)
                 polygon = Polygon.mkPolygon(rwy.start.lat, rwy.start.lon, rwy.end.lat, rwy.end.lon, float(width))
-            if pointInPolygon(point, polygon):
-                if width:
-                    logger.debug(f"on {name} (buffer={width}m)")
+            if polygon is not None:
+                if pointInPolygon(point, polygon):
+                    logger.debug(f"on {name}, no orientation (rwy width={rwy.width}m)")
+                    return [True, rwy]
                 else:
-                    logger.debug(f"on {name} (width={rwy.width}m)")
-                return [True, rwy]
-            logger.debug(f"not on runway {name} (buffer={'- ' if width is None else width}m, width={rwy.width}m)")  # , {polygon.coords()}
+                    logger.debug(f"not on runway {name}")  # , {polygon.coords()}
+            else:
+                logger.debug(f"no polygon for runway {name}")
 
         return [False, None]
 
@@ -504,10 +531,11 @@ class Airport:
 
         return list(self.ramps.keys())
 
-    def mkRoute(self, aircraft, destination, move):
+    def mkRoute(self, aircraft, destination, move: MOVEMENT, use_strict_mode: bool):
         # Returns (True, route object) or (False, error message)
         # From aircraft position..
         pos = aircraft.position()
+        hdg = aircraft.heading()
         dstpt = None
         runway = None
         arrival_runway = None
@@ -526,7 +554,7 @@ class Airport:
             if src is None or src[0] is None:  # tries a less constraining search...
                 logger.debug("no vertex ahead.")
                 src = self.findClosestVertex(pos)
-            onRwy, arrival_runway = self.onRunway(pos, width=RUNWAY_BUFFER_WIDTH)
+            onRwy, arrival_runway = self.onRunway(pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg)
             if onRwy:
                 if arrival_runway is not None:
                     ramp = self.getRamp(destination)
@@ -550,7 +578,7 @@ class Airport:
             return (False, "Your plane is too far from the taxiways.")
 
         if src[1] > TOO_FAR:
-            logger.debug("plane too far from taxiways")
+            logger.debug(f"plane too far from taxiways ({round(src[1], 2)}m)")
             return (False, "Your plane is too far from the taxiways.")
 
         logger.debug(f"got starting vertex {src}")
@@ -597,9 +625,9 @@ class Airport:
         # Try to find route (src and dst are vertex ids)
         opts = {"taxiwayOnly": True}
         route = Route(self.graph, src[0], dst[0], move, opts)
-        if USE_STRICT_MODE:
+        if use_strict_mode:
             logger.debug("searching with constraints..")
-            route.findExtended(width_code=aircraft.width_code, move=move)
+            route.findExtended(width_code=aircraft.width_code, move=move, use_runway=onRwy)
             logger.debug("..done")
         else:
             logger.debug("searching with loose constraints..")
@@ -707,7 +735,7 @@ class Route:
             )
         return r
 
-    def findExtended(self, width_code: TAXIWAY_WIDTH_CODE, move: MOVEMENT):
+    def findExtended(self, width_code: TAXIWAY_WIDTH_CODE, move: MOVEMENT, use_runway: bool = False):
         # Clone orignal graph as collected from apt.dat file
         # while relaxing some constraints during the cloning
         # Starts with original graph, then relax constraints until route is found
@@ -715,18 +743,21 @@ class Route:
         for algorithm in [ROUTING_ALGORITHMS.ASTAR, ROUTING_ALGORITHMS.DIJKSTRA]:  # try A*Star first
             for respect_width_code in [True, False]:
 
-                # Strict, do not use runways, respect oneway, respect minimal width for acf
-                self.route = self._find(
-                    algorithm=algorithm,
-                    width_code=width_code,
-                    move=move,
-                    respect_width=respect_width_code,
-                    respect_inner=True,
-                    use_runway=False,
-                    respect_oneway=True,
-                )
-                if self.found():
-                    return self
+                if not use_runway:
+                    # Strict, do not use runways, respect oneway, respect minimal width for acf
+                    self.route = self._find(
+                        algorithm=algorithm,
+                        width_code=width_code,
+                        move=move,
+                        respect_width=respect_width_code,
+                        respect_inner=True,
+                        use_runway=False,
+                        respect_oneway=True,
+                    )
+                    if self.found():
+                        return self
+                else:
+                    logger.debug("runway can be used while taxiing, probably because we are on a runway...")
 
                 # Do not respect one ways
                 self.route = self._find(
@@ -782,11 +813,26 @@ class Route:
             v.setProp("taxiway-width", e.width_code)
             v.setProp("ls", i)
             self.edges.append(e)
-        logger.debug(f"segment costs: {[round(e.cost, 1) for e in self.edges]}")
         logger.debug("route (raw): " + "-".join([e.name for e in self.edges]))
+        logger.debug(f"segment length: {[round(e.cost, 1) for e in self.edges]}")
 
     def mkVertices(self):
         self.vertices = list(map(lambda x: self.graph.get_vertex(x), self.route))
+
+    def mkTurns(self):
+        # At end of edge x, turn will be turns[x] degrees
+        # Idea: while walking the lights, determine how far is next turn (position to vertex) and how much it will turn.
+        #       when closing to edge, invide to slow down if turn is important
+        #       if turn is unimportant, anticipate to next vertex
+        self.turns = [0]
+        v0 = self.graph.get_vertex(self.route[0])
+        v1 = self.graph.get_vertex(self.route[1])
+        for i in range(1, len(self.route) - 1):
+            v2 = self.graph.get_vertex(self.route[i + 1])
+            self.turns.append(v1.turn(v0, v2))
+            v0 = v1
+            v1 = v2
+        logger.debug(f"turns at vertices: {[round(t, 0) for t in self.turns]}")
 
     def text(self, destination: str = "") -> str:
         if self.edges is None or len(self.edges) == 0:
@@ -804,18 +850,3 @@ class Route:
         else:
             logger.debug(f"taxi route {route_str}")
         return route_str
-
-    def mkTurns(self):
-        # At end of edge x, turn will be turns[x] degrees
-        # Idea: while walking the lights, determine how far is next turn (position to vertex) and how much it will turn.
-        #       when closing to edge, invide to slow down if turn is important
-        #       if turn is unimportant, anticipate to next vertex
-        self.turns = [0]
-        v0 = self.graph.get_vertex(self.route[0])
-        v1 = self.graph.get_vertex(self.route[1])
-        for i in range(1, len(self.route) - 1):
-            v2 = self.graph.get_vertex(self.route[i + 1])
-            self.turns.append(v1.turn(v0, v2))
-            v0 = v1
-            v1 = v2
-        logger.debug(f"turns: {[round(t, 0) for t in self.turns]}")

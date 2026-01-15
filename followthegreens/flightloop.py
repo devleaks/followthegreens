@@ -7,6 +7,7 @@ import xp
 
 from .globals import (
     logger,
+    get_global,
     RABBIT_MODE,
     PLANE_MONITOR_DURATION,
     DISTANCE_BETWEEN_GREEN_LIGHTS,
@@ -75,7 +76,7 @@ class FlightLoop:
             logger.debug("plane tracked.")
 
         # Dim runway lights according to preferences
-        ll = self.ftg.get_config("RUNWAY_LIGHT_LEVEL_WHILE_FTG")
+        ll = get_global("RUNWAY_LIGHT_LEVEL_WHILE_FTG", config=self.ftg.config)
         if self.planeRunning and self.ftg.airport_light_level is not None:
             self.runway_level_original = xp.getDataf(self.ftg.airport_light_level)
             if ll is not None:
@@ -147,10 +148,12 @@ class FlightLoop:
 
     def manualRabbitMode(self, mode: RABBIT_MODE):
         self.manual_mode = True
+        logger.debug("manual rabbit mode")
         self.rabbitMode = mode
 
     def automaticRabbitMode(self):
         self.manual_mode = False
+        logger.debug("rabbit mode automagic")
 
     @property
     def rabbitMode(self) -> RABBIT_MODE:
