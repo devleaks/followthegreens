@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from textwrap import wrap
 
 from .version import __VERSION__
-from .globals import logger, get_global, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE
+from .globals import logger, get_global, MONITOR, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE
 from .aircraft import Aircraft
 from .airport import Airport
 from .flightloop import FlightLoop
@@ -63,6 +63,8 @@ class FollowTheGreens:
                 logger.debug(f"config: {self.config}")
             else:
                 logger.debug(f"no config file {filename}")
+        logger.info(f"preferences: {self.config}")
+        logger.debug(f"internal: { {g: get_global(g) for g in MONITOR} }")
 
     @property
     def is_holding(self) -> bool:
@@ -73,7 +75,7 @@ class FollowTheGreens:
         # If it was simply closed for hiding, show it again as it was.
         # If it does not exist, creates it from start of process.
         # if self.__status = FollowTheGreens.STATUS["ACTIVE"]:
-        logger.info(f"status: {self.__status}, {self.ui.mainWindowExists()}.")
+        logger.debug(f"status: {self.__status}, {self.ui.mainWindowExists()}.")
         if self.ui.mainWindowExists():
             logger.debug(f"mainWindow exists, changing visibility {self.ui.isMainWindowVisible()}.")
             self.ui.toggleVisibilityMainWindow()
@@ -108,16 +110,17 @@ class FollowTheGreens:
         self.aircraft = Aircraft()
 
         pos = self.aircraft.position()
+        hdg = self.aircraft.heading()
         if pos is None:
-            logger.debug("no plane position")
-            return self.ui.sorry("We could not locate your plane.")
+            logger.debug("no aircraft position")
+            return self.ui.sorry("We could not locate your aircraft.")
 
         if pos[0] == 0 and pos[1] == 0:
-            logger.debug("no plane position")
-            return self.ui.sorry("We could not locate your plane.")
+            logger.debug("no aircraft position")
+            return self.ui.sorry("We could not locate your aircraft.")
 
         # Info 2
-        logger.info(f"Plane postion {pos}")
+        logger.info(f"Aircraft postion {pos}, {hdg}")
         airport = self.aircraft.airport(pos)
         if airport is None:
             logger.debug("no airport")
@@ -180,11 +183,11 @@ class FollowTheGreens:
         hdg = self.aircraft.heading()
         gsp = self.aircraft.speed()
         if pos is None:
-            logger.debug("no plane position")
-            return self.ui.sorry("We could not locate your plane.")
+            logger.debug("no aircraft position")
+            return self.ui.sorry("We could not locate your aircraft.")
         if pos[0] == 0 and pos[1] == 0:
-            logger.debug("no plane position")
-            return self.ui.sorry("We could not locate your plane.")
+            logger.debug("no aircraft position")
+            return self.ui.sorry("We could not locate your aircraft.")
 
         if newGreen:  # We had a green, and we found a new one.
             # turn off previous lights
