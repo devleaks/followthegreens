@@ -627,7 +627,7 @@ class Airport:
         route = Route(self.graph, src[0], dst[0], move, opts)
         if use_strict_mode:
             logger.debug("searching with constraints..")
-            route.findExtended(width_code=aircraft.width_code, move=move, use_runway=onRwy)
+            route.findExtended(width_code=aircraft.width_code, move=move, use_runway=arrival_runway is not None)
             logger.debug("..done")
         else:
             logger.debug("searching with loose constraints..")
