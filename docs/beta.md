@@ -117,11 +117,10 @@ There is no garantee that strict mode will provide a route that respect all cont
 
 # Skunkcraft Updater
 
-There are skunkcrafts updater file if you wish but I cannot manage to get a beta version with my setup (github).
-So it currently only install the production version.
+Please download [](https://github.com/devleaks/followthegreens/blob/beta/skunkcrafts_updater_client_files.zip).
 
-It might be easier for you to install it, that way each time I push a new update, you just have to skunkcrafts update it.
+Just drop `skunkcrafts_updater.cfg` and `skunkcrafts_updater_beta.cfg` files next to `PI_FollowTheGreens.py`.
 
-Just drop `skunkcrafts_updater.cfg` file next to `PI_FollowTheGreens.py`.
+Select BETA UPDATE and update.
 
-
+This is the simplest method to get the latest beta and always be up-to-date with development commits.

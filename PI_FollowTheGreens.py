@@ -9,12 +9,12 @@ from typing import Any
 
 import xp
 
-from followthegreens import __VERSION__, __NAME__, __SIGNATURE__, __DESCRIPTION__
+from followthegreens import __VERSION__, __NAME__, __DESCRIPTION__
 from followthegreens import (
     FollowTheGreens,
     ShowTaxiways,
     RABBIT_MODE,
-    SHOW_TRACE,
+    FTG_PLUGIN_ROOT_PATH,
     FTG_CANCEL_COMMAND,
     FTG_CANCEL_COMMAND_DESC,
     FTG_OK_COMMAND,
@@ -34,12 +34,15 @@ from followthegreens import (
     STW_MENU,
 )
 
+# Produces additional debugging information in XPPython3Log.txt file if set to True
+SHOW_TRACE = False
+
 
 class PythonInterface:
 
     def __init__(self):
         self.Name = __NAME__
-        self.Sig = __SIGNATURE__
+        self.Sig = FTG_PLUGIN_ROOT_PATH.strip("/").replace("/", ".")
         self.Desc = __DESCRIPTION__ + " (Rel. " + __VERSION__ + ")"
         self.Info = self.Name + f" {__VERSION__}"
 
@@ -82,6 +85,14 @@ class PythonInterface:
                 getattr(self, "rabbitMode" + mode.title()),
             ]
             for mode in RABBIT_MODE
+        }
+        # Add back to automatic mode after manual mode
+        self.commands = self.commands | {
+            FTG_SPEED_COMMAND
+            + "auto": [
+                FTG_SPEED_COMMAND_DESC + " autotune",
+                self.rabbitModeAuto,
+            ]
         }
 
     def debug(self, message, force: bool = False):
@@ -413,14 +424,14 @@ class PythonInterface:
                     self.debug("showTaxiwaysCmd: exception", force=True)
                     print_exc()
                 return 0
-
-            try:
-                self.showTaxiways.start()
-                self.debug("showTaxiwaysCmd: started.")
-                return 1
-            except:
-                self.debug("showTaxiwaysCmd: exception", force=True)
-                print_exc()
+            else:
+                try:
+                    self.showTaxiways.start()
+                    self.debug("showTaxiwaysCmd: started.")
+                    return 1
+                except:
+                    self.debug("showTaxiwaysCmd: exception", force=True)
+                    print_exc()
         elif not self.showTaxiways:
             self.debug("showTaxiwaysCmd: Error: could not create ShowTaxiways.")
 
@@ -451,6 +462,26 @@ class PythonInterface:
             self.debug("rabbitMode: FollowTheGreens available.")
             try:
                 self.followTheGreens.rabbitMode(mode)
+                self.debug("rabbitMode: set.")
+                return 1
+            except:
+                self.debug("rabbitMode: exception", force=True)
+                print_exc()
+                return 0
+        elif not self.followTheGreens:
+            self.debug("rabbitMode: Error: could not create FollowTheGreens", force=True)
+        return 0
+
+    def rabbitModeAuto(self, commandRef, phase: int, refCon: Any):
+        # pylint: disable=unused-argument
+        if not self.enabled:
+            self.debug("rabbitMode: not enabled", force=True)
+            return 0
+
+        if self.followTheGreens and phase == 0:
+            self.debug("rabbitMode: FollowTheGreens available.")
+            try:
+                self.followTheGreens.rabbitModeAuto()
                 self.debug("rabbitMode: set.")
                 return 1
             except:

@@ -6,7 +6,6 @@ import os
 import tomllib
 from datetime import datetime, timedelta
 from textwrap import wrap
-from functools import reduce
 
 from .version import __VERSION__
 from .globals import logger, get_global, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE
@@ -23,11 +22,11 @@ class FollowTheGreens:
     def __init__(self, pi):
         self.__status = FTG_STATUS.NEW
         self.pi = pi
-        self.airport = None
-        self.aircraft = None
-        self.lights = None
+        self.airport: Airport | None = None
+        self.aircraft: Aircraft | None = None
+        self.lights: LightString | None = None
         self.segment = 0  # counter for green segments currently lit -0-----|-1-----|-2---------|-3---
-        self.move = None  # departure or arrival, guessed first, can be changed by pilot.
+        self.move: MOVEMENT | None = None  # departure or arrival, guessed first, can be changed by pilot.
         self.destination = None  # Handy
 
         self.ui = UIUtil(self)  # Where windows are built
@@ -38,8 +37,9 @@ class FollowTheGreens:
         self.localTime = xp.findDataRef("sim/time/local_time_sec")
         self.localDay = xp.findDataRef("sim/time/local_date_days")
 
-        logger.info("=-" * 50)
-        logger.info(f"Starting new session FtG {__VERSION__} at {datetime.now().astimezone().isoformat()}")
+        logger.info("\n\n")
+        logger.info("*-" * 50)
+        logger.info(f"Starting new session FtG {__VERSION__} at {datetime.now().astimezone().isoformat()}\n")
 
         # Load optional config file (Rel. 2 onwards)
         # Parameters in this file will overwrite (with constrain)
@@ -68,13 +68,6 @@ class FollowTheGreens:
     def is_holding(self) -> bool:
         return self.ui.waiting_for_clearance
 
-    def get_config(self, name):
-        # Example: get_config("AMBIANT_RWY_LIGHT_VALUE")
-        # return either the config value or the global value AMBIANT_RWY_LIGHT_VALUE.
-        if name not in self.config:
-            logger.info(f"no config for {name}, returning global {name}={get_global(name)})")
-        return self.config.get(name, get_global(name))
-
     def start(self):
         # Toggles visibility of main window.
         # If it was simply closed for hiding, show it again as it was.
@@ -99,6 +92,9 @@ class FollowTheGreens:
 
     def rabbitMode(self, mode: RABBIT_MODE):
         self.flightLoop.manualRabbitMode(mode)
+
+    def rabbitModeAuto(self):
+        self.flightLoop.automaticRabbitMode()
 
     def getAirport(self):
         # Search for airport or prompt for one.
@@ -173,7 +169,7 @@ class FollowTheGreens:
 
         # Info 11
         logger.info(f"Route to {destination}.")
-        rerr, route = self.airport.mkRoute(self.aircraft, destination, self.move)
+        rerr, route = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("USE_STRICT_MODE"))
 
         if not rerr:
             logger.info(f"No route {route}")
@@ -200,7 +196,7 @@ class FollowTheGreens:
         onRwy = False
         if self.move == MOVEMENT.ARRIVAL:
             onRwy, runway = self.airport.onRunway(
-                pos, width=RUNWAY_BUFFER_WIDTH
+                pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg
             )  # RUNWAY_BUFFER_WIDTH either side of runway, return [True,Runway()] or [False, None]
         self.lights = LightString(config=self.config)
         self.lights.populate(route, onRwy)
