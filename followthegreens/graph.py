@@ -16,6 +16,7 @@ from .geo import (
     nearestPointToLines,
     destination,
     pointInPolygon,
+    turn,
 )
 from .globals import (
     logger,
@@ -67,13 +68,7 @@ class Vertex(Point):  ## Vertex(Point)
             logger.warning(f"turn: at {self.id}: from {src.id} to {dst.id}, not in adjacents {self.adjacent}")
         b1 = bearing(src, self)
         b2 = bearing(self, dst)
-        bd = b1 - b2
-        while bd > 180:
-            bd = bd - 360
-        while bd < -180:
-            bd = bd + 360
-        # logger.debug(f"turn: at {self.id}: from {src.id} to {dst.id}: {round(bd, 1)} deg.")
-        return bd  # [-180, 180]
+        return turn(b1, b2)
 
 
 class Active:

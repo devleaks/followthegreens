@@ -4,7 +4,7 @@
 import os
 import re
 import math
-from typing import Tuple, Dict
+from typing import Tuple
 
 from .geo import Point, Line, Polygon, destination, distance, pointInPolygon
 from .graph import Graph, Edge, Vertex
@@ -19,7 +19,6 @@ from .globals import (
     ROUTING_ALGORITHM,
     ROUTING_ALGORITHMS,
 )
-from followthegreens import graph
 
 SYSTEM_DIRECTORY = "."
 
@@ -704,9 +703,12 @@ class Route:
         respect_oneway: bool = True,
     ):
         # Preselect edge set with supplied constraints
+        if move != self.move:
+            logger.debug("searching for different movement")
+
         graph = self.graph.clone(
             width_code=width_code,
-            move=self.move,
+            move=move,
             respect_width=respect_width,
             respect_inner=respect_inner,
             use_runway=use_runway,
@@ -716,6 +718,7 @@ class Route:
         if len(graph.edges_arr) == 0:
             return None
 
+        # note: sometimes, self.src and self.dst vertices are not in cloned graph!
         if graph.get_vertex(self.src) is None or graph.get_vertex(self.dst) is None:
             return None
 
@@ -725,14 +728,10 @@ class Route:
         else:
             r = graph.Dijkstra(self.src, self.dst)
 
-        if r is not None and len(r) > 2:
-            logger.info(
-                f"found algorithm={algorithm}, respect_width={respect_width}, respect_inner={respect_inner}, use_runway={use_runway}, respect_oneway={respect_oneway}"
-            )
-        else:
-            logger.info(
-                f"failed algorithm={algorithm}, respect_width={respect_width}, respect_inner={respect_inner}, use_runway={use_runway}, respect_oneway={respect_oneway}"
-            )
+        result = "found" if r is not None and len(r) > 2 else "failed"
+        logger.info(
+            f"{result} algorithm={algorithm}, respect_oneway={respect_oneway}, use_runway={use_runway}, respect_width={respect_width}"
+        )  # respect_inner={respect_inner}, # unused
         return r
 
     def findExtended(self, width_code: TAXIWAY_WIDTH_CODE, move: MOVEMENT, use_runway: bool = False):
@@ -750,7 +749,7 @@ class Route:
                         width_code=width_code,
                         move=move,
                         respect_width=respect_width_code,
-                        respect_inner=True,
+                        respect_inner=False,  # unsued anyway
                         use_runway=False,
                         respect_oneway=True,
                     )
@@ -800,7 +799,7 @@ class Route:
             self.route = self.graph.AStar(self.src, self.dst)
             if self.found():
                 return self
-            logger.info(f"failed to find route using algorithm {self.algorithm}, will try algorithm Dijkstra")
+            logger.info(f"failed to find route using algorithm {self.algorithm}, will try fallback algorithm Dijkstra")
         self.route = self.graph.Dijkstra(self.src, self.dst, self.options)
         return self
 

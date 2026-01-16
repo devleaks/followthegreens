@@ -2,23 +2,20 @@
 #
 import os
 import logging
-import tomllib
+from datetime import datetime
 from enum import Enum, StrEnum
 
+# ################################
+#
+# PLEASE DO NOT CHANGE ANY INTERNAL CONSTANT
+# Use the ftgconfig.toml file to set preferences
 #
 #
-LOGGING_LEVEL = logging.DEBUG
 #
-#   You can change the above level by using logging.WARN, logging.INFO, or logging.DEBUG.
-#   In case of problem, the developer may ask you to set the level
-#   to a specific value.
-#   Messages are logged in the file called ftg_log.txt that is located
-#   in the followthegreens folder.
-#   You may also change LOGGING_LEBEL in ftgconfig.toml file.
-#
-
 # ################################
 # FTG INTERNALS
+#
+# PLEASE DO NOT CHANGE THESE INTERNAL CONSTANT
 #
 # TAXIWAY NETWORK
 #
@@ -281,65 +278,9 @@ LIGHT_TYPE_OBJFILES = {
 
 
 # ################################
-# MISCELLANEOUS
+# LIST OF INTERNAL CONSTANTS
 #
-class ATC(StrEnum):
-    NONE = "None"
-    DELIVERY = "Delivery"
-    GROUND = "Ground"
-    TOWER = "Tower"
-    TRACON = "Tracon"
-    CENTER = "Center"
-
-
-# ATC greetings
-GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}  # hour time of day when to use appropriate greeting
-# GOOD = {"morning": 4, "day": 6, "afternoon": 9, "evening": 12, "night": 17}  # special US :-D
-
-
-def get_global(name: str, config: dict = {}):
-    # most globals are defined defined above...
-    # if name not in config:
-    #     logger.debug(f"name {name} not in config, using global {globals().get(name)}")
-    return config.get(name, globals().get(name))
-
-
-# ################################
-# LOGGING
-#
-# def get_custom_logging_level() -> int:
-#     # sloppy but works. Needs cleaning later
-#     try:
-#         filename = os.path.join(os.path.dirname(__file__), "ftgconfig.toml")
-#         if os.path.exists(filename):
-#             with open(filename, "rb") as fp:
-#                 data = tomllib.load(fp)
-#                 return data.get("LOGGING_LEVEL", logging.INFO)
-#         filename = os.path.join(".", "Output", "preferences", "ftgconfig.toml")  # relative to X-Plane "rott/home" folder
-#         if os.path.exists(filename):
-#             with open(filename, "rb") as fp:
-#                 data = tomllib.load(fp)
-#                 return data.get("LOGGING_LEVEL", logging.INFO)
-#         return logging.INFO
-#     except:
-#         print("FtG error: could not get logging level, default to INFO")
-#         return logging.INFO
-
-plugin_path = os.path.dirname(__file__)
-FORMAT = "%(levelname)s %(asctime)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
-LOGFILENAME = "ftg_log.txt"
-logging.basicConfig(
-    level=LOGGING_LEVEL,
-    format=FORMAT,
-    datefmt="%H:%M:%S.%f",
-    handlers=[
-        logging.FileHandler(os.path.join(plugin_path, "..", LOGFILENAME)),
-        logging.StreamHandler(),
-    ],
-)
-logger = logging.getLogger("FtG")
-
-MONITOR = [
+INTERNAL_CONSTANTS = [
     "ADD_LIGHT_AT_LAST_VERTEX",
     "ADD_LIGHT_AT_VERTEX",
     "AIRPORTLIGHT_ON",
@@ -391,3 +332,57 @@ MONITOR = [
     "USE_STRICT_MODE",
     "WARNING_DISTANCE",
 ]
+
+
+# ################################
+# MISCELLANEOUS
+#
+class ATC(StrEnum):
+    NONE = "None"
+    DELIVERY = "Delivery"
+    GROUND = "Ground"
+    TOWER = "Tower"
+    TRACON = "Tracon"
+    CENTER = "Center"
+
+
+# ATC greetings
+GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}  # hour time of day when to use appropriate greeting
+# GOOD = {"morning": 4, "day": 6, "afternoon": 9, "evening": 12, "night": 17}  # special US :-D
+
+
+def get_global(name: str, config: dict = {}):
+    # most globals are defined defined above...
+    # if name not in config:
+    #     logger.debug(f"name {name} not in config, using global {globals().get(name)}")
+    return config.get(name, globals().get(name))
+
+
+# ################################
+# LOGGING
+#
+LOGFILENAME = "ftg_log.txt"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s %(asctime)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s",
+    handlers=[
+        logging.FileHandler(os.path.join(os.path.dirname(__file__), "..", LOGFILENAME)),
+        logging.StreamHandler(),
+    ],
+)
+logger = logging.getLogger("FtG")
+
+
+# https://gist.github.com/daaniam/041bfd34c1d14e5aeb1bf84537b47fb6
+def _format_logging_time(self, record, datefmt: str = None) -> str:
+    """Return time for logging with microseconds and timezone. datefmt is ignored."""
+
+    # Local timezone - example: 2022-06-02T14:51:25.367718-07:00
+    # local_time = datetime.fromtimestamp(record.created).astimezone().isoformat()
+
+    # UTC time - example: 2022-06-02T21:54:19.878140+00:00
+    utc_time = datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat()
+    return str(utc_time)
+
+
+# logging.Formatter.formatTime = _format_logging_time

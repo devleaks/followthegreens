@@ -475,6 +475,7 @@ class LightString:
             for i in range(len(self.stopbars)):
                 segs.append(f"#{i}:{last}-{self.stopbars[i].lightStringIndex - 1}")
                 last = self.stopbars[i].lightStringIndex
+            segs.append(f"#{i}:{last}-{len(self.lights)}")
             logger.debug("segments: " + ", ".join(segs))
 
     # We make a stopbar after the green light index lightIndex

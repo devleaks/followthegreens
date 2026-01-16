@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from textwrap import wrap
 
 from .version import __VERSION__
-from .globals import logger, get_global, MONITOR, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE
+from .globals import logger, get_global, INTERNAL_CONSTANTS, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE
 from .aircraft import Aircraft
 from .airport import Airport
 from .flightloop import FlightLoop
@@ -65,10 +65,17 @@ class FollowTheGreens:
                 logger.debug(f"no config file {filename}")
         logger.info(f"preferences: {self.config}")
         try:
-            logger.debug(f"internal:=====\n{ '\n'.join([f'{g}: {get_global(g, config=self.config)}' for g in MONITOR]) }'\n=====")
+            logger.debug(f"internal:=====\n{ '\n'.join([f'{g}: {get_global(g, config=self.config)}' for g in INTERNAL_CONSTANTS]) }'\n=====")
         except:
-            logger.debug("internal: some internals don't print")
-
+            logger.debug("internal: some internals don't print", exc_info=True)
+        ll = get_global("LOGGING_LEVEL", self.config)
+        if type(ll) is int:
+            logger.debug(f"log level: current={logger.level}, requested={ll}")
+            if logger.level != ll:
+                logger.setLevel(ll)
+                logger.log(ll, f"internal: debug level set to {ll}")
+        else:
+            logger.warning(f"invalid logging level {ll} ({type(ll)})")
 
     @property
     def is_holding(self) -> bool:
@@ -212,7 +219,7 @@ class FollowTheGreens:
         self.lights.printSegments()
 
         self.segment = 0
-        logger.info(f"Current segment {self.segment + 1}/{self.lights.segments + 1}.")
+        logger.info(f"surrent segment {self.segment + 1}/{self.lights.segments + 1}.")
         ret = self.lights.illuminateSegment(self.segment)
         if not ret[0]:
             return self.ui.sorry(ret[1])
@@ -267,7 +274,7 @@ class FollowTheGreens:
         # Called when cleared by TOWER
         self.segment += 1
         # Info 15
-        logger.info(f"Segment {self.segment + 1}/{self.lights.segments + 1}.")
+        logger.info(f"segment {self.segment + 1}/{self.lights.segments + 1}.")
 
         if self.segment > self.lights.segments:
             self.flightLoop.stopFlightLoop()
