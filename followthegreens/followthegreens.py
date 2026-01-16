@@ -305,6 +305,7 @@ class FollowTheGreens:
         if self.move == MOVEMENT.ARRIVAL and self.segment == self.lights.segments:
             return self.ui.promptForParked()
 
+        self.ui.canHide = True
         return self.ui.promptForClearance()
 
     def cancel(self, reason=""):

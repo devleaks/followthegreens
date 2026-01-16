@@ -33,7 +33,7 @@ class UIUtil:
         self.validDestIdxs = []
         self.linetops = []
         self.strHeight = 0
-        self.canHide = True
+        self._canHide = True
         self.displayTime = 0
         self.waiting_for_clearance = False
 
@@ -126,6 +126,16 @@ class UIUtil:
         self.canHide = True  # new window can always be hidden
         return widgetWindow["widgetID"]
 
+    @property
+    def canHide(self) -> bool:
+        return self._canHide
+
+    @canHide.setter
+    def canHide(self, canHide):
+        if canHide != self._canHide:
+            logger.debug(f"allow UI to hide={self._canHide}")
+        self._canHide = canHide
+
     def mkButtons(self, btns):
         buttons = {}
         prev = False
@@ -154,6 +164,7 @@ class UIUtil:
         return False
 
     def showMainWindow(self, canHide=True):
+        logger.debug(f"showMainWindow canHide={self.canHide}")
         if self.mainWindowExists():
             xp.showWidget(self.mainWindow["widgetID"])
             self.canHide = canHide
@@ -163,7 +174,10 @@ class UIUtil:
         # We always hide it on request, even if canHide is False
         self.displayTime += elapsed
         if MAINWINDOW_AUTOHIDE and self.displayTime > MAINWINDOW_DISPLAY_TIME and self.canHide:
+            logger.debug("auto hiding UI")
             self.hideMainWindow()
+        else:
+            logger.debug(f"UI not allowed to hide (canHide={self.canHide}, elapsed={round(self.displayTime, 1)} < {MAINWINDOW_DISPLAY_TIME})")
 
     def hideMainWindow(self):
         # We always hide it on request, even if canHide is False
