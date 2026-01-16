@@ -251,6 +251,7 @@ class LightString:
         self.rabbit_duration = get_global("RABBIT_DURATION", config=config)
         self.rabbit_mode = RABBIT_MODE.MED
 
+        self.info_sent = False
         logger.debug(f"LightString created {self.rabbit_length}, {abs(self.rabbit_duration)}")
 
     def __str__(self):
@@ -465,6 +466,17 @@ class LightString:
 
         return thisLights
 
+    def printSegments(self):
+        # for debugging purpose
+        logger.info(f"added {len(self.lights)} lights, {self.segments + 1} segments, {len(self.stopbars)} stopbars.")
+        if len(self.stopbars) > 0:
+            segs = []
+            last = 0
+            for i in range(len(self.stopbars)):
+                segs.append(f"#{i}:{last}-{self.stopbars[i].lightStringIndex - 1}")
+                last = self.stopbars[i].lightStringIndex
+            logger.debug("segments: " + ", ".join(segs))
+
     # We make a stopbar after the green light index lightIndex
     def mkStopbar(self, lightIndex, src, dst, extremity="end", size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.E, light: LIGHT_TYPE = LIGHT_TYPE.STOP):
         if size is None:
@@ -562,7 +574,7 @@ class LightString:
                 sbend = self.stopbars[segment]
                 for light in sbend.lights:
                     light.on()
-                    logger.debug("illuminating stop light.")
+                logger.debug(f"illuminated {len(sbend.lights)} stop lights")
                 # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
             logger.debug("no light ahead: instanciate(stop): done.")
         # else, lights will be turned on in front of rabbit
@@ -577,9 +589,13 @@ class LightString:
         # on runway Lead-Off lights to taxiway.
         # Lights are green/amber on runway, then a few more until on taxiway.
         # Then all green as normal taxiway.
+        # This is ONLY if the aircraft is on the runway, and just for the lights
+        # to lead it off runway. (This is not for "all" lead-off lights and all runways.)
         #
         if self.route.runway is None:  # no runway, all green
-            logger.debug("next_taxiway_light: no runway, all greens")
+            if not self.info_sent:
+                logger.debug("next_taxiway_light: not on runway, all greens")
+                self.info_sent = True
             return LIGHT_TYPE.TAXIWAY
         self.taxiway_alt = self.taxiway_alt + 1  # alternate
         if self.rwy_twy_lights == self.lead_off_lights:  # always on runway
@@ -592,7 +608,9 @@ class LightString:
             logger.debug(f"next_taxiway_light: not on runway, leaving, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
             return LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT
         # no longer on runway, on regular taxiway
-        logger.debug(f"next_taxiway_light: no longer on runway, all greens")
+        if not self.info_sent:
+            logger.debug("next_taxiway_light: no longer on runway, all greens")
+            self.info_sent = True
         return LIGHT_TYPE.TAXIWAY
 
     def nextStop(self):

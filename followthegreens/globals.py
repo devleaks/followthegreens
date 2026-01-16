@@ -2,6 +2,7 @@
 #
 import os
 import logging
+import tomllib
 from enum import Enum, StrEnum
 
 #
@@ -183,7 +184,7 @@ class ROUTING_ALGORITHMS(StrEnum):
 
 
 ROUTING_ALGORITHM = ROUTING_ALGORITHMS.ASTAR  # astar, dijkstra (default)
-USE_STRICT_MODE = True  # set to True at your own risk
+USE_STRICT_MODE = False  # set to True at your own risk
 SAY_ROUTE = True
 
 
@@ -298,18 +299,39 @@ GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}  # 
 
 def get_global(name: str, config: dict = {}):
     # most globals are defined defined above...
+    # if name not in config:
+    #     logger.debug(f"name {name} not in config, using global {globals().get(name)}")
     return config.get(name, globals().get(name))
 
 
 # ################################
 # LOGGING
 #
+# def get_custom_logging_level() -> int:
+#     # sloppy but works. Needs cleaning later
+#     try:
+#         filename = os.path.join(os.path.dirname(__file__), "ftgconfig.toml")
+#         if os.path.exists(filename):
+#             with open(filename, "rb") as fp:
+#                 data = tomllib.load(fp)
+#                 return data.get("LOGGING_LEVEL", logging.INFO)
+#         filename = os.path.join(".", "Output", "preferences", "ftgconfig.toml")  # relative to X-Plane "rott/home" folder
+#         if os.path.exists(filename):
+#             with open(filename, "rb") as fp:
+#                 data = tomllib.load(fp)
+#                 return data.get("LOGGING_LEVEL", logging.INFO)
+#         return logging.INFO
+#     except:
+#         print("FtG error: could not get logging level, default to INFO")
+#         return logging.INFO
+
 plugin_path = os.path.dirname(__file__)
-FORMAT = "%(levelname)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
+FORMAT = "%(levelname)s %(asctime)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
 LOGFILENAME = "ftg_log.txt"
 logging.basicConfig(
-    level=get_global("LOGGING_LEVEL"),
+    level=LOGGING_LEVEL,
     format=FORMAT,
+    datefmt="%H:%M:%S.%f",
     handlers=[
         logging.FileHandler(os.path.join(plugin_path, "..", LOGFILENAME)),
         logging.StreamHandler(),

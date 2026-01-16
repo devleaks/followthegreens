@@ -107,7 +107,8 @@ class ShowTaxiways:
             return self.ui.sorry("We could not light taxiways.")
 
         # Info 13
-        logger.info(f"Added {len(self.lights.lights)} lights.")
+        # logger.info(f"Added {len(self.lights.lights)} lights.")
+        self.lights.printSegments()
 
         # if self.pi is not None and self.pi.menuIdx_st is not None and self.pi.menuIdx_st >= 0:
         #     try:

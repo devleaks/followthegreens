@@ -235,7 +235,7 @@ class Airport:
                     scenery_pack_apt = os.path.join(scenery_pack_dir, "Earth nav data", "apt.dat")
                     # logger.debug("APT.DAT {scenery_pack_apt}")
                     if os.path.exists(scenery_pack_apt) and os.path.isfile(scenery_pack_apt):
-                        logger.debug(f"Added apt.dat {scenery_pack_apt}")
+                        logger.debug(f"added apt.dat {scenery_pack_apt}")
                         APT_FILES[scenery] = scenery_pack_apt
                 scenery = scenery_packs.readline()
             scenery_packs.close()
@@ -252,7 +252,7 @@ class Airport:
             APT_FILES["default airports"] = default_airports_file
         # else:
         #     logger.warning(f"default airport file {DEFAULT_AIRPORTS} not found")
-        logger.debug(f"APT files: {APT_FILES}")
+        # logger.debug(f"APT files: {APT_FILES}")
 
         for scenery, filename in APT_FILES.items():
             if self.loaded:
@@ -726,7 +726,7 @@ class Route:
             r = graph.Dijkstra(self.src, self.dst)
 
         if r is not None and len(r) > 2:
-            logger.debug(
+            logger.info(
                 f"found algorithm={algorithm}, respect_width={respect_width}, respect_inner={respect_inner}, use_runway={use_runway}, respect_oneway={respect_oneway}"
             )
         else:
@@ -786,7 +786,7 @@ class Route:
                     return self
 
         # We're desperate
-        logger.info(f"failed to find restricted route, trying wide search using preferred algorith {self.algorithm}")
+        logger.info(f"failed to find restricted route, trying wide search using algorithm {self.algorithm}")
         self.options = {}
         logger.debug("all constraints relaxed")
         # self.route = self._find(algorithm=ROUTING_ALGORITHM, width_code=width_code, move=move) # no other restriction
@@ -794,9 +794,13 @@ class Route:
         return self.find()
 
     def find(self):
+        # If requested to try AStar, rty it first, if failed, try Dijkstra
+        # If Dijstra fails, we really can't do anything about it.
         if self.algorithm == ROUTING_ALGORITHMS.ASTAR:
             self.route = self.graph.AStar(self.src, self.dst)
-            return self
+            if self.found():
+                return self
+            logger.info(f"failed to find route using algorithm {self.algorithm}, will try algorithm Dijkstra")
         self.route = self.graph.Dijkstra(self.src, self.dst, self.options)
         return self
 

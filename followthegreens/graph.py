@@ -400,7 +400,7 @@ class Graph:  # Graph(FeatureCollection)?
         # This will store the Shortest path between source and target node
         route = []
         if not source or not target:
-            logger.debug("source or target missing")
+            logger.warning("source or target missing")
             return route
 
         # These are all the nodes which have not been visited yet
@@ -472,7 +472,7 @@ class Graph:  # Graph(FeatureCollection)?
                 node = False
 
         if not node:
-            logger.debug(f"Dijkstra: could not find route from {source} to {target}")
+            logger.warning(f"Dijkstra: could not find route from {source} to {target}")
             return None
         else:
             # Including the source in the path

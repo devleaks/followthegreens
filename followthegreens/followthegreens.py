@@ -64,7 +64,11 @@ class FollowTheGreens:
             else:
                 logger.debug(f"no config file {filename}")
         logger.info(f"preferences: {self.config}")
-        logger.debug(f"internal: { {g: get_global(g) for g in MONITOR} }")
+        try:
+            logger.debug(f"internal:=====\n{ '\n'.join([f'{g}: {get_global(g, config=self.config)}' for g in MONITOR]) }'\n=====")
+        except:
+            logger.debug("internal: some internals don't print")
+
 
     @property
     def is_holding(self) -> bool:
@@ -151,7 +155,7 @@ class FollowTheGreens:
         logger.debug("airport ready")
         self.move = self.airport.guessMove(self.aircraft.position())
         # Info 10
-        logger.info(f"Guessing {self.move}")
+        logger.info(f"guessing {self.move}")
 
         return self.ui.promptForDestination()
 
@@ -160,7 +164,7 @@ class FollowTheGreens:
         # so we first make sur we find a new green, and if we do, we cancel the previous one.
         return self.followTheGreen(destination, True)
 
-    def followTheGreen(self, destination, newGreen=False):
+    def followTheGreen(self, destination, newGreen: bool = False):
         # Destination is either
         #   the name of a runway for departure, or
         #   the name of a parking ramp for arrival.
@@ -171,21 +175,18 @@ class FollowTheGreens:
             return self.ui.promptForDestination(f"Destination {destination} not valid for {self.move}.")
 
         # Info 11
-        logger.info(f"Route to {destination}.")
-        rerr, route = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("USE_STRICT_MODE"))
+        logger.info(f"destination {destination}.")
+        rerr, route = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("USE_STRICT_MODE", config=self.config))
 
         if not rerr:
-            logger.info(f"No route {route}")
+            logger.info(f"no route to destination {destination} (route  {route})")
             return self.ui.tryAgain(route)
 
         # Info 12
         pos = self.aircraft.position()
         hdg = self.aircraft.heading()
         gsp = self.aircraft.speed()
-        if pos is None:
-            logger.debug("no aircraft position")
-            return self.ui.sorry("We could not locate your aircraft.")
-        if pos[0] == 0 and pos[1] == 0:
+        if pos is None or (pos[0] == 0 and pos[1] == 0):
             logger.debug("no aircraft position")
             return self.ui.sorry("We could not locate your aircraft.")
 
@@ -194,7 +195,7 @@ class FollowTheGreens:
             self.cancel("new green requested")
             # now create new ones
 
-        logger.debug(f"Got route: {route}.")
+        logger.debug(f"got route: {route}.")
         self.destination = destination
         onRwy = False
         if self.move == MOVEMENT.ARRIVAL:
@@ -208,9 +209,10 @@ class FollowTheGreens:
             return self.ui.sorry("We could not light a route to your destination.")
 
         # Info 13
-        logger.info(f"Added {len(self.lights.lights)} lights, {self.lights.segments + 1} segments, {len(self.lights.stopbars)} stopbars.")
+        self.lights.printSegments()
+
         self.segment = 0
-        logger.info(f"Segment {self.segment + 1}/{self.lights.segments + 1}.")
+        logger.info(f"Current segment {self.segment + 1}/{self.lights.segments + 1}.")
         ret = self.lights.illuminateSegment(self.segment)
         if not ret[0]:
             return self.ui.sorry(ret[1])
