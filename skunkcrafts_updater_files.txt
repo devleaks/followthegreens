@@ -1,6 +1,6 @@
 LICENSE
-PI_FollowTheGreens.py
 README.md
+PI_FollowTheGreens.py
 followthegreens/__init__.py
 followthegreens/aircraft.py
 followthegreens/airport.py

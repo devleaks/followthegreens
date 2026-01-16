@@ -124,27 +124,21 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-.gitattributes
-followthegreens/.DS_Store
-followthegreens/.DS_Store
-followthegreens/.DS_Store
 .DS_Store
-followthegreens/.DS_Store
 /docs/logo
-gensc.py
-xpdepot.py
-skunkcrafts_file_generator.py
-ftg_log.txt
+/docs/misc
+/out
+followthegreens/.DS_Store
+followthegreens/ftgconfig-future.toml
+followthegreens/ftgconfig.toml
+followthegreens/globals-dev.py
+followthegreens/globals-prod.py
 followthegreens/lights/cust_amber.obj
 followthegreens/lights/cust_green.obj
 followthegreens/lights/cust_red.obj
-/docs/misc
 followthegreens/lights/custom_first.obj
 followthegreens/lights/custom_green.obj
-followthegreens/globals-dev.py
-followthegreens/globals-prod.py
-followthegreens/ftgconfig-future.toml
-/out
+ftg_log.txt
 PI_test.py
-followthegreens/ftgconfig.toml
 /test
+skunkcrafts_file_generator.py
