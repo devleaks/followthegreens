@@ -129,8 +129,8 @@ dmypy.json
 /docs/misc
 /out
 followthegreens/.DS_Store
-followthegreens/ftgconfig-future.toml
-followthegreens/ftgconfig.toml
+followthegreens/ftgprefs-future.toml
+followthegreens/ftgprefs.toml
 followthegreens/globals-dev.py
 followthegreens/globals-prod.py
 followthegreens/lights/cust_amber.obj

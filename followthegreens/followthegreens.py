@@ -38,15 +38,15 @@ class FollowTheGreens:
         self.localDay = xp.findDataRef("sim/time/local_date_days")
 
         logger.info("\n\n")
-        logger.info("*-" * 50)
-        logger.info(f"Starting new session FtG {__VERSION__} at {datetime.now().astimezone().isoformat()}\n")
+        logger.info("*-*" * 35)
+        logger.info(f"Starting new FtG session {__VERSION__} at {datetime.now().astimezone().isoformat()}\n")
 
         # Load optional config file (Rel. 2 onwards)
         # Parameters in this file will overwrite (with constrain)
         # default values provided by FtG.
         self.config = {}
         here = os.path.dirname(__file__)
-        CONFIGILENAME = "ftgconfig.toml"
+        CONFIGILENAME = "ftgprefs.toml"
         filename = os.path.join(here, CONFIGILENAME)
         if os.path.exists(filename):
             with open(filename, "rb") as fp:
@@ -63,11 +63,8 @@ class FollowTheGreens:
                 logger.debug(f"config: {self.config}")
             else:
                 logger.debug(f"no config file {filename}")
+
         logger.info(f"preferences: {self.config}")
-        try:
-            logger.debug(f"internal:=====\n{ '\n'.join([f'{g}: {get_global(g, config=self.config)}' for g in INTERNAL_CONSTANTS]) }'\n=====")
-        except:
-            logger.debug("internal: some internals don't print", exc_info=True)
         ll = get_global("LOGGING_LEVEL", self.config)
         if type(ll) is int:
             logger.debug(f"log level: current={logger.level}, requested={ll}")
@@ -76,6 +73,11 @@ class FollowTheGreens:
                 logger.log(ll, f"internal: debug level set to {ll}")
         else:
             logger.warning(f"invalid logging level {ll} ({type(ll)})")
+
+        try:
+            logger.debug(f"internal:\n{ '\n'.join([f'{g}: {get_global(g, config=self.config)}' for g in INTERNAL_CONSTANTS]) }'\n=====")
+        except:  # in case str(value) fails
+            logger.debug("internal: some internals don't print", exc_info=True)
 
     @property
     def is_holding(self) -> bool:
@@ -183,7 +185,7 @@ class FollowTheGreens:
 
         # Info 11
         logger.info(f"destination {destination}.")
-        rerr, route = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("USE_STRICT_MODE", config=self.config))
+        rerr, route = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("RESPECT_CONSTRAINTS", config=self.config))
 
         if not rerr:
             logger.info(f"no route to destination {destination} (route  {route})")
@@ -219,7 +221,7 @@ class FollowTheGreens:
         self.lights.printSegments()
 
         self.segment = 0
-        logger.info(f"surrent segment {self.segment + 1}/{self.lights.segments + 1}.")
+        logger.info(f"current segment {self.segment + 1}/{self.lights.segments + 1}.")
         ret = self.lights.illuminateSegment(self.segment)
         if not ret[0]:
             return self.ui.sorry(ret[1])
@@ -324,8 +326,9 @@ class FollowTheGreens:
 
         # Info 16
         logger.info(f"cancelled: {reason}.")
-        logger.info(f"Ending new session at {datetime.now().astimezone().isoformat()}")
+        logger.info(f"FtG session ended at {datetime.now().astimezone().isoformat()}")
         logger.info("==" * 50)
+        logger.info("\n\n")
         return [True, ""]
 
     def hourOfDay(self):

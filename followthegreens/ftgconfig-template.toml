@@ -1,18 +1,20 @@
-# Location for user-defined preference and configuration parameters
+# Location for user-defined preference parameters
 #
-# This template is a list of possible configuration parameters.
+# This template is a list of possible preference parameters.
+# Not all parameters iside Follow the greens can be changed, only some of them.
 #
 # Any of this parameter can be set to a sensible value to affect the behavior of FtG
-# Some extreme value may break FtG or even X-Plane
+# Some extreme value may break FtG or even X-Plane.
 #
 # If a parameter does not appear here, it means it cannot be changed through this file.
 #
-#
-#
+# Please note that, as TOML format requires it, boolean type parameters true or false
+# should be written in all lowercase, true, not True or TRUE.
+# It is advisable to quote text strings, like "off".
 #
 #
 # meters, distance between taxiway lights on ground. Float value.
-DISTANCE_BETWEEN_GREEN_LIGHTS = 20 
+DISTANCE_BETWEEN_GREEN_LIGHTS = 20
 
 # In meters, distance between lights on ground *when showing all taxiways*.
 # This can build numerous lights so keep them far apart! Float value.
@@ -34,7 +36,7 @@ RUNWAY_LIGHT_LEVEL_WHILE_FTG = "off" # "off", "lo", "med", or "hi". Quotes aroun
 
 
 # Strict mode tries to find a route while respecting all constraints like oneway or taxiway width
-USE_STRICT_MODE = false  # true or false, lowercase, no quote around the word
+RESPECT_CONSTRAINTS = false  # true or false, lowercase, no quote around the word
 
 # Standard Python logging levels: (please use indicated value or behavior might be unpredictable.)
 # logging.NOTSET = 0

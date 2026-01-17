@@ -205,10 +205,11 @@ class UIUtil:
     def greetings(self, text="Good %s."):
         h = self.ftg.hourOfDay()
         logger.debug(f"bye: {h}.")
-        ss = list(GOOD.keys())[-1]
+        ss = list(GOOD.keys())[-1] # last one is good night, from 0-4 and 20-24.
         for k, v in GOOD.items():
             if h > v:
                 ss = k
+        logger.debug(f"bye: {h}h, good {ss}")
         return text % ss
 
     def promptForAirport(self):

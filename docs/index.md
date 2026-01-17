@@ -150,19 +150,19 @@ Release 2 no longer works on X-Plane 11 because of the use of new X-Plane SDK AP
 XPPython3 release 4 or above is required.
 
 
-# Configuration Parameters
+# Preference Parameters
 
 Follow the greens exposes a few limited set of preference parameters.
-Parameters are specified in a configuration file that can be found at
+Parameters are specified in a preference file that can be found at
 on of the two following locations:
 
 Either
 
-`<X-Plane 12 Folder> / Resources / plugins / PythonPlugins / followthegreens / ftgconfig.toml`
+`<X-Plane 12 Folder> / Resources / plugins / PythonPlugins / followthegreens / ftgprefs.toml`
 
 or
 
-`<X-Plane 12 Folder> / Output / preferences / ftgconfig.toml`
+`<X-Plane 12 Folder> / Output / preferences / ftgprefs.toml`
 
 (The first one takes precedence on the second one.)
 
