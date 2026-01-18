@@ -33,7 +33,7 @@ class UIUtil:
         self.validDestIdxs = []
         self.linetops = []
         self.strHeight = 0
-        self.canHide = True
+        self._canHide = True
         self.displayTime = 0
         self.waiting_for_clearance = False
 
@@ -126,6 +126,16 @@ class UIUtil:
         self.canHide = True  # new window can always be hidden
         return widgetWindow["widgetID"]
 
+    @property
+    def canHide(self) -> bool:
+        return self._canHide
+
+    @canHide.setter
+    def canHide(self, canHide):
+        if canHide != self._canHide:
+            logger.debug(f"allow UI to hide={self._canHide}")
+        self._canHide = canHide
+
     def mkButtons(self, btns):
         buttons = {}
         prev = False
@@ -154,6 +164,7 @@ class UIUtil:
         return False
 
     def showMainWindow(self, canHide=True):
+        logger.debug(f"showMainWindow canHide={self.canHide}")
         if self.mainWindowExists():
             xp.showWidget(self.mainWindow["widgetID"])
             self.canHide = canHide
@@ -163,7 +174,10 @@ class UIUtil:
         # We always hide it on request, even if canHide is False
         self.displayTime += elapsed
         if MAINWINDOW_AUTOHIDE and self.displayTime > MAINWINDOW_DISPLAY_TIME and self.canHide:
+            logger.debug("auto hiding UI")
             self.hideMainWindow()
+        else:
+            logger.debug(f"UI not allowed to hide (canHide={self.canHide}, elapsed={round(self.displayTime, 1)} < {MAINWINDOW_DISPLAY_TIME})")
 
     def hideMainWindow(self):
         # We always hide it on request, even if canHide is False
@@ -191,10 +205,11 @@ class UIUtil:
     def greetings(self, text="Good %s."):
         h = self.ftg.hourOfDay()
         logger.debug(f"bye: {h}.")
-        ss = list(GOOD.keys())[-1]
+        ss = list(GOOD.keys())[-1]  # last one is good night, from 0-4 and 20-24.
         for k, v in GOOD.items():
             if h > v:
                 ss = k
+        logger.debug(f"bye: {h}h, good {ss}")
         return text % ss
 
     def promptForAirport(self):
@@ -507,20 +522,20 @@ class UIUtil:
         # Cancels FollowTheGreen
         if inMessage == xp.Msg_PushButtonPressed:
             xp.hideWidget(self.mainWindow["widgetID"])
-            self.ftg.cancel("user cancelled")
+            self.ftg.terminate("user cancelled")
             return 1
         return 0
 
     def cancelReceived(self, comment: str):
         logger.info(f"cancel command received")
         xp.hideWidget(self.mainWindow["widgetID"])
-        self.ftg.cancel(comment)
+        self.ftg.terminate(comment)
 
     def cbBye(self, inMessage, inWidget, inParam1, inParam2):
         # pylint: disable=unused-argument
         # Cancels FollowTheGreen
         if inMessage == xp.Msg_PushButtonPressed:
             xp.hideWidget(self.mainWindow["widgetID"])
-            self.ftg.cancel("terminated normally")
+            self.ftg.terminate("terminated normally")
             return 1
         return 0

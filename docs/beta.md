@@ -39,7 +39,7 @@ All other code has been reviewed, refactored, but not logically changed.
 
 # External Configuration
 
-Hooks are provided to allow user to set a few parameters in ftgconfig.toml file.
+Hooks are provided to allow user to set a few parameters in ftgprefs.toml file.
 This is being set up right now. I will decide which parameters can be changed.
 
 Currently, only two parameters can be changed.
@@ -101,7 +101,7 @@ You may therefore by stuck with your A380 on a 15 meter wide taxiway with no U-t
 If you feel uneasy with that, you can enable strict mode.
 
 ```
-USE_STRICT_MODE = True
+RESPECT_CONSTRAINTS = True
 ```
 
 at the expense of longer route search on large airport.

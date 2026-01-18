@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from textwrap import wrap
 
 from .version import __VERSION__
-from .globals import logger, get_global, MONITOR, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE
+from .globals import logger, get_global, INTERNAL_CONSTANTS, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE
 from .aircraft import Aircraft
 from .airport import Airport
 from .flightloop import FlightLoop
@@ -38,15 +38,15 @@ class FollowTheGreens:
         self.localDay = xp.findDataRef("sim/time/local_date_days")
 
         logger.info("\n\n")
-        logger.info("*-" * 50)
-        logger.info(f"Starting new session FtG {__VERSION__} at {datetime.now().astimezone().isoformat()}\n")
+        logger.info("*-*" * 35)
+        logger.info(f"Starting new FtG session {__VERSION__} at {datetime.now().astimezone().isoformat()}\n")
 
         # Load optional config file (Rel. 2 onwards)
         # Parameters in this file will overwrite (with constrain)
         # default values provided by FtG.
         self.config = {}
         here = os.path.dirname(__file__)
-        CONFIGILENAME = "ftgconfig.toml"
+        CONFIGILENAME = "ftgprefs.toml"
         filename = os.path.join(here, CONFIGILENAME)
         if os.path.exists(filename):
             with open(filename, "rb") as fp:
@@ -63,8 +63,21 @@ class FollowTheGreens:
                 logger.debug(f"config: {self.config}")
             else:
                 logger.debug(f"no config file {filename}")
+
         logger.info(f"preferences: {self.config}")
-        logger.debug(f"internal: { {g: get_global(g) for g in MONITOR} }")
+        ll = get_global("LOGGING_LEVEL", self.config)
+        if type(ll) is int:
+            logger.debug(f"log level: current={logger.level}, requested={ll}")
+            if logger.level != ll:
+                logger.setLevel(ll)
+                logger.log(ll, f"internal: debug level set to {ll}")
+        else:
+            logger.warning(f"invalid logging level {ll} ({type(ll)})")
+
+        try:
+            logger.debug(f"internal:\n{ '\n'.join([f'{g}: {get_global(g, config=self.config)}' for g in INTERNAL_CONSTANTS]) }'\n=====")
+        except:  # in case str(value) fails
+            logger.debug("internal: some internals don't print", exc_info=True)
 
     @property
     def is_holding(self) -> bool:
@@ -151,7 +164,7 @@ class FollowTheGreens:
         logger.debug("airport ready")
         self.move = self.airport.guessMove(self.aircraft.position())
         # Info 10
-        logger.info(f"Guessing {self.move}")
+        logger.info(f"guessing {self.move}")
 
         return self.ui.promptForDestination()
 
@@ -160,7 +173,7 @@ class FollowTheGreens:
         # so we first make sur we find a new green, and if we do, we cancel the previous one.
         return self.followTheGreen(destination, True)
 
-    def followTheGreen(self, destination, newGreen=False):
+    def followTheGreen(self, destination, newGreen: bool = False):
         # Destination is either
         #   the name of a runway for departure, or
         #   the name of a parking ramp for arrival.
@@ -171,30 +184,27 @@ class FollowTheGreens:
             return self.ui.promptForDestination(f"Destination {destination} not valid for {self.move}.")
 
         # Info 11
-        logger.info(f"Route to {destination}.")
-        rerr, route = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("USE_STRICT_MODE"))
+        logger.info(f"destination {destination}.")
+        rerr, route = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("RESPECT_CONSTRAINTS", config=self.config))
 
         if not rerr:
-            logger.info(f"No route {route}")
+            logger.info(f"no route to destination {destination} (route  {route})")
             return self.ui.tryAgain(route)
 
         # Info 12
         pos = self.aircraft.position()
         hdg = self.aircraft.heading()
         gsp = self.aircraft.speed()
-        if pos is None:
-            logger.debug("no aircraft position")
-            return self.ui.sorry("We could not locate your aircraft.")
-        if pos[0] == 0 and pos[1] == 0:
+        if pos is None or (pos[0] == 0 and pos[1] == 0):
             logger.debug("no aircraft position")
             return self.ui.sorry("We could not locate your aircraft.")
 
         if newGreen:  # We had a green, and we found a new one.
             # turn off previous lights
-            self.cancel("new green requested")
+            self.terminate("new green requested")
             # now create new ones
 
-        logger.debug(f"Got route: {route}.")
+        logger.debug(f"got route: {route}.")
         self.destination = destination
         onRwy = False
         if self.move == MOVEMENT.ARRIVAL:
@@ -208,9 +218,10 @@ class FollowTheGreens:
             return self.ui.sorry("We could not light a route to your destination.")
 
         # Info 13
-        logger.info(f"Added {len(self.lights.lights)} lights, {self.lights.segments + 1} segments, {len(self.lights.stopbars)} stopbars.")
+        self.lights.printSegments()
+
         self.segment = 0
-        logger.info(f"Segment {self.segment + 1}/{self.lights.segments + 1}.")
+        logger.info(f"current segment {self.segment + 1}/{self.lights.segments + 1}.")
         ret = self.lights.illuminateSegment(self.segment)
         if not ret[0]:
             return self.ui.sorry(ret[1])
@@ -265,7 +276,7 @@ class FollowTheGreens:
         # Called when cleared by TOWER
         self.segment += 1
         # Info 15
-        logger.info(f"Segment {self.segment + 1}/{self.lights.segments + 1}.")
+        logger.info(f"segment {self.segment + 1}/{self.lights.segments + 1}.")
 
         if self.segment > self.lights.segments:
             self.flightLoop.stopFlightLoop()
@@ -277,7 +288,7 @@ class FollowTheGreens:
 
         ret = self.lights.illuminateSegment(self.segment)
         if not ret[0]:
-            self.cancel()
+            self.terminate("issue with light segment illumination")
             return self.ui.sorry(ret[1])
         logger.debug(f"lights instanciated ({self.segment}).")
 
@@ -296,9 +307,10 @@ class FollowTheGreens:
         if self.move == MOVEMENT.ARRIVAL and self.segment == self.lights.segments:
             return self.ui.promptForParked()
 
+        self.ui.canHide = True
         return self.ui.promptForClearance()
 
-    def cancel(self, reason=""):
+    def terminate(self, reason=""):
         # Abandon the FTG mission. Instruct subroutines to turn off FTG lights, remove them,
         # and restore the environment.
         if self.flightLoop:
@@ -313,9 +325,10 @@ class FollowTheGreens:
             self.ui.destroyMainWindow()
 
         # Info 16
-        logger.info(f"cancelled: {reason}.")
-        logger.info(f"Ending new session at {datetime.now().astimezone().isoformat()}")
+        logger.info(f"terminated: {reason}")
+        logger.info(f"FtG session ended at {datetime.now().astimezone().isoformat()}")
         logger.info("==" * 50)
+        logger.info("\n\n")
         return [True, ""]
 
     def hourOfDay(self):
@@ -334,8 +347,8 @@ class FollowTheGreens:
 
     def disable(self):
         # alias to cancel
-        return self.cancel("disabled")
+        return self.terminate("disabled")
 
     def stop(self):
         # alias to cancel
-        return self.cancel("stopped")
+        return self.terminate("stopped")

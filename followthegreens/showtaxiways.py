@@ -107,7 +107,8 @@ class ShowTaxiways:
             return self.ui.sorry("We could not light taxiways.")
 
         # Info 13
-        logger.info(f"Added {len(self.lights.lights)} lights.")
+        # logger.info(f"Added {len(self.lights.lights)} lights.")
+        self.lights.printSegments()
 
         # if self.pi is not None and self.pi.menuIdx_st is not None and self.pi.menuIdx_st >= 0:
         #     try:
@@ -127,7 +128,7 @@ class ShowTaxiways:
     def hourOfDay(self):
         return int(xp.getDataf(self.localTime) / 3600)  # seconds since midnight??
 
-    def cancel(self, reason="unspecified"):
+    def terminate(self, reason="unspecified"):
         if self.lights:
             self.lights.destroy()
             self.lights = None
@@ -148,13 +149,13 @@ class ShowTaxiways:
             # self.ui = None
 
         # Info 16
-        logger.info(f"cancelled: reason {reason}.")
+        logger.info(f"terminated: reason {reason}.")
         return [True, ""]
 
     def disable(self):
         # alias to cancel
-        return self.cancel("disabled")
+        return self.terminate("disabled")
 
     def stop(self):
         # alias to cancel
-        return self.cancel("stopped")
+        return self.terminate("stopped")

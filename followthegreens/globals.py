@@ -2,22 +2,20 @@
 #
 import os
 import logging
+from datetime import datetime, timezone
 from enum import Enum, StrEnum
 
+# ################################
+#
+# PLEASE DO NOT CHANGE ANY INTERNAL CONSTANT
+# Use the ftgprefs.toml file to set preferences
 #
 #
-LOGGING_LEVEL = logging.DEBUG
 #
-#   You can change the above level by using logging.WARN, logging.INFO, or logging.DEBUG.
-#   In case of problem, the developer may ask you to set the level
-#   to a specific value.
-#   Messages are logged in the file called ftg_log.txt that is located
-#   in the followthegreens folder.
-#   You may also change LOGGING_LEBEL in ftgconfig.toml file.
-#
-
 # ################################
 # FTG INTERNALS
+#
+# PLEASE DO NOT CHANGE THESE INTERNAL CONSTANT
 #
 # TAXIWAY NETWORK
 #
@@ -183,11 +181,13 @@ class ROUTING_ALGORITHMS(StrEnum):
 
 
 ROUTING_ALGORITHM = ROUTING_ALGORITHMS.ASTAR  # astar, dijkstra (default)
-USE_STRICT_MODE = True  # set to True at your own risk
-SAY_ROUTE = True
+RESPECT_CONSTRAINTS = False  # set to True at your own risk
+SAY_ROUTE = True  # Print route on pop up display and speak it orally.
 
 
-# INTERNALS
+# ################################
+# INTERNALS CONTROL
+# of aircraft movements
 #
 class MOVEMENT(StrEnum):
     ARRIVAL = "arrival"
@@ -199,19 +199,20 @@ TOO_FAR = 500  # meters, if further than this from a taxiway, does not kick in.
 RUNWAY_BUFFER_WIDTH = 100  # meters. When no runway surface available, imaging a runway that wide
 WARNING_DISTANCE = 150  # When getting close to a STOP BAR, show main window.
 DRIFTING_LIMIT = 5  # times DISTANCE_BETWEEN_GREEN_LIGHTS, after this limit, we consider data unreliable.
-DRIFTING_DISTANCE = 200  # When drifting away from "closest" light, after this distance, we should send a warning
+DRIFTING_DISTANCE = 200  # When drifting away from "closest" light, after this distance, we send a warning
 
-PLANE_MONITOR_DURATION = 3  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
+PLANE_MONITOR_DURATION = 5  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
 MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before getting potential stop bar
 
-ADD_LIGHT_AT_VERTEX = False  # Add a light at each taxiway network vertex on the path
-ADD_LIGHT_AT_LAST_VERTEX = False  # Add a light at the last vertex, even if it is closer than DISTANCE_BETWEEN_GREEN_LIGHTS
-
-# Follow the greens lighting constants
+# ################################
+# FTG LIGHTS
 #
 DISTANCE_BETWEEN_GREEN_LIGHTS = 16  # meters, distance between lights on ground. I *think* that the standard for taxi center line lights is 60 meters.
 DISTANCE_BETWEEN_STOPLIGHTS = 2  # meters, distance between red stop lights on the ground. Should be small, like 2 meters
-DISTANCE_BETWEEN_LIGHTS = 32  # meters, when showing all taxiways. This can build numerous lights! Use 40-80 range.
+DISTANCE_BETWEEN_LIGHTS = 32  # meters, when showing all taxiways. This can build numerous lights! Use 40-80m range.
+
+ADD_LIGHT_AT_VERTEX = False  # Add a light at each taxiway network vertex on the path, artificial, but useful for apt designers
+ADD_LIGHT_AT_LAST_VERTEX = False  # Add a light at the last vertex, even if it is closer than DISTANCE_BETWEEN_GREEN_LIGHTS
 
 LEAD_OFF_RUNWAY_DISTANCE = 160  # meters, will determine number of alterning green/amber lights after leaving the runway
 
@@ -280,44 +281,42 @@ LIGHT_TYPE_OBJFILES = {
 
 
 # ################################
-# MISCELLANEOUS
+# LIST OF INTERNAL CONSTANTS
 #
-class ATC(StrEnum):
-    NONE = "None"
-    DELIVERY = "Delivery"
-    GROUND = "Ground"
-    TOWER = "Tower"
-    TRACON = "Tracon"
-    CENTER = "Center"
+# Values of the following parameters is show on debug
+INTERNAL_CONSTANTS = [
+    "ADD_LIGHT_AT_LAST_VERTEX",
+    "ADD_LIGHT_AT_VERTEX",
+    "AIRPORTLIGHT_ON",
+    "AMBIANT_RWY_LIGHT_CMDROOT",
+    "AMBIANT_RWY_LIGHT_VALUE",
+    "DISTANCE_BETWEEN_GREEN_LIGHTS",
+    "DISTANCE_BETWEEN_LIGHTS",
+    "DISTANCE_BETWEEN_STOPLIGHTS",
+    "DISTANCE_TO_RAMPS",
+    "DRIFTING_DISTANCE",
+    "DRIFTING_LIMIT",
+    "FTG_PLUGIN_ROOT_PATH",
+    "FTG_SPEED_PARAMS",
+    "LEAD_OFF_RUNWAY_DISTANCE",
+    "LIGHT_TYPE_OBJFILES",
+    "LIGHTS_AHEAD",
+    "LOGGING_LEVEL",
+    "MIN_SEGMENTS_BEFORE_HOLD",
+    "PLANE_MONITOR_DURATION",
+    "RABBIT_DURATION",
+    "RABBIT_LENGTH",
+    "ROUTING_ALGORITHM",
+    "RUNWAY_BUFFER_WIDTH",
+    "RUNWAY_LIGHT_LEVEL_WHILE_FTG",
+    "SAY_ROUTE",
+    "TOO_FAR",
+    "RESPECT_CONSTRAINTS",
+    "WARNING_DISTANCE",
+]
 
-
-# ATC greetings
-GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}  # hour time of day when to use appropriate greeting
-# GOOD = {"morning": 4, "day": 6, "afternoon": 9, "evening": 12, "night": 17}  # special US :-D
-
-
-def get_global(name: str, config: dict = {}):
-    # most globals are defined defined above...
-    return config.get(name, globals().get(name))
-
-
-# ################################
-# LOGGING
-#
-plugin_path = os.path.dirname(__file__)
-FORMAT = "%(levelname)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s"
-LOGFILENAME = "ftg_log.txt"
-logging.basicConfig(
-    level=get_global("LOGGING_LEVEL"),
-    format=FORMAT,
-    handlers=[
-        logging.FileHandler(os.path.join(plugin_path, "..", LOGFILENAME)),
-        logging.StreamHandler(),
-    ],
-)
-logger = logging.getLogger("FtG")
-
-MONITOR = [
+# Values of the following parameters is show on debug
+ALL_INTERNAL_CONSTANTS = [
     "ADD_LIGHT_AT_LAST_VERTEX",
     "ADD_LIGHT_AT_VERTEX",
     "AIRPORTLIGHT_ON",
@@ -366,6 +365,55 @@ MONITOR = [
     "STW_COMMAND_DESC",
     "STW_MENU",
     "TOO_FAR",
-    "USE_STRICT_MODE",
+    "RESPECT_CONSTRAINTS",
     "WARNING_DISTANCE",
 ]
+
+
+# ################################
+# MISCELLANEOUS
+#
+class ATC(StrEnum):
+    NONE = "None"
+    DELIVERY = "Delivery"
+    GROUND = "Ground"
+    TOWER = "Tower"
+    TRACON = "Tracon"
+    CENTER = "Center"
+
+
+# ATC greetings: period of day: hours from which to say it
+GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}  # hour time of day when to use appropriate greeting
+# GOOD = {"morning": 4, "day": 6, "afternoon": 9, "evening": 12, "night": 17}  # special US :-D
+
+
+def get_global(name: str, config: dict = {}):
+    # most globals are defined defined above...
+    # if name not in config:
+    #     logger.debug(f"name {name} not in config, using global {globals().get(name)}")
+    return config.get(name, globals().get(name))
+
+
+# ################################
+# LOGGING
+#
+LOGFILENAME = "ftg_log.txt"
+LOGGING_LEVEL = logging.INFO  # can be modified by preference
+logging.basicConfig(
+    level=LOGGING_LEVEL,
+    format="%(levelname)s %(asctime)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s",
+    handlers=[
+        logging.FileHandler(os.path.join(os.path.dirname(__file__), "..", LOGFILENAME)),
+        logging.StreamHandler(),
+    ],
+)
+logger = logging.getLogger("FtG")
+
+
+# https://gist.github.com/daaniam/041bfd34c1d14e5aeb1bf84537b47fb6
+def _format_logging_time(self, record, datefmt: str | None = None) -> str:
+    """Return time for logging with microseconds and timezone. datefmt is ignored."""
+    return str(datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat())
+
+
+# logging.Formatter.formatTime = _format_logging_time
