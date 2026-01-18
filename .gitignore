@@ -122,14 +122,18 @@ venv.bak/
 dmypy.json
 
 # Pyre type checker
-.pyre/
-
 .DS_Store
 /docs/logo
 /docs/misc
 /out
+/logs
+PI_test.py
+/test
 followthegreens/.DS_Store
+followthegreens/ftgconfig.toml
+followthegreens/ftgprefs-dev.toml
 followthegreens/ftgprefs-future.toml
+followthegreens/ftgprefs-lights.toml.toml
 followthegreens/ftgprefs.toml
 followthegreens/globals-dev.py
 followthegreens/globals-prod.py
@@ -139,6 +143,4 @@ followthegreens/lights/cust_red.obj
 followthegreens/lights/custom_first.obj
 followthegreens/lights/custom_green.obj
 ftg_log.txt
-PI_test.py
-/test
 skunkcrafts_file_generator.py

@@ -205,7 +205,7 @@ class UIUtil:
     def greetings(self, text="Good %s."):
         h = self.ftg.hourOfDay()
         logger.debug(f"bye: {h}.")
-        ss = list(GOOD.keys())[-1] # last one is good night, from 0-4 and 20-24.
+        ss = list(GOOD.keys())[-1]  # last one is good night, from 0-4 and 20-24.
         for k, v in GOOD.items():
             if h > v:
                 ss = k
@@ -522,20 +522,20 @@ class UIUtil:
         # Cancels FollowTheGreen
         if inMessage == xp.Msg_PushButtonPressed:
             xp.hideWidget(self.mainWindow["widgetID"])
-            self.ftg.cancel("user cancelled")
+            self.ftg.terminate("user cancelled")
             return 1
         return 0
 
     def cancelReceived(self, comment: str):
         logger.info(f"cancel command received")
         xp.hideWidget(self.mainWindow["widgetID"])
-        self.ftg.cancel(comment)
+        self.ftg.terminate(comment)
 
     def cbBye(self, inMessage, inWidget, inParam1, inParam2):
         # pylint: disable=unused-argument
         # Cancels FollowTheGreen
         if inMessage == xp.Msg_PushButtonPressed:
             xp.hideWidget(self.mainWindow["widgetID"])
-            self.ftg.cancel("terminated normally")
+            self.ftg.terminate("terminated normally")
             return 1
         return 0

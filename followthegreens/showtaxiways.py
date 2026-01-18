@@ -128,7 +128,7 @@ class ShowTaxiways:
     def hourOfDay(self):
         return int(xp.getDataf(self.localTime) / 3600)  # seconds since midnight??
 
-    def cancel(self, reason="unspecified"):
+    def terminate(self, reason="unspecified"):
         if self.lights:
             self.lights.destroy()
             self.lights = None
@@ -149,13 +149,13 @@ class ShowTaxiways:
             # self.ui = None
 
         # Info 16
-        logger.info(f"cancelled: reason {reason}.")
+        logger.info(f"terminated: reason {reason}.")
         return [True, ""]
 
     def disable(self):
         # alias to cancel
-        return self.cancel("disabled")
+        return self.terminate("disabled")
 
     def stop(self):
         # alias to cancel
-        return self.cancel("stopped")
+        return self.terminate("stopped")

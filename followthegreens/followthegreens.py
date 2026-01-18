@@ -201,7 +201,7 @@ class FollowTheGreens:
 
         if newGreen:  # We had a green, and we found a new one.
             # turn off previous lights
-            self.cancel("new green requested")
+            self.terminate("new green requested")
             # now create new ones
 
         logger.debug(f"got route: {route}.")
@@ -288,7 +288,7 @@ class FollowTheGreens:
 
         ret = self.lights.illuminateSegment(self.segment)
         if not ret[0]:
-            self.cancel()
+            self.terminate("issue with light segment illumination")
             return self.ui.sorry(ret[1])
         logger.debug(f"lights instanciated ({self.segment}).")
 
@@ -310,7 +310,7 @@ class FollowTheGreens:
         self.ui.canHide = True
         return self.ui.promptForClearance()
 
-    def cancel(self, reason=""):
+    def terminate(self, reason=""):
         # Abandon the FTG mission. Instruct subroutines to turn off FTG lights, remove them,
         # and restore the environment.
         if self.flightLoop:
@@ -325,7 +325,7 @@ class FollowTheGreens:
             self.ui.destroyMainWindow()
 
         # Info 16
-        logger.info(f"cancelled: {reason}.")
+        logger.info(f"terminated: {reason}")
         logger.info(f"FtG session ended at {datetime.now().astimezone().isoformat()}")
         logger.info("==" * 50)
         logger.info("\n\n")
@@ -347,8 +347,8 @@ class FollowTheGreens:
 
     def disable(self):
         # alias to cancel
-        return self.cancel("disabled")
+        return self.terminate("disabled")
 
     def stop(self):
         # alias to cancel
-        return self.cancel("stopped")
+        return self.terminate("stopped")

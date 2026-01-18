@@ -441,7 +441,7 @@ class Airport:
             if d < shortest:
                 shortest = d
                 closest = name
-        logger.debug(f"{closest} at {shortest}")
+        logger.debug(f"{closest} at {round(shortest, 1)}m")
         return [closest, shortest]
 
     def onRunway(self, position, width: float | None = None, heading: float | None = None):

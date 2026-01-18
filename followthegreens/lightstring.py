@@ -4,6 +4,7 @@
 import math
 import json
 import os.path
+from random import randint
 
 import xp
 
@@ -11,12 +12,7 @@ from .geo import Point, distance, bearing, destination, convertAngleTo360, point
 from .globals import (
     logger,
     get_global,
-    ADD_LIGHT_AT_LAST_VERTEX,
-    ADD_LIGHT_AT_VERTEX,
-    DISTANCE_BETWEEN_LIGHTS,
-    DISTANCE_BETWEEN_STOPLIGHTS,
     FTG_SPEED_PARAMS,
-    MIN_SEGMENTS_BEFORE_HOLD,
     MOVEMENT,
     RABBIT_MODE,
     TAXIWAY_ACTIVE,
@@ -54,7 +50,20 @@ class LightType:
             logger.debug(f"object unloaded {self.name}")
 
     @staticmethod
-    def create(name: str, color: tuple, size: int, intensity: int, texture: int) -> str:
+    def create(name: str, color: tuple, size: int, intensity: int, texture: int | list | tuple, texture_file: str = "lights.png") -> str:
+        """Creates a light object file with content derived from parameters.
+
+        Args:
+            name (str): file name of light object
+            color (tuple): RGB colors, each value between 0 and 1.
+            size (int): relative size of light, 10 to 100.
+            intensity (int): number of times the lihgt unit is releated. The more the brighter and the less natural...
+            texture| list | tuple ([type]): Texture region code for normal texture file (0, 1, 2 or 3) or formal tuple pointing at texture area in texture file
+            texture_file (str): Texture file (default: `"lights.png"`), ideally a PNG file.
+
+        returns:
+            str: file name of ligght object
+        """
         TEXTURES = [
             "0.5  1.0  1.0  0.5",  # TOP RIGHT
             "0.0  1.0  0.5  0.5",  # TOP LEFT
@@ -67,19 +76,24 @@ class LightType:
         alpha = 1
         with open(fn, "w") as fp:
             print(
-                """I
+                f"""I
 800
 OBJ
 
-TEXTURE lights.png
-TEXTURE_LIT lights.png
+TEXTURE {texture_file}
+TEXTURE_LIT {texture_file}
 
 POINT_COUNTS    0 0 0 0
 
 """,
                 file=fp,
             )
-            ls = f"LIGHT_CUSTOM 0 1 0 {round(color[0],2)} {round(color[1],2)} {round(color[2],2)} {alpha} {fsize} {TEXTURES[texture]} UNUSED"
+            ltext = TEXTURES[0]
+            if type(texture) in [list, tuple]:
+                ltext = texture
+            elif type(texture) is int:
+                ltext = TEXTURES[texture]
+            ls = f"LIGHT_CUSTOM 0 1 0 {round(color[0],2)} {round(color[1],2)} {round(color[2],2)} {alpha} {fsize} {ltext} UNUSED"
             logger.debug(f"create light {name} ({size}, {intensity}): {ls}")
             for i in range(intensity):
                 print(ls, file=fp)
@@ -161,7 +175,7 @@ class Stopbar:
         heading,
         index,
         size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.F,
-        distance_between_stoplights: int = DISTANCE_BETWEEN_STOPLIGHTS,
+        distance_between_stoplights: int = self.distance_between_stoplights,
         light: LIGHT_TYPE = LIGHT_TYPE.STOP,
     ):
         self.lights = []
@@ -245,6 +259,13 @@ class LightString:
             self.distance_between_lights = 10
         self.lead_off_lights = int(float(get_global("LEAD_OFF_RUNWAY_DISTANCE", config=config)) / self.distance_between_lights)
         self.rwy_twy_lights = self.lead_off_lights  # initial value
+
+        # Options
+        self.add_light_at_vertex = get_global("ADD_LIGHT_AT_VERTEX", config=config)
+        self.add_light_at_last_vertex = get_global("ADD_LIGHT_AT_LAST_VERTEX", config=config)
+        self.distance_between_lights = get_global("DISTANCE_BETWEEN_LIGHTS", config=config)
+        self.distance_between_stoplights = get_global("DISTANCE_BETWEEN_STOPLIGHTS", config=config)
+        self.min_segments_before_hold = get_global("MIN_SEGMENTS_BEFORE_HOLD", config=config)
 
         self.num_lights_ahead = get_global("LIGHTS_AHEAD", config=config)  # if zero, all lights are shown, otherwise, must be >= self.rabbit_length
         self.rabbit_length = get_global("RABBIT_LENGTH", config=config)
@@ -383,7 +404,7 @@ class LightString:
             # note: if move=arrival, we should not stop on the first taxiway segment, but we may have to cross another runway further on...
             # the criteria here should be refined. test for active=arrival, and runway=runway where we landed. @todo.
             # @todo: check also for hasActive(ARRIVAL)? Or either or both?
-            if route.move == MOVEMENT.ARRIVAL and thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE) and i > MIN_SEGMENTS_BEFORE_HOLD:  # must place a stop bar
+            if route.move == MOVEMENT.ARRIVAL and thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE) and i > self.min_segments_before_hold:  # must place a stop bar
                 stopbarAt = currVertex  # but should avoid placing one as plane exits runway...
                 lightAtStopbar = len(thisLights)
                 if onILS:
@@ -435,7 +456,7 @@ class LightString:
                 distanceBeforeNextLight = distanceBeforeNextLight - distToNextVertex
                 # logger.debug("remaining: %f", distanceBeforeNextLight)
 
-                if ADD_LIGHT_AT_VERTEX:  # may be we insert a last light at the vertex?
+                if self.add_light_at_vertex:  # may be we insert a last light at the vertex?
                     brgn = bearing(lastLight, nextVertex)
                     thisLights.append(Light(self.next_taxiway_light(nextVertex), nextVertex, brgn, i))
                     lastLight = nextVertex
@@ -444,7 +465,7 @@ class LightString:
             currPoint = nextVertex
             currVertex = nextVertex
 
-        if ADD_LIGHT_AT_LAST_VERTEX:  # may be we insert a last light at the last vertex?
+        if self.add_light_at_last_vertex:  # may be we insert a last light at the last vertex?
             lastPoint = route.route[len(route.route) - 1]
             lastVertex = graph.get_vertex(route.route[len(route.route) - 1])
             brgn = bearing(lastLight, lastPoint)
@@ -475,7 +496,7 @@ class LightString:
             for i in range(len(self.stopbars)):
                 segs.append(f"#{i}:{last}-{self.stopbars[i].lightStringIndex - 1}")
                 last = self.stopbars[i].lightStringIndex
-            segs.append(f"#{i}:{last}-{len(self.lights)}")
+            segs.append(f"#{i}:{last}-{len(self.lights) - 1}")
             logger.debug("segments: " + ", ".join(segs))
 
     # We make a stopbar after the green light index lightIndex
@@ -505,6 +526,14 @@ class LightString:
         ]
 
     def loadObjects(self):
+        lightsConfig = self.config.get("Lights", {})
+        DEFAULT_LIGHT_VALUES = {
+            "name": f"ftglight{randint(1000,9999)}.obj",
+            "color": [1, 1, 1],  # white
+            "size": 20,
+            "intensity": 20,
+            "texture": 3,
+        }
         self.lightTypes = {}
         for k, f in LIGHT_TYPE_OBJFILES.items():
             if type(f) is str:
@@ -512,6 +541,13 @@ class LightString:
             elif type(f) in [tuple, list]:
                 fn = LightType.create(name=f[0], color=f[1], size=f[2], intensity=f[3], texture=f[4])
                 self.lightTypes[k] = LightType(k, fn)
+            if k in lightsConfig:
+                thisLightConfig = DEFAULT_LIGHT_VALUES | lightsConfig.get(k)
+                if not thisLightConfig["name"].endswith(".obj"):
+                    thisLightConfig["name"] = thisLightConfig["name"] + ".obj"
+                fn = LightType.create(**thisLightConfig)
+                self.lightTypes[k] = LightType(k, fn)
+                logger.debug(f"created preferred light {thisLightConfig}")
             self.lightTypes[k].load()
         logger.debug("loaded.")
         return True
@@ -709,7 +745,7 @@ class LightString:
             self.lights.append(Light(LIGHT_TYPE.TAXIWAY, s.start, brng, cnt))
             cnt += 1
 
-            step = max(DISTANCE_BETWEEN_LIGHTS, HARDCODED_MIN_DISTANCE)
+            step = max(self.distance_between_lights, HARDCODED_MIN_DISTANCE)
             dist = step
             while dist < s.length():
                 pos = destination(s.start, brng, dist)

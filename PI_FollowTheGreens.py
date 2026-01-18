@@ -417,7 +417,7 @@ class PythonInterface:
 
             if self.showTaxiways.ui.mainWindowExists():  # already running, we stop it...
                 try:
-                    self.showTaxiways.cancel()
+                    self.showTaxiways.terminate("normal termination")
                     self.debug("showTaxiwaysCmd: ended.")
                     return 1
                 except:
