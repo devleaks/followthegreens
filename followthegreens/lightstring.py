@@ -20,6 +20,7 @@ from .globals import (
     TAXIWAY_WIDTH,
     LIGHT_TYPE,
     LIGHT_TYPE_OBJFILES,
+    DISTANCE_BETWEEN_STOPLIGHTS,
 )
 
 HARDCODED_MIN_DISTANCE = 10  # meters
@@ -175,7 +176,7 @@ class Stopbar:
         heading,
         index,
         size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.F,
-        distance_between_stoplights: int = self.distance_between_stoplights,
+        distance_between_stoplights: int = DISTANCE_BETWEEN_STOPLIGHTS,
         light: LIGHT_TYPE = LIGHT_TYPE.STOP,
     ):
         self.lights = []

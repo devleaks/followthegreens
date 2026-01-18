@@ -4,15 +4,7 @@ from enum import Enum
 
 import xp
 
-from .globals import logger, TAXIWAY_WIDTH_CODE
-
-
-class TAXI_SPEED(Enum):  # in m/s
-    FAST = "FAST"
-    MED = "MED"
-    SLOW = "SLOW"
-    CAUTION = "CAUTION"
-    TURN = "TURN"
+from .globals import logger, TAXIWAY_WIDTH_CODE, TAXI_SPEED
 
 
 ICAO_AND_IATA_AIRLINERS_CODES = [

@@ -220,6 +220,14 @@ LEAD_OFF_RUNWAY_DISTANCE = 160  # meters, will determine number of alterning gre
 # ################################
 # RABBIT
 #
+class TAXI_SPEED(Enum):  # in m/s
+    FAST = "FAST"
+    MED = "MED"
+    SLOW = "SLOW"
+    CAUTION = "CAUTION"
+    TURN = "TURN"
+
+
 class RABBIT_MODE(StrEnum):
     SLOWEST = "slowest"
     SLOWER = "slower"
