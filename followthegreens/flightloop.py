@@ -9,6 +9,7 @@ from .globals import (
     logger,
     get_global,
     RABBIT_MODE,
+    TAXI_SPEED,
     PLANE_MONITOR_DURATION,
     DISTANCE_BETWEEN_GREEN_LIGHTS,
     DRIFTING_DISTANCE,
@@ -269,25 +270,25 @@ class FlightLoop:
         taxi_speed_ranges = self.ftg.aircraft.taxi_speed_ranges()
         braking_distance = self.ftg.aircraft.braking_distance()  # m should be a function of acf mass/type and current speed
 
-        target = taxi_speed_ranges.MED  # target speed range
+        target = taxi_speed_ranges[TAXI_SPEED.MED]  # target speed range
         comment = "continue"
 
         if dist < braking_distance:
             if abs(turn) < SMALL_TURN_LIMIT:
                 comment = "small turn at braking distance, caution"
-                target = taxi_speed_ranges.CAUTION
+                target = taxi_speed_ranges[TAXI_SPEED.CAUTION]
             else:
                 comment = "turn at braking distance"
-                target = taxi_speed_ranges.TURN
+                target = taxi_speed_ranges[TAXI_SPEED.TURN]
         elif dist > MOVEIT_DIST:
             comment = "no turn before large distance, move it"
-            target = taxi_speed_ranges.FAST
+            target = taxi_speed_ranges[TAXI_SPEED.FAST]
 
         # II.2 adjust rabbit mode from current speed to target speed range
         advise = "on target"  # ..within range, mode = normal/medium
         mode = RABBIT_MODE.MED
 
-        srange = target.value
+        srange = target
         if speed < STOPPED_SPEED:  # m/s
             advise = f"probably stopped ({round(speed, 1)}m/s < {STOPPED_SPEED})"
         elif speed < srange[0]:
