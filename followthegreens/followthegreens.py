@@ -16,11 +16,13 @@ from .lightstring import LightString
 from .ui import UIUtil
 from .nato import phonetic
 
+CONFIG_FILENAME = "ftgprefs.toml"
+
 
 class FollowTheGreens:
 
     def __init__(self, pi):
-        self._status = FTG_STATUS.NEW
+        self.status = FTG_STATUS.NEW
         self.pi = pi
         self.airport: Airport | None = None
         self.aircraft: Aircraft | None = None
@@ -40,15 +42,13 @@ class FollowTheGreens:
         logger.info("\n\n")
         logger.info("*-*" * 35)
         logger.info(f"Starting new FtG session {__VERSION__} at {datetime.now().astimezone().isoformat()}\n")
-        self.status = FTG_STATUS.NEW
 
         # Load optional config file (Rel. 2 onwards)
         # Parameters in this file will overwrite (with constrain)
         # default values provided by FtG.
         self.config = {}
         here = os.path.dirname(__file__)
-        CONFIGILENAME = "ftgprefs.toml"
-        filename = os.path.join(here, CONFIGILENAME)
+        filename = os.path.join(here, CONFIG_FILENAME)
         if os.path.exists(filename):
             with open(filename, "rb") as fp:
                 self.config = tomllib.load(fp)
@@ -56,7 +56,7 @@ class FollowTheGreens:
             logger.debug(f"config: {self.config}")
         else:
             logger.debug(f"no config file {filename}")
-            filename = os.path.join(".", "Output", "preferences", CONFIGILENAME)  # relative to X-Plane "rott/home" folder
+            filename = os.path.join(".", "Output", "preferences", CONFIG_FILENAME)  # relative to X-Plane "rott/home" folder
             if os.path.exists(filename):
                 with open(filename, "rb") as fp:
                     self.config = tomllib.load(fp)
@@ -96,7 +96,7 @@ class FollowTheGreens:
         logger.debug(f"FtG is now {status}")
 
     def create_empty_prefs(self):
-        filename = os.path.join(".", "Output", "preferences", CONFIGILENAME)  # relative to X-Plane "rott/home" folder
+        filename = os.path.join(".", "Output", "preferences", CONFIG_FILENAME)  # relative to X-Plane "rott/home" folder
         if not os.path.exists(filename):
             with open(filename, "w") as fp:
                 print(
@@ -104,11 +104,11 @@ class FollowTheGreens:
 #
 # See documentation at https://devleaks.github.io/followthegreens/.
 #
-# To set a preferred value, place the name of the value = <value> on a new line.
+# To set a preferred value, place the name of the preference = <value> on a new line.
 # Lines that starts with # are comments.
 # Example:
-# LOGGING_LEVEL = 10
-# Remove the # character at the above line to enable debugging information logging.
+#LOGGING_LEVEL = 10
+# Remove the # character from the above line to enable debugging information logging.
 #
 # Taxi safely.
 """,
@@ -250,7 +250,7 @@ class FollowTheGreens:
 
         self.status = FTG_STATUS.ROUTE
 
-        self.lights = LightString(config=self.config)
+        self.lights = LightString(airport=self.airport, aircraft=self.aircraft, config=self.config)
         self.lights.populate(route, onRwy)
         if len(self.lights.lights) == 0:
             logger.debug("no lights")

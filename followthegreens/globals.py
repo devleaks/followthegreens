@@ -227,12 +227,18 @@ LEAD_OFF_RUNWAY_DISTANCE = 160  # meters, will determine number of alterning gre
 # ################################
 # RABBIT
 #
-class TAXI_SPEED(Enum):  # in m/s
-    FAST = "FAST"
-    MED = "MED"
-    SLOW = "SLOW"
-    CAUTION = "CAUTION"
-    TURN = "TURN"
+class AIRCRAFT(Enum):
+    AIRCRAFTS = "AIRCRAFTS"
+    TAXI_SPEED = "TAXI_SPEED"
+    BRAKING_DISTANCE = "BRAKING_DISTANCE"
+    WARNING_DISTANCE = "WARNING_DISTANCE"
+    RABBIT = "RABBIT"
+
+
+class RABBIT(Enum):  # in meters, will be translated into number of lights depending on airport preference
+    LENGTH = "LENGTH"
+    SPEED = "SPEED"
+    LIGHTS_AHEAD = "LIGHTS_AHEAD"
 
 
 class RABBIT_MODE(StrEnum):
@@ -243,8 +249,16 @@ class RABBIT_MODE(StrEnum):
     FASTEST = "fastest"
 
 
-LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
-RABBIT_LENGTH = 8  # number of lights that blink in front of aircraft
+class TAXI_SPEED(Enum):  # in m/s
+    FAST = "FAST"
+    MED = "MED"
+    SLOW = "SLOW"
+    CAUTION = "CAUTION"
+    TURN = "TURN"
+
+
+LIGHTS_AHEAD = 6  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
+RABBIT_LENGTH = 6  # number of lights that blink in front of aircraft
 RABBIT_DURATION = 0.20  # sec duration of "off" light in rabbit
 
 # As a first step, uses 5 standard rabbit (length, speed)
@@ -418,7 +432,7 @@ logging.basicConfig(
     level=LOGGING_LEVEL,
     format="%(levelname)s %(asctime)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s",
     handlers=[
-        logging.FileHandler(os.path.join(os.path.dirname(__file__), "..", LOGFILENAME)),
+        logging.FileHandler(os.path.join(os.path.dirname(__file__), "..", LOGFILENAME), mode="w"),
         logging.StreamHandler(),
     ],
 )

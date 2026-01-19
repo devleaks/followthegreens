@@ -166,12 +166,15 @@ or
 
 (The first one takes precedence on the second one.)
 
-Here is a template of the configutation file.
+An empty preference file `ftgprefs.toml` is created in `<X-Plane 12 Folder> / Output / preferences `
+on the first start.
+You can insert yourr preferences there.
+
+Here is an example of the content of a typical preference file.
 It is a [TOML](https://toml.io/en/) formatted file.
 
 ```
 DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # meters
-DISTANCE_BETWEEN_LIGHTS = 40  # meters
 
 LIGHTS_AHEAD = 0   # number of green lights
 RABBIT_LENGTH = 10   # number of green lights

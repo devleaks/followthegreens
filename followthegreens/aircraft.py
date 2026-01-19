@@ -1,234 +1,133 @@
 # Aircraft data encapsulator
 #
-from enum import Enum
-
 import xp
 
-from .globals import logger, TAXIWAY_WIDTH_CODE, TAXI_SPEED
+from .globals import logger, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT
 
 
+# fmt: off
 ICAO_AND_IATA_AIRLINERS_CODES = [
-    "310",
-    "312",
-    "313",
-    "318",
-    "319",
-    "31F",
-    "31X",
-    "31Y",
-    "320",
-    "321",
-    "32S",
-    "32S",
-    "32S",
-    "32S",
-    "330",
-    "330",
-    "332",
-    "333",
-    "340",
-    "340",
-    "340",
-    "340",
-    "342",
-    "343",
-    "345",
-    "346",
-    "359",
-    "380",
-    "38F",
-    "703",
-    "707",
-    "70F",
-    "70M",
-    "717",
-    "722",
-    "72A",
-    "72F",
-    "72S",
-    "731",
-    "732",
-    "733",
-    "734",
-    "735",
-    "736",
-    "737",
-    "738",
-    "739",
-    "73A",
-    "73F",
-    "73G",
-    "73H",
-    "73M",
-    "73S",
-    "73W",
-    "73X",
-    "73Y",
-    "741",
-    "742",
-    "743",
-    "744",
-    "747",
-    "74C",
-    "74D",
-    "74E",
-    "74F",
-    "74L",
-    "74M",
-    "74R",
-    "74X",
-    "74Y",
-    "752",
-    "753",
-    "757",
-    "75F",
-    "75M",
-    "762",
-    "763",
-    "764",
-    "767",
-    "767",
-    "76F",
-    "76F",
-    "76X",
-    "76Y",
-    "772",
-    "773",
-    "777",
-    "A225",
-    "A25",
-    "A306",
-    "A30B",
-    "A310",
-    "A318",
-    "A319",
-    "A320",
-    "A321",
-    "A332",
-    "A333",
-    "A342",
-    "A343",
-    "A345",
-    "A346",
-    "A359",
-    "A388",
-    "AB3",
-    "AB4",
-    "AB6",
-    "ABF",
-    "ABX",
-    "ABY",
-    "ARJ",
-    "ARX",
-    "B701",
-    "B703",
-    "B712",
-    "B72",
-    "B72",
-    "B720",
-    "B722",
-    "B731",
-    "B732",
-    "B733",
-    "B734",
-    "B735",
-    "B736",
-    "B737",
-    "B738",
-    "B739",
-    "B741",
-    "B742",
-    "B743",
-    "B744",
-    "B74R",
-    "B74S",
-    "B752",
-    "B753",
-    "B762",
-    "B763",
-    "B764",
-    "B772",
-    "B773",
-    "E170",
-    "E70",
-    "GLF5",
-    "GRJ",
-    "RJ1H",
+"310", "312", "313", "318", "319", "31F", "31X", "31Y", "320", "321", "32S", "32S", "32S", "32S",
+"330", "330", "332", "333", "340", "340", "340", "340", "342", "343", "345", "346", "359", "380",
+"38F", "703", "707", "70F", "70M", "717", "722", "72A", "72F", "72S", "731", "732", "733", "734",
+"735", "736", "737", "738", "739", "73A", "73F", "73G", "73H", "73M", "73S", "73W", "73X", "73Y",
+"741", "742", "743", "744", "747", "74C", "74D", "74E", "74F", "74L", "74M", "74R", "74X", "74Y",
+"752", "753", "757", "75F", "75M", "762", "763", "764", "767", "767", "76F", "76F", "76X", "76Y",
+"772", "773", "777", "A225", "A25", "A306", "A30B", "A310", "A318", "A319", "A320", "A321", "A332",
+"A333", "A342", "A343", "A345", "A346", "A359", "A388", "AB3", "AB4", "AB6", "ABF", "ABX", "ABY",
+"ARJ", "ARX", "B701", "B703", "B712", "B72", "B72", "B720", "B722", "B731", "B732", "B733", "B734",
+"B735", "B736", "B737", "B738", "B739", "B741", "B742", "B743", "B744", "B74R", "B74S", "B752",
+"B753","B762", "B763", "B764", "B772", "B773", "E170", "E70", "GLF5", "GRJ", "RJ1H",
 ]  # PICK ONE ABOVE, ADD TO AIRCRAFTS LIST BELOW. EASY.
+# fmt: on
 
 # Static definition for now, will soon be dynamically computed
 AIRCRAFT_TYPES = {
     TAXIWAY_WIDTH_CODE.A: {  # General aviation
-        "AIRCRAFTS": ["C172"],
-        "TAXI_SPEED": {
+        AIRCRAFT.AIRCRAFTS: ["C172"],
+        AIRCRAFT.TAXI_SPEED: {
             TAXI_SPEED.FAST: [12, 18],
             TAXI_SPEED.MED: [7, 10],
             TAXI_SPEED.SLOW: [5, 8],
             TAXI_SPEED.CAUTION: [3, 6],
             TAXI_SPEED.TURN: [1, 3],
         },
-        "BRAKING_DISTANCE": 70.0,
-        "WARNING_DISTANCE": 150.0,
+        AIRCRAFT.BRAKING_DISTANCE: 70.0,
+        AIRCRAFT.WARNING_DISTANCE: 150.0,
+        AIRCRAFT.RABBIT: {
+            RABBIT.LIGHTS_AHEAD: 30,  # in METERS
+            RABBIT.LENGTH: 40,  # in **METERS**
+            RABBIT.SPEED: 0.20,  # SECONDS
+        },
     },
     TAXIWAY_WIDTH_CODE.B: {  # Business jet, small regional jet
-        "AIRCRAFTS": ["GLF5"],
-        "TAXI_SPEED": {
+        AIRCRAFT.AIRCRAFTS: ["GLF5"],
+        AIRCRAFT.TAXI_SPEED: {
             TAXI_SPEED.FAST: [12, 18],
             TAXI_SPEED.MED: [7, 10],
             TAXI_SPEED.SLOW: [5, 8],
             TAXI_SPEED.CAUTION: [3, 6],
             TAXI_SPEED.TURN: [1, 3],
         },
-        "BRAKING_DISTANCE": 150.0,
-        "WARNING_DISTANCE": 200.0,
+        AIRCRAFT.BRAKING_DISTANCE: 150.0,
+        AIRCRAFT.WARNING_DISTANCE: 200.0,
+        AIRCRAFT.RABBIT: {
+            RABBIT.LIGHTS_AHEAD: 50,  # in METERS
+            RABBIT.LENGTH: 80,  # in **METERS**
+            RABBIT.SPEED: 0.20,  # SECONDS
+        },
     },
     TAXIWAY_WIDTH_CODE.C: {  # Large regional jet, single aisle
-        "AIRCRAFTS": ["E170", "A320", "B737", "B738", "B739", "A321", "A21N", "A319", "A20N", "A318"],
-        "TAXI_SPEED": {
+        # fmt: off
+        AIRCRAFT.AIRCRAFTS: ["318", "319", "31F", "31X", "31Y", "320", "321", "32S", "32S", "32S", "32S",
+            "E170", "A320", "B737", "B738", "B739", "A321", "A21N", "A319", "A20N", "A318",
+        ],
+        # fmt: on
+        AIRCRAFT.TAXI_SPEED: {
             TAXI_SPEED.FAST: [12, 18],
             TAXI_SPEED.MED: [7, 10],
             TAXI_SPEED.SLOW: [5, 8],
             TAXI_SPEED.CAUTION: [3, 6],
             TAXI_SPEED.TURN: [1, 3],
         },
-        "BRAKING_DISTANCE": 200.0,
-        "WARNING_DISTANCE": 200.0,
+        AIRCRAFT.BRAKING_DISTANCE: 200.0,
+        AIRCRAFT.WARNING_DISTANCE: 200.0,
+        AIRCRAFT.RABBIT: {
+            RABBIT.LIGHTS_AHEAD: 50,  # in METERS
+            RABBIT.LENGTH: 100,  # in **METERS**
+            RABBIT.SPEED: 0.20,  # SECONDS
+        },
     },
     TAXIWAY_WIDTH_CODE.D: {  # Large narrow body, small wide body
-        "AIRCRAFTS": ["A300", "A310", "B757", "B767", "A338", "A339"],
-        "TAXI_SPEED": {
+        AIRCRAFT.AIRCRAFTS: ["A300", "A310", "B757", "B767", "A338", "A339"],
+        AIRCRAFT.TAXI_SPEED: {
             TAXI_SPEED.FAST: [10, 16],
             TAXI_SPEED.MED: [7, 10],
             TAXI_SPEED.SLOW: [5, 8],
             TAXI_SPEED.CAUTION: [3, 6],
             TAXI_SPEED.TURN: [1, 3],
         },
-        "BRAKING_DISTANCE": 200.0,
-        "WARNING_DISTANCE": 200.0,
+        AIRCRAFT.BRAKING_DISTANCE: 200.0,
+        AIRCRAFT.WARNING_DISTANCE: 200.0,
+        AIRCRAFT.RABBIT: {
+            RABBIT.LIGHTS_AHEAD: 80,  # in METERS
+            RABBIT.LENGTH: 120,  # in **METERS**
+            RABBIT.SPEED: 0.20,  # SECONDS
+        },
     },
     TAXIWAY_WIDTH_CODE.E: {  # Large wide body
-        "AIRCRAFTS": ["A330", "A332", "A333", "A338", "A339", "A340", "A350", "A358", "A359", "A35K", "B777", "B787"],
-        "TAXI_SPEED": {
+        AIRCRAFT.AIRCRAFTS: ["A330", "A332", "A333", "A338", "A339", "A340", "A350", "A358", "A359", "A35K", "B777", "B787"],
+        AIRCRAFT.TAXI_SPEED: {
             TAXI_SPEED.FAST: [10, 14],
             TAXI_SPEED.MED: [7, 10],
             TAXI_SPEED.SLOW: [5, 8],
             TAXI_SPEED.CAUTION: [3, 6],
             TAXI_SPEED.TURN: [1, 3],
         },
-        "BRAKING_DISTANCE": 200.0,
-        "WARNING_DISTANCE": 200.0,
+        AIRCRAFT.BRAKING_DISTANCE: 200.0,
+        AIRCRAFT.WARNING_DISTANCE: 200.0,
+        AIRCRAFT.RABBIT: {
+            RABBIT.LIGHTS_AHEAD: 100,  # in METERS
+            RABBIT.LENGTH: 150,  # in **METERS**
+            RABBIT.SPEED: 0.20,  # SECONDS
+        },
     },
     TAXIWAY_WIDTH_CODE.F: {  # Jumbo jets
-        "AIRCRAFTS": ["A380", "A388", "B747"],
-        "TAXI_SPEED": {
+        AIRCRAFT.AIRCRAFTS: ["A380", "A388", "B747"],
+        AIRCRAFT.TAXI_SPEED: {
             TAXI_SPEED.FAST: [10, 14],
             TAXI_SPEED.MED: [7, 10],
             TAXI_SPEED.SLOW: [5, 8],
             TAXI_SPEED.CAUTION: [3, 6],
             TAXI_SPEED.TURN: [1, 3],
         },
-        "BRAKING_DISTANCE": 200.0,
-        "WARNING_DISTANCE": 200.0,
+        AIRCRAFT.BRAKING_DISTANCE: 200.0,
+        AIRCRAFT.WARNING_DISTANCE: 200.0,
+        AIRCRAFT.RABBIT: {
+            RABBIT.LIGHTS_AHEAD: 100,  # in METERS
+            RABBIT.LENGTH: 200,  # in **METERS**
+            RABBIT.SPEED: 0.20,  # SECONDS
+        },
     },
 }
 
@@ -249,7 +148,7 @@ class Aircraft:
     def init(self):
         ac = xp.getDatas(self.icaomodel)
         for ty in TAXIWAY_WIDTH_CODE:
-            if ac in AIRCRAFT_TYPES[ty]["AIRCRAFTS"]:
+            if ac in AIRCRAFT_TYPES[ty][AIRCRAFT.AIRCRAFTS]:
                 self.width_code = ty
                 return
         logger.debug(f"aircraft type {ac} not found in lists, using default category {self.width_code}")
@@ -273,15 +172,24 @@ class Aircraft:
             return xp.getNavAidInfo(next_airport_index)
         return None
 
+    def lights_far(self, distance: float, lights: int) -> float:
+        # Distance between lights to see lights at distance
+        # Used to determine rabbit length
+        return distance / lights
+
     def taxi_speed_ranges(self) -> dict:
-        return AIRCRAFT_TYPES[self.width_code]["TAXI_SPEED"]
+        return AIRCRAFT_TYPES[self.width_code][AIRCRAFT.TAXI_SPEED]
+
+    def rabbit_preferences(self, config: dict = {}) -> dict:
+        # config for later user
+        return AIRCRAFT_TYPES[self.width_code][AIRCRAFT.RABBIT]
 
     def warning_distance(self, target: float = 0.0) -> float:
         # @todo: Estimate braking distance from current speed to target
         # currently hardcoded to ~200m
-        return AIRCRAFT_TYPES[self.width_code]["WARNING_DISTANCE"]
+        return AIRCRAFT_TYPES[self.width_code][AIRCRAFT.WARNING_DISTANCE]
 
     def braking_distance(self, target: float = 0.0) -> float:
         # @todo: Estimate braking distance from current speed to target
         # currently hardcoded to ~200m
-        return AIRCRAFT_TYPES[self.width_code]["BRAKING_DISTANCE"]
+        return AIRCRAFT_TYPES[self.width_code][AIRCRAFT.BRAKING_DISTANCE]

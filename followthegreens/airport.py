@@ -18,6 +18,9 @@ from .globals import (
     TOO_FAR,
     ROUTING_ALGORITHM,
     ROUTING_ALGORITHMS,
+    DISTANCE_BETWEEN_LIGHTS,
+    DISTANCE_BETWEEN_GREEN_LIGHTS,
+    RABBIT_DURATION,
 )
 
 SYSTEM_DIRECTORY = "."
@@ -188,6 +191,9 @@ class Airport:
         self.smooth_line = 0
         self.smoothGraph = Graph()
         self.tempSmoothCurve = []
+        self.distance_between_taxiway_lights = DISTANCE_BETWEEN_LIGHTS  # meters
+        self.distance_between_green_lights = DISTANCE_BETWEEN_GREEN_LIGHTS  # meters
+        self.rabbit_speed = RABBIT_DURATION  # seconds
 
     def prepare(self):
         status = self.load()
@@ -217,6 +223,16 @@ class Airport:
         logger.debug(f"ramps: {status.keys()}")
 
         return [True, "Airport ready"]
+
+    def rabbit_preferences(self, config: dict = {}) -> dict:
+        apt = config.get("Airports", {})
+        prefs = apt.get(self.icao.upper())
+        if prefs is not None:
+            if "DISTANCE_BETWEEN_GREEN_LIGHTS" in prefs:
+                self.distance_between_green_lights = prefs["DISTANCE_BETWEEN_GREEN_LIGHTS"]
+            if "RABBIT_SPEED" in prefs:
+                self.distance_between_green_lights = prefs["RABBIT_SPEED"]
+        return {"DISTANCE_BETWEEN_GREEN_LIGHTS": self.distance_between_green_lights, "RABBIT_SPEED": self.rabbit_speed}  # default
 
     def load(self):
         APT_FILES = {}
