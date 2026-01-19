@@ -26,10 +26,17 @@ FTG_PLUGIN_ROOT_PATH = "XPPython3/followthegreens/"
 
 class FTG_STATUS(StrEnum):
     NEW = "NEW"
-    INITIALIZED = "INIT"
+    INITIALIZED = "INITIALIZED"
     READY = "READY"
+
+    AIRPORT = "AIRPORT"
+    DESTINATION = "DESTINATION"
+    ROUTE = "ROUTE"
+    GREENS = "GREENS"
+
     ACTIVE = "ACTIVE"
     INACTIVE = "INACTIVE"
+    TERMINATED = "TERMINATED"
 
 
 class FTG_FSM(StrEnum):
@@ -237,7 +244,7 @@ class RABBIT_MODE(StrEnum):
 
 
 LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
-RABBIT_LENGTH = 12  # number of lights that blink in front of aircraft
+RABBIT_LENGTH = 8  # number of lights that blink in front of aircraft
 RABBIT_DURATION = 0.20  # sec duration of "off" light in rabbit
 
 # As a first step, uses 5 standard rabbit (length, speed)

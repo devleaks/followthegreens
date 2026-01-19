@@ -18,25 +18,32 @@ from .aircraft import Aircraft
 from .airport import Airport
 from .lightstring import LightString
 from .ui import UIUtil
-from .globals import logger
+from .globals import logger, FTG_STATUS
 
 
 class ShowTaxiways:
-    # Internal status
-    STATUS = {"NEW": "NEW", "INITIALIZED": "INIT", "READY": "READY", "ACTIVE": "ACTIVE"}
 
     def __init__(self, pi):
-        self.__status = ShowTaxiways.STATUS["NEW"]
+        self._status = FTG_STATUS.NEW
         self.pi = pi
         self.airport = None
         self.aircraft = None
         self.lights = None
         self.localTime = xp.findDataRef("sim/time/local_time_sec")
         self.ui = UIUtil(self)  # Where windows are built
+        self.status = FTG_STATUS.INITIALIZED
+
+    @property
+    def status(self) -> FTG_STATUS:
+        return self._status
+
+    @status.setter
+    def status(self, status):
+        self._status = status
+        logger.debug(f"ShowTaxiways is now {status}")
 
     def start(self):
-        logger.info(f"status: {self.__status}, {self.ui.mainWindowExists()}.")
-
+        logger.info(f"status: {self.status}, {self.ui.mainWindowExists()}.")
         if self.ui.mainWindowExists():
             logger.debug(f"mainWindow exists, changing visibility {self.ui.isMainWindowVisible()}.")
             self.ui.toggleVisibilityMainWindow()
@@ -49,7 +56,7 @@ class ShowTaxiways:
         if mainWindow and not xp.isWidgetVisible(mainWindow):
             xp.showWidget(mainWindow)
             logger.debug("mainWindow shown")
-        self.__status = ShowTaxiways.STATUS["ACTIVE"]
+        self.status = FTG_STATUS.READY
         logger.info("..started.")
         return 1  # window displayed
 
@@ -86,6 +93,7 @@ class ShowTaxiways:
 
         # Info 3
         logger.info(f"At {airport.name}")
+        self.status = FTG_STATUS.AIRPORT
         return self.showTaxiways(airport.navAidID)
 
     def showTaxiways(self, airport):
@@ -122,6 +130,7 @@ class ShowTaxiways:
         # else:
         #     logger.debug(f"menu not checked ({self.pi.menuIdx_st})")
 
+        self.status = FTG_STATUS.ACTIVE
         return self.ui.enjoy()
         # return self.ui.sorry("Follow the greens is not completed yet.")  # development
 
@@ -129,6 +138,7 @@ class ShowTaxiways:
         return int(xp.getDataf(self.localTime) / 3600)  # seconds since midnight??
 
     def terminate(self, reason="unspecified"):
+        self.status = FTG_STATUS.INACTIVE
         if self.lights:
             self.lights.destroy()
             self.lights = None
@@ -148,6 +158,7 @@ class ShowTaxiways:
             self.ui.destroyMainWindow()
             # self.ui = None
 
+        self.status = FTG_STATUS.TERMINATED
         # Info 16
         logger.info(f"terminated: reason {reason}.")
         return [True, ""]

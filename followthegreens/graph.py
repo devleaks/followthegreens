@@ -85,16 +85,27 @@ class Active:
 class Edge(Line):
     def __init__(self, src, dst, cost, direction, usage, name):
         Line.__init__(self, src, dst)
-        self.cost = cost  # cost = distance to next vertext
-        self.direction = TAXIWAY_DIRECTION(direction)
         self.name = name  # segment name, not unique! For documentation only.
+        self.cost = cost  # cost = distance to next vertext
+
+        # oneway/twoway
+        self.direction = TAXIWAY_DIRECTION(direction)
+
+        # taxiway/runway, width code
         self.usage = TAXIWAY_TYPE.RUNWAY
         self.width_code = None
         if usage.startswith("taxiway"):
             self.usage = TAXIWAY_TYPE.TAXIWAY
             if len(usage) == 9:
                 self.width_code = TAXIWAY_WIDTH_CODE(usage[8].upper())
-        self.usage2 = TAXIWAY_DIRECTION.BOTH  # unused
+
+        # inner/outer (non formal guess)
+        self.usage2 = TAXIWAY_DIRECTION.BOTH  # default, unused
+        if "inn" in name.lower():
+            self.usage2 = TAXIWAY_DIRECTION.INNER
+        elif "out" in name.lower():
+            self.usage2 = TAXIWAY_DIRECTION.OUTER
+
         self.active = []  # array of segment activity, activity can be departure, arrival, or ils.
         # departure require clearance. plane cannot stop on segment of type ils.
 
@@ -122,6 +133,11 @@ class Edge(Line):
     @property
     def is_inner(self):
         return self.usage2 != TAXIWAY_DIRECTION.OUTER
+
+    @property
+    def is_outer(self):
+        # note:   !is_inner <> is_outer
+        return self.usage2 != TAXIWAY_DIRECTION.INNER
 
     def mkActives(self):
         ret = []
@@ -152,7 +168,8 @@ class Edge(Line):
 
 
 class Graph:  # Graph(FeatureCollection)?
-    def __init__(self):
+    def __init__(self, name: str = "unamed"):
+        self.name = name
         self.vert_dict = {}
         self.edges_arr = []
 
@@ -166,6 +183,42 @@ class Graph:  # Graph(FeatureCollection)?
 
     def __iter__(self):
         return iter(self.vert_dict.values())
+
+    def stats(self):
+        logger.debug(f"graph {self.name}")
+        logger.debug(f"{len(self.vert_dict)} vertices")
+        s = {}
+        ad = {}
+        for k, v in self.vert_dict.items():
+            if v.usage not in s:
+                s[v.usage] = 0
+            s[v.usage] = s[v.usage] + 1
+            la = len(v.adjacent)
+            if la not in ad:
+                ad[la] = 0
+            ad[la] = ad[la] + 1
+        logger.debug(f"vertices: {s}, {ad}")
+
+        logger.debug(f"{len(self.edges_arr)} edges")
+        s = {}
+        mi = 100000
+        ma = 0
+        for v in self.edges_arr:
+            if v.direction not in s:
+                s[v.direction] = 0
+            s[v.direction] = s[v.direction] + 1
+            if v.width_code not in s:
+                s[v.width_code] = 0
+            s[v.width_code] = s[v.width_code] + 1
+            if v.usage not in s:
+                s[v.usage] = 0
+            s[v.usage] = s[v.usage] + 1
+            if v.usage2 not in s:
+                s[v.usage2] = 0
+            s[v.usage2] = s[v.usage2] + 1
+            mi = min(mi, v.cost)
+            ma = max(ma, v.cost)
+        logger.debug(f"edges: {s}, cost=[{round(mi, 2)}, {round(ma, 2)}]")
 
     def features(self):
         def add(arr, v):
@@ -246,9 +299,9 @@ class Graph:  # Graph(FeatureCollection)?
                     continue  # no width info on taxiway, use strict width mode, so must ignore this unlabelled segment
 
             if respect_inner:
-                if move == MOVEMENT.ARRIVAL and e.is_inner:  # arrival cannot use outer rwy
+                if move == MOVEMENT.ARRIVAL and e.is_outer:  # arrival cannot use outer rwy
                     continue
-                if move == MOVEMENT.DEPARTURE and not e.is_inner:  # departure cannot use inner rwy
+                if move == MOVEMENT.DEPARTURE and e.is_inner:  # departure cannot use inner rwy
                     continue
             if not use_runway and e.usage == TAXIWAY_TYPE.RUNWAY:  # cannot use runway for taxiing
                 # Note: My understanding of 1202 runway is that runway indicates that the edge IS a runway and can be used for taxiing

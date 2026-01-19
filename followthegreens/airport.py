@@ -355,6 +355,7 @@ class Airport:
 
         # Info 6
         logger.info(f"added {len(vertexlines)} nodes, {edgeCount} edges ({edgeActiveCount} enhanced).")
+        self.graph.stats()
         return True
 
     def ldRunways(self):

@@ -20,7 +20,7 @@ from .nato import phonetic
 class FollowTheGreens:
 
     def __init__(self, pi):
-        self.__status = FTG_STATUS.NEW
+        self._status = FTG_STATUS.NEW
         self.pi = pi
         self.airport: Airport | None = None
         self.aircraft: Aircraft | None = None
@@ -40,6 +40,7 @@ class FollowTheGreens:
         logger.info("\n\n")
         logger.info("*-*" * 35)
         logger.info(f"Starting new FtG session {__VERSION__} at {datetime.now().astimezone().isoformat()}\n")
+        self.status = FTG_STATUS.NEW
 
         # Load optional config file (Rel. 2 onwards)
         # Parameters in this file will overwrite (with constrain)
@@ -63,6 +64,7 @@ class FollowTheGreens:
                 logger.debug(f"config: {self.config}")
             else:
                 logger.debug(f"no config file {filename}")
+                self.create_empty_prefs()
 
         logger.info(f"preferences: {self.config}")
         ll = get_global("LOGGING_LEVEL", self.config)
@@ -78,17 +80,48 @@ class FollowTheGreens:
             logger.debug(f"internal:\n{ '\n'.join([f'{g}: {get_global(g, config=self.config)}' for g in INTERNAL_CONSTANTS]) }'\n=====")
         except:  # in case str(value) fails
             logger.debug("internal: some internals don't print", exc_info=True)
+        self.status = FTG_STATUS.INITIALIZED
 
     @property
     def is_holding(self) -> bool:
         return self.ui.waiting_for_clearance
 
+    @property
+    def status(self) -> FTG_STATUS:
+        return self._status
+
+    @status.setter
+    def status(self, status):
+        self._status = status
+        logger.debug(f"FtG is now {status}")
+
+    def create_empty_prefs(self):
+        filename = os.path.join(".", "Output", "preferences", CONFIGILENAME)  # relative to X-Plane "rott/home" folder
+        if not os.path.exists(filename):
+            with open(filename, "w") as fp:
+                print(
+                    """# Follow the greens Preference file
+#
+# See documentation at https://devleaks.github.io/followthegreens/.
+#
+# To set a preferred value, place the name of the value = <value> on a new line.
+# Lines that starts with # are comments.
+# Example:
+# LOGGING_LEVEL = 10
+# Remove the # character at the above line to enable debugging information logging.
+#
+# Taxi safely.
+""",
+                    file=fp,
+                )
+            logger.info(f"preference file {filename} created")
+
     def start(self):
         # Toggles visibility of main window.
         # If it was simply closed for hiding, show it again as it was.
         # If it does not exist, creates it from start of process.
-        # if self.__status = FollowTheGreens.STATUS["ACTIVE"]:
-        logger.debug(f"status: {self.__status}, {self.ui.mainWindowExists()}.")
+        # if self.status = ACTIVE:
+        logger.debug(f"status: {self.status}, {self.ui.mainWindowExists()}.")
         if self.ui.mainWindowExists():
             logger.debug(f"mainWindow exists, changing visibility {self.ui.isMainWindowVisible()}.")
             self.ui.toggleVisibilityMainWindow()
@@ -101,6 +134,7 @@ class FollowTheGreens:
             if mainWindow and not xp.isWidgetVisible(mainWindow):
                 xp.showWidget(mainWindow)
                 logger.debug("mainWindow shown")
+            self.status = FTG_STATUS.READY
             logger.info("..started.")
             return 1  # window displayed
         return 0
@@ -145,6 +179,7 @@ class FollowTheGreens:
 
         # Info 3
         logger.info(f"At {airport.name}")
+        self.status = FTG_STATUS.AIRPORT
         return self.getDestination(airport.navAidID)
 
     def getDestination(self, airport):
@@ -165,7 +200,6 @@ class FollowTheGreens:
         self.move = self.airport.guessMove(self.aircraft.position())
         # Info 10
         logger.info(f"guessing {self.move}")
-
         return self.ui.promptForDestination()
 
     def newGreen(self, destination):
@@ -182,6 +216,8 @@ class FollowTheGreens:
         if destination not in self.airport.getDestinations(self.move):
             logger.debug(f"destination not valid {destination} for {self.move}")
             return self.ui.promptForDestination(f"Destination {destination} not valid for {self.move}.")
+
+        self.status = FTG_STATUS.DESTINATION
 
         # Info 11
         logger.info(f"destination {destination}.")
@@ -211,6 +247,9 @@ class FollowTheGreens:
             onRwy, runway = self.airport.onRunway(
                 pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg
             )  # RUNWAY_BUFFER_WIDTH either side of runway, return [True,Runway()] or [False, None]
+
+        self.status = FTG_STATUS.ROUTE
+
         self.lights = LightString(config=self.config)
         self.lights.populate(route, onRwy)
         if len(self.lights.lights) == 0:
@@ -230,9 +269,11 @@ class FollowTheGreens:
         initbrgn, initdist, initdiff = self.lights.initial(pos, hdg)
         logger.debug(f"init ({initbrgn}, {initdist}, {initdiff}).")
 
+        self.status = FTG_STATUS.GREENS
+
         logger.info(f"first light at {initdist} m, heading {initbrgn} DEG.")
         self.flightLoop.startFlightLoop()
-        self.__status = FTG_STATUS.ACTIVE
+        self.status = FTG_STATUS.ACTIVE
         # Info 14
         logger.info("Flightloop started.")
 
@@ -284,8 +325,10 @@ class FollowTheGreens:
             # Info 16.a
             logger.info("done.")
             self.segment = 0  # reset
+            self.status = FTG_STATUS.INACTIVE
             return self.ui.bye()
 
+        self.status = FTG_STATUS.GREENS
         ret = self.lights.illuminateSegment(self.segment)
         if not ret[0]:
             self.terminate("issue with light segment illumination")
@@ -294,6 +337,7 @@ class FollowTheGreens:
 
         # re-authorize rabbit auto-tuning
         self.flightLoop.allow_rabbit_autotune()
+        self.status = FTG_STATUS.ACTIVE
 
         if self.move == MOVEMENT.DEPARTURE and self.segment == (self.lights.segments - 1):
             return self.ui.promptForDeparture()
@@ -302,6 +346,7 @@ class FollowTheGreens:
             # Info 16.b
             logger.info("ready for take-off.")
             self.segment = 0  # reset
+            self.status = FTG_STATUS.INACTIVE
             return self.ui.bye()
 
         if self.move == MOVEMENT.ARRIVAL and self.segment == self.lights.segments:
@@ -313,6 +358,8 @@ class FollowTheGreens:
     def terminate(self, reason=""):
         # Abandon the FTG mission. Instruct subroutines to turn off FTG lights, remove them,
         # and restore the environment.
+        self.status = FTG_STATUS.INACTIVE
+
         if self.flightLoop:
             self.flightLoop.stopFlightLoop()
             logger.info("Flightloop stopped.")
@@ -323,6 +370,8 @@ class FollowTheGreens:
 
         if self.ui.mainWindowExists():
             self.ui.destroyMainWindow()
+
+        self.status = FTG_STATUS.TERMINATED
 
         # Info 16
         logger.info(f"terminated: {reason}")

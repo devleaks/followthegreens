@@ -294,8 +294,16 @@ X-Plane airport designer sometimes provides detailed taxiway information, someti
 
 Follow the greens has to cope with what is available in airport definition files.
 
-To do this, a sophisticate algorithm first tries to find a route respecting all constraints.
+To do this, the algorithm first tries to find a route respecting all constraints.
 If no route is found, the algorith will relax some constraints, one by one until a route is found.
+
+If you want to respect taxiway constraints, please set the following preference parameter:
+
+```
+RESPECT_CONSTRAINTS = true
+```
+
+Note that boolean preferences need to be set to text value `true` or `false` in lowercase, no quote.
 
 
 # FtG Control and Monitoring
@@ -314,19 +322,41 @@ FtG adds the follwoing commands:
 
 ## FtG Monitoring Datarefs
 
-FtG adds the following dataref:
+FtG adds the following read-only monitoring dataref:
 
-- `XPPython3/followthegreens/is_running`, which is 0 if FtG is not running and 1 when FtG is running,
+- `XPPython3/followthegreens/is_running`, is 1 if FtG is running and 0 if not.
 - `XPPython3/followthegreens/is_holding`, is 1 when FtG expects a clearance to progress.
 
 
-## Use by External Plugins
+## Intended Use by External Plugins
 
 Monitoring datarefs and commands are designed to be used by other software to instruct
-Follow the greens to proceed. Namely:
+Follow the greens to proceed.
 
-- `XPPython3/followthegreens/is_holding` is meant to be used by other plugins to let them know FtG is waiting for clearance.
-- `XPPython3/followthegreens/send_clearance_ok` is the command to be used by other plugins to signal FtG that the clearance was received.
+- `XPPython3/followthegreens/is_holding` dataref is meant to be used by other plugins to let them know FtG is waiting for clearance.
+- `XPPython3/followthegreens/send_clearance_ok` command be used by other plugins to signal FtG that the clearance is given.
+
+
+# Troubleshooting
+
+FtG may sometimes not find a route, or show undesired behavior.
+
+FtG produces a log file named `ftglog.txt` located in python plugin folder, right next to `PI_FollowTheGrees.py` file.
+
+In case of trouble, please always provide that file, very much like X-Plane support will ask you to provide the `log.txt` file.
+
+To further explose an issue, it is possible to augment the level of logged information.
+
+To do so, please set the following variable in `ftgprefs.toml` file:
+
+```
+LOGGING_LEVEL = 10
+```
+
+The value `10` above correspond to a python logger logging level.
+The default value is `20`.
+FtG developers will probably ask you to place value `10` which correspond to the production of debugging information.
+
 
 
 # See Also
@@ -337,4 +367,4 @@ Follow the greens to proceed. Namely:
 
 ![FtG Logo](images/ftg.png)
 
-Taxi safely
+Taxi safelyÌ
