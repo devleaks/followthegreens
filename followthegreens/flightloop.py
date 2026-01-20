@@ -139,13 +139,13 @@ class FlightLoop:
     def may_rabbit_autotune(self) -> bool:
         return self._may_adjust_rabbit and not self.manual_mode
 
-    def allow_rabbit_autotune(self):
+    def allow_rabbit_autotune(self, reason: str = ""):
         self._may_adjust_rabbit = True
-        logger.debug("rabbit adjustment authorized")
+        logger.debug(f"rabbit adjustment authorized (reason {reason})")
 
-    def disallow_rabbit_autotune(self):
+    def disallow_rabbit_autotune(self, reason: str = ""):
         self._may_adjust_rabbit = False
-        logger.debug("rabbit adjustment forbidden")
+        logger.debug(f"rabbit adjustment forbidden (reason {reason})")
 
     def manualRabbitMode(self, mode: RABBIT_MODE):
         self.manual_mode = True
@@ -341,10 +341,13 @@ class FlightLoop:
             if self.has_rabbit():
                 self.rabbitMode = RABBIT_MODE.SLOWEST
                 # prevent rabbit auto-tuning, must remain slow until stop bar cleared
-                self.disallow_rabbit_autotune()
+                self.disallow_rabbit_autotune("close to stop")
             if not self.ftg.ui.isMainWindowVisible():
                 logger.debug("showing UI.")
                 self.ftg.ui.showMainWindow(False)
+        else:
+            if not self.may_rabbit_autotune:
+                self.allow_rabbit_autotune("no longer close to stop")
 
         closestLight, distance = self.ftg.lights.closest(pos)
         if closestLight is None:

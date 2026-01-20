@@ -15,7 +15,6 @@ from .globals import (
     FTG_SPEED_PARAMS,
     MOVEMENT,
     RABBIT_MODE,
-    RABBIT,
     TAXIWAY_ACTIVE,
     TAXIWAY_WIDTH_CODE,
     TAXIWAY_WIDTH,
@@ -26,8 +25,9 @@ from .globals import (
 
 HARDCODED_MIN_DISTANCE = 10  # meters
 HARDCODED_MIN_TIME = 0.1  # secs
+HARDCODED_MIN_RABBIT_LENGTH = 6  # lights
 
-SPECIAL_DEBUG = True
+SPECIAL_DEBUG = False
 
 
 class LightType:
@@ -43,13 +43,13 @@ class LightType:
             curr_dir = os.path.dirname(os.path.realpath(__file__))
             real_path = os.path.join(curr_dir, "lights", self.filename)
             self.obj = xp.loadObject(real_path)
-            logger.debug(f"LoadObject loaded {self.filename}")
+            logger.debug(f"loadObject {self.filename} loaded")
 
     def unload(self):
         if self.obj:
             xp.unloadObject(self.obj)
             self.obj = None
-            logger.debug(f"object unloaded {self.name}")
+            logger.debug(f"unloadObject {self.name} unloaded")
 
     @staticmethod
     def create(name: str, color: tuple, size: int, intensity: int, texture: int | list | tuple, texture_file: str = "lights.png") -> str:
@@ -272,7 +272,7 @@ class LightString:
         self.min_segments_before_hold = get_global("MIN_SEGMENTS_BEFORE_HOLD", config=config)
 
         self.rabbit_mode = RABBIT_MODE.MED  # default mode on start
-        self.rabbit_duration = airport.rabbit_speed  # get_global("RABBIT_SPEED", config=config)
+        self.rabbit_duration = airport.rabbit_speed
 
         # following two will get adjusted for aircraft
         lights_ahead = int(aircraft.lights_ahead / self.distance_between_lights)
@@ -280,12 +280,12 @@ class LightString:
         # get_global("LIGHTS_AHEAD", config=config)  # if zero, all lights are shown, otherwise, must be >= self.rabbit_length
 
         rabbit_length = int(aircraft.rabbit_length / self.distance_between_lights)
-        self.rabbit_length = rabbit_length  # get_global("RABBIT_LENGTH", config=config)
+        self.rabbit_length = rabbit_length  # can be 0
 
         # control logged info
         self._info_sent = False
 
-        logger.debug(f"LightString created {self.rabbit_length} lights, {abs(round(self.rabbit_duration, 2))} secs.")
+        logger.debug(f"LightString created: rabbit {self.rabbit_length} lights, {abs(round(self.rabbit_duration, 2))} secs., lights ahead {self.num_lights_ahead} lights")
 
     def __str__(self):
         return json.dumps({"type": "FeatureCollection", "features": self.features()})

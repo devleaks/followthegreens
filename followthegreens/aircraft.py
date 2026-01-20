@@ -84,12 +84,12 @@ AIRCRAFT_TYPES = {
             TAXI_SPEED.MED: [7, 10],
             TAXI_SPEED.SLOW: [5, 8],
             TAXI_SPEED.CAUTION: [3, 6],
-            TAXI_SPEED.TURN: [1, 3],
+            TAXI_SPEED.TURN: [1, 5],
         },
         AIRCRAFT.BRAKING_DISTANCE: 200.0,
         AIRCRAFT.WARNING_DISTANCE: 200.0,
         AIRCRAFT.RABBIT: {
-            RABBIT.LIGHTS_AHEAD: 50,  # in METERS
+            RABBIT.LIGHTS_AHEAD: 120,  # in METERS
             RABBIT.LENGTH: 100,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
@@ -106,13 +106,13 @@ AIRCRAFT_TYPES = {
             TAXI_SPEED.MED: [7, 10],
             TAXI_SPEED.SLOW: [5, 8],
             TAXI_SPEED.CAUTION: [3, 6],
-            TAXI_SPEED.TURN: [1, 3],
+            TAXI_SPEED.TURN: [1, 4],
         },
         AIRCRAFT.BRAKING_DISTANCE: 200.0,
         AIRCRAFT.WARNING_DISTANCE: 200.0,
         AIRCRAFT.RABBIT: {
-            RABBIT.LIGHTS_AHEAD: 80,  # in METERS
-            RABBIT.LENGTH: 120,  # in **METERS**
+            RABBIT.LIGHTS_AHEAD: 150,  # in METERS
+            RABBIT.LENGTH: 150,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
     },
@@ -132,7 +132,7 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.BRAKING_DISTANCE: 200.0,
         AIRCRAFT.WARNING_DISTANCE: 200.0,
         AIRCRAFT.RABBIT: {
-            RABBIT.LIGHTS_AHEAD: 100,  # in METERS
+            RABBIT.LIGHTS_AHEAD: 200,  # in METERS
             RABBIT.LENGTH: 150,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
@@ -151,8 +151,8 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.BRAKING_DISTANCE: 200.0,
         AIRCRAFT.WARNING_DISTANCE: 200.0,
         AIRCRAFT.RABBIT: {
-            RABBIT.LIGHTS_AHEAD: 100,  # in METERS
-            RABBIT.LENGTH: 200,  # in **METERS**
+            RABBIT.LIGHTS_AHEAD: 200,  # in METERS
+            RABBIT.LENGTH: 180,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
     },

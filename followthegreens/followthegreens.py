@@ -352,7 +352,7 @@ class FollowTheGreens:
         logger.debug(f"lights instanciated ({self.segment}).")
 
         # re-authorize rabbit auto-tuning
-        self.flightLoop.allow_rabbit_autotune()
+        self.flightLoop.allow_rabbit_autotune("next leg")
         self.status = FTG_STATUS.ACTIVE
 
         if self.move == MOVEMENT.DEPARTURE and self.segment == (self.lights.segments - 1):
