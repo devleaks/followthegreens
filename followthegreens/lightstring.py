@@ -239,9 +239,6 @@ class LightString:
         self.aircraft = aircraft  # get some rabbit preference from there
         self.config = config  # get FtG preference from there
 
-        apt_rabbit_prefs = airport.rabbit_preferences(config=config)
-        acf_rabbit_prefs = aircraft.rabbit_preferences(config=config)
-
         self.lights = []  # all green lights from start to destination indexed from 0 to len(lights)
         self.stopbars = []  # Keys of this dict are green light indices.
         self.segments = 0
@@ -275,15 +272,14 @@ class LightString:
         self.min_segments_before_hold = get_global("MIN_SEGMENTS_BEFORE_HOLD", config=config)
 
         self.rabbit_mode = RABBIT_MODE.MED  # default mode on start
-        self.rabbit_duration = airport.rabbit_speed  # get_global("RABBIT_DURATION", config=config)
+        self.rabbit_duration = airport.rabbit_speed  # get_global("RABBIT_SPEED", config=config)
 
         # following two will get adjusted for aircraft
-        lights_ahead = int(acf_rabbit_prefs[RABBIT.LIGHTS_AHEAD] / self.distance_between_lights)
-        self.num_lights_ahead = (
-            lights_ahead  # get_global("LIGHTS_AHEAD", config=config)  # if zero, all lights are shown, otherwise, must be >= self.rabbit_length
-        )
+        lights_ahead = int(aircraft.lights_ahead / self.distance_between_lights)
+        self.num_lights_ahead = lights_ahead
+        # get_global("LIGHTS_AHEAD", config=config)  # if zero, all lights are shown, otherwise, must be >= self.rabbit_length
 
-        rabbit_length = int(acf_rabbit_prefs[RABBIT.LENGTH] / self.distance_between_lights)
+        rabbit_length = int(aircraft.rabbit_length / self.distance_between_lights)
         self.rabbit_length = rabbit_length  # get_global("RABBIT_LENGTH", config=config)
 
         # control logged info
@@ -515,11 +511,9 @@ class LightString:
             segs.append(f"#{i}:{last}-{len(self.lights) - 1}")
             logger.debug("segments: " + ", ".join(segs))
 
-        apt_rabbit_prefs = self.airport.rabbit_preferences(config=self.config)
-        acf_rabbit_prefs = self.aircraft.rabbit_preferences(config=self.config)
         logger.debug(f"distance between taxiway center lights: {self.distance_between_lights} m")
-        logger.debug(f"lights ahead: {self.num_lights_ahead},  {acf_rabbit_prefs[RABBIT.LIGHTS_AHEAD]} m")
-        logger.debug(f"rabbit: length: {self.rabbit_length} lights, {acf_rabbit_prefs[RABBIT.LENGTH]} m")
+        logger.debug(f"lights ahead: {self.num_lights_ahead},  {self.aircraft.lights_ahead} m")
+        logger.debug(f"rabbit: length: {self.rabbit_length} lights, {self.aircraft.rabbit_length} m")
         logger.debug(f"runway lead-off lights: {self.lead_off_lights} lights, {float(get_global('LEAD_OFF_RUNWAY_DISTANCE', config=self.config))} m")
 
     # We make a stopbar after the green light index lightIndex
@@ -765,19 +759,19 @@ class LightString:
             brng = s.bearing()
 
             # light at start of segment
-            self.lights.append(Light(LIGHT_TYPE.TAXIWAY, s.start, brng, cnt))
+            self.lights.append(Light(LIGHT_TYPE.DEFAULT, s.start, brng, cnt))
             cnt += 1
 
             step = max(self.distance_between_lights, HARDCODED_MIN_DISTANCE)
             dist = step
             while dist < s.length():
                 pos = destination(s.start, brng, dist)
-                self.lights.append(Light(LIGHT_TYPE.TAXIWAY, pos, brng, cnt))
+                self.lights.append(Light(LIGHT_TYPE.DEFAULT, pos, brng, cnt))
                 cnt += 1
                 dist += step
 
             # light at end of segment
-            self.lights.append(Light(LIGHT_TYPE.TAXIWAY, s.end, brng, cnt))
+            self.lights.append(Light(LIGHT_TYPE.DEFAULT, s.end, brng, cnt))
             cnt += 1
             return cnt
 

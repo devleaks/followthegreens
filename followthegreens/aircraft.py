@@ -2,7 +2,7 @@
 #
 import xp
 
-from .globals import logger, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT
+from .globals import logger, get_global, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT
 
 
 # fmt: off
@@ -19,12 +19,23 @@ ICAO_AND_IATA_AIRLINERS_CODES = [
 "B735", "B736", "B737", "B738", "B739", "B741", "B742", "B743", "B744", "B74R", "B74S", "B752",
 "B753","B762", "B763", "B764", "B772", "B773", "E170", "E70", "GLF5", "GRJ", "RJ1H",
 ]  # PICK ONE ABOVE, ADD TO AIRCRAFTS LIST BELOW. EASY.
+ICAO_AND_IATA_AIRLINERS_CODES_UNASSIGNED = [
+"310", "312", "313",
+"703", "707", "70F", "70M", "717", "722", "72A", "72F", "72S",
+"741", "742", "743", "744", "747", "74C", "74D", "74E", "74F", "74L", "74M", "74R", "74X", "74Y",
+"772", "773", "777", "A225", "A25", "A306", "A30B", "A332",
+"A333", "A342", "A343", "A345", "A346", "A359", "A388", "AB3", "AB4", "AB6", "ABF", "ABX", "ABY",
+"ARJ", "ARX", "B701", "B703", "B712", "B72", "B72", "B720", "B722",
+"B741", "B742", "B743", "B744", "B74R", "B74S", "E70", "GLF5", "GRJ", "RJ1H",
+]  # PICK ONE ABOVE, ADD TO AIRCRAFTS LIST BELOW. EASY.
 # fmt: on
 
 # Static definition for now, will soon be dynamically computed
 AIRCRAFT_TYPES = {
     TAXIWAY_WIDTH_CODE.A: {  # General aviation
+        # fmt: off
         AIRCRAFT.AIRCRAFTS: ["C172"],
+        # fmt: on
         AIRCRAFT.TAXI_SPEED: {
             TAXI_SPEED.FAST: [12, 18],
             TAXI_SPEED.MED: [7, 10],
@@ -41,7 +52,9 @@ AIRCRAFT_TYPES = {
         },
     },
     TAXIWAY_WIDTH_CODE.B: {  # Business jet, small regional jet
+        # fmt: off
         AIRCRAFT.AIRCRAFTS: ["GLF5"],
+        # fmt: on
         AIRCRAFT.TAXI_SPEED: {
             TAXI_SPEED.FAST: [12, 18],
             TAXI_SPEED.MED: [7, 10],
@@ -60,7 +73,10 @@ AIRCRAFT_TYPES = {
     TAXIWAY_WIDTH_CODE.C: {  # Large regional jet, single aisle
         # fmt: off
         AIRCRAFT.AIRCRAFTS: ["318", "319", "31F", "31X", "31Y", "320", "321", "32S", "32S", "32S", "32S",
-            "E170", "A320", "B737", "B738", "B739", "A321", "A21N", "A319", "A20N", "A318",
+            "A320", "A321", "A21N", "A319", "A20N", "A318", "731", "732", "733", "734",
+            "735", "736", "737", "738", "739", "73A", "73F", "73G", "73H", "73M", "73S", "73W", "73X", "73Y",
+            "B731", "B732", "B733", "B734", "B735", "B736", "B737", "B738", "B739",
+            "E170",
         ],
         # fmt: on
         AIRCRAFT.TAXI_SPEED: {
@@ -79,7 +95,12 @@ AIRCRAFT_TYPES = {
         },
     },
     TAXIWAY_WIDTH_CODE.D: {  # Large narrow body, small wide body
-        AIRCRAFT.AIRCRAFTS: ["A300", "A310", "B757", "B767", "A338", "A339"],
+        # fmt: off
+        AIRCRAFT.AIRCRAFTS: ["A300", "A310", "A338", "A339", "330", "330", "332", "333",
+            "752", "753", "757", "75F", "75M", "762", "763", "764", "767", "767", "76F", "76F", "76X", "76Y",
+            "B757", "B752", "B753","B762", "B763", "B764", "B767",
+        ],
+        # fmt: on
         AIRCRAFT.TAXI_SPEED: {
             TAXI_SPEED.FAST: [10, 16],
             TAXI_SPEED.MED: [7, 10],
@@ -96,7 +117,11 @@ AIRCRAFT_TYPES = {
         },
     },
     TAXIWAY_WIDTH_CODE.E: {  # Large wide body
-        AIRCRAFT.AIRCRAFTS: ["A330", "A332", "A333", "A338", "A339", "A340", "A350", "A358", "A359", "A35K", "B777", "B787"],
+        # fmt: off
+        AIRCRAFT.AIRCRAFTS: ["359", "A330", "A332", "A333", "A338", "A339", "A340", "340", "340", "340", "340",
+            "342", "343", "345", "346","A350", "A358", "A359", "A35K", "B777", "B772", "B773", "B787"
+        ],
+        # fmt: on
         AIRCRAFT.TAXI_SPEED: {
             TAXI_SPEED.FAST: [10, 14],
             TAXI_SPEED.MED: [7, 10],
@@ -113,7 +138,9 @@ AIRCRAFT_TYPES = {
         },
     },
     TAXIWAY_WIDTH_CODE.F: {  # Jumbo jets
-        AIRCRAFT.AIRCRAFTS: ["A380", "A388", "B747"],
+        # fmt: off
+        AIRCRAFT.AIRCRAFTS: ["A380", "A388", "380", "38F", "B747"],
+        # fmt: on
         AIRCRAFT.TAXI_SPEED: {
             TAXI_SPEED.FAST: [10, 14],
             TAXI_SPEED.MED: [7, 10],
@@ -133,7 +160,9 @@ AIRCRAFT_TYPES = {
 
 
 class Aircraft:
-    def __init__(self):
+
+    def __init__(self, prefs: dict = {}):
+        self.prefs = prefs
         self.icaomodel = xp.findDataRef("sim/aircraft/view/acf_ICAO")
         self.tailsign = xp.findDataRef("sim/aircraft/view/acf_tailnum")
         self.lat = xp.findDataRef("sim/flightmodel/position/latitude")
@@ -143,7 +172,14 @@ class Aircraft:
         self.tiller = xp.findDataRef("ckpt/tiller")
         self.width_code = TAXIWAY_WIDTH_CODE.C  # init to default
         self.init()
-        logger.debug(f"aircraft type {xp.getDatas(self.icaomodel)}, category {self.width_code}")
+
+        # PREFERENCES - Fetched by LightString
+        r = self.rabbit_preferences()
+        self.lights_ahead = r[RABBIT.LIGHTS_AHEAD]  # meters
+        self.rabbit_length = r[RABBIT.LENGTH]  # meters
+        self.rabbit_speed = r[RABBIT.SPEED]  # seconds
+        self.set_preferences()
+        logger.debug(f"rabbit: ahead={self.lights_ahead}m, length={self.rabbit_length}m, speed={self.rabbit_speed}s")
 
     def init(self):
         ac = xp.getDatas(self.icaomodel)
@@ -152,6 +188,40 @@ class Aircraft:
                 self.width_code = ty
                 return
         logger.debug(f"aircraft type {ac} not found in lists, using default category {self.width_code}")
+        self.set_preferences()
+
+    def set_preferences(self):
+        acf = self.prefs.get("Aircrafts", {})
+
+        logger.debug(f"Aircraft preferences: {acf}")
+        if acf is not None:
+            if RABBIT.LIGHTS_AHEAD.value in acf:
+                self.lights_ahead = acf[RABBIT.LIGHTS_AHEAD.value]
+            if RABBIT.LENGTH.value in acf:
+                self.rabbit_length = acf[RABBIT.LENGTH.value]
+            if RABBIT.SPEED.value in acf:
+                self.rabbit_speed = acf[RABBIT.SPEED.value]
+
+        prefs = acf.get(self.width_code.value, {})
+        logger.debug(f"Aircraft type {self.width_code.value} preferences: {prefs}")
+        if prefs is not None:
+            if RABBIT.LIGHTS_AHEAD.value in prefs:
+                self.lights_ahead = prefs[RABBIT.LIGHTS_AHEAD.value]
+            if RABBIT.LENGTH.value in prefs:
+                self.rabbit_length = prefs[RABBIT.LENGTH.value]
+            if RABBIT.SPEED.value in prefs:
+                self.rabbit_speed = prefs[RABBIT.SPEED.value]
+
+        ac = xp.getDatas(self.icaomodel).upper()
+        prefs = acf.get(ac, {})
+        logger.debug(f"Aircraft model {ac} preferences: {prefs}")
+        if prefs is not None:
+            if RABBIT.LIGHTS_AHEAD.value in prefs:
+                self.lights_ahead = prefs[RABBIT.LIGHTS_AHEAD.value]
+            if RABBIT.LENGTH.value in prefs:
+                self.rabbit_length = prefs[RABBIT.LENGTH.value]
+            if RABBIT.SPEED.value in prefs:
+                self.rabbit_speed = prefs[RABBIT.SPEED.value]
 
     def position(self) -> list:
         return [xp.getDataf(self.lat), xp.getDataf(self.lon)]

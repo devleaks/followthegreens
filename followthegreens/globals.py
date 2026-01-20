@@ -25,18 +25,19 @@ FTG_PLUGIN_ROOT_PATH = "XPPython3/followthegreens/"
 
 
 class FTG_STATUS(StrEnum):
-    NEW = "NEW"
-    INITIALIZED = "INITIALIZED"
-    READY = "READY"
+    NEW = "NEW"  # ftg just created
+    INITIALIZED = "INITIALIZED"  # ftg initialized (preferences, etc.)
+    READY = "READY"  # ready to be used
 
-    AIRPORT = "AIRPORT"
-    DESTINATION = "DESTINATION"
-    ROUTE = "ROUTE"
-    GREENS = "GREENS"
+    AIRCRAFT = "AIRCRAFT"  # has aircraft
+    AIRPORT = "AIRPORT"  # has airport info
+    DESTINATION = "DESTINATION"  # has destination, destination is valid
+    ROUTE = "ROUTE"  # has route from aircraft to destination
+    GREENS = "GREENS"  # greens read
 
-    ACTIVE = "ACTIVE"
-    INACTIVE = "INACTIVE"
-    TERMINATED = "TERMINATED"
+    ACTIVE = "ACTIVE"  # greens displayed, rabbit active if any
+    INACTIVE = "INACTIVE"  # rabbit terminated
+    TERMINATED = "TERMINATED"  # ftg terminated
 
 
 class FTG_FSM(StrEnum):
@@ -196,6 +197,15 @@ SAY_ROUTE = True  # Print route on pop up display and speak it orally.
 # INTERNALS CONTROL
 # of aircraft movements
 #
+class AIRPORT(Enum):
+    DISTANCE_BETWEEN_GREEN_LIGHTS = "DISTANCE_BETWEEN_GREEN_LIGHTS"
+    DISTANCE_BETWEEN_STOPLIGHTS = "DISTANCE_BETWEEN_STOPLIGHTS"
+    DISTANCE_BETWEEN_LIGHTS = "DISTANCE_BETWEEN_LIGHTS"
+    ADD_LIGHT_AT_VERTEX = "ADD_LIGHT_AT_VERTEX"
+    ADD_LIGHT_AT_LAST_VERTEX = "ADD_LIGHT_AT_LAST_VERTEX"
+    LEAD_OFF_RUNWAY_DISTANCE = "LEAD_OFF_RUNWAY_DISTANCE"
+
+
 class MOVEMENT(StrEnum):
     ARRIVAL = "arrival"
     DEPARTURE = "departure"
@@ -227,6 +237,7 @@ LEAD_OFF_RUNWAY_DISTANCE = 160  # meters, will determine number of alterning gre
 # ################################
 # RABBIT
 #
+# Aircraft preferences for FtG
 class AIRCRAFT(Enum):
     AIRCRAFTS = "AIRCRAFTS"
     TAXI_SPEED = "TAXI_SPEED"
@@ -235,10 +246,11 @@ class AIRCRAFT(Enum):
     RABBIT = "RABBIT"
 
 
-class RABBIT(Enum):  # in meters, will be translated into number of lights depending on airport preference
-    LENGTH = "LENGTH"
-    SPEED = "SPEED"
+# Aircraft preferences for rabbit
+class RABBIT(Enum):
+    LENGTH = "RABBIT_LENGTH"
     LIGHTS_AHEAD = "LIGHTS_AHEAD"
+    SPEED = "RABBIT_SPEED"
 
 
 class RABBIT_MODE(StrEnum):
@@ -257,28 +269,28 @@ class TAXI_SPEED(Enum):  # in m/s
     TURN = "TURN"
 
 
-LIGHTS_AHEAD = 6  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
-RABBIT_LENGTH = 6  # number of lights that blink in front of aircraft
-RABBIT_DURATION = 0.20  # sec duration of "off" light in rabbit
+LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
+RABBIT_LENGTH = 10  # number of lights that blink in front of aircraft
+RABBIT_SPEED = 0.20  # sec duration of "off" light in rabbit
 
 # As a first step, uses 5 standard rabbit (length, speed)
 FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
     RABBIT_MODE.FASTEST: [
         2 * RABBIT_LENGTH,
-        RABBIT_DURATION / 2,
+        RABBIT_SPEED / 2,
     ],  # accelerate (long and fast)
     RABBIT_MODE.FASTER: [
         RABBIT_LENGTH,
-        RABBIT_DURATION / 3,
+        RABBIT_SPEED / 3,
     ],  # go faster (same length, faster)
-    RABBIT_MODE.MED: [RABBIT_LENGTH, RABBIT_DURATION],  # normal
+    RABBIT_MODE.MED: [RABBIT_LENGTH, RABBIT_SPEED],  # normal
     RABBIT_MODE.SLOWER: [
         RABBIT_LENGTH,
-        3 * RABBIT_DURATION,
+        3 * RABBIT_SPEED,
     ],  # slow down (same length, slower)
     RABBIT_MODE.SLOWEST: [
         int(RABBIT_LENGTH / 2),
-        2 * RABBIT_DURATION,
+        2 * RABBIT_SPEED,
     ],  # slow down (short and slow)
 }
 
@@ -295,6 +307,7 @@ class LIGHT_TYPE(StrEnum):  # DO NOT CHANGE
     WARNING = "WARNING"
     LAST = "LAST"
     VERTEX = "VERTEX"
+    DEFAULT = "DEFAULT"
 
 
 LIGHT_TYPE_OBJFILES = {
@@ -306,6 +319,7 @@ LIGHT_TYPE_OBJFILES = {
     LIGHT_TYPE.VERTEX: "green.obj",
     LIGHT_TYPE.WARNING: "amber.obj",
     LIGHT_TYPE.LAST: "green.obj",
+    LIGHT_TYPE.DEFAULT: "white.obj",
 }
 
 
@@ -333,7 +347,7 @@ INTERNAL_CONSTANTS = [
     "LOGGING_LEVEL",
     "MIN_SEGMENTS_BEFORE_HOLD",
     "PLANE_MONITOR_DURATION",
-    "RABBIT_DURATION",
+    "RABBIT_SPEED",
     "RABBIT_LENGTH",
     "ROUTING_ALGORITHM",
     "RUNWAY_BUFFER_WIDTH",
@@ -384,7 +398,7 @@ ALL_INTERNAL_CONSTANTS = [
     "MAINWINDOW_WIDTH",
     "MIN_SEGMENTS_BEFORE_HOLD",
     "PLANE_MONITOR_DURATION",
-    "RABBIT_DURATION",
+    "RABBIT_SPEED",
     "RABBIT_LENGTH",
     "ROUTING_ALGORITHM",
     "RUNWAY_BUFFER_WIDTH",
@@ -432,7 +446,7 @@ logging.basicConfig(
     level=LOGGING_LEVEL,
     format="%(levelname)s %(asctime)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s",
     handlers=[
-        logging.FileHandler(os.path.join(os.path.dirname(__file__), "..", LOGFILENAME), mode="w"),
+        logging.FileHandler(os.path.join(os.path.dirname(__file__), "..", LOGFILENAME)),
         logging.StreamHandler(),
     ],
 )

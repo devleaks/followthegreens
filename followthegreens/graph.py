@@ -54,6 +54,7 @@ class Vertex(Point):  ## Vertex(Point)
 
     def add_neighbor(self, neighbor, weight=0):
         self.adjacent[neighbor] = weight
+        # note: cannot add opposite neighbor.add_neighbor(self) since might be one way only
 
     def get_connections(self, graph, options={}):
         return self.adjacent.keys()
@@ -64,8 +65,14 @@ class Vertex(Point):  ## Vertex(Point)
     def turn(self, src, dst) -> float | None:
         # Turn angle coming from src and going to dst
         # Will be used as a weighted extra cost when visited from src to dst
-        if src.id not in self.adjacent or dst.id not in self.adjacent:
-            logger.warning(f"turn: at {self.id}: from {src.id} to {dst.id}, not in adjacents {self.adjacent}")
+        if src.id not in self.adjacent and self.id not in src.adjacent:
+            logger.warning(
+                f"turn: at {self.id}: from {src.id} to {dst.id}, src not in adjacents {self.adjacent} or self not in src {src.adjacent} ({type(self.id)})"
+            )
+        if dst.id not in self.adjacent and self.id not in dst.adjacent:
+            logger.warning(
+                f"turn: at {self.id}: from {src.id} to {dst.id}, dst not in adjacents {self.adjacent} or self not in dst {dst.adjacent} ({type(self.id)})"
+            )
         b1 = bearing(src, self)
         b2 = bearing(self, dst)
         return turn(b1, b2)
@@ -186,7 +193,6 @@ class Graph:  # Graph(FeatureCollection)?
 
     def stats(self):
         logger.debug(f"graph {self.name}")
-        logger.debug(f"{len(self.vert_dict)} vertices")
         s = {}
         ad = {}
         for k, v in self.vert_dict.items():
@@ -197,9 +203,8 @@ class Graph:  # Graph(FeatureCollection)?
             if la not in ad:
                 ad[la] = 0
             ad[la] = ad[la] + 1
-        logger.debug(f"vertices: {s}, {ad}")
+        logger.debug(f"{len(self.vert_dict)} vertices: {s}, {ad}")
 
-        logger.debug(f"{len(self.edges_arr)} edges")
         s = {}
         mi = 100000
         ma = 0
@@ -218,7 +223,7 @@ class Graph:  # Graph(FeatureCollection)?
             s[v.usage2] = s[v.usage2] + 1
             mi = min(mi, v.cost)
             ma = max(ma, v.cost)
-        logger.debug(f"edges: {s}, cost=[{round(mi, 2)}, {round(ma, 2)}]")
+        logger.debug(f"{len(self.edges_arr)} edges: {s}, cost=[{round(mi, 2)}, {round(ma, 2)}]")
 
     def features(self):
         def add(arr, v):
@@ -281,7 +286,6 @@ class Graph:  # Graph(FeatureCollection)?
         respect_oneway: bool = True,
     ):
         width_strict = False
-        oneways = 0
         # logger.debug(
         #     f"cloning.. width_code={width_code} (strict={width_strict}), move={move} "
         #     + f"respect_width={respect_width} respect_inner={respect_inner} use_runway={use_runway} respect_oneway={respect_oneway}"
@@ -311,10 +315,9 @@ class Graph:  # Graph(FeatureCollection)?
             # if not excluded, add it
             if not respect_oneway and e.direction == TAXIWAY_DIRECTION.ONEWAY:
                 e.direction = TAXIWAY_DIRECTION.TWOWAY
-                oneways = oneways + 1
             candidates.append(e)
 
-        graph = Graph()
+        graph = Graph(f"{self.name} cloned with restrictions ({move},{width_code},{respect_width},{respect_inner},{use_runway},{respect_oneway})")
         for e in candidates:
             start = graph.add_vertex(e.start.id, Point(e.start.lat, e.start.lon), e.start.usage, e.start.name)
             end = graph.add_vertex(e.end.id, Point(e.end.lat, e.end.lon), e.end.usage, e.end.name)
@@ -331,7 +334,6 @@ class Graph:  # Graph(FeatureCollection)?
             f"cloned {len(graph.edges_arr)}/{len(self.edges_arr)}: width_code={width_code} (strict={width_strict}), move={move} "
             + f"respect_width={respect_width} respect_inner={respect_inner} use_runway={use_runway} respect_oneway={respect_oneway}"
         )
-        # logger.debug(f"..cloned: {len(graph.edges_arr)}/{len(self.edges_arr)}, {oneways}.")
         return graph
 
     def get_edge(self, src, dst):
