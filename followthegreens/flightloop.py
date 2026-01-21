@@ -229,7 +229,7 @@ class FlightLoop:
         # 3. current speed
         speed = self.ftg.aircraft.speed()
         # logger.debug(f"closest light: vertex index {light.index}, next vertex={nextvtx}, distance={round(dist, 1)}, turn={round(turn, 0)}, speed={round(speed, 1)}")
-        # logger.debug(f"adjustRabbit: start turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
+        # logger.debug(f"start turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
 
         # From observation/experience:
         #
@@ -257,11 +257,11 @@ class FlightLoop:
 
         # @todo: What if no more turn but end of greens reached?
         if idx == len(route.route):  # end of route
-            logger.warning("adjustRabbit: reached end of route")
+            logger.warning("reached end of route")
 
         logger.debug(
-            f"adjustRabbit: currently at index {light.index}, next turn (>{TURN_LIMIT}) at index {idx-1}: "
-            + f"{round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}"
+            f"currently at index {light.index}, next turn (>{TURN_LIMIT}deg) at index {idx-1}: "
+            + f"{round(turn, 0)}deg at {round(dist, 1)}m, current speed={round(speed, 1)}"
         )
 
         # II. From distance to turn, and angle of turn, assess situation
@@ -308,9 +308,7 @@ class FlightLoop:
                 mode = RABBIT_MODE.SLOWER
                 advise = "too fast, brake"
 
-        logger.debug(
-            f"adjustRabbit: current speed={round(speed, 1)}, target={target}; rabbit current mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})"
-        )
+        logger.debug(f"current speed={round(speed, 1)}, target={target}; rabbit current mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})")
 
         if self.rabbitMode != mode:
             self.rabbitMode = mode

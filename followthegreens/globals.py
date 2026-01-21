@@ -269,29 +269,19 @@ class TAXI_SPEED(Enum):  # in m/s
     TURN = "TURN"
 
 
+# These are global default values, only used if no other value if found.
 LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
 RABBIT_LENGTH = 10  # number of lights that blink in front of aircraft
 RABBIT_SPEED = 0.20  # sec duration of "off" light in rabbit
 
-# As a first step, uses 5 standard rabbit (length, speed)
+# Rabbit length and speed variation for each indication
+# Base length and speed depends on airport/aircraft
 FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
-    RABBIT_MODE.FASTEST: [
-        2 * RABBIT_LENGTH,
-        RABBIT_SPEED / 2,
-    ],  # accelerate (long and fast)
-    RABBIT_MODE.FASTER: [
-        RABBIT_LENGTH,
-        RABBIT_SPEED / 3,
-    ],  # go faster (same length, faster)
-    RABBIT_MODE.MED: [RABBIT_LENGTH, RABBIT_SPEED],  # normal
-    RABBIT_MODE.SLOWER: [
-        RABBIT_LENGTH,
-        3 * RABBIT_SPEED,
-    ],  # slow down (same length, slower)
-    RABBIT_MODE.SLOWEST: [
-        int(RABBIT_LENGTH / 2),
-        2 * RABBIT_SPEED,
-    ],  # slow down (short and slow)
+    RABBIT_MODE.FASTEST: [2, 0.3],  # accelerate (long and fast)
+    RABBIT_MODE.FASTER: [1, 0.6],  # go faster (same length, faster)
+    RABBIT_MODE.MED: [1, 1],  # normal
+    RABBIT_MODE.SLOWER: [1, 2],  # slow down (same length, slower)
+    RABBIT_MODE.SLOWEST: [0.5, 1.5],  # slow down (short and slow)
 }
 
 

@@ -357,9 +357,12 @@ LOGGING_LEVEL = 10
 ```
 
 The value `10` above correspond to a python logger logging level.
-The default value is `20`.
-FtG developers will probably ask you to place value `10` which correspond to the production of debugging information.
+The default value is `20` (`logging.INFO`).
+FtG developers will probably ask you to place value `10` which correspond to the production of debugging information (`logging.DEBUG`).
 
+You can get support in the [forum thread dedicated to FtG](https://forums.x-plane.org/files/file/71124-follow-the-greens/).
+
+You can also get support in the [following discord server](https://discord.gg/AQjP2tWV).
 
 
 # See Also
