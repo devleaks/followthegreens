@@ -250,8 +250,10 @@ class FlightLoop:
 
         # 4. Find next "significant" turn of more than TURN_LIMIT
         idx = light.index + 1
+        dist_before = dist
         while abs(turn) < TURN_LIMIT and idx < len(route.route):
             turn = route.turns[idx]
+            dist_before = dist
             dist = dist + route.edges[idx].cost
             idx = idx + 1
 
@@ -261,7 +263,7 @@ class FlightLoop:
 
         logger.debug(
             f"currently at index {light.index}, next turn (>{TURN_LIMIT}deg) at index {idx-1}: "
-            + f"{round(turn, 0)}deg at {round(dist, 1)}m, current speed={round(speed, 1)}"
+            + f"{round(turn, 0)}deg at {round(dist_before, 1)}m, current speed={round(speed, 1)}"
         )
 
         # II. From distance to turn, and angle of turn, assess situation
@@ -273,14 +275,14 @@ class FlightLoop:
         target = taxi_speed_ranges[TAXI_SPEED.MED]  # target speed range
         comment = "continue"
 
-        if dist < braking_distance:
+        if dist_before < braking_distance:
             if abs(turn) < SMALL_TURN_LIMIT:
                 comment = "small turn at braking distance, caution"
                 target = taxi_speed_ranges[TAXI_SPEED.CAUTION]
             else:
                 comment = "turn at braking distance"
                 target = taxi_speed_ranges[TAXI_SPEED.TURN]
-        elif dist > MOVEIT_DIST:
+        elif dist_before > MOVEIT_DIST:
             comment = "no turn before large distance, move it"
             target = taxi_speed_ranges[TAXI_SPEED.FAST]
 
@@ -313,6 +315,19 @@ class FlightLoop:
         if self.rabbitMode != mode:
             self.rabbitMode = mode
         # logger.debug(f"..done ({advise})")
+
+    def adjustedIter(self) -> float:
+        speed = self.ftg.aircraft.speed()
+        if speed > 12:
+            logger.debug("iter reduced to 0.8")
+            return 0.8
+        if speed > 10:
+            logger.debug("iter reduced to 1")
+            return 1.0
+        if speed > 7:
+            logger.debug("iter reduced to 2")
+            return 2.0
+        return self.nextIter
 
     def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
@@ -352,7 +367,7 @@ class FlightLoop:
             if self.closestLight_cnt % 20:
                 logger.debug("no close light.")
             self.closestLight_cnt = self.closestLight_cnt + 1
-            return self.nextIter
+            return self.adjustedIter()
 
         self.closestLight_cnt = 0
 
@@ -364,10 +379,10 @@ class FlightLoop:
             # logger.debug("moving %d %d", closestLight, self.lastLit)
             self.lastLit = closestLight
             self.distance = distance
-            return self.nextIter
+            return self.adjustedIter()
 
         if self.lastLit == closestLight and (abs(self.distance - distance) < DISTANCE_BETWEEN_GREEN_LIGHTS):  # not moved enought, may even be stopped
-            return self.nextIter
+            return self.adjustedIter()
 
         # @todo
         # Need to send warning when pilot moves away from the green.
@@ -376,4 +391,4 @@ class FlightLoop:
             logger.debug(f"aircraft drifting away from track? (d={round(distance, 1)} > {DRIFTING_DISTANCE})")
 
         self.distance = distance
-        return self.nextIter
+        return self.adjustedIter()

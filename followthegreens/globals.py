@@ -4,6 +4,7 @@ import os
 import logging
 from datetime import datetime, timezone
 from enum import Enum, StrEnum
+from typing import Any
 
 # ################################
 #
@@ -420,7 +421,7 @@ GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}  # 
 # GOOD = {"morning": 4, "day": 6, "afternoon": 9, "evening": 12, "night": 17}  # special US :-D
 
 
-def get_global(name: str, config: dict = {}):
+def get_global(name: str, config: dict = {}) -> Any:
     # most globals are defined defined above...
     # if name not in config:
     #     logger.debug(f"name {name} not in config, using global {globals().get(name)}")

@@ -194,12 +194,15 @@ class Airport:
         self.tempSmoothCurve = []
 
         # PREFERENCES - Fetched by LightString
-        # Set sensible default value
+        # Set sensible default value from global preferences
         self.distance_between_taxiway_lights = get_global(AIRPORT.DISTANCE_BETWEEN_LIGHTS.value, self.prefs)  # meters
         self.distance_between_green_lights = get_global(AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value, self.prefs)  # meters
         self.rabbit_speed = get_global(RABBIT.SPEED.value, self.prefs)  # seconds
+        # Fine tune for specific airport(s)
         self.set_preferences()
-        logger.debug(f"rabbit: btw greens={self.distance_between_taxiway_lights}m, whole net={self.distance_between_green_lights}m, speed={self.rabbit_speed}s")
+        logger.debug(
+            f"AIRPORT rabbit: btw greens={self.distance_between_taxiway_lights}m, whole net={self.distance_between_green_lights}m, speed={self.rabbit_speed}s"
+        )
 
     def prepare(self):
         status = self.load()
@@ -231,6 +234,7 @@ class Airport:
         return [True, "Airport ready"]
 
     def set_preferences(self):
+        # Local airport preferences override global preferences
         apt = self.prefs.get("Airports", {})
         prefs = apt.get(self.icao)
         logger.debug(f"{self.icao} preferences: {prefs}")

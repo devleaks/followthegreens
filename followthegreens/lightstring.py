@@ -259,6 +259,7 @@ class LightString:
         self.lightTypes = None
         self.taxiway_alt = 0
 
+        # Preferences are first set from Airport preferences, which are global or airport specific
         self.distance_between_lights = airport.distance_between_green_lights  # float(get_global("DISTANCE_BETWEEN_GREEN_LIGHTS", config=config))
         if self.distance_between_lights == 0:
             self.distance_between_lights = 10
@@ -273,15 +274,22 @@ class LightString:
 
         self.rabbit_mode = RABBIT_MODE.MED  # default mode on start
 
+        # @todo: Check that preference has beed set at global / airport level.
+        #        If set a global / airport level, aircraft preference may only "REFINE" preferences but not CONTREDICT them.
+        #        Example: At airport level: rabbit_speed = 0 (= no rabbit). Aircraft may not decide to use a particular rabbit speed.
+        #        But if airport level rabbit_speed = 0.2, aircraft may refine rabbit_speed = 0.3 for it own use.
         # following two will get adjusted for aircraft
-        self.lights_ahead = int(aircraft.lights_ahead / self.distance_between_lights)
-        self.num_lights_ahead = self.lights_ahead
+        # if can_be_refined("RABBIT_SPEED", "LIGHTS_AHEAD"...): ...
+        self.lights_ahead = int(aircraft.lights_ahead / self.distance_between_lights)  # this never changes
+        self.num_lights_ahead = self.lights_ahead  # this adjusts with acf speed
 
-        self.rabbit_length = int(aircraft.rabbit_length / self.distance_between_lights)
-        self.num_rabbit_lights = self.rabbit_length  # can be 0
+        self.rabbit_length = int(aircraft.rabbit_length / self.distance_between_lights)  # this never changes
+        self.num_rabbit_lights = self.rabbit_length  # can be 0, this adjusts with acf speed
 
-        self.rabbit_speed = airport.rabbit_speed
-        self.rabbit_duration = self.rabbit_speed
+        self.rabbit_speed = airport.rabbit_speed  # this never changes
+        if self.rabbit_speed != 0 and aircraft.rabbit_speed != 0:
+            self.rabbit_speed = aircraft.rabbit_speed
+        self.rabbit_duration = self.rabbit_speed  # this adjusts with acf speed
 
         # control logged info
         self._info_sent = False
@@ -330,6 +338,7 @@ class LightString:
 
     def newRabbitParameters(self, mode: RABBIT_MODE) -> tuple:
         # For now, parameters are static, they will become dynamic later
+        # When taxiing fast, make sure enough lights are in front i.e. rabbit length is function of speed?
         adjustment = FTG_SPEED_PARAMS[mode]
         #          self.num_rabbit_lights,              self.rabbit_duration,            , self.num_lights_ahead
         return int(self.rabbit_length * adjustment[0]), self.rabbit_speed * adjustment[1], self.lights_ahead * adjustment[0]

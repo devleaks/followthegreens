@@ -163,6 +163,7 @@ class Aircraft:
 
     def __init__(self, prefs: dict = {}):
         self.prefs = prefs
+        self.icao = None
         self.icaomodel = xp.findDataRef("sim/aircraft/view/acf_ICAO")
         self.tailsign = xp.findDataRef("sim/aircraft/view/acf_tailnum")
         self.lat = xp.findDataRef("sim/flightmodel/position/latitude")
@@ -172,23 +173,25 @@ class Aircraft:
         self.tiller = xp.findDataRef("ckpt/tiller")
         self.width_code = TAXIWAY_WIDTH_CODE.C  # init to default
         self.init()
+        logger.debug(f"AIRCRAFT type {self.icao}, category {self.width_code}")
 
         # PREFERENCES - Fetched by LightString
+        # These preferences are specific for an aircraft
+        self.set_preferences()
         r = self.rabbit_preferences()
         self.lights_ahead = r[RABBIT.LIGHTS_AHEAD]  # meters
         self.rabbit_length = r[RABBIT.LENGTH]  # meters
         self.rabbit_speed = r[RABBIT.SPEED]  # seconds
-        self.set_preferences()
-        logger.debug(f"rabbit: ahead={self.lights_ahead}m, length={self.rabbit_length}m, speed={self.rabbit_speed}s")
 
     def init(self):
-        ac = xp.getDatas(self.icaomodel)
+        self.icao = xp.getDatas(self.icaomodel)
+        if self.icao is None:
+            self.icao = "ZZZZ"
         for ty in TAXIWAY_WIDTH_CODE:
-            if ac in AIRCRAFT_TYPES[ty][AIRCRAFT.AIRCRAFTS]:
+            if self.icao in AIRCRAFT_TYPES[ty][AIRCRAFT.AIRCRAFTS]:
                 self.width_code = ty
                 return
-        logger.debug(f"aircraft type {ac} not found in lists, using default category {self.width_code}")
-        self.set_preferences()
+        logger.debug(f"aircraft type {self.icao} not found in lists, using default category {self.width_code}")
 
     def set_preferences(self):
         acf = self.prefs.get("Aircrafts", {})
@@ -212,9 +215,8 @@ class Aircraft:
             if RABBIT.SPEED.value in prefs:
                 self.rabbit_speed = prefs[RABBIT.SPEED.value]
 
-        ac = xp.getDatas(self.icaomodel).upper()
-        prefs = acf.get(ac, {})
-        logger.debug(f"Aircraft model {ac} preferences: {prefs}")
+        prefs = acf.get(self.icao, {})
+        logger.debug(f"Aircraft model {self.icao} preferences: {prefs}")
         if prefs is not None:
             if RABBIT.LIGHTS_AHEAD.value in prefs:
                 self.lights_ahead = prefs[RABBIT.LIGHTS_AHEAD.value]
@@ -222,6 +224,8 @@ class Aircraft:
                 self.rabbit_length = prefs[RABBIT.LENGTH.value]
             if RABBIT.SPEED.value in prefs:
                 self.rabbit_speed = prefs[RABBIT.SPEED.value]
+
+        logger.debug(f"AIRCRAFT rabbit (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m")
 
     def position(self) -> list:
         return [xp.getDataf(self.lat), xp.getDataf(self.lon)]
