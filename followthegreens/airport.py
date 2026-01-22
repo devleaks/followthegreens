@@ -195,13 +195,13 @@ class Airport:
 
         # PREFERENCES - Fetched by LightString
         # Set sensible default value from global preferences
-        self.distance_between_taxiway_lights = get_global(AIRPORT.DISTANCE_BETWEEN_LIGHTS.value, self.prefs)  # meters
-        self.distance_between_green_lights = get_global(AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value, self.prefs)  # meters
+        self.distance_between_taxiway_lights = get_global(AIRPORT.DISTANCE_BETWEEN_LIGHTS.value, self.prefs)  # meters, for show_taxiways()
+        self.distance_between_green_lights = get_global(AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value, self.prefs)  # meters for follow_the_greens()
         self.rabbit_speed = get_global(RABBIT.SPEED.value, self.prefs)  # seconds
         # Fine tune for specific airport(s)
         self.set_preferences()
         logger.debug(
-            f"AIRPORT rabbit: btw greens={self.distance_between_taxiway_lights}m, whole net={self.distance_between_green_lights}m, speed={self.rabbit_speed}s"
+            f"AIRPORT rabbit: btw greens={self.distance_between_green_lights}m, whole net={self.distance_between_taxiway_lights}m, speed={self.rabbit_speed}s"
         )
 
     def prepare(self):

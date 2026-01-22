@@ -77,7 +77,7 @@ class FlightLoop:
             logger.debug("plane tracked.")
 
         # Dim runway lights according to preferences
-        ll = get_global("RUNWAY_LIGHT_LEVEL_WHILE_FTG", config=self.ftg.config)
+        ll = get_global("RUNWAY_LIGHT_LEVEL_WHILE_FTG", preferences=self.ftg.prefs)
         if self.planeRunning and self.ftg.airport_light_level is not None:
             self.runway_level_original = xp.getDataf(self.ftg.airport_light_level)
             if ll is not None:

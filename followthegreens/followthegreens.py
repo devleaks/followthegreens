@@ -16,7 +16,7 @@ from .lightstring import LightString
 from .ui import UIUtil
 from .nato import phonetic
 
-CONFIG_FILENAME = "ftgprefs.toml"
+PREFERENCE_FILE_NAME = "followthegreens.prf"  # followthegreens.prf
 
 
 class FollowTheGreens:
@@ -43,7 +43,7 @@ class FollowTheGreens:
         logger.info("*-*" * 35)
         logger.info(f"Starting new FtG session {__VERSION__} at {datetime.now().astimezone().isoformat()}\n")
 
-        self.config = {}
+        self.prefs = {}
         self.init_preferences()
         self.status = FTG_STATUS.INITIALIZED
 
@@ -61,37 +61,37 @@ class FollowTheGreens:
         logger.debug(f"FtG is now {status}")
 
     def init_preferences(self):
-        # Load optional config file (Rel. 2 onwards)
+        # Load optional preferences file (Rel. 2 onwards)
         # Parameters in this file will overwrite (with constrain)
         # default values provided by FtG.
         here = os.path.dirname(__file__)
-        filename = os.path.join(here, CONFIG_FILENAME)
+        filename = os.path.join(here, PREFERENCE_FILE_NAME)
         if os.path.exists(filename):
             with open(filename, "rb") as fp:
                 try:
-                    self.config = tomllib.load(fp)
+                    self.prefs = tomllib.load(fp)
                 except:
-                    logger.warning(f"config file {filename} not loaded", exc_info=True)
+                    logger.warning(f"preferences file {filename} not loaded", exc_info=True)
 
-            logger.info(f"config file {filename} loaded")
-            logger.debug(f"config: {self.config}")
+            logger.info(f"preferences file {filename} loaded")
+            logger.debug(f"preferences: {self.prefs}")
         else:
-            logger.debug(f"no config file {filename}")
-            filename = os.path.join(".", "Output", "preferences", CONFIG_FILENAME)  # relative to X-Plane "rott/home" folder
+            logger.debug(f"no preferences file {filename}")
+            filename = os.path.join(".", "Output", "preferences", PREFERENCE_FILE_NAME)  # relative to X-Plane "rott/home" folder
             if os.path.exists(filename):
                 with open(filename, "rb") as fp:
                     try:
-                        self.config = tomllib.load(fp)
+                        self.prefs = tomllib.load(fp)
                     except:
-                        logger.warning(f"config file {filename} not loaded", exc_info=True)
-                logger.info(f"config file {filename} loaded")
-                logger.debug(f"config: {self.config}")
+                        logger.warning(f"preferences file {filename} not loaded", exc_info=True)
+                logger.info(f"preferences file {filename} loaded")
+                logger.debug(f"preferences: {self.prefs}")
             else:
-                logger.debug(f"no config file {filename}")
+                logger.debug(f"no preferences file {filename}")
                 self.create_empty_prefs()
 
-        logger.info(f"preferences: {self.config}")
-        ll = get_global("LOGGING_LEVEL", self.config)
+        logger.info(f"preferences: {self.prefs}")
+        ll = get_global("LOGGING_LEVEL", self.prefs)
         if type(ll) is int:
             logger.debug(f"log level: current={logger.level}, requested={ll}")
             if logger.level != ll:
@@ -101,19 +101,20 @@ class FollowTheGreens:
             logger.warning(f"invalid logging level {ll} ({type(ll)})")
 
         try:
-            logger.debug(f"internal:\n{ '\n'.join([f'{g}: {get_global(g, config=self.config)}' for g in INTERNAL_CONSTANTS]) }'\n=====")
+            logger.debug(f"internal:\n{ '\n'.join([f'{g}: {get_global(g, preferences=self.prefs)}' for g in INTERNAL_CONSTANTS]) }'\n=====")
         except:  # in case str(value) fails
             logger.debug("internal: some internals don't print", exc_info=True)
 
     def create_empty_prefs(self):
-        filename = os.path.join(".", "Output", "preferences", CONFIG_FILENAME)  # relative to X-Plane "rott/home" folder
+        filename = os.path.join(".", "Output", "preferences", PREFERENCE_FILE_NAME)  # relative to X-Plane "rott/home" folder
         if not os.path.exists(filename):
             with open(filename, "w") as fp:
                 print(
-                    """# Follow the greens Preference file
+                    f"""# Follow the greens Preference file
 #
 # See documentation at https://devleaks.github.io/followthegreens/.
 #
+# {PREFERENCE_FILE_NAME} is a TOML (https://toml.io/en/) formatted file. Please adhere to the TOML formatting/standard.
 # To set a preferred value, place the name of the preference = <value> on a new line.
 # Lines that starts with # are comments.
 # Example:
@@ -164,7 +165,7 @@ class FollowTheGreens:
         # Note: Aircraft should be "created" outside of FollowTheGreen
         # and passed to start or getAirport. That way, we can instanciate
         # individual FollowTheGreen for numerous aircrafts.
-        self.aircraft = Aircraft(prefs=self.config)
+        self.aircraft = Aircraft(prefs=self.prefs)
 
         pos = self.aircraft.position()
         hdg = self.aircraft.heading()
@@ -201,7 +202,7 @@ class FollowTheGreens:
         # Prompt for local destination at airport.
         # Either a runway for departure or a parking for arrival.
         if not self.airport or (self.airport.icao != airport):  # we may have changed airport since last call
-            airport = Airport(icao=airport, prefs=self.config)
+            airport = Airport(icao=airport, prefs=self.prefs)
             # Info 4 to 8 in airport.prepare()
             status = airport.prepare()  # [ok, errmsg]
             if not status[0]:
@@ -237,7 +238,7 @@ class FollowTheGreens:
 
         # Info 11
         logger.info(f"destination {destination}.")
-        rerr, route = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("RESPECT_CONSTRAINTS", config=self.config))
+        rerr, route = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("RESPECT_CONSTRAINTS", preferences=self.prefs))
 
         if not rerr:
             logger.info(f"no route to destination {destination} (route  {route})")
@@ -266,7 +267,7 @@ class FollowTheGreens:
 
         self.status = FTG_STATUS.ROUTE
 
-        self.lights = LightString(airport=self.airport, aircraft=self.aircraft, config=self.config)
+        self.lights = LightString(airport=self.airport, aircraft=self.aircraft, preferences=self.prefs)
         self.lights.populate(route, onRwy)
         if len(self.lights.lights) == 0:
             logger.debug("no lights")

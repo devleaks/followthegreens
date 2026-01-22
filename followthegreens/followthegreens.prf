@@ -1,0 +1,46 @@
+#
+# Globals
+#
+RESPECT_CONSTRAINTS = true
+LOGGING_LEVEL = 10
+
+# LIGHTS_AHEAD = 0
+RABBIT_LENGTH = 0
+
+#
+# Lights
+#
+# [Lights.DEFAULT]
+# name="custom_green.obj"
+# color=[1, 1, 1]
+# size=30
+# intensity=30
+
+
+#
+# Aircraft Specific
+#
+# [Aircrafts.C]
+# LIGHTS_AHEAD = 100  # meters
+# RABBIT_LENGTH = 150  # meters
+# RABBIT_SPEED = 0.20  # seconds
+
+# [Aircrafts.A339]
+# LIGHTS_AHEAD = 200  # meters
+# RABBIT_LENGTH = 200  # meters
+# RABBIT_SPEED = 0.20  # seconds
+
+#
+# Airport Specific
+#
+# [Airports]
+# DISTANCE_BETWEEN_GREEN_LIGHTS = 16
+
+# [Airports.EBBR]
+# DISTANCE_BETWEEN_GREEN_LIGHTS = 10
+# RABBIT_SPEED = 0.1
+
+# [Airports.EHAM]
+# LIGHTS_AHEAD = 100  # meters
+# RABBIT_LENGTH = 100  # meters
+# DISTANCE_BETWEEN_GREEN_LIGHTS = 12

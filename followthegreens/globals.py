@@ -421,11 +421,11 @@ GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}  # 
 # GOOD = {"morning": 4, "day": 6, "afternoon": 9, "evening": 12, "night": 17}  # special US :-D
 
 
-def get_global(name: str, config: dict = {}) -> Any:
+def get_global(name: str, preferences: dict = {}) -> Any:
     # most globals are defined defined above...
-    # if name not in config:
-    #     logger.debug(f"name {name} not in config, using global {globals().get(name)}")
-    return config.get(name, globals().get(name))
+    # if name not in preferences:
+    #     logger.debug(f"name {name} not in preferences, using global {globals().get(name)}")
+    return preferences.get(name, globals().get(name))
 
 
 # ################################

@@ -177,11 +177,12 @@ class Aircraft:
 
         # PREFERENCES - Fetched by LightString
         # These preferences are specific for an aircraft
-        self.set_preferences()
         r = self.rabbit_preferences()
-        self.lights_ahead = r[RABBIT.LIGHTS_AHEAD]  # meters
-        self.rabbit_length = r[RABBIT.LENGTH]  # meters
-        self.rabbit_speed = r[RABBIT.SPEED]  # seconds
+        self.lights_ahead = r.get(RABBIT.LIGHTS_AHEAD, 120)  # meters
+        self.rabbit_length = r.get(RABBIT.LENGTH, 100)  # meters
+        self.rabbit_speed = r.get(RABBIT.SPEED, 0.2)  # seconds
+        # If modified in preference file
+        self.set_preferences()
 
     def init(self):
         self.icao = xp.getDatas(self.icaomodel)
@@ -254,8 +255,8 @@ class Aircraft:
     def taxi_speed_ranges(self) -> dict:
         return AIRCRAFT_TYPES[self.width_code][AIRCRAFT.TAXI_SPEED]
 
-    def rabbit_preferences(self, config: dict = {}) -> dict:
-        # config for later user
+    def rabbit_preferences(self, preferences: dict = {}) -> dict:
+        # preferences for later user
         return AIRCRAFT_TYPES[self.width_code][AIRCRAFT.RABBIT]
 
     def warning_distance(self, target: float = 0.0) -> float:

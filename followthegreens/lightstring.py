@@ -234,10 +234,10 @@ class Stopbar:
 
 class LightString:
 
-    def __init__(self, airport, aircraft, config: dict = {}):
+    def __init__(self, airport, aircraft, preferences: dict = {}):
         self.airport = airport  # get some lighting preference from there
         self.aircraft = aircraft  # get some rabbit preference from there
-        self.config = config  # get FtG preference from there
+        self.prefs = preferences  # get FtG preference from there
 
         self.lights = []  # all green lights from start to destination indexed from 0 to len(lights)
         self.stopbars = []  # Keys of this dict are green light indices.
@@ -260,17 +260,17 @@ class LightString:
         self.taxiway_alt = 0
 
         # Preferences are first set from Airport preferences, which are global or airport specific
-        self.distance_between_lights = airport.distance_between_green_lights  # float(get_global("DISTANCE_BETWEEN_GREEN_LIGHTS", config=config))
+        self.distance_between_lights = airport.distance_between_green_lights  # float(get_global("DISTANCE_BETWEEN_GREEN_LIGHTS", preferences=self.prefs))
         if self.distance_between_lights == 0:
             self.distance_between_lights = 10
-        self.lead_off_lights = int(float(get_global("LEAD_OFF_RUNWAY_DISTANCE", config=config)) / self.distance_between_lights)
+        self.lead_off_lights = int(float(get_global("LEAD_OFF_RUNWAY_DISTANCE", preferences=self.prefs)) / self.distance_between_lights)
         self.rwy_twy_lights = self.lead_off_lights  # initial value
 
         # Options
-        self.add_light_at_vertex = get_global("ADD_LIGHT_AT_VERTEX", config=config)
-        self.add_light_at_last_vertex = get_global("ADD_LIGHT_AT_LAST_VERTEX", config=config)
-        self.distance_between_stoplights = get_global("DISTANCE_BETWEEN_STOPLIGHTS", config=config)
-        self.min_segments_before_hold = get_global("MIN_SEGMENTS_BEFORE_HOLD", config=config)
+        self.add_light_at_vertex = get_global("ADD_LIGHT_AT_VERTEX", preferences=self.prefs)
+        self.add_light_at_last_vertex = get_global("ADD_LIGHT_AT_LAST_VERTEX", preferences=self.prefs)
+        self.distance_between_stoplights = get_global("DISTANCE_BETWEEN_STOPLIGHTS", preferences=self.prefs)
+        self.min_segments_before_hold = get_global("MIN_SEGMENTS_BEFORE_HOLD", preferences=self.prefs)
 
         self.rabbit_mode = RABBIT_MODE.MED  # default mode on start
 
@@ -280,15 +280,23 @@ class LightString:
         #        But if airport level rabbit_speed = 0.2, aircraft may refine rabbit_speed = 0.3 for it own use.
         # following two will get adjusted for aircraft
         # if can_be_refined("RABBIT_SPEED", "LIGHTS_AHEAD"...): ...
-        self.lights_ahead = int(aircraft.lights_ahead / self.distance_between_lights)  # this never changes
+        self.lights_ahead = get_global("LIGHTS_AHEAD", self.prefs)
+        if "LIGHTS_AHEAD" not in self.prefs:  # if not explicitely defined for entire application
+            self.lights_ahead = int(aircraft.lights_ahead / self.distance_between_lights)  # this never changes
+            logger.debug(f"lights_ahead defined from aircraft preferences {self.lights_ahead}")
         self.num_lights_ahead = self.lights_ahead  # this adjusts with acf speed
 
-        self.rabbit_length = int(aircraft.rabbit_length / self.distance_between_lights)  # this never changes
+        self.rabbit_length = get_global("RABBIT_LENGTH", self.prefs)
+        if "RABBIT_LENGTH" not in self.prefs:  # if not explicitely defined for entire application
+            self.rabbit_length = int(aircraft.rabbit_length / self.distance_between_lights)  # this never changes
+            logger.debug(f"rabbit_length defined from aircraft preferences {self.rabbit_length}")
         self.num_rabbit_lights = self.rabbit_length  # can be 0, this adjusts with acf speed
 
-        self.rabbit_speed = airport.rabbit_speed  # this never changes
-        if self.rabbit_speed != 0 and aircraft.rabbit_speed != 0:
-            self.rabbit_speed = aircraft.rabbit_speed
+        self.rabbit_speed = get_global("RABBIT_SPEED", self.prefs)  # this never changes
+        logger.debug(f"rabbit_speed globa preferences {self.rabbit_speed}")
+        if "RABBIT_SPEED" not in self.prefs and self.rabbit_speed != 0.0 and aircraft.rabbit_speed != 0:  # if not explicitely defined for entire application
+            self.rabbit_speed = airport.rabbit_speed  # this never changes
+            logger.debug(f"rabbit_speed defined from aircraft preferences {self.rabbit_speed}")
         self.rabbit_duration = self.rabbit_speed  # this adjusts with acf speed
 
         # control logged info
@@ -305,7 +313,7 @@ class LightString:
         return json.dumps({"type": "FeatureCollection", "features": self.features()})
 
     def has_rabbit(self) -> bool:
-        return abs(self.rabbit_duration) > 0 and self.num_rabbit_lights > 0
+        return (abs(self.rabbit_duration) > 0 and self.num_rabbit_lights > 0) or self.lights_ahead > 0
 
     def features(self):
         fc = []
@@ -536,7 +544,7 @@ class LightString:
         logger.debug(f"distance between taxiway center lights: {self.distance_between_lights} m")
         logger.debug(f"lights ahead: {self.num_lights_ahead},  {self.aircraft.lights_ahead} m")
         logger.debug(f"rabbit: length: {self.num_rabbit_lights} lights, {self.aircraft.rabbit_length} m")
-        logger.debug(f"runway lead-off lights: {self.lead_off_lights} lights, {float(get_global('LEAD_OFF_RUNWAY_DISTANCE', config=self.config))} m")
+        logger.debug(f"runway lead-off lights: {self.lead_off_lights} lights, {float(get_global('LEAD_OFF_RUNWAY_DISTANCE', preferences=self.prefs))} m")
 
     # We make a stopbar after the green light index lightIndex
     def mkStopbar(self, lightIndex, src, dst, extremity="end", size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.E, light: LIGHT_TYPE = LIGHT_TYPE.STOP):
@@ -565,7 +573,7 @@ class LightString:
         ]
 
     def loadObjects(self):
-        lightsConfig = self.config.get("Lights", {})
+        lightsConfig = self.prefs.get("Lights", {})
         DEFAULT_LIGHT_VALUES = {
             "name": f"ftglight{randint(1000,9999)}.obj",
             "color": [1, 1, 1],  # white
