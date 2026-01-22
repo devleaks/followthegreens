@@ -53,6 +53,7 @@ class ShowTaxiways(FollowTheGreens):
 
         self.lights.printSegments()
 
+        logger.info(f"should check menu item {self.pi.menuIdx_st}")
         # if self.pi is not None and self.pi.menuIdx_st is not None and self.pi.menuIdx_st >= 0:
         #     try:
         #         xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx_st, xp.Menu_Checked)
@@ -73,6 +74,7 @@ class ShowTaxiways(FollowTheGreens):
         if self.lights:
             self.lights.destroy()
             self.lights = None
+            logger.info(f"should uncheck menu item {self.pi.menuIdx_st}")
             # if self.pi is not None and self.pi.menuIdx_st is not None and self.pi.menuIdx_st >= 0:
             #     try:
             #         xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx_st, xp.Menu_Unchecked)

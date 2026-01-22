@@ -341,7 +341,7 @@ class LightString:
         # When taxiing fast, make sure enough lights are in front i.e. rabbit length is function of speed?
         adjustment = FTG_SPEED_PARAMS[mode]
         #          self.num_rabbit_lights,              self.rabbit_duration,            , self.num_lights_ahead
-        return int(self.rabbit_length * adjustment[0]), self.rabbit_speed * adjustment[1], self.lights_ahead * adjustment[0]
+        return int(self.rabbit_length * adjustment[0]), self.rabbit_speed * adjustment[1], int(self.lights_ahead * adjustment[0])
 
     def changeRabbit(self, length: int, duration: float, ahead: int):
         if not self.has_rabbit():
