@@ -22,6 +22,9 @@ IAMLOST_TEXT = "New green please"
 NEWDEST_TEXT = "New destination"
 
 
+SPECIAL_DEBUG = False
+
+
 class UIUtil:
     def __init__(self, ftg):
         self.ftg = ftg
@@ -164,7 +167,8 @@ class UIUtil:
         return False
 
     def showMainWindow(self, canHide=True):
-        logger.debug(f"showMainWindow canHide={self.canHide}")
+        if SPECIAL_DEBUG:
+            logger.debug(f"showMainWindow canHide={self.canHide}")
         if self.mainWindowExists():
             xp.showWidget(self.mainWindow["widgetID"])
             self.canHide = canHide
@@ -174,10 +178,12 @@ class UIUtil:
         # We always hide it on request, even if canHide is False
         self.displayTime += elapsed
         if MAINWINDOW_AUTOHIDE and self.displayTime > MAINWINDOW_DISPLAY_TIME and self.canHide:
-            logger.debug("auto hiding UI")
+            if SPECIAL_DEBUG:
+                logger.debug("auto hiding UI")
             self.hideMainWindow()
         else:
-            logger.debug(f"UI not allowed to hide (canHide={self.canHide}, elapsed={round(self.displayTime, 1)} < {MAINWINDOW_DISPLAY_TIME})")
+            if SPECIAL_DEBUG:
+                logger.debug(f"UI not allowed to hide (canHide={self.canHide}, elapsed={round(self.displayTime, 1)} < {MAINWINDOW_DISPLAY_TIME})")
 
     def hideMainWindow(self):
         # We always hide it on request, even if canHide is False
@@ -186,7 +192,8 @@ class UIUtil:
 
     def toggleVisibilityMainWindow(self):
         if self.mainWindowExists():
-            logger.debug(f"isMainWindowVisible(): {self.isMainWindowVisible()}.")
+            if SPECIAL_DEBUG:
+                logger.debug(f"isMainWindowVisible(): {self.isMainWindowVisible()}.")
             if self.isMainWindowVisible():
                 self.hideMainWindow()
             else:
@@ -256,7 +263,7 @@ class UIUtil:
             text = "RWY/HLD"
         else:
             self.validDestinations = self.ftg.airport.getDestinations(MOVEMENT.ARRIVAL)
-            prompt = "Please enter parking for arrival"
+            prompt = "Please enter parking/stand/jetway number/name for arrival"
             button = "It is a departure"
             text = "RAMP"
 

@@ -20,6 +20,7 @@ from .globals import (
 from .geo import EARTH, Point, distance
 
 MAX_UPDATE_FREQUENCY = 10  # seconds
+STOPPED_SPEED = 0.01  # m/s
 
 
 class FlightLoop:
@@ -66,7 +67,7 @@ class FlightLoop:
             self.flplane = xp.createFlightLoop(params)
             xp.scheduleFlightLoop(self.flplane, 10.0, 1)
             self.planeRunning = True
-            logger.debug("plane tracking started.")
+            logger.debug(f"aircraft tracking started (iter={self.nextIter}).")
             # if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
             #     logger.debug(f"Checking menu {self.ftg.pi.menuIdx}..")
             #     xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Checked)
@@ -74,10 +75,10 @@ class FlightLoop:
             # else:
             #     logger.debug(f"menu not checked (index {self.ftg.pi.menuIdx})")
         else:
-            logger.debug("plane tracked.")
+            logger.debug("aircraft tracked.")
 
         # Dim runway lights according to preferences
-        ll = get_global("RUNWAY_LIGHT_LEVEL_WHILE_FTG", config=self.ftg.config)
+        ll = get_global("RUNWAY_LIGHT_LEVEL_WHILE_FTG", preferences=self.ftg.prefs)
         if self.planeRunning and self.ftg.airport_light_level is not None:
             self.runway_level_original = xp.getDataf(self.ftg.airport_light_level)
             if ll is not None:
@@ -139,13 +140,13 @@ class FlightLoop:
     def may_rabbit_autotune(self) -> bool:
         return self._may_adjust_rabbit and not self.manual_mode
 
-    def allow_rabbit_autotune(self):
+    def allow_rabbit_autotune(self, reason: str = ""):
         self._may_adjust_rabbit = True
-        logger.debug("rabbit adjustment authorized")
+        logger.debug(f"rabbit adjustment authorized (reason {reason})")
 
-    def disallow_rabbit_autotune(self):
+    def disallow_rabbit_autotune(self, reason: str = ""):
         self._may_adjust_rabbit = False
-        logger.debug("rabbit adjustment forbidden")
+        logger.debug(f"rabbit adjustment forbidden (reason {reason})")
 
     def manualRabbitMode(self, mode: RABBIT_MODE):
         self.manual_mode = True
@@ -229,7 +230,7 @@ class FlightLoop:
         # 3. current speed
         speed = self.ftg.aircraft.speed()
         # logger.debug(f"closest light: vertex index {light.index}, next vertex={nextvtx}, distance={round(dist, 1)}, turn={round(turn, 0)}, speed={round(speed, 1)}")
-        # logger.debug(f"adjustRabbit: start turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
+        # logger.debug(f"start turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
 
         # From observation/experience:
         #
@@ -242,7 +243,6 @@ class FlightLoop:
         # Turn < 15°, speed "cautious"
         # Turn > 15°, speed "turn"
         #
-        STOPPED_SPEED = 0.01  # m/s
         TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
         SMALL_TURN_LIMIT = 15.0  # °, below this, it is a small turn, recommended to slow down a bit but not too much
         MOVEIT_DIST = 400.0  # m no reason to not go fast
@@ -250,18 +250,20 @@ class FlightLoop:
 
         # 4. Find next "significant" turn of more than TURN_LIMIT
         idx = light.index + 1
+        dist_before = dist
         while abs(turn) < TURN_LIMIT and idx < len(route.route):
             turn = route.turns[idx]
+            dist_before = dist
             dist = dist + route.edges[idx].cost
             idx = idx + 1
 
         # @todo: What if no more turn but end of greens reached?
         if idx == len(route.route):  # end of route
-            logger.warning("adjustRabbit: reached end of route")
+            logger.warning("reached end of route")
 
         logger.debug(
-            f"adjustRabbit: currently at index {light.index}, next turn (>{TURN_LIMIT}) at index {idx-1}: "
-            + f"{round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}"
+            f"currently at index {light.index}, next turn (>{TURN_LIMIT}deg) at index {idx-1}: "
+            + f"{round(turn, 0)}deg at {round(dist_before, 1)}m, current speed={round(speed, 1)}"
         )
 
         # II. From distance to turn, and angle of turn, assess situation
@@ -273,14 +275,14 @@ class FlightLoop:
         target = taxi_speed_ranges[TAXI_SPEED.MED]  # target speed range
         comment = "continue"
 
-        if dist < braking_distance:
+        if dist_before < braking_distance:
             if abs(turn) < SMALL_TURN_LIMIT:
                 comment = "small turn at braking distance, caution"
                 target = taxi_speed_ranges[TAXI_SPEED.CAUTION]
             else:
                 comment = "turn at braking distance"
                 target = taxi_speed_ranges[TAXI_SPEED.TURN]
-        elif dist > MOVEIT_DIST:
+        elif dist_before > MOVEIT_DIST:
             comment = "no turn before large distance, move it"
             target = taxi_speed_ranges[TAXI_SPEED.FAST]
 
@@ -308,13 +310,30 @@ class FlightLoop:
                 mode = RABBIT_MODE.SLOWER
                 advise = "too fast, brake"
 
-        logger.debug(
-            f"adjustRabbit: current speed={round(speed, 1)}, target={target}; rabbit current mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})"
-        )
+        logger.debug(f"current speed={round(speed, 1)}, target={target}; rabbit current mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})")
 
         if self.rabbitMode != mode:
             self.rabbitMode = mode
         # logger.debug(f"..done ({advise})")
+
+    def adjustedIter(self) -> float:
+        # If aircraft move fast, we check/update FtG more often
+        speed = self.ftg.aircraft.speed()
+        if speed is None or speed < STOPPED_SPEED:
+            return self.nextIter
+        SPEEDS = [  # [speed=m/s, iter=s]
+            [12, 0.8],
+            [10, 1],
+            [7, 1.2],
+        ]
+        i = 0
+        while i < len(SPEEDS):
+            if speed > SPEEDS[i][0]:
+                j = SPEEDS[i][1]
+                logger.debug(f"speed {round(speed, 1)}, iter reduced to {j}")
+                return j
+            i = i + 1
+        return self.nextIter
 
     def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
@@ -341,17 +360,20 @@ class FlightLoop:
             if self.has_rabbit():
                 self.rabbitMode = RABBIT_MODE.SLOWEST
                 # prevent rabbit auto-tuning, must remain slow until stop bar cleared
-                self.disallow_rabbit_autotune()
+                self.disallow_rabbit_autotune("close to stop")
             if not self.ftg.ui.isMainWindowVisible():
                 logger.debug("showing UI.")
                 self.ftg.ui.showMainWindow(False)
+        else:
+            if not self.may_rabbit_autotune:
+                self.allow_rabbit_autotune("no longer close to stop")
 
         closestLight, distance = self.ftg.lights.closest(pos)
         if closestLight is None:
             if self.closestLight_cnt % 20:
                 logger.debug("no close light.")
             self.closestLight_cnt = self.closestLight_cnt + 1
-            return self.nextIter
+            return self.adjustedIter()
 
         self.closestLight_cnt = 0
 
@@ -363,10 +385,10 @@ class FlightLoop:
             # logger.debug("moving %d %d", closestLight, self.lastLit)
             self.lastLit = closestLight
             self.distance = distance
-            return self.nextIter
+            return self.adjustedIter()
 
         if self.lastLit == closestLight and (abs(self.distance - distance) < DISTANCE_BETWEEN_GREEN_LIGHTS):  # not moved enought, may even be stopped
-            return self.nextIter
+            return self.adjustedIter()
 
         # @todo
         # Need to send warning when pilot moves away from the green.
@@ -375,4 +397,4 @@ class FlightLoop:
             logger.debug(f"aircraft drifting away from track? (d={round(distance, 1)} > {DRIFTING_DISTANCE})")
 
         self.distance = distance
-        return self.nextIter
+        return self.adjustedIter()

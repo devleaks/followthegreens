@@ -14,102 +14,46 @@
 #
 import xp
 
-from .aircraft import Aircraft
+from .followthegreens import FollowTheGreens
 from .airport import Airport
 from .lightstring import LightString
-from .ui import UIUtil
-from .globals import logger
+from .globals import logger, FTG_STATUS
 
 
-class ShowTaxiways:
-    # Internal status
-    STATUS = {"NEW": "NEW", "INITIALIZED": "INIT", "READY": "READY", "ACTIVE": "ACTIVE"}
+class ShowTaxiways(FollowTheGreens):
 
     def __init__(self, pi):
-        self.__status = ShowTaxiways.STATUS["NEW"]
-        self.pi = pi
-        self.airport = None
-        self.aircraft = None
-        self.lights = None
-        self.localTime = xp.findDataRef("sim/time/local_time_sec")
-        self.ui = UIUtil(self)  # Where windows are built
+        FollowTheGreens.__init__(self, pi=pi)
+        self._status = FTG_STATUS.INITIALIZED
 
-    def start(self):
-        logger.info(f"status: {self.__status}, {self.ui.mainWindowExists()}.")
-
-        if self.ui.mainWindowExists():
-            logger.debug(f"mainWindow exists, changing visibility {self.ui.isMainWindowVisible()}.")
-            self.ui.toggleVisibilityMainWindow()
-            return 1
-
-        # Info 1
-        logger.info("starting..")
-        mainWindow = self.getAirport()
-        logger.debug("mainWindow created")
-        if mainWindow and not xp.isWidgetVisible(mainWindow):
-            xp.showWidget(mainWindow)
-            logger.debug("mainWindow shown")
-        self.__status = ShowTaxiways.STATUS["ACTIVE"]
-        logger.info("..started.")
-        return 1  # window displayed
-
-    def getAirport(self):
-        # Search for airport or prompt for one.
-        # If airport is not equiped, we loop here until we get a suitable airport.
-        # When one is given and satisfies the condition for FTG
-        # we go to next step: Find the end point of Follow the greens.
-        # @todo: We need to guess those from dataref
-        # Note: Aircraft should be "created" outside of FollowTheGreen
-        # and passed to start or getAirport. That way, we can instanciate
-        # individual FollowTheGreen for numerous aircrafts.
-        self.aircraft = Aircraft()
-
-        pos = self.aircraft.position()
-        if pos is None:
-            logger.debug("no plane position")
-            return self.ui.sorry("We could not locate your plane.")
-
-        if pos[0] == 0 and pos[1] == 0:
-            logger.debug("no plane position")
-            return self.ui.sorry("We could not locate your plane.")
-
-        # Info 2
-        logger.info(f"Plane postion {pos}")
-        airport = self.aircraft.airport(pos)
-        if airport is None:
-            logger.debug("no airport")
-            return self.ui.promptForAirport()  # prompt for airport will continue with getDestination(airport)
-
-        if airport.name == "NOT FOUND":
-            logger.debug("no airport (not found)")
-            return self.ui.promptForAirport()  # prompt for airport will continue with getDestination(airport)
-
-        # Info 3
-        logger.info(f"At {airport.name}")
-        return self.showTaxiways(airport.navAidID)
+    def afterAirport(self, airport):
+        return self.showTaxiways(airport)
 
     def showTaxiways(self, airport):
         if not self.airport:
             self.airport = Airport(airport)
             status = self.airport.prepare()  # [ok, errmsg]
             if not status[0]:
-                logger.debug(f"airport not ready: {status[1]}")
+                logger.warning(f"airport not ready: {status[1]}")
                 return self.ui.sorry(status[1])
         else:
-            logger.debug("airport already loaded")
+            # @todo: Should check that airport already loaded is current airport...
+            logger.debug(f"airport {self.airport.icao} already loaded")
 
-        logger.debug("airport ready")
+        logger.info(f"airport {self.airport.icao}  ready")
 
-        self.lights = LightString()
+        self._status = FTG_STATUS.AIRPORT
+        self.lights = LightString(airport=self.airport, aircraft=self.aircraft, preferences=self.prefs)
+        self._status = FTG_STATUS.READY
         self.lights.showAll(self.airport)
+
         if len(self.lights.lights) == 0:
-            logger.debug("no lights")
+            logger.warning("no lights")
             return self.ui.sorry("We could not light taxiways.")
 
-        # Info 13
-        # logger.info(f"Added {len(self.lights.lights)} lights.")
         self.lights.printSegments()
 
+        logger.info(f"should check menu item {self.pi.menuIdx_st}")
         # if self.pi is not None and self.pi.menuIdx_st is not None and self.pi.menuIdx_st >= 0:
         #     try:
         #         xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx_st, xp.Menu_Checked)
@@ -122,16 +66,15 @@ class ShowTaxiways:
         # else:
         #     logger.debug(f"menu not checked ({self.pi.menuIdx_st})")
 
+        self._status = FTG_STATUS.ACTIVE
         return self.ui.enjoy()
         # return self.ui.sorry("Follow the greens is not completed yet.")  # development
-
-    def hourOfDay(self):
-        return int(xp.getDataf(self.localTime) / 3600)  # seconds since midnight??
 
     def terminate(self, reason="unspecified"):
         if self.lights:
             self.lights.destroy()
             self.lights = None
+            logger.info(f"should uncheck menu item {self.pi.menuIdx_st}")
             # if self.pi is not None and self.pi.menuIdx_st is not None and self.pi.menuIdx_st >= 0:
             #     try:
             #         xp.checkMenuItem(xp.findPluginsMenu(), self.pi.menuIdx_st, xp.Menu_Unchecked)
@@ -144,18 +87,12 @@ class ShowTaxiways:
             # else:
             #     logger.debug(f"menu not unchecked ({self.pi.menuIdx_st})")
 
+        self._status = FTG_STATUS.INACTIVE
         if self.ui.mainWindowExists():
             self.ui.destroyMainWindow()
             # self.ui = None
+        self._status = FTG_STATUS.TERMINATED
 
         # Info 16
         logger.info(f"terminated: reason {reason}.")
         return [True, ""]
-
-    def disable(self):
-        # alias to cancel
-        return self.terminate("disabled")
-
-    def stop(self):
-        # alias to cancel
-        return self.terminate("stopped")

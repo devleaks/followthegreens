@@ -158,20 +158,23 @@ on of the two following locations:
 
 Either
 
-`<X-Plane 12 Folder> / Resources / plugins / PythonPlugins / followthegreens / ftgprefs.toml`
+`<X-Plane 12 Folder> / Resources / plugins / PythonPlugins / followthegreens / followthegreens.prf`
 
 or
 
-`<X-Plane 12 Folder> / Output / preferences / ftgprefs.toml`
+`<X-Plane 12 Folder> / Output / preferences / followthegreens.prf`
 
 (The first one takes precedence on the second one.)
 
-Here is a template of the configutation file.
+An empty preference file `followthegreens.prf` is created in `<X-Plane 12 Folder> / Output / preferences `
+on the first start.
+You can insert yourr preferences there.
+
+Here is an example of the content of a typical preference file.
 It is a [TOML](https://toml.io/en/) formatted file.
 
 ```
 DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # meters
-DISTANCE_BETWEEN_LIGHTS = 40  # meters
 
 LIGHTS_AHEAD = 0   # number of green lights
 RABBIT_LENGTH = 10   # number of green lights
@@ -248,6 +251,9 @@ RABBIT_LENGTH = 10  # number of lights that blink in front of aircraft
 RABBIT_DURATION = 0.2  # sec duration of "off" light in rabbit
 ```
 
+Setting the `RABBIT_DURATION` to `0` (number zero) will disable the rabbit,
+just leaving the entire path or a few static lights ahead.
+
 You can manually adjust rabbit speed and length with the following FtG commands:
 
 - `XPPython3/followthegreens/speed_slowest` (length × 2, speed × 2)
@@ -268,12 +274,15 @@ will set rabbit mode back to automagic tuning depending on aircraft speed and re
 
 Follow the greens uses little resources.
 
-1. Every 10 seconds or so, FtG checks the aircraft position and speed and adjust greens accordingly. («aircraft flight loop»)
+1. Every 10 seconds or so, FtG checks the aircraft position and speed and adjust greens accordingly. («aircraft flight loop») Checks occurs slightly more often if the aircraft moves fast.
 2. The rabbit flight loop» is called more often, depending on the rabbit speed. The faster the rabbit, the more pressure on X-Plane. With 0.2 seconds rabbit, FtG is unnoticable.
 
-One might expect a slight hiccup when looking for a route at a large airport with numerous taxiways.
+Also recall that FtG is only active while it runs and during taxiing, when _fps_ is not an issue.
+When inactive, FtG uses no resources.
+
+When activated, one might expect a slight hiccup when looking for a route at a large airport with numerous taxiways.
 Hiccup should not last more than one or two seconds in this case.
-During the computation, X-Plane seems to freeze for a couple of seconds.
+During the computation, X-Plane seems to freeze for a couple of seconds but it never last.
 
 
 ### About Strict Route Search Mode
@@ -294,8 +303,16 @@ X-Plane airport designer sometimes provides detailed taxiway information, someti
 
 Follow the greens has to cope with what is available in airport definition files.
 
-To do this, a sophisticate algorithm first tries to find a route respecting all constraints.
+To do this, the algorithm first tries to find a route respecting all constraints.
 If no route is found, the algorith will relax some constraints, one by one until a route is found.
+
+If you want to respect taxiway constraints, please set the following preference parameter:
+
+```
+RESPECT_CONSTRAINTS = true
+```
+
+Note that boolean preferences need to be set to text value `true` or `false` in lowercase, no quote.
 
 
 # FtG Control and Monitoring
@@ -314,19 +331,77 @@ FtG adds the follwoing commands:
 
 ## FtG Monitoring Datarefs
 
-FtG adds the following dataref:
+FtG adds the following read-only monitoring dataref:
 
-- `XPPython3/followthegreens/is_running`, which is 0 if FtG is not running and 1 when FtG is running,
+- `XPPython3/followthegreens/is_running`, is 1 if FtG is running and 0 if not.
 - `XPPython3/followthegreens/is_holding`, is 1 when FtG expects a clearance to progress.
 
 
-## Use by External Plugins
+## Intended Use by External Plugins
 
 Monitoring datarefs and commands are designed to be used by other software to instruct
-Follow the greens to proceed. Namely:
+Follow the greens to proceed.
 
-- `XPPython3/followthegreens/is_holding` is meant to be used by other plugins to let them know FtG is waiting for clearance.
-- `XPPython3/followthegreens/send_clearance_ok` is the command to be used by other plugins to signal FtG that the clearance was received.
+- `XPPython3/followthegreens/is_holding` dataref is meant to be used by other plugins to let them know FtG is waiting for clearance.
+- `XPPython3/followthegreens/send_clearance_ok` command be used by other plugins to signal FtG that the clearance is given.
+
+
+# Troubleshooting
+
+
+## Set Up
+
+One size does not fit all.
+
+Parameters in FtG are fitted according to information FtG can find and rely on like the aircraft ICAO to estimate its size and weight.
+From this environmental information, FtG sets a a few key parameters which have been tested for the situation.
+
+If proposed parameters are not appropriate, it always is possible to supply preferred parameters through the preference file.
+
+The following parameters are key to ensure an enjoyable FtG experience.
+Depending on the aircraft size, the leading light must be visible a few reasonable meters in front of the aircraft.
+If the length of the visible lights ahead is too short, the time to react to a situation might/will be short.
+The benefit of FtG will not be exploited to its maximum.
+
+A green path all the way to destination, or just a few lights ahead, or a running rabbit in front of the aircraft is a matter of preference.
+
+I witness FtG at Dubai airport (OMDB).
+The rabbit was short, about 1 or 2 aircraft length in front of the aircraft,
+running quickly (about one second for the light to run the entire distance lit in front of the aircraft.)
+It mainly was showing directions.
+Turn left here, turn right here.
+I did not see any stop bar.
+I surely must be entertaining for the pilot.
+Just follow the greens.
+
+Follow the Greens 4D is [experimental](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
+and only exist and run here!
+
+I hope FtG will make your taxi rides more enjoyable.
+
+
+## In case of Misbehavior...
+
+FtG may sometimes not find a route, or show undesired behavior.
+
+FtG produces a log file named `ftglog.txt` located in python plugin folder, right next to `PI_FollowTheGrees.py` file.
+
+In case of trouble, please always provide that file, very much like X-Plane support will ask you to provide the `log.txt` file.
+
+To further explose an issue, it is possible to augment the level of logged information.
+
+To do so, please set the following variable in `followthegreens.prf` file:
+
+```
+LOGGING_LEVEL = 10
+```
+
+The value `10` above correspond to a python logging level (`logging.DEBUG`).
+The default value is `20` (`logging.INFO`).
+
+You can get support in the [forum thread dedicated to FtG](https://forums.x-plane.org/files/file/71124-follow-the-greens/).
+
+You can also get support on the [following discord server](https://discord.gg/AQjP2tWV).
 
 
 # See Also
@@ -336,5 +411,6 @@ Follow the greens to proceed. Namely:
 [Changelog](changelog.md)
 
 ![FtG Logo](images/ftg.png)
+
 
 Taxi safely

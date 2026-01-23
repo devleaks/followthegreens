@@ -10,11 +10,14 @@ from .geo import Point, Line, Polygon, destination, distance, pointInPolygon
 from .graph import Graph, Edge, Vertex
 from .globals import (
     logger,
+    get_global,
     DISTANCE_TO_RAMPS,
     TAXIWAY_WIDTH_CODE,
     TAXIWAY_TYPE,
     RUNWAY_BUFFER_WIDTH,
+    AIRPORT,
     MOVEMENT,
+    RABBIT,
     TOO_FAR,
     ROUTING_ALGORITHM,
     ROUTING_ALGORITHMS,
@@ -172,22 +175,34 @@ class Airport:
 
     # Should be split with generic non dependant airport and airport with routing, dependant on Graph
 
-    def __init__(self, icao):
-        self.icao = icao
+    def __init__(self, icao, prefs: dict = {}):
+        self.icao = icao.upper()
+        self.prefs = prefs
         self.name = ""
         self.atc_ground = None
         self.altitude = 0  # ASL, in meters
         self.loaded = False
         self.scenery_pack = False
         self.lines = []
-        self.graph = Graph()
+        self.graph = Graph(name="taxiways")
         self.runways = {}
         self.holds = {}
         self.ramps = {}
         #
         self.smooth_line = 0
-        self.smoothGraph = Graph()
+        self.smoothGraph = Graph(name="Smoothed taxiways")
         self.tempSmoothCurve = []
+
+        # PREFERENCES - Fetched by LightString
+        # Set sensible default value from global preferences
+        self.distance_between_taxiway_lights = get_global(AIRPORT.DISTANCE_BETWEEN_LIGHTS.value, self.prefs)  # meters, for show_taxiways()
+        self.distance_between_green_lights = get_global(AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value, self.prefs)  # meters for follow_the_greens()
+        self.rabbit_speed = get_global(RABBIT.SPEED.value, self.prefs)  # seconds
+        # Fine tune for specific airport(s)
+        self.set_preferences()
+        logger.debug(
+            f"AIRPORT rabbit: btw greens={self.distance_between_green_lights}m, whole net={self.distance_between_taxiway_lights}m, speed={self.rabbit_speed}s"
+        )
 
     def prepare(self):
         status = self.load()
@@ -217,6 +232,20 @@ class Airport:
         logger.debug(f"ramps: {status.keys()}")
 
         return [True, "Airport ready"]
+
+    def set_preferences(self):
+        # Local airport preferences override global preferences
+        apt = self.prefs.get("Airports", {})
+        prefs = apt.get(self.icao)
+        logger.debug(f"{self.icao} preferences: {prefs}")
+        if prefs is not None:
+            if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in prefs:
+                self.distance_between_green_lights = prefs[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
+            return
+        # Generic
+        logger.debug(f"Airport preferences: {apt}")
+        if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in apt:
+            self.distance_between_green_lights = apt[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
 
     def load(self):
         APT_FILES = {}
@@ -355,6 +384,7 @@ class Airport:
 
         # Info 6
         logger.info(f"added {len(vertexlines)} nodes, {edgeCount} edges ({edgeActiveCount} enhanced).")
+        self.graph.stats()
         return True
 
     def ldRunways(self):
@@ -816,8 +846,9 @@ class Route:
             v.setProp("taxiway-width", e.width_code)
             v.setProp("ls", i)
             self.edges.append(e)
-        logger.debug("route (raw): " + "-".join([e.name for e in self.edges]))
-        logger.debug(f"segment length: {[round(e.cost, 1) for e in self.edges]}")
+        logger.debug(f"route (vtx): {self}.")
+        logger.debug("route (edg): " + "-".join([e.name for e in self.edges]))
+        logger.debug(f"segment lengths: {[round(e.cost, 1) for e in self.edges]}")
 
     def mkVertices(self):
         self.vertices = list(map(lambda x: self.graph.get_vertex(x), self.route))
@@ -837,7 +868,7 @@ class Route:
             v1 = v2
         logger.debug(f"turns at vertices: {[round(t, 0) for t in self.turns]}")
 
-    def text(self, destination: str = "") -> str:
+    def text(self, destination: str = "destination") -> str:
         if self.edges is None or len(self.edges) == 0:
             self.mkEdges()
         route_str = ""
@@ -847,9 +878,9 @@ class Route:
                 route_str = route_str + " " + e.name
                 last = e.name
         route_str = route_str.strip().upper()
-        logger.debug(f"route (via): {route_str}")
-        if destination != "":
-            logger.debug(f"cleared to {destination} via {route_str}")
-        else:
-            logger.debug(f"taxi route {route_str}")
+        logger.debug(f"route to {destination} via {route_str}")
+        # if destination != "":
+        #     logger.debug(f"route to {destination} via {route_str}")
+        # else:
+        #     logger.debug(f"taxi route {route_str}")
         return route_str

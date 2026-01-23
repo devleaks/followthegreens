@@ -25,8 +25,9 @@ from .globals import (
 
 HARDCODED_MIN_DISTANCE = 10  # meters
 HARDCODED_MIN_TIME = 0.1  # secs
+HARDCODED_MIN_RABBIT_LENGTH = 6  # lights
 
-SPECIAL_DEBUG = True
+SPECIAL_DEBUG = False
 
 
 class LightType:
@@ -42,13 +43,13 @@ class LightType:
             curr_dir = os.path.dirname(os.path.realpath(__file__))
             real_path = os.path.join(curr_dir, "lights", self.filename)
             self.obj = xp.loadObject(real_path)
-            logger.debug(f"LoadObject loaded {self.filename}")
+            logger.debug(f"loadObject {self.filename} loaded")
 
     def unload(self):
         if self.obj:
             xp.unloadObject(self.obj)
             self.obj = None
-            logger.debug(f"object unloaded {self.name}")
+            logger.debug(f"unloadObject {self.name} unloaded")
 
     @staticmethod
     def create(name: str, color: tuple, size: int, intensity: int, texture: int | list | tuple, texture_file: str = "lights.png") -> str:
@@ -233,8 +234,10 @@ class Stopbar:
 
 class LightString:
 
-    def __init__(self, config: dict = {}):
-        self.config = config
+    def __init__(self, airport, aircraft, preferences: dict = {}):
+        self.airport = airport  # get some lighting preference from there
+        self.aircraft = aircraft  # get some rabbit preference from there
+        self.prefs = preferences  # get FtG preference from there
 
         self.lights = []  # all green lights from start to destination indexed from 0 to len(lights)
         self.stopbars = []  # Keys of this dict are green light indices.
@@ -255,32 +258,62 @@ class LightString:
         self.lastLit = 0
         self.lightTypes = None
         self.taxiway_alt = 0
-        self.distance_between_lights = float(get_global("DISTANCE_BETWEEN_GREEN_LIGHTS", config=config))
+
+        # Preferences are first set from Airport preferences, which are global or airport specific
+        self.distance_between_lights = airport.distance_between_green_lights  # float(get_global("DISTANCE_BETWEEN_GREEN_LIGHTS", preferences=self.prefs))
         if self.distance_between_lights == 0:
             self.distance_between_lights = 10
-        self.lead_off_lights = int(float(get_global("LEAD_OFF_RUNWAY_DISTANCE", config=config)) / self.distance_between_lights)
+        self.lead_off_lights = int(float(get_global("LEAD_OFF_RUNWAY_DISTANCE", preferences=self.prefs)) / self.distance_between_lights)
         self.rwy_twy_lights = self.lead_off_lights  # initial value
 
         # Options
-        self.add_light_at_vertex = get_global("ADD_LIGHT_AT_VERTEX", config=config)
-        self.add_light_at_last_vertex = get_global("ADD_LIGHT_AT_LAST_VERTEX", config=config)
-        self.distance_between_lights = get_global("DISTANCE_BETWEEN_LIGHTS", config=config)
-        self.distance_between_stoplights = get_global("DISTANCE_BETWEEN_STOPLIGHTS", config=config)
-        self.min_segments_before_hold = get_global("MIN_SEGMENTS_BEFORE_HOLD", config=config)
+        self.add_light_at_vertex = get_global("ADD_LIGHT_AT_VERTEX", preferences=self.prefs)
+        self.add_light_at_last_vertex = get_global("ADD_LIGHT_AT_LAST_VERTEX", preferences=self.prefs)
+        self.distance_between_stoplights = get_global("DISTANCE_BETWEEN_STOPLIGHTS", preferences=self.prefs)
+        self.min_segments_before_hold = get_global("MIN_SEGMENTS_BEFORE_HOLD", preferences=self.prefs)
 
-        self.num_lights_ahead = get_global("LIGHTS_AHEAD", config=config)  # if zero, all lights are shown, otherwise, must be >= self.rabbit_length
-        self.rabbit_length = get_global("RABBIT_LENGTH", config=config)
-        self.rabbit_duration = get_global("RABBIT_DURATION", config=config)
-        self.rabbit_mode = RABBIT_MODE.MED
+        self.rabbit_mode = RABBIT_MODE.MED  # default mode on start
 
-        self.info_sent = False
-        logger.debug(f"LightString created {self.rabbit_length}, {abs(self.rabbit_duration)}")
+        # @todo: Check that preference has beed set at global / airport level.
+        #        If set a global / airport level, aircraft preference may only "REFINE" preferences but not CONTREDICT them.
+        #        Example: At airport level: rabbit_speed = 0 (= no rabbit). Aircraft may not decide to use a particular rabbit speed.
+        #        But if airport level rabbit_speed = 0.2, aircraft may refine rabbit_speed = 0.3 for it own use.
+        # following two will get adjusted for aircraft
+        # if can_be_refined("RABBIT_SPEED", "LIGHTS_AHEAD"...): ...
+        self.lights_ahead = get_global("LIGHTS_AHEAD", self.prefs)
+        if "LIGHTS_AHEAD" not in self.prefs:  # if not explicitely defined for entire application
+            self.lights_ahead = int(aircraft.lights_ahead / self.distance_between_lights)  # this never changes
+            logger.debug(f"lights_ahead defined from aircraft preferences {self.lights_ahead}")
+        self.num_lights_ahead = self.lights_ahead  # this adjusts with acf speed
+
+        self.rabbit_length = get_global("RABBIT_LENGTH", self.prefs)
+        if "RABBIT_LENGTH" not in self.prefs:  # if not explicitely defined for entire application
+            self.rabbit_length = int(aircraft.rabbit_length / self.distance_between_lights)  # this never changes
+            logger.debug(f"rabbit_length defined from aircraft preferences {self.rabbit_length}")
+        self.num_rabbit_lights = self.rabbit_length  # can be 0, this adjusts with acf speed
+
+        self.rabbit_speed = get_global("RABBIT_SPEED", self.prefs)  # this never changes
+        logger.debug(f"rabbit_speed globa preferences {self.rabbit_speed}")
+        if "RABBIT_SPEED" not in self.prefs and self.rabbit_speed != 0.0 and aircraft.rabbit_speed != 0:  # if not explicitely defined for entire application
+            self.rabbit_speed = airport.rabbit_speed  # this never changes
+            logger.debug(f"rabbit_speed defined from aircraft preferences {self.rabbit_speed}")
+        self.rabbit_duration = self.rabbit_speed  # this adjusts with acf speed
+
+        # control logged info
+        self._info_sent = False
+
+        logger.debug(
+            f"LightString created: rabbit {self.num_rabbit_lights} lights, {abs(round(self.rabbit_duration, 2))} secs., lights ahead {self.num_lights_ahead} lights"
+        )
+        logger.debug(
+            f"Physical units: rabbit {aircraft.rabbit_length}m, {abs(round(self.rabbit_duration, 2))} secs., ahead {aircraft.lights_ahead}m, greens={self.distance_between_lights}m"
+        )
 
     def __str__(self):
         return json.dumps({"type": "FeatureCollection", "features": self.features()})
 
     def has_rabbit(self) -> bool:
-        return abs(self.rabbit_duration) > 0 and self.rabbit_length > 0
+        return (abs(self.rabbit_duration) > 0 and self.num_rabbit_lights > 0) or self.lights_ahead > 0
 
     def features(self):
         fc = []
@@ -306,26 +339,34 @@ class LightString:
 
     def resetRabbit(self):
         # set all lights
-        maxl = min(len(self.lights), self.lastLit + self.rabbit_length + self.num_lights_ahead)
+        maxl = min(len(self.lights), self.lastLit + self.num_rabbit_lights + self.num_lights_ahead)
         for i in range(self.lastLit, maxl):
             self.lights[i].on()
         logger.debug(f"rabbit reset: {self.lastLit} -> {maxl}")
+
+    def newRabbitParameters(self, mode: RABBIT_MODE) -> tuple:
+        # For now, parameters are static, they will become dynamic later
+        # When taxiing fast, make sure enough lights are in front i.e. rabbit length is function of speed?
+        adjustment = FTG_SPEED_PARAMS[mode]
+        #          self.num_rabbit_lights,              self.rabbit_duration,            , self.num_lights_ahead
+        return int(self.rabbit_length * adjustment[0]), self.rabbit_speed * adjustment[1], int(self.lights_ahead * adjustment[0])
+
+    def changeRabbit(self, length: int, duration: float, ahead: int):
+        if not self.has_rabbit():
+            return
+        self.num_rabbit_lights = length
+        self.rabbit_duration = duration
+        self.num_lights_ahead = ahead
+        logger.info(f"rabbit mode: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}")
 
     def rabbitMode(self, mode: RABBIT_MODE):
         if not self.has_rabbit():
             return
         self.rabbit_mode = mode
-        length, speed = FTG_SPEED_PARAMS[mode]
+        length, speed, ahead = self.newRabbitParameters(mode)
         self.resetRabbit()
-        self.changeRabbit(length=length, duration=speed, ahead=self.num_lights_ahead)
+        self.changeRabbit(length=length, duration=speed, ahead=ahead)
         logger.info(f"rabbit mode: {mode}: {length}, {round(speed, 2)} (ahead={self.num_lights_ahead})")
-
-    def changeRabbit(self, length: int, duration: float, ahead: int):
-        if not self.has_rabbit():
-            return
-        self.rabbit_length = length
-        self.rabbit_duration = duration
-        logger.info(f"rabbit mode: {self.rabbit_length}, {abs(self.rabbit_duration)}")
 
     def populate(self, route, onRunway=False):
         # @todo: If already populated, must delete lights first
@@ -338,7 +379,7 @@ class LightString:
         onRwy = onRunway
 
         if len(self.lights) > 0:
-            self.detroy()
+            self.destroy()
 
         currVertex = graph.get_vertex(route.route[0])
         currPoint = currVertex
@@ -447,7 +488,7 @@ class LightString:
                 while distanceBeforeNextLight < distToNextVertex:
                     nextLightPos = destination(currPoint, brng, distanceBeforeNextLight)
                     brgn = bearing(lastLight, nextLightPos)
-                    thisLights.append(Light(self.next_taxiway_light(nextLightPos), nextLightPos, brgn, i))
+                    thisLights.append(Light(self.nextTaxiwayLight(nextLightPos), nextLightPos, brgn, i))
                     lastLight = nextLightPos
                     distToNextVertex = distToNextVertex - distanceBeforeNextLight  # should be close to ftg_geoutil.distance(currPoint, nextVertex)
                     currPoint = nextLightPos
@@ -459,7 +500,7 @@ class LightString:
 
                 if self.add_light_at_vertex:  # may be we insert a last light at the vertex?
                     brgn = bearing(lastLight, nextVertex)
-                    thisLights.append(Light(self.next_taxiway_light(nextVertex), nextVertex, brgn, i))
+                    thisLights.append(Light(self.nextTaxiwayLight(nextVertex), nextVertex, brgn, i))
                     lastLight = nextVertex
                     # logger.debug("added light at vertex %s", nextVertex.id)
 
@@ -500,6 +541,11 @@ class LightString:
             segs.append(f"#{i}:{last}-{len(self.lights) - 1}")
             logger.debug("segments: " + ", ".join(segs))
 
+        logger.debug(f"distance between taxiway center lights: {self.distance_between_lights} m")
+        logger.debug(f"lights ahead: {self.num_lights_ahead},  {self.aircraft.lights_ahead} m")
+        logger.debug(f"rabbit: length: {self.num_rabbit_lights} lights, {self.aircraft.rabbit_length} m")
+        logger.debug(f"runway lead-off lights: {self.lead_off_lights} lights, {float(get_global('LEAD_OFF_RUNWAY_DISTANCE', preferences=self.prefs))} m")
+
     # We make a stopbar after the green light index lightIndex
     def mkStopbar(self, lightIndex, src, dst, extremity="end", size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.E, light: LIGHT_TYPE = LIGHT_TYPE.STOP):
         if size is None:
@@ -527,7 +573,7 @@ class LightString:
         ]
 
     def loadObjects(self):
-        lightsConfig = self.config.get("Lights", {})
+        lightsConfig = self.prefs.get("Lights", {})
         DEFAULT_LIGHT_VALUES = {
             "name": f"ftglight{randint(1000,9999)}.obj",
             "color": [1, 1, 1],  # white
@@ -606,23 +652,24 @@ class LightString:
                 self.lights[i].on()
             # map(lambda x: x.on(self.txy_light_obj), self.lights[start:end])
             logger.debug("no light ahead: instanciate(green): done.")
-            # Instanciate for each stop light
-            # for sb in self.stopbars:
-            if len(self.stopbars) > 0 and segment < len(self.stopbars):
-                sbend = self.stopbars[segment]
-                for light in sbend.lights:
-                    light.on()
-                logger.debug(f"illuminated {len(sbend.lights)} stop lights")
-                # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
-            logger.debug("no light ahead: instanciate(stop): done.")
         # else, lights will be turned on in front of rabbit
+
+        # Instanciate for each stop light
+        # for sb in self.stopbars:
+        if len(self.stopbars) > 0 and segment < len(self.stopbars):
+            sbend = self.stopbars[segment]
+            for light in sbend.lights:
+                light.on()
+            logger.debug(f"illuminated {len(sbend.lights)} stop lights")
+            # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
+        logger.debug("no light ahead: instanciate(stop): done.")
 
         if not self.rabbitCanRun:
             self.rabbitCanRun = True
 
         return [True, "green is set"]
 
-    def next_taxiway_light(self, position) -> LIGHT_TYPE:
+    def nextTaxiwayLight(self, position) -> LIGHT_TYPE:
         # This is to provide alternate green/amber light
         # on runway Lead-Off lights to taxiway.
         # Lights are green/amber on runway, then a few more until on taxiway.
@@ -631,24 +678,24 @@ class LightString:
         # to lead it off runway. (This is not for "all" lead-off lights and all runways.)
         #
         if self.route.runway is None:  # no runway, all green
-            if not self.info_sent:
-                logger.debug("next_taxiway_light: not on runway, all greens")
-                self.info_sent = True
+            if not self._info_sent:
+                logger.debug("nextTaxiwayLight: not on runway, all greens")
+                self._info_sent = True
             return LIGHT_TYPE.TAXIWAY
         self.taxiway_alt = self.taxiway_alt + 1  # alternate
         if self.rwy_twy_lights == self.lead_off_lights:  # always on runway
             if pointInPolygon(position, self.route.runway.polygon):
-                logger.debug(f"next_taxiway_light: on runway, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
+                logger.debug(f"nextTaxiwayLight: on runway, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
                 return LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT
         # no longer on runway, keep alterning for a few lights
         self.rwy_twy_lights = self.rwy_twy_lights - 1
         if self.rwy_twy_lights > 0:
-            logger.debug(f"next_taxiway_light: not on runway, leaving, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
+            logger.debug(f"nextTaxiwayLight: not on runway, leaving, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
             return LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT
         # no longer on runway, on regular taxiway
-        if not self.info_sent:
-            logger.debug("next_taxiway_light: no longer on runway, all greens")
-            self.info_sent = True
+        if not self._info_sent:
+            logger.debug("nextTaxiwayLight: no longer on runway, all greens")
+            self._info_sent = True
         return LIGHT_TYPE.TAXIWAY
 
     def nextStop(self):
@@ -699,7 +746,9 @@ class LightString:
             return 10  # checks 10 seconds later
 
         def restore(strt, sq, rn):
-            prev = strt + ((sq - 1) % self.rabbit_length)
+            if self.num_rabbit_lights == 0:
+                return  # nothing to restore if no rabbit
+            prev = strt + ((sq - 1) % self.num_rabbit_lights)
             if prev < rn:
                 self.lights[prev].on()
 
@@ -713,7 +762,7 @@ class LightString:
 
             if self.num_lights_ahead > 0:
                 # we need to turn lights on ahead of rabbit
-                wishidx = start + self.rabbit_length + self.num_lights_ahead
+                wishidx = start + self.num_rabbit_lights + self.num_lights_ahead
                 if wishidx < rabbitNose:
                     self.onToIndex(wishidx)
                 else:
@@ -729,13 +778,14 @@ class LightString:
         else:  # restore previous
             restore(start, self.rabbitIdx, rabbitNose)
 
-        curr = start + (self.rabbitIdx % self.rabbit_length)
-        if curr < rabbitNose:
-            self.lights[curr].off()
+        if self.num_rabbit_lights > 0:
+            curr = start + (self.rabbitIdx % self.num_rabbit_lights)
+            if curr < rabbitNose:
+                self.lights[curr].off()
 
         self.rabbitIdx += 1
 
-        # negative duration is not limited
+        # debugging negative duration is not limited
         return max(self.rabbit_duration, HARDCODED_MIN_TIME) if self.rabbit_duration > 0 else abs(self.rabbit_duration)
 
     def showAll(self, airport):
@@ -743,19 +793,19 @@ class LightString:
             brng = s.bearing()
 
             # light at start of segment
-            self.lights.append(Light(LIGHT_TYPE.TAXIWAY, s.start, brng, cnt))
+            self.lights.append(Light(LIGHT_TYPE.DEFAULT, s.start, brng, cnt))
             cnt += 1
 
             step = max(self.distance_between_lights, HARDCODED_MIN_DISTANCE)
             dist = step
             while dist < s.length():
                 pos = destination(s.start, brng, dist)
-                self.lights.append(Light(LIGHT_TYPE.TAXIWAY, pos, brng, cnt))
+                self.lights.append(Light(LIGHT_TYPE.DEFAULT, pos, brng, cnt))
                 cnt += 1
                 dist += step
 
             # light at end of segment
-            self.lights.append(Light(LIGHT_TYPE.TAXIWAY, s.end, brng, cnt))
+            self.lights.append(Light(LIGHT_TYPE.DEFAULT, s.end, brng, cnt))
             cnt += 1
             return cnt
 

@@ -4,6 +4,7 @@ import os
 import logging
 from datetime import datetime, timezone
 from enum import Enum, StrEnum
+from typing import Any
 
 # ################################
 #
@@ -25,11 +26,19 @@ FTG_PLUGIN_ROOT_PATH = "XPPython3/followthegreens/"
 
 
 class FTG_STATUS(StrEnum):
-    NEW = "NEW"
-    INITIALIZED = "INIT"
-    READY = "READY"
-    ACTIVE = "ACTIVE"
-    INACTIVE = "INACTIVE"
+    NEW = "NEW"  # ftg just created
+    INITIALIZED = "INITIALIZED"  # ftg initialized (preferences, etc.)
+    READY = "READY"  # ready to be used
+
+    AIRCRAFT = "AIRCRAFT"  # has aircraft
+    AIRPORT = "AIRPORT"  # has airport info
+    DESTINATION = "DESTINATION"  # has destination, destination is valid
+    ROUTE = "ROUTE"  # has route from aircraft to destination
+    GREENS = "GREENS"  # greens read
+
+    ACTIVE = "ACTIVE"  # greens displayed, rabbit active if any
+    INACTIVE = "INACTIVE"  # rabbit terminated
+    TERMINATED = "TERMINATED"  # ftg terminated
 
 
 class FTG_FSM(StrEnum):
@@ -189,6 +198,15 @@ SAY_ROUTE = True  # Print route on pop up display and speak it orally.
 # INTERNALS CONTROL
 # of aircraft movements
 #
+class AIRPORT(Enum):
+    DISTANCE_BETWEEN_GREEN_LIGHTS = "DISTANCE_BETWEEN_GREEN_LIGHTS"
+    DISTANCE_BETWEEN_STOPLIGHTS = "DISTANCE_BETWEEN_STOPLIGHTS"
+    DISTANCE_BETWEEN_LIGHTS = "DISTANCE_BETWEEN_LIGHTS"
+    ADD_LIGHT_AT_VERTEX = "ADD_LIGHT_AT_VERTEX"
+    ADD_LIGHT_AT_LAST_VERTEX = "ADD_LIGHT_AT_LAST_VERTEX"
+    LEAD_OFF_RUNWAY_DISTANCE = "LEAD_OFF_RUNWAY_DISTANCE"
+
+
 class MOVEMENT(StrEnum):
     ARRIVAL = "arrival"
     DEPARTURE = "departure"
@@ -220,12 +238,20 @@ LEAD_OFF_RUNWAY_DISTANCE = 160  # meters, will determine number of alterning gre
 # ################################
 # RABBIT
 #
-class TAXI_SPEED(Enum):  # in m/s
-    FAST = "FAST"
-    MED = "MED"
-    SLOW = "SLOW"
-    CAUTION = "CAUTION"
-    TURN = "TURN"
+# Aircraft preferences for FtG
+class AIRCRAFT(Enum):
+    AIRCRAFTS = "AIRCRAFTS"
+    TAXI_SPEED = "TAXI_SPEED"
+    BRAKING_DISTANCE = "BRAKING_DISTANCE"
+    WARNING_DISTANCE = "WARNING_DISTANCE"
+    RABBIT = "RABBIT"
+
+
+# Aircraft preferences for rabbit
+class RABBIT(Enum):
+    LENGTH = "RABBIT_LENGTH"
+    LIGHTS_AHEAD = "LIGHTS_AHEAD"
+    SPEED = "RABBIT_SPEED"
 
 
 class RABBIT_MODE(StrEnum):
@@ -236,29 +262,27 @@ class RABBIT_MODE(StrEnum):
     FASTEST = "fastest"
 
 
-LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
-RABBIT_LENGTH = 12  # number of lights that blink in front of aircraft
-RABBIT_DURATION = 0.20  # sec duration of "off" light in rabbit
+class TAXI_SPEED(Enum):  # in m/s
+    FAST = "FAST"
+    MED = "MED"
+    SLOW = "SLOW"
+    CAUTION = "CAUTION"
+    TURN = "TURN"
 
-# As a first step, uses 5 standard rabbit (length, speed)
+
+# These are global default values, only used if no other value if found.
+LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
+RABBIT_LENGTH = 10  # number of lights that blink in front of aircraft
+RABBIT_SPEED = 0.20  # sec duration of "off" light in rabbit
+
+# Rabbit length and speed variation for each indication
+# Base length and speed depends on airport/aircraft
 FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
-    RABBIT_MODE.FASTEST: [
-        2 * RABBIT_LENGTH,
-        RABBIT_DURATION / 2,
-    ],  # accelerate (long and fast)
-    RABBIT_MODE.FASTER: [
-        RABBIT_LENGTH,
-        RABBIT_DURATION / 3,
-    ],  # go faster (same length, faster)
-    RABBIT_MODE.MED: [RABBIT_LENGTH, RABBIT_DURATION],  # normal
-    RABBIT_MODE.SLOWER: [
-        RABBIT_LENGTH,
-        3 * RABBIT_DURATION,
-    ],  # slow down (same length, slower)
-    RABBIT_MODE.SLOWEST: [
-        int(RABBIT_LENGTH / 2),
-        2 * RABBIT_DURATION,
-    ],  # slow down (short and slow)
+    RABBIT_MODE.FASTEST: [2, 0.3],  # accelerate (long and fast)
+    RABBIT_MODE.FASTER: [1, 0.6],  # go faster (same length, faster)
+    RABBIT_MODE.MED: [1, 1],  # normal
+    RABBIT_MODE.SLOWER: [1, 2],  # slow down (same length, slower)
+    RABBIT_MODE.SLOWEST: [0.5, 1.5],  # slow down (short and slow)
 }
 
 
@@ -274,6 +298,7 @@ class LIGHT_TYPE(StrEnum):  # DO NOT CHANGE
     WARNING = "WARNING"
     LAST = "LAST"
     VERTEX = "VERTEX"
+    DEFAULT = "DEFAULT"
 
 
 LIGHT_TYPE_OBJFILES = {
@@ -285,6 +310,7 @@ LIGHT_TYPE_OBJFILES = {
     LIGHT_TYPE.VERTEX: "green.obj",
     LIGHT_TYPE.WARNING: "amber.obj",
     LIGHT_TYPE.LAST: "green.obj",
+    LIGHT_TYPE.DEFAULT: "white.obj",
 }
 
 
@@ -312,7 +338,7 @@ INTERNAL_CONSTANTS = [
     "LOGGING_LEVEL",
     "MIN_SEGMENTS_BEFORE_HOLD",
     "PLANE_MONITOR_DURATION",
-    "RABBIT_DURATION",
+    "RABBIT_SPEED",
     "RABBIT_LENGTH",
     "ROUTING_ALGORITHM",
     "RUNWAY_BUFFER_WIDTH",
@@ -363,7 +389,7 @@ ALL_INTERNAL_CONSTANTS = [
     "MAINWINDOW_WIDTH",
     "MIN_SEGMENTS_BEFORE_HOLD",
     "PLANE_MONITOR_DURATION",
-    "RABBIT_DURATION",
+    "RABBIT_SPEED",
     "RABBIT_LENGTH",
     "ROUTING_ALGORITHM",
     "RUNWAY_BUFFER_WIDTH",
@@ -395,11 +421,11 @@ GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}  # 
 # GOOD = {"morning": 4, "day": 6, "afternoon": 9, "evening": 12, "night": 17}  # special US :-D
 
 
-def get_global(name: str, config: dict = {}):
+def get_global(name: str, preferences: dict = {}) -> Any:
     # most globals are defined defined above...
-    # if name not in config:
-    #     logger.debug(f"name {name} not in config, using global {globals().get(name)}")
-    return config.get(name, globals().get(name))
+    # if name not in preferences:
+    #     logger.debug(f"name {name} not in preferences, using global {globals().get(name)}")
+    return preferences.get(name, globals().get(name))
 
 
 # ################################
