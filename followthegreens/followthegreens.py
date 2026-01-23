@@ -14,7 +14,7 @@ from .airport import Airport
 from .flightloop import FlightLoop
 from .lightstring import LightString
 from .ui import UIUtil
-from .nato import phonetic
+from .nato import phonetic, toml_dumps
 
 PREFERENCE_FILE_NAME = "followthegreens.prf"  # followthegreens.prf
 
@@ -106,15 +106,21 @@ class FollowTheGreens:
             logger.debug("internal: some internals don't print", exc_info=True)
 
     def create_empty_prefs(self):
+        # Once, on first use, to help user
         filename = os.path.join(".", "Output", "preferences", PREFERENCE_FILE_NAME)  # relative to X-Plane "rott/home" folder
         if not os.path.exists(filename):
             with open(filename, "w") as fp:
                 print(
-                    f"""# Follow the greens Preference file
+                    f"""# Follow the greens Preference File
 #
 # See documentation at https://devleaks.github.io/followthegreens/.
 #
-# {PREFERENCE_FILE_NAME} is a TOML (https://toml.io/en/) formatted file. Please adhere to the TOML formatting/standard.
+# {PREFERENCE_FILE_NAME} is a TOML (https://toml.io/en/) formatted file.#
+# Please adhere to the TOML formatting/standard.
+#
+VERSION = \\"{__VERSION__}\\"
+#
+#
 # To set a preferred value, place the name of the preference = <value> on a new line.
 # Lines that starts with # are comments.
 # Example:
@@ -126,6 +132,17 @@ class FollowTheGreens:
                     file=fp,
                 )
             logger.info(f"preference file {filename} created")
+
+    def check_update_version(self, filename):
+        # Update version number in preference file if parameters still valid
+        # and format is OK. This aims at auto-maintaining the preference file.
+        # Uses toml.write
+        # @todo: check parameters, if ok:
+        self.prefs["VERSION"] == __VERSION__
+        # save to fn
+        logger.debug(toml_dumps(self.prefs))
+        # with open(filename, "w") as fp:
+        #     print(toml_dumps(self.prefs))
 
     def start(self):
         # Toggles visibility of main window.
@@ -140,6 +157,11 @@ class FollowTheGreens:
         else:
             # Info 1
             logger.info("starting..")
+            # BEGIN TEST : reloading preferences
+            logger.debug("..TEST reloading preferences..")
+            self.init_preferences()
+            logger.debug("..reloaded TEST..")
+            # END TEST
             mainWindow = self.getAirport()
             logger.debug("mainWindow created")
             if mainWindow and not xp.isWidgetVisible(mainWindow):

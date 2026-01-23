@@ -39,15 +39,14 @@ Follow the greens is abbreviated FtG.
 # Installation
 
 Release 2 will not work on X-Plane 11.
-If you want to use Follow the greens on X-Plane 11, you have to use Release 1(.6.7).
+If you want to use Follow the greens on X-Plane 11, you have to use [Release 1](https://github.com/devleaks/followthegreens/releases/tag/1.7.0).
 
 FtG plugin is written in the python language.
 Therefore, you first need to install the [XPPython3 plugin](https://xppython3.readthedocs.io/en/latest/).
-
 This process is very similar to the Lua language plugin (XLua or FlyithLua) to use Lua scripts.
 Here, another language (Python), another plugin (XPPython3).
 
-For the Release 2 of FtG, Version 4.5 of the XPPython3 plugin is required.
+For the Release 2 of FtG, Version 4.5 or above of the XPPython3 plugin is required.
 Newer version of XPPython3 contain all you need to run Python plugin, including a version of the python language interpreter.
 There is no need to install other software.
 
@@ -60,7 +59,7 @@ Once XPPython3 plugin is installed, python plugin scripts are located in
 (The XPPython3 plugin itself resides in `<X-Plane 12 Folder> / resources / plugins / XPPython3` folder,
 but you should not touch that folder content in any way.)
 
-Download the FtG plugin code and unzip it.
+[Download the FtG plugin code](https://github.com/devleaks/followthegreens/releases) and unzip it.
 
 Place both the file `PI_Followthegreens.py` and the folder `followthegreens` in `<X-Plane 12 Folder> / resources / plugins / PythonPlugins`.
 
@@ -189,6 +188,9 @@ Parameters in the above file refer to the following items:
 
 
 Please note that the values you enter here may affect X-Plane performances (faster rabbit, numerous taxiway lights...)
+
+Preference file is read on FtG startup.
+If you modify some parameters, you have to _reload python scripts_ to have them take effect.
 
 Here is description of the parameters available for customization.
 

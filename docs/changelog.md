@@ -3,11 +3,11 @@
 
 (Releases 2.0.0 to 2.2.0 are internal development releases.)
 
-- [2.1.16](https://github.com/devleaks/followthegreens/releases) - 14-JAN-2026 - Monitoring aircraft speed, recommending target speed range from position to next turn.
+- [2.1.20](https://github.com/devleaks/followthegreens/releases) - 23-JAN-2026 - Monitoring aircraft speed, recommending target speed range from position to next turn.
 
-- ... (development intermediate commit)
+- ... (development intermediate commits)
 - 2.1.0 - 07-JAN-2026 - Estimate optimal speed range from distance to next significant turn.
-- ... (development intermediate commit)
+- ... (development intermediate commits)
 - 2.0.2 - 06-JAN-2026 - Added aircraft ground speed monitoring and comparison to static speed.
 - 2.0.1 - 02-JAN-2026 - Added 5 commands to speed up or slow down rabbit.
 - 2.0.0 - 29-DEC-2025 - Added hooks for 4D FtG, updated README.
@@ -17,6 +17,7 @@
 https://github.com/devleaks/followthegreens/releases/tag/1.7.0
 
 - [1.7.0](https://github.com/devleaks/followthegreens/releases/tag/1.7.0) - 14-JAN-2026 - Last Release 1 version (will only provide critical fixes).
+
 - 1.6.7 - 21-FEB-2024 - Added skunkcrafts updater files
 - 1.6.6 - 21-FEB-2024 - Added Cancel and OK (finish, bye, etc.) commands
 - 1.6.5 - 20-FEB-2024 - Now opening all files as UTF-8 files. Code blackened

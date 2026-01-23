@@ -5,7 +5,7 @@ followthegreens/__init__.py|743
 followthegreens/aircraft.py|11349
 followthegreens/airport.py|37387
 followthegreens/flightloop.py|16999
-followthegreens/followthegreens.py|17383
+followthegreens/followthegreens.py|18158
 followthegreens/geo.py|13711
 followthegreens/globals.py|13862
 followthegreens/graph.py|24589
@@ -17,7 +17,7 @@ followthegreens/lights/on_light.obj|617
 followthegreens/lights/red.obj|1817
 followthegreens/lights/white.obj|1817
 followthegreens/lightstring.py|37754
-followthegreens/nato.py|2018
+followthegreens/nato.py|2891
 followthegreens/showtaxiways.py|3794
 followthegreens/ui.py|20558
 followthegreens/version.py|23
