@@ -67,7 +67,7 @@ class FlightLoop:
             self.flplane = xp.createFlightLoop(params)
             xp.scheduleFlightLoop(self.flplane, 10.0, 1)
             self.planeRunning = True
-            logger.debug("plane tracking started.")
+            logger.debug(f"aircraft tracking started (iter={self.nextIter}).")
             # if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
             #     logger.debug(f"Checking menu {self.ftg.pi.menuIdx}..")
             #     xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Checked)
@@ -75,7 +75,7 @@ class FlightLoop:
             # else:
             #     logger.debug(f"menu not checked (index {self.ftg.pi.menuIdx})")
         else:
-            logger.debug("plane tracked.")
+            logger.debug("aircraft tracked.")
 
         # Dim runway lights according to preferences
         ll = get_global("RUNWAY_LIGHT_LEVEL_WHILE_FTG", preferences=self.ftg.prefs)
@@ -324,7 +324,7 @@ class FlightLoop:
         SPEEDS = [  # [speed=m/s, iter=s]
             [12, 0.8],
             [10, 1],
-            [7, 02],
+            [7, 1.2],
         ]
         i = 0
         while i < len(SPEEDS):
