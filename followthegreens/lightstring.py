@@ -379,7 +379,7 @@ class LightString:
         onRwy = onRunway
 
         if len(self.lights) > 0:
-            self.detroy()
+            self.destroy()
 
         currVertex = graph.get_vertex(route.route[0])
         currPoint = currVertex
@@ -488,7 +488,7 @@ class LightString:
                 while distanceBeforeNextLight < distToNextVertex:
                     nextLightPos = destination(currPoint, brng, distanceBeforeNextLight)
                     brgn = bearing(lastLight, nextLightPos)
-                    thisLights.append(Light(self.next_taxiway_light(nextLightPos), nextLightPos, brgn, i))
+                    thisLights.append(Light(self.nextTaxiwayLight(nextLightPos), nextLightPos, brgn, i))
                     lastLight = nextLightPos
                     distToNextVertex = distToNextVertex - distanceBeforeNextLight  # should be close to ftg_geoutil.distance(currPoint, nextVertex)
                     currPoint = nextLightPos
@@ -500,7 +500,7 @@ class LightString:
 
                 if self.add_light_at_vertex:  # may be we insert a last light at the vertex?
                     brgn = bearing(lastLight, nextVertex)
-                    thisLights.append(Light(self.next_taxiway_light(nextVertex), nextVertex, brgn, i))
+                    thisLights.append(Light(self.nextTaxiwayLight(nextVertex), nextVertex, brgn, i))
                     lastLight = nextVertex
                     # logger.debug("added light at vertex %s", nextVertex.id)
 
@@ -652,23 +652,24 @@ class LightString:
                 self.lights[i].on()
             # map(lambda x: x.on(self.txy_light_obj), self.lights[start:end])
             logger.debug("no light ahead: instanciate(green): done.")
-            # Instanciate for each stop light
-            # for sb in self.stopbars:
-            if len(self.stopbars) > 0 and segment < len(self.stopbars):
-                sbend = self.stopbars[segment]
-                for light in sbend.lights:
-                    light.on()
-                logger.debug(f"illuminated {len(sbend.lights)} stop lights")
-                # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
-            logger.debug("no light ahead: instanciate(stop): done.")
         # else, lights will be turned on in front of rabbit
+
+        # Instanciate for each stop light
+        # for sb in self.stopbars:
+        if len(self.stopbars) > 0 and segment < len(self.stopbars):
+            sbend = self.stopbars[segment]
+            for light in sbend.lights:
+                light.on()
+            logger.debug(f"illuminated {len(sbend.lights)} stop lights")
+            # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
+        logger.debug("no light ahead: instanciate(stop): done.")
 
         if not self.rabbitCanRun:
             self.rabbitCanRun = True
 
         return [True, "green is set"]
 
-    def next_taxiway_light(self, position) -> LIGHT_TYPE:
+    def nextTaxiwayLight(self, position) -> LIGHT_TYPE:
         # This is to provide alternate green/amber light
         # on runway Lead-Off lights to taxiway.
         # Lights are green/amber on runway, then a few more until on taxiway.
@@ -678,22 +679,22 @@ class LightString:
         #
         if self.route.runway is None:  # no runway, all green
             if not self._info_sent:
-                logger.debug("next_taxiway_light: not on runway, all greens")
+                logger.debug("nextTaxiwayLight: not on runway, all greens")
                 self._info_sent = True
             return LIGHT_TYPE.TAXIWAY
         self.taxiway_alt = self.taxiway_alt + 1  # alternate
         if self.rwy_twy_lights == self.lead_off_lights:  # always on runway
             if pointInPolygon(position, self.route.runway.polygon):
-                logger.debug(f"next_taxiway_light: on runway, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
+                logger.debug(f"nextTaxiwayLight: on runway, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
                 return LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT
         # no longer on runway, keep alterning for a few lights
         self.rwy_twy_lights = self.rwy_twy_lights - 1
         if self.rwy_twy_lights > 0:
-            logger.debug(f"next_taxiway_light: not on runway, leaving, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
+            logger.debug(f"nextTaxiwayLight: not on runway, leaving, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
             return LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT
         # no longer on runway, on regular taxiway
         if not self._info_sent:
-            logger.debug("next_taxiway_light: no longer on runway, all greens")
+            logger.debug("nextTaxiwayLight: no longer on runway, all greens")
             self._info_sent = True
         return LIGHT_TYPE.TAXIWAY
 
@@ -745,6 +746,8 @@ class LightString:
             return 10  # checks 10 seconds later
 
         def restore(strt, sq, rn):
+            if self.num_rabbit_lights == 0:
+                return  # nothing to restore if no rabbit
             prev = strt + ((sq - 1) % self.num_rabbit_lights)
             if prev < rn:
                 self.lights[prev].on()
@@ -775,13 +778,14 @@ class LightString:
         else:  # restore previous
             restore(start, self.rabbitIdx, rabbitNose)
 
-        curr = start + (self.rabbitIdx % self.num_rabbit_lights)
-        if curr < rabbitNose:
-            self.lights[curr].off()
+        if self.num_rabbit_lights > 0:
+            curr = start + (self.rabbitIdx % self.num_rabbit_lights)
+            if curr < rabbitNose:
+                self.lights[curr].off()
 
         self.rabbitIdx += 1
 
-        # negative duration is not limited
+        # debugging negative duration is not limited
         return max(self.rabbit_duration, HARDCODED_MIN_TIME) if self.rabbit_duration > 0 else abs(self.rabbit_duration)
 
     def showAll(self, airport):

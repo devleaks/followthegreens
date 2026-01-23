@@ -20,6 +20,7 @@ from .globals import (
 from .geo import EARTH, Point, distance
 
 MAX_UPDATE_FREQUENCY = 10  # seconds
+STOPPED_SPEED = 0.01  # m/s
 
 
 class FlightLoop:
@@ -242,7 +243,6 @@ class FlightLoop:
         # Turn < 15°, speed "cautious"
         # Turn > 15°, speed "turn"
         #
-        STOPPED_SPEED = 0.01  # m/s
         TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
         SMALL_TURN_LIMIT = 15.0  # °, below this, it is a small turn, recommended to slow down a bit but not too much
         MOVEIT_DIST = 400.0  # m no reason to not go fast
@@ -317,16 +317,22 @@ class FlightLoop:
         # logger.debug(f"..done ({advise})")
 
     def adjustedIter(self) -> float:
+        # If aircraft move fast, we check/update FtG more often
         speed = self.ftg.aircraft.speed()
-        if speed > 12:
-            logger.debug("iter reduced to 0.8")
-            return 0.8
-        if speed > 10:
-            logger.debug("iter reduced to 1")
-            return 1.0
-        if speed > 7:
-            logger.debug("iter reduced to 2")
-            return 2.0
+        if speed is None or speed < STOPPED_SPEED:
+            return self.nextIter
+        SPEEDS = [  # [speed=m/s, iter=s]
+            [12, 0.8],
+            [10, 1],
+            [7, 02],
+        ]
+        i = 0
+        while i < len(SPEEDS):
+            if speed > SPEEDS[i][0]:
+                j = SPEEDS[i][1]
+                logger.debug(f"speed {round(speed, 1)}, iter reduced to {j}")
+                return j
+            i = i + 1
         return self.nextIter
 
     def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
