@@ -60,10 +60,11 @@ class FollowTheGreens:
         self._status = status
         logger.debug(f"FtG is now {status}")
 
-    def init_preferences(self):
+    def init_preferences(self, reloading: str = "load"):
         # Load optional preferences file (Rel. 2 onwards)
         # Parameters in this file will overwrite (with constrain)
         # default values provided by FtG.
+        loading = "reload" if reloading else "load"
         here = os.path.dirname(__file__)
         filename = os.path.join(here, PREFERENCE_FILE_NAME)
         if os.path.exists(filename):
@@ -71,9 +72,9 @@ class FollowTheGreens:
                 try:
                     self.prefs = tomllib.load(fp)
                 except:
-                    logger.warning(f"preferences file {filename} not loaded", exc_info=True)
+                    logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
 
-            logger.info(f"preferences file {filename} loaded")
+            logger.info(f"preferences file {filename} {loading}ed")
             logger.debug(f"preferences: {self.prefs}")
         else:
             logger.debug(f"no preferences file {filename}")
@@ -83,8 +84,8 @@ class FollowTheGreens:
                     try:
                         self.prefs = tomllib.load(fp)
                     except:
-                        logger.warning(f"preferences file {filename} not loaded", exc_info=True)
-                logger.info(f"preferences file {filename} loaded")
+                        logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
+                logger.info(f"preferences file {filename} {loading}ed")
                 logger.debug(f"preferences: {self.prefs}")
             else:
                 logger.debug(f"no preferences file {filename}")
@@ -118,7 +119,7 @@ class FollowTheGreens:
 # {PREFERENCE_FILE_NAME} is a TOML (https://toml.io/en/) formatted file.#
 # Please adhere to the TOML formatting/standard.
 #
-VERSION = \\"{__VERSION__}\\"
+VERSION = "{__VERSION__}"
 #
 #
 # To set a preferred value, place the name of the preference = <value> on a new line.
@@ -158,9 +159,9 @@ VERSION = \\"{__VERSION__}\\"
             # Info 1
             logger.info("starting..")
             # BEGIN TEST : reloading preferences
-            logger.debug("..TEST reloading preferences..")
-            self.init_preferences()
-            logger.debug("..reloaded TEST..")
+            logger.debug("..reloading preferences..")
+            self.init_preferences(reloading=True)
+            logger.debug("..reloaded..")
             # END TEST
             mainWindow = self.getAirport()
             logger.debug("mainWindow created")
