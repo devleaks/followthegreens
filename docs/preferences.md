@@ -51,9 +51,24 @@ Airports may have particular setup for FtG.
 The following preferences can be set at an individual airport level:
 
 1. Distance between taxiway center lights (Expressed in meters.)
-1. Rabbit speed, including completely disabled by setting the speed to `0`. (Expressed in fraction of a second.)
+1. Rabbit speed, including completely disabled by setting the speed to `0`. (Expressed in fraction of a second; would be the same for all aicrafts.)
+1. Rabbit length (Would be the same for all aicrafts.)
 1. Distance between lights when illuminating the whole taxiway network (Show taxiway, expressed in meters.).
 
+
+To adjust preferences for an airport, use the following snippet.
+Please notice the use of the airport ICAO code in the header part.
+
+```
+[Airports.EBBR]
+DISTANCE_BETWEEN_GREEN_LIGHTS = 8  # meters
+RABBIT_SPEED = 0.1  # seconds
+
+[Airports.EHAM]
+LIGHTS_AHEAD = 100  # meters
+RABBIT_LENGTH = 100  # meters
+DISTANCE_BETWEEN_GREEN_LIGHTS = 12  # meters
+```
 
 # Aircraft Preferences
 
@@ -73,3 +88,46 @@ and lights ahead another 50 meters ahead of the rabbit.
 The reason to express aircraft requirements in physical units is that the number of lights
 to be used for the rabbit is dependent on other paramters like the distance between lights,
 a parameter that may vary from airport to airport, and not related to an aircraft.
+
+It is possible to adjust the preferences for an entire aircraft category (class `A` to `F`),
+or for a specific aircraft ICOA identifier.
+
+```
+[Aircrafts.C]
+LIGHTS_AHEAD = 100  # meters
+RABBIT_LENGTH = 150  # meters
+RABBIT_SPEED = 0.20  # seconds
+
+[Aircrafts.A339]
+LIGHTS_AHEAD = 200  # meters
+RABBIT_LENGTH = 200  # meters
+RABBIT_SPEED = 0.20  # seconds
+```
+
+
+# Lights
+
+FtG lights different _types of lights_ at precise location.
+You can adjust some of the light parameters to change the size, color, and intensity of each _type of light_.
+
+The different types of lights are:
+
+- FIRST: First light of follow the greens.
+- TAXIWAY: Regular "green" taxiway light used for the path and the "rabbit".
+- TAXIWAY_ALT: On runway lead-on and lead-off, this is the actual 
+- STOP: Lights used to build the stop bar across the taxiway when clearance is requested.
+- VERTEX: Additional light added at taxiway network vertex, as published in the airport data file. Used for development mainly.
+- WARNING: Additional light, no longer used.
+- LAST: Last light of follow the greens.
+- DEFAULT: Light used by Show Taxiway to illuminate all taxiways.
+
+To change lights parameters for a type of light, insert the following preference:
+
+```
+[Lights.TAXIWAY_ALT]
+color = [1.0, 1.0, 0.0]
+intensity = 30
+size = 20
+```
+
+This would change the `TAXIWAY_ALT` light type to a bright yellow light.

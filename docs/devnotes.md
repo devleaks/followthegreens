@@ -112,6 +112,11 @@ Feel free to experiment to your liking.
 
 ![Green light](images/greenlight.png)
 
+## Light Illumination
+
+In a future release, if this does not take too much a toll on X-Plane fps,
+I like to illuminate light _progressively_, not instanteneous on/off light.
+
 ## Wish
 
 Dear Laminar,

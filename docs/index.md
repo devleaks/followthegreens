@@ -35,6 +35,7 @@ But now, thanks to this plugin, even your local muni can get Follow the greens _
 
 Follow the greens is abbreviated FtG.
 
+![FtG Logo](images/ftg.png)
 
 # Installation
 
@@ -127,6 +128,8 @@ I found it amusing to incorporate their model and suggestions into FtG.
 *Release 2 adds a monitoring of your current taxi speed,
 and a variation of the rabbit light speed and length to invite you to either expedite your taxi ride,
 or, on the opposite, to slow down before a sharp turn or stop.*
+
+(The _«rabbit light»_ is the pulsating light in front of the aircraft.)
 
 If you’re rather safely go through your pre-takeoff checklist while taxiing,
 gently blow the daffodils on the sides of the taxiway with warm air,
@@ -348,6 +351,13 @@ Follow the greens to proceed.
 - `XPPython3/followthegreens/send_clearance_ok` command be used by other plugins to signal FtG that the clearance is given.
 
 
+## Show Taxiway
+
+If enabled, an additional entry is visible in the Plugins menu.
+Show taxiways is a command that will illuminate all taxiways at the current airport.
+Press the `OK` button in the dialog box or select the menu entry again to dismiss all lights.
+
+
 # Troubleshooting
 
 
@@ -367,17 +377,34 @@ The benefit of FtG will not be exploited to its maximum.
 
 A green path all the way to destination, or just a few lights ahead, or a running rabbit in front of the aircraft is a matter of preference.
 
+What really matters is the indication you get from the green.
+If you like a rabbit light, make sure it runs well in front of you.
+A rule of thumb is to have it run at least 3 or 4 times the length of your aircraft.
+So for a 40 meter A320, have it run up to 160 meters in front of you.
+
+When you will get use to the rythm of the rabbit light,
+you will notice the "speed" changes in the rabbit lighting.
+You will really see/feel it run fater or slower.
+Adjust your taxi speed accordingly.
+
 I witness FtG at Dubai airport (OMDB).
-The rabbit was short, about 1 or 2 aircraft length in front of the aircraft,
+Aircraft was taxiing fairly slowly.
+The rabbit was short, about 1 aircraft length in front of the aircraft,
 running quickly (about one second for the light to run the entire distance lit in front of the aircraft.)
 It mainly was showing directions.
 Turn left here, turn right here.
 I did not see any stop bar.
 I surely must be entertaining for the pilot.
 Just follow the greens.
+Up to the last turn at the gate.
+
+IT was not 4D.
+It would not adpat to circumstances like aircraft speed, or proximity to a sharp turn.
 
 Follow the Greens 4D is [experimental](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
 and only exist and run here!
+
+If you have comments, or suggestions, or enhancement requests, please let us discuss on [discord](https://discord.gg/AQjP2tWV).
 
 I hope FtG will make your taxi rides more enjoyable.
 
