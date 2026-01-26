@@ -17,7 +17,7 @@ from .ui import UIUtil
 from .nato import phonetic, toml_dumps
 
 PREFERENCE_FILE_NAME = "followthegreens.prf"  # followthegreens.prf
-
+VERSION = "VERSION"
 
 class FollowTheGreens:
 
@@ -83,9 +83,14 @@ class FollowTheGreens:
             with open(filename, "rb") as fp:
                 try:
                     prefs = tomllib.load(fp)
+                    if VERSION not in prefs:
+                        logger.warning("preferences file contains no version information")
+                    else:
+                        logger.info(f"preferences file version {prefs.get(VERSION)}")
                     if len(self.prefs) > 0:
                         logger.warning("some preferences may be overwritten")
-                    self.prefs = self.prefs | prefs
+                    if len(prefs) > 0:
+                        self.prefs = self.prefs | prefs
                 except:
                     logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
             logger.info(f"preferences file {filename} {loading}ed")
@@ -118,10 +123,15 @@ class FollowTheGreens:
                 print(
                     f"""# Follow the greens Preference File
 #
+# Follow the greens is a XPPython3 plugin available
+# in the PythonPlugins folder inside X-Plane plugin folder.
+#
 # See documentation at https://devleaks.github.io/followthegreens/.
 #
-# {PREFERENCE_FILE_NAME} is a TOML (https://toml.io/en/) formatted file.#
-# Please adhere to the TOML formatting/standard.
+# {PREFERENCE_FILE_NAME} (this file) is a TOML (https://toml.io/en/) formatted file.
+# Please adhere to the TOML formatting/standard when adding preferences.
+#
+# Do not touch the following line.
 #
 VERSION = "{__VERSION__}"
 #
@@ -131,6 +141,16 @@ VERSION = "{__VERSION__}"
 # Example:
 #LOGGING_LEVEL = 10
 # Remove the # character from the above line to enable debugging information logging.
+#
+# Advanced: Lines/words between square brackets are called "tables" in TOML, like
+#
+#[Advanced]
+#
+# Sometimes, preferences need to be added under a [table] indication, like so:
+#
+#[Advanced]
+#advanced_preference = false
+#
 #
 # Taxi safely.
 """,
@@ -143,7 +163,10 @@ VERSION = "{__VERSION__}"
         # and format is OK. This aims at auto-maintaining the preference file.
         # Uses toml.write
         # @todo: check parameters, if ok:
-        self.prefs["VERSION"] == __VERSION__
+        v = self.prefs.get(VERSION, "none")
+        if v != __VERSION__:
+            logger.warning(f"preference file version {v} and current application version {__VERSION__} differ")
+        self.prefs["VERSION"] = __VERSION__
         # save to fn
         logger.debug(toml_dumps(self.prefs))
         # with open(filename, "w") as fp:
