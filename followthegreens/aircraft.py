@@ -179,7 +179,7 @@ class Aircraft:
         self.tiller = xp.findDataRef("ckpt/tiller")
         self.width_code = TAXIWAY_WIDTH_CODE.C  # init to default
         self.init()
-        logger.debug(f"AIRCRAFT type {self.icao}, category {self.width_code}")
+        logger.info(f"aircraft type {self.icao}, category {self.width_code}")
 
         # PREFERENCES - Fetched by LightString
         # These preferences are specific for an aircraft
@@ -202,7 +202,7 @@ class Aircraft:
             if self.icao in AIRCRAFT_TYPES[ty][AIRCRAFT.AIRCRAFTS]:
                 self.width_code = ty
                 return
-        logger.debug(f"aircraft type {self.icao} not found in lists, using default category {self.width_code}")
+        logger.info(f"aircraft type {self.icao} not found in lists, using default category {self.width_code}")
 
     def set_preferences(self):
         a = self.aircaft_preferences()
@@ -247,7 +247,9 @@ class Aircraft:
 
         self.rabbit_length = self.rabbit_length + acflength  # meters
         # self.lights_ahead = self.lights_ahead + acflength  # meters
-        logger.debug(f"AIRCRAFT rabbit (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={acflength}m)")
+        logger.debug(
+            f"AIRCRAFT rabbit (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={acflength}m)"
+        )
 
     def position(self) -> list:
         return [xp.getDataf(self.lat), xp.getDataf(self.lon)]

@@ -148,9 +148,6 @@ Nowadays you know, you don’t sell anything if it does not have AI or 4D in its
 FtG 2.0 is therefore 4D compliant, with `altitude=0` all the way.
 There is absolutely not AI, just HFAB (human fun and bugs).
 
-Release 2 no longer works on X-Plane 11 because of the use of new X-Plane SDK API calls and XPPython3 simplifications.
-XPPython3 release 4 or above is required.
-
 
 # Preference Parameters
 
@@ -189,6 +186,36 @@ Please note that the values you enter here may affect X-Plane performances (fast
 Preference file is each time a new FtG session is started.
 
 Here is description of the parameters available for customization.
+
+
+## Rabbit Length
+
+The rabbit is the pulsating light in front of the aircraft.
+Its _length_ is the number of lights that are pulsating.
+
+If you set it to `0` (zero), there will be no rabbit.
+
+
+### Rabbit Duration
+
+It is the time that the pulsating light is switched off.
+
+If set to `0.2` (seconds), the current rabbit light will be switched off 0.2 seconds,
+then back on, and the next light will be switched off for 0.2 seconds.
+Until all lights in the rabbit have been switched off in turn,
+then the rabbit will switch off its first light.
+
+
+## Lights Ahead
+
+This is the number of light that are lit in front of the rabbit lights.
+As the aircraft progresses, more lights are lit in front of the rabbit.
+
+Its LIGHTS_AHEAD is the number of lights that are lit in front of the rabbit.
+
+If set to `0`, all lights are lit up to the next stop bar, or to the end of the taxi ride.
+
+If you want no light ahead of the rabbit lights, set it to `1`.
 
 
 ## Runway Light Intensity Control
@@ -267,18 +294,23 @@ rabbit auto-tuning will be disabled for this run of Follow the greeens.
 
 will set rabbit mode back to automagic tuning depending on aircraft speed and recommended speed range.
 
+You can use these commands to force the rabbit in a certain mode and get used to that mode,
+for discovery or testing for example.
+Once you'll get a feeling of the different mode, it will be magic to taxi just watching the greens.
+
 
 # Notes on Performances
 
-Follow the greens uses little resources.
-
-1. Every 10 seconds or so, FtG checks the aircraft position and speed and adjust greens accordingly. («aircraft flight loop») Checks occurs slightly more often if the aircraft moves fast.
-2. The rabbit flight loop» is called more often, depending on the rabbit speed. The faster the rabbit, the more pressure on X-Plane. With 0.2 seconds rabbit, FtG is unnoticable.
-
-Also recall that FtG is only active while it runs and during taxiing, when _fps_ is not an issue.
 When inactive, FtG uses no resources.
 
-When activated, one might expect a slight hiccup when looking for a route at a large airport with numerous taxiways.
+Recall that FtG is only active while it runs and during taxiing, when _fps_ is not an issue.
+
+Follow the greens uses little resources.
+
+1. Every 5 seconds or so, depending on the aircraft speed, FtG checks the aircraft position and speed and adjust greens accordingly. («aircraft flight loop») Checks occurs slightly more often if the aircraft moves fast.
+2. The rabbit flight loop» is called more often, depending on the rabbit speed. The faster the rabbit, the more pressure on X-Plane. With 0.2 seconds rabbit, FtG is _unnoticable_. Faster rabbits may impact performance.
+
+When a new green is initiated, one might expect a slight hiccup when looking for a route at a large airport with numerous taxiways.
 Hiccup should not last more than one or two seconds in this case.
 During the computation, X-Plane seems to freeze for a couple of seconds but it never last.
 

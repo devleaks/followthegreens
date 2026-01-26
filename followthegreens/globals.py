@@ -300,6 +300,14 @@ class LIGHT_TYPE(StrEnum):  # DO NOT CHANGE
     LAST = "LAST"
     VERTEX = "VERTEX"
     DEFAULT = "DEFAULT"
+    ACTIVE = "ACTIVE"
+    # RUNWAY = "RUNWAY"  # on runway
+    # ACTIVE_DEP = "ACTIVE_DEP"  # current edge is active for departure
+    # ACTIVE_ARR = "ACTIVE_ARR"
+    # ACTIVE_ILS = "ACTIVE_ILS"
+    # ONEWAY = "ONEWAY"  # current edge is one way
+    # INNER = "INNER"  # current edge is inner only (not both)
+    # OUTER = "OUTER"
 
 
 LIGHT_TYPE_OBJFILES = {
@@ -312,6 +320,14 @@ LIGHT_TYPE_OBJFILES = {
     LIGHT_TYPE.WARNING: "amber.obj",
     LIGHT_TYPE.LAST: "green.obj",
     LIGHT_TYPE.DEFAULT: "white.obj",
+    LIGHT_TYPE.ACTIVE: "amber.obj",
+    # LIGHT_TYPE.RUNWAY: "green.obj",
+    # LIGHT_TYPE.ACTIVE_DEP: "green.obj",
+    # LIGHT_TYPE.ACTIVE_ARR: "green.obj",
+    # LIGHT_TYPE.ACTIVE_ILS: "green.obj",
+    # LIGHT_TYPE.ONEWAY: "green.obj",
+    # LIGHT_TYPE.INNER: "green.obj",
+    # LIGHT_TYPE.OUTER: "green.obj",
 }
 
 

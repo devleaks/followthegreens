@@ -61,7 +61,7 @@ class FollowTheGreens:
         self._status = status
         logger.debug(f"FtG is now {status}")
 
-    def init_preferences(self, reloading: str = "load"):
+    def init_preferences(self, reloading: bool = False):
         # Load optional preferences file (Rel. 2 onwards)
         # Parameters in this file will overwrite (with constrain)
         # default values provided by FtG.
@@ -84,7 +84,7 @@ class FollowTheGreens:
                 try:
                     prefs = tomllib.load(fp)
                     if len(self.prefs) > 0:
-                        logger.warning(f"some preferences may be overwritten")
+                        logger.warning("some preferences may be overwritten")
                     self.prefs = self.prefs | prefs
                 except:
                     logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
@@ -149,7 +149,7 @@ VERSION = "{__VERSION__}"
         # with open(filename, "w") as fp:
         #     print(toml_dumps(self.prefs))
 
-    def start(self):
+    def start(self) -> int:
         # Toggles visibility of main window.
         # If it was simply closed for hiding, show it again as it was.
         # If it does not exist, creates it from start of process.
@@ -159,23 +159,22 @@ VERSION = "{__VERSION__}"
             logger.debug(f"mainWindow exists, changing visibility {self.ui.isMainWindowVisible()}.")
             self.ui.toggleVisibilityMainWindow()
             return 1
-        else:
-            # Info 1
-            logger.info("starting..")
-            # BEGIN TEST : reloading preferences
-            logger.debug("..reloading preferences..")
-            self.init_preferences(reloading=True)
-            logger.debug("..reloaded..")
-            # END TEST
-            mainWindow = self.getAirport()
-            logger.debug("mainWindow created")
-            if mainWindow and not xp.isWidgetVisible(mainWindow):
-                xp.showWidget(mainWindow)
-                logger.debug("mainWindow shown")
-            self.status = FTG_STATUS.READY
-            logger.info("..started.")
-            return 1  # window displayed
-        return 0
+
+        # Info 1
+        logger.info("starting..")
+        # BEGIN TEST : reloading preferences
+        logger.debug("..reloading preferences..")
+        self.init_preferences(reloading=True)
+        logger.debug("..reloaded..")
+        # END TEST
+        mainWindow = self.getAirport()
+        logger.debug("mainWindow created")
+        if mainWindow and not xp.isWidgetVisible(mainWindow):
+            xp.showWidget(mainWindow)
+            logger.debug("mainWindow shown")
+        self.status = FTG_STATUS.READY
+        logger.info("..started.")
+        return 1  # window displayed
 
     def rabbitMode(self, mode: RABBIT_MODE):
         self.flightLoop.manualRabbitMode(mode)
@@ -207,7 +206,7 @@ VERSION = "{__VERSION__}"
         self.status = FTG_STATUS.AIRCRAFT
 
         # Info 2
-        logger.info(f"Aircraft postion {pos}, {hdg}")
+        logger.info(f"aircraft position {pos}, {hdg}")
         airport = self.aircraft.airport(pos)
         if airport is None:
             logger.debug("no airport")
@@ -218,7 +217,7 @@ VERSION = "{__VERSION__}"
             return self.ui.promptForAirport()  # prompt for airport will continue with getDestination(airport)
 
         # Info 3
-        logger.info(f"At {airport.name}")
+        logger.info(f"at {airport.name}")
         self.status = FTG_STATUS.AIRPORT
         return self.afterAirport(airport.navAidID)
 
@@ -239,7 +238,7 @@ VERSION = "{__VERSION__}"
         else:
             logger.debug(f"airport {self.airport.icao} already loaded")
 
-        logger.info(f"airport {self.airport.icao}  ready")
+        logger.info(f"airport {self.airport.icao} ready")
 
         self.move = self.airport.guessMove(self.aircraft.position())
         # Info 10
@@ -319,7 +318,7 @@ VERSION = "{__VERSION__}"
         self.flightLoop.startFlightLoop()
         self.status = FTG_STATUS.ACTIVE
         # Info 14
-        logger.info("Flightloop started.")
+        logger.info("flightloop started.")
 
         # Hint: distance and heading to first light
         intro = f"Follow the greens to {destination}"
@@ -405,8 +404,9 @@ VERSION = "{__VERSION__}"
         self.status = FTG_STATUS.INACTIVE
 
         if self.flightLoop:
+            self.flightLoop.global_stop_requested = True
             self.flightLoop.stopFlightLoop()
-            logger.info("Flightloop stopped.")
+            logger.info("flightloop stopped.")
 
         if self.lights:
             self.lights.destroy()

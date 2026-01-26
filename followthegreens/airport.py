@@ -298,7 +298,7 @@ class Airport:
                         self.name = " ".join(newparam[5:])
                         self.altitude = newparam[1]
                         # Info 4.a
-                        logger.info(f"Found airport {newparam[4]} '{self.name}' in '{filename}'.")
+                        logger.info(f"found airport {newparam[4]} '{self.name}' in '{filename}'.")
                         self.scenery_pack = filename  # remember where we found it
                         self.lines.append(AptLine(line.strip()))  # keep first line
                         line = apt_dat.readline()  # next line in apt.dat
@@ -310,7 +310,7 @@ class Airport:
                                 logger.debug(f"did not load empty line '{line.strip()}'")
                             line = apt_dat.readline()  # next line in apt.dat
                         # Info 4.b
-                        logger.info(f"Read {len(self.lines)} lines for {self.name}")
+                        logger.info(f"read {len(self.lines)} lines for {self.name}")
                         self.loaded = True
 
                 if line:  # otherwize we reached the end of file
@@ -325,6 +325,14 @@ class Airport:
         for line in self.lines:
             aptfile.write(f"{line.linecode()} {line.content()}\n")
         aptfile.close()
+
+    def stats(self):
+        s = {}
+        for l in self.lines:
+            if l.linecode() not in s:
+                s[l.linecode()] = 0
+            s[l.linecode()] = s[l.linecode()] + 1
+        logger.debug(f"airport apt.dat {len(self.lines)} lines: {dict(sorted(s.items()))}")
 
     def smoothTaxiways(self, aptline):
         # Create a smooth taxiway centerline network
@@ -383,6 +391,7 @@ class Airport:
                 self.smoothTaxiways(aptline)
 
         # Info 6
+        self.stats()
         logger.info(f"added {len(vertexlines)} nodes, {edgeCount} edges ({edgeActiveCount} enhanced).")
         self.graph.stats()
         return True
@@ -524,9 +533,11 @@ class Airport:
     def guessMove(self, coord) -> MOVEMENT:
         onRwy, runway = self.onRunway(coord)
         if onRwy:
+            logger.debug("on runway")
             return MOVEMENT.ARRIVAL
         ret = self.findClosestRamp(coord)
         if ret[1] < DISTANCE_TO_RAMPS:  # meters, we are close to a ramp.
+            logger.debug("close to a parking stand")
             return MOVEMENT.DEPARTURE
         return MOVEMENT.ARRIVAL
 
