@@ -5,11 +5,9 @@ Follow the greens (FtG) is a (real-life) taxiway guidance system.
 It works by highlighting taxiway lights in front of the aircraft.
 The pilot only has to follow the green lights, and stop on red lights.
 
-But there is more now. There is a 4th dimension now. Read on.
+But there is more now. There is a 4th dimension now.
 
-Wow, wow, wow. 4D…!?
-
-Space. The final frontier.
+Space. The final frontier? ghobe'. Time The Ultimate Final Frontier™.
 
 
 # Follow the greens
@@ -34,11 +32,9 @@ Yeah, yeah, less fuel use also.
 
 Yeah, yeah, less CO2 produced too.
 
-Yeah, yeah, follow the greens is realllly green. Can't be greener.
+Yeah, yeah, follow the greens is realllly green. Can't be greener. No green bashing.
 
-Seriously. No green bashing.
-
-I found amusing to bring Follow the greens concept to X-Plane as ATC and "AI" struggle to guide you on the ground.
+This plugin brings the Follow the greens concept to X-Plane as ATC and "AI" struggle to guide you on the ground.
 X-Plane yellow painted coach arrows on taxiways are fine, useful, but look too artificial.
 
 Follow the greens is an existing system used at a handful airports.
@@ -53,58 +49,48 @@ So FtG is 4D.
 After reading [this paper](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
 I found it amusing to incorporate their model and suggestions into FtG.
 
+In a nutshell, FtG will now monitor your taxi speed and invite you to adjust it.
+It will do so by adjusting the speed of the «rabbit» light in front of the aircraft,
+(the pulsating light,)
+and the length of the rabbit run.
+If the rabbit runs fast and far, you can safely accelerate your taxi pace.
+If the rabbit is slow and short, you must reduce your speed because you are probably nearing a sharp turn or a mandatory stop.
+
 Please notice the _« over hype »_ of _4D_ trajectories 🤣.
 FtG 1 is 2D (lateral guidance on the ground...), FtG 2 adds time information to get you there on time, that’s just a third dimension.
 FtG won’t ask you to fly to your holding position. Yet.
 (🤔 we may here have a definite path for improvement in a future release.)
-
-In a nutshell, FtG will now monitor your taxi speed and invite you to adjust it.
-It will do so by adjusting the speed of the «rabbit» light in front of the aircraft,
-and the length of the rabbit run.
-If the rabbit runs fast and far, you can safely accelerate your taxi pace.
-If the rabbit is slow and short, you must reduce your speed because you are probably nearing a sharp turn or a mandatory stop.
 
 Could it be simpler?
 Follow the greens.
 Try to catch the rabbit.
 
 
-## Should I upgrade to 4D?
-
-If you're X-Plane 11, you cannot. Sorry.
-
-If you’re rather safely go through your pre-takeoff checklist while taxiing,
-gently blow the daffodils on the sides of the taxiway with warm air,
-take your time to get to the runway, you can stick with FtG Release 1.
-
-But if you want to maximise your air time, never loose time in those unnecessary long runs around the airport,
-if you’d rather taxi at just below _vr_ speed, give Release 2 a try.
-And monitor your brakes temperature.
-
-
 ## What's New in Release 2
+
+Two years since last update. It's time to dust off the plugin a bit.
 
 Release 2 is called _Follow the greens 4D_ (and may be abbreviated FtG4D).
 
+In addition to the 4rth dimension explained above, FtG4D adds the following improvements:
+
 - Follow the greens «rabbit» light speed and length automagically adjusted to invite pilots to speed up or slow down taxi ride.
-- A few parameters can be adjusted in a configuration file.
-- Routing algorithms attempt to respect taxiway network constraints.
-- Better taxiway network specification, which leads to better route finding.
-- FtG specific log file created to help us improve the plugin in case of trouble.
+- A few parameters can be adjusted in a preference file.
+- Routing algorithms attempt to respect taxiway network constraints (taxiway width, one ways...).
+- FtG4D specific log file created to help us improve the plugin in case of misbehavior.
 
 
 # Installation
 
 FtG plugin is a «python plugin».
 Therefore, you first need to install the [XPPython3 plugin](https://xppython3.readthedocs.io/en/latest/).
-
-FtG Release 2 will not work on X-Plane 11 because it uses newer X-Plane SDK features
-available through the latest releases of XPPython3 plugin.
-
-For the Release 2 of FtG, Version 4.5 or above of the XPPython3 plugin is required.
+Release 4.5 or above of the XPPython3 plugin is requested.
 Newer version of XPPython3 contains all you need to run Python plugin,
 including a version of the python language interpreter.
 There is no need to install other software.
+
+FtG Release 2 will not work on X-Plane 11 because it uses newer X-Plane SDK features
+available through the latest releases of XPPython3 plugin.
 
 Once the XPPython3 plugin is installed and working,
 download the [FtG plugin code](https://github.com/devleaks/followthegreens/releases) and unzip it.
@@ -130,7 +116,7 @@ For example, the airport must have a network of taxiways defined in X-Plane.
 To start Follow the greens, call the plugin menu item _Follow the greens..._.
 Follow instructions in the dialog boxes.
 
-There is a little tip for runway and parking stand selection.
+There is a little tip for runway and parking stand selection to go around X-Plane native UI limitations.
 
 To select your destination, *first click inside the input text box to set focus there*,
 *then use UP and DOWN arrow keys to cycle through proposed valid destinations*.
@@ -148,20 +134,20 @@ Select Follow the greens in the plugin menu to display it again.
 You can assign Follow the greens action to a key or button.
 It is equivalent to selecting X-Plane Plugin menu entry.
 
+
 # Changelog
 
 ## Release 2
 
 - [2.2.1](https://github.com/devleaks/followthegreens/releases) - ??-??-2026 - First public Release 2. Monitoring aircraft speed, recommending target speed range for taxiing, better routing.
 - ... (numerous development releases with little interest for production system...)
-- 2.0.0 - 29-DEC-2025 - Added hooks for FtG _4D_, updated README.
+- 2.0.0 - 29-DEC-2025 - Added hooks for FtG _4D_.
 
 
 ## Release 1
 
 - [1.7.0](https://github.com/devleaks/followthegreens/releases/tag/1.7.0) - 14-JAN-2026 - Last Release 1 version (will only provide critical fixes).
 - 1.6.6 - 21-FEB-2024 - Added Cancel and OK (finish, bye, etc.) commands
-- 1.6.5 - 20-FEB-2024 - Now opening all files as UTF-8 files. Code blackened.
 - ...
 - 1.0.0 - 01-APR-2021 - Initial release.
 
@@ -174,8 +160,13 @@ Fun is priceless.
 
 # Help
 
+First [read the manual](https://devleaks.github.io/followthegreens/).
+
 Bug reports, comments, suggestions are always welcome.
-Please use the forum here or [github issue](https://github.com/devleaks/followthegreens/issues).
+
+Please use the forum here,
+or [github issue](https://github.com/devleaks/followthegreens/issues),
+or the [discord server](https://discord.gg/AQjP2tWV).
 
 Taxi safely.
 

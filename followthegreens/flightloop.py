@@ -41,11 +41,16 @@ class FlightLoop:
         self._may_adjust_rabbit = True
         self.manual_mode = False
         self.runway_level_original = 1
+        self.global_stop_requested = False
 
         self.closestLight_cnt = 0
 
     def startFlightLoop(self):
         # @todo schedule/unschedule without destroying
+        if self.global_stop_requested:
+            logger.debug("global stop requested")
+            return
+
         phase = xp.FlightLoop_Phase_AfterFlightModel
         # @todo: make function to reset lastLit counter
         self.lastLit = 0
@@ -108,6 +113,9 @@ class FlightLoop:
             #     logger.debug(f"menu not checked (index {self.ftg.pi.menuIdx})")
         else:
             logger.debug("plane not tracked.")
+
+        self.global_stop_requested = False
+        # terminated
 
         # Restore runway lights according to what it was
         if not self.planeRunning:
@@ -189,14 +197,18 @@ class FlightLoop:
         self.last_updated = now
         logger.debug(f"rabbit mode set to {mode}")
 
-        phase = xp.FlightLoop_Phase_AfterFlightModel
-        # @todo: make function to reset lastLit counter
-        self.lastLit = 0
-        params = [phase, self.rabbitFLCB, self.refrabbit]
-        self.flrabbit = xp.createFlightLoop(params)
-        xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)
-        self.rabbitRunning = True
-        logger.debug("rabbit restarted after adjustments")
+        if not self.global_stop_requested:
+            # if FtG was busy changing rabbit speed while user requests to stop/new green/etc.
+            phase = xp.FlightLoop_Phase_AfterFlightModel
+            # @todo: make function to reset lastLit counter
+            self.lastLit = 0
+            params = [phase, self.rabbitFLCB, self.refrabbit]
+            self.flrabbit = xp.createFlightLoop(params)
+            xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)
+            self.rabbitRunning = True
+            logger.debug("rabbit restarted after adjustments")
+        else:
+            logger.debug("global stop requested, rabbit not restarted")
 
     def adjustRabbit(self, position, closestLight):
         # Important note:
@@ -261,9 +273,10 @@ class FlightLoop:
         if idx == len(route.route):  # end of route
             logger.warning("reached end of route")
 
+        acf_move = speed * self.adjustedIter()  # meters
         logger.debug(
-            f"currently at index {light.index}, next turn (>{TURN_LIMIT}deg) at index {idx-1}: "
-            + f"{round(turn, 0)}deg at {round(dist_before, 1)}m, current speed={round(speed, 1)}"
+            f"currently at index {light.index}, next turn (larger than {TURN_LIMIT}deg) at index {idx-1}: "
+            + f"{round(turn, 0)}deg at {round(dist_before, 1)}m, current speed={round(speed, 1)}, acf moved {round(acf_move, 1)}m during iteration"
         )
 
         # II. From distance to turn, and angle of turn, assess situation

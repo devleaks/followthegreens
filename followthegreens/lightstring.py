@@ -12,15 +12,16 @@ from .geo import Point, distance, bearing, destination, convertAngleTo360, point
 from .globals import (
     logger,
     get_global,
+    DISTANCE_BETWEEN_STOPLIGHTS,
     FTG_SPEED_PARAMS,
+    LIGHT_TYPE,
+    LIGHT_TYPE_OBJFILES,
     MOVEMENT,
     RABBIT_MODE,
     TAXIWAY_ACTIVE,
-    TAXIWAY_WIDTH_CODE,
+    TAXIWAY_DIRECTION,
     TAXIWAY_WIDTH,
-    LIGHT_TYPE,
-    LIGHT_TYPE_OBJFILES,
-    DISTANCE_BETWEEN_STOPLIGHTS,
+    TAXIWAY_WIDTH_CODE,
 )
 
 HARDCODED_MIN_DISTANCE = 10  # meters
@@ -293,7 +294,7 @@ class LightString:
         self.num_rabbit_lights = self.rabbit_length  # can be 0, this adjusts with acf speed
 
         self.rabbit_speed = get_global("RABBIT_SPEED", self.prefs)  # this never changes
-        logger.debug(f"rabbit_speed globa preferences {self.rabbit_speed}")
+        logger.debug(f"rabbit_speed global preferences {self.rabbit_speed}")
         if "RABBIT_SPEED" not in self.prefs and self.rabbit_speed != 0.0 and aircraft.rabbit_speed != 0:  # if not explicitely defined for entire application
             self.rabbit_speed = airport.rabbit_speed  # this never changes
             logger.debug(f"rabbit_speed defined from aircraft preferences {self.rabbit_speed}")
@@ -302,11 +303,9 @@ class LightString:
         # control logged info
         self._info_sent = False
 
-        logger.debug(
-            f"LightString created: rabbit {self.num_rabbit_lights} lights, {abs(round(self.rabbit_duration, 2))} secs., lights ahead {self.num_lights_ahead} lights"
-        )
-        logger.debug(
-            f"Physical units: rabbit {aircraft.rabbit_length}m, {abs(round(self.rabbit_duration, 2))} secs., ahead {aircraft.lights_ahead}m, greens={self.distance_between_lights}m"
+        logger.debug(f"physical units: rabbit {aircraft.rabbit_length}m, {abs(round(self.rabbit_duration, 2))} secs., ahead {aircraft.lights_ahead}m")
+        logger.info(
+            f"rabbit: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}, greens={self.distance_between_lights}m"
         )
 
     def __str__(self):
@@ -424,7 +423,7 @@ class LightString:
                 # We remember the light index in the stopbar name. That way we can light the green up to the stopbar and light the stopbar
                 # Yup, orientation may be funny, may be not square to [currVertex,nextVertex].  @todo
                 if not onRwy:  # If we are on a runway, we assume that no stopbar is necessary to leave the runway
-                    logger.debug(f"departure: not on runway at edge {i}, {thisEdge.usage}")
+                    logger.debug(f"departure: not on runway at edge {i}, {thisEdge.usage}, adding stop bar")
                     self.mkStopbar(
                         lightIndex=lightAtStopbar,
                         src=stopbarAt,
@@ -436,7 +435,7 @@ class LightString:
                     onRwy = True  # We assume that we a setting a stopbar before a runway crossing.
                 else:
                     logger.debug(
-                        f"LightString::populate: departure: on runway #={i}, usage={thisEdge.usage}, dept?={thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE)}, {thisEdge.mkActives()}"
+                        f"departure: on runway #={i}, usage={thisEdge.usage}, active dept={thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE)}, {thisEdge.mkActives()}"
                     )
                     if thisEdge.usage != "runway" and not thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):
                         # if consecutive active departure segments, do not stop for them
@@ -459,7 +458,7 @@ class LightString:
 
                 # We remember the light index in the stopbar name. That way we can light the green up to the stopbar and light the stopbar
                 if not onRwy:  # If we are on a runway, we assume that no stopbar is necessary to leave the runway
-                    logger.debug(f"arrival: on runway {i}, {thisEdge.usage}")
+                    logger.debug(f"arrival: on runway {i}, {thisEdge.usage}, adding stop bar")
                     self.mkStopbar(
                         lightIndex=lightAtStopbar,
                         src=stopbarAt,
@@ -488,7 +487,7 @@ class LightString:
                 while distanceBeforeNextLight < distToNextVertex:
                     nextLightPos = destination(currPoint, brng, distanceBeforeNextLight)
                     brgn = bearing(lastLight, nextLightPos)
-                    thisLights.append(Light(self.nextTaxiwayLight(nextLightPos), nextLightPos, brgn, i))
+                    thisLights.append(Light(self.nextTaxiwayLight(nextLightPos, thisEdge), nextLightPos, brgn, i))
                     lastLight = nextLightPos
                     distToNextVertex = distToNextVertex - distanceBeforeNextLight  # should be close to ftg_geoutil.distance(currPoint, nextVertex)
                     currPoint = nextLightPos
@@ -500,7 +499,7 @@ class LightString:
 
                 if self.add_light_at_vertex:  # may be we insert a last light at the vertex?
                     brgn = bearing(lastLight, nextVertex)
-                    thisLights.append(Light(self.nextTaxiwayLight(nextVertex), nextVertex, brgn, i))
+                    thisLights.append(Light(self.nextTaxiwayLight(nextVertex, thisEdge), nextVertex, brgn, i))
                     lastLight = nextVertex
                     # logger.debug("added light at vertex %s", nextVertex.id)
 
@@ -531,7 +530,7 @@ class LightString:
 
     def printSegments(self):
         # for debugging purpose
-        logger.info(f"added {len(self.lights)} lights, {self.segments + 1} segments, {len(self.stopbars)} stopbars.")
+        logger.info(f"added {len(self.lights)} lights, {self.segments + 1} segments, {len(self.stopbars)} stop bars.")
         if len(self.stopbars) > 0:
             segs = []
             last = 0
@@ -669,7 +668,7 @@ class LightString:
 
         return [True, "green is set"]
 
-    def nextTaxiwayLight(self, position) -> LIGHT_TYPE:
+    def nextTaxiwayLight(self, position, edge) -> LIGHT_TYPE:
         # This is to provide alternate green/amber light
         # on runway Lead-Off lights to taxiway.
         # Lights are green/amber on runway, then a few more until on taxiway.
@@ -679,22 +678,37 @@ class LightString:
         #
         if self.route.runway is None:  # no runway, all green
             if not self._info_sent:
-                logger.debug("nextTaxiwayLight: not on runway, all greens")
+                logger.debug("not on runway, all greens")
                 self._info_sent = True
             return LIGHT_TYPE.TAXIWAY
         self.taxiway_alt = self.taxiway_alt + 1  # alternate
         if self.rwy_twy_lights == self.lead_off_lights:  # always on runway
             if pointInPolygon(position, self.route.runway.polygon):
-                logger.debug(f"nextTaxiwayLight: on runway, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
+                logger.debug(f"on runway, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
                 return LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT
         # no longer on runway, keep alterning for a few lights
         self.rwy_twy_lights = self.rwy_twy_lights - 1
         if self.rwy_twy_lights > 0:
-            logger.debug(f"nextTaxiwayLight: not on runway, leaving, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
+            logger.debug(f"not on runway, leaving, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
             return LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT
+        # if edge.direction == TAXIWAY_DIRECTION.ONEWAY:
+        #     return LIGHT_TYPE.ONEWAY
+        # if edge.is_inner_only:
+        #     return LIGHT_TYPE.INNER
+        # if edge.is_outer_only:
+        #     return LIGHT_TYPE.OUTER
+        # if edge.has_active(TAXIWAY_ACTIVE.ARRIVAL):
+        #     return LIGHT_TYPE.ACTIVE_ARR
+        # if edge.has_active(TAXIWAY_ACTIVE.DEPARTURE):
+        #     return LIGHT_TYPE.ACTIVE_DEP
+        # if edge.has_active(TAXIWAY_ACTIVE.ILS):
+        #     return LIGHT_TYPE.ACTIVE_ILS
+        if edge.has_active():
+            logger.debug(f"no longer on runway, edge is active ({edge.mkActives()})")
+            return LIGHT_TYPE.ACTIVE
         # no longer on runway, on regular taxiway
         if not self._info_sent:
-            logger.debug("nextTaxiwayLight: no longer on runway, all greens")
+            logger.debug("no longer on runway, all greens")
             self._info_sent = True
         return LIGHT_TYPE.TAXIWAY
 

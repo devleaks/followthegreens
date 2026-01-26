@@ -14,10 +14,10 @@ from .airport import Airport
 from .flightloop import FlightLoop
 from .lightstring import LightString
 from .ui import UIUtil
-from .nato import phonetic
+from .nato import phonetic, toml_dumps
 
 PREFERENCE_FILE_NAME = "followthegreens.prf"  # followthegreens.prf
-
+VERSION = "VERSION"
 
 class FollowTheGreens:
 
@@ -42,6 +42,7 @@ class FollowTheGreens:
         logger.info("\n\n")
         logger.info("*-*" * 35)
         logger.info(f"Starting new FtG session {__VERSION__} at {datetime.now().astimezone().isoformat()}\n")
+        logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}\n")
 
         self.prefs = {}
         self.init_preferences()
@@ -60,10 +61,11 @@ class FollowTheGreens:
         self._status = status
         logger.debug(f"FtG is now {status}")
 
-    def init_preferences(self):
+    def init_preferences(self, reloading: bool = False):
         # Load optional preferences file (Rel. 2 onwards)
         # Parameters in this file will overwrite (with constrain)
         # default values provided by FtG.
+        loading = "reload" if reloading else "load"
         here = os.path.dirname(__file__)
         filename = os.path.join(here, PREFERENCE_FILE_NAME)
         if os.path.exists(filename):
@@ -71,26 +73,34 @@ class FollowTheGreens:
                 try:
                     self.prefs = tomllib.load(fp)
                 except:
-                    logger.warning(f"preferences file {filename} not loaded", exc_info=True)
+                    logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
 
-            logger.info(f"preferences file {filename} loaded")
+            logger.info(f"preferences file {filename} {loading}ed")
+            logger.debug(f"preferences: {self.prefs}")
+
+        filename = os.path.join(".", "Output", "preferences", PREFERENCE_FILE_NAME)  # relative to X-Plane "rott/home" folder
+        if os.path.exists(filename):
+            with open(filename, "rb") as fp:
+                try:
+                    prefs = tomllib.load(fp)
+                    if VERSION not in prefs:
+                        logger.warning("preferences file contains no version information")
+                    else:
+                        logger.info(f"preferences file version {prefs.get(VERSION)}")
+                    if len(self.prefs) > 0:
+                        logger.warning("some preferences may be overwritten")
+                    if len(prefs) > 0:
+                        self.prefs = self.prefs | prefs
+                except:
+                    logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
+            logger.info(f"preferences file {filename} {loading}ed")
             logger.debug(f"preferences: {self.prefs}")
         else:
             logger.debug(f"no preferences file {filename}")
-            filename = os.path.join(".", "Output", "preferences", PREFERENCE_FILE_NAME)  # relative to X-Plane "rott/home" folder
-            if os.path.exists(filename):
-                with open(filename, "rb") as fp:
-                    try:
-                        self.prefs = tomllib.load(fp)
-                    except:
-                        logger.warning(f"preferences file {filename} not loaded", exc_info=True)
-                logger.info(f"preferences file {filename} loaded")
-                logger.debug(f"preferences: {self.prefs}")
-            else:
-                logger.debug(f"no preferences file {filename}")
-                self.create_empty_prefs()
+            self.create_empty_prefs()
 
         logger.info(f"preferences: {self.prefs}")
+
         ll = get_global("LOGGING_LEVEL", self.prefs)
         if type(ll) is int:
             logger.debug(f"log level: current={logger.level}, requested={ll}")
@@ -103,23 +113,44 @@ class FollowTheGreens:
         try:
             logger.debug(f"internal:\n{ '\n'.join([f'{g}: {get_global(g, preferences=self.prefs)}' for g in INTERNAL_CONSTANTS]) }'\n=====")
         except:  # in case str(value) fails
-            logger.debug("internal: some internals don't print", exc_info=True)
+            logger.debug("internal: some internals preference values don't print", exc_info=True)
 
     def create_empty_prefs(self):
+        # Once, on first use, to help user
         filename = os.path.join(".", "Output", "preferences", PREFERENCE_FILE_NAME)  # relative to X-Plane "rott/home" folder
         if not os.path.exists(filename):
             with open(filename, "w") as fp:
                 print(
-                    f"""# Follow the greens Preference file
+                    f"""# Follow the greens Preference File
+#
+# Follow the greens is a XPPython3 plugin available
+# in the PythonPlugins folder inside X-Plane plugin folder.
 #
 # See documentation at https://devleaks.github.io/followthegreens/.
 #
-# {PREFERENCE_FILE_NAME} is a TOML (https://toml.io/en/) formatted file. Please adhere to the TOML formatting/standard.
+# {PREFERENCE_FILE_NAME} (this file) is a TOML (https://toml.io/en/) formatted file.
+# Please adhere to the TOML formatting/standard when adding preferences.
+#
+# Do not touch the following line.
+#
+VERSION = "{__VERSION__}"
+#
+#
 # To set a preferred value, place the name of the preference = <value> on a new line.
 # Lines that starts with # are comments.
 # Example:
 #LOGGING_LEVEL = 10
 # Remove the # character from the above line to enable debugging information logging.
+#
+# Advanced: Lines/words between square brackets are called "tables" in TOML, like
+#
+#[Advanced]
+#
+# Sometimes, preferences need to be added under a [table] indication, like so:
+#
+#[Advanced]
+#advanced_preference = false
+#
 #
 # Taxi safely.
 """,
@@ -127,7 +158,21 @@ class FollowTheGreens:
                 )
             logger.info(f"preference file {filename} created")
 
-    def start(self):
+    def check_update_version(self, filename):
+        # Update version number in preference file if parameters still valid
+        # and format is OK. This aims at auto-maintaining the preference file.
+        # Uses toml.write
+        # @todo: check parameters, if ok:
+        v = self.prefs.get(VERSION, "none")
+        if v != __VERSION__:
+            logger.warning(f"preference file version {v} and current application version {__VERSION__} differ")
+        self.prefs["VERSION"] = __VERSION__
+        # save to fn
+        logger.debug(toml_dumps(self.prefs))
+        # with open(filename, "w") as fp:
+        #     print(toml_dumps(self.prefs))
+
+    def start(self) -> int:
         # Toggles visibility of main window.
         # If it was simply closed for hiding, show it again as it was.
         # If it does not exist, creates it from start of process.
@@ -137,18 +182,22 @@ class FollowTheGreens:
             logger.debug(f"mainWindow exists, changing visibility {self.ui.isMainWindowVisible()}.")
             self.ui.toggleVisibilityMainWindow()
             return 1
-        else:
-            # Info 1
-            logger.info("starting..")
-            mainWindow = self.getAirport()
-            logger.debug("mainWindow created")
-            if mainWindow and not xp.isWidgetVisible(mainWindow):
-                xp.showWidget(mainWindow)
-                logger.debug("mainWindow shown")
-            self.status = FTG_STATUS.READY
-            logger.info("..started.")
-            return 1  # window displayed
-        return 0
+
+        # Info 1
+        logger.info("starting..")
+        # BEGIN TEST : reloading preferences
+        logger.debug("..reloading preferences..")
+        self.init_preferences(reloading=True)
+        logger.debug("..reloaded..")
+        # END TEST
+        mainWindow = self.getAirport()
+        logger.debug("mainWindow created")
+        if mainWindow and not xp.isWidgetVisible(mainWindow):
+            xp.showWidget(mainWindow)
+            logger.debug("mainWindow shown")
+        self.status = FTG_STATUS.READY
+        logger.info("..started.")
+        return 1  # window displayed
 
     def rabbitMode(self, mode: RABBIT_MODE):
         self.flightLoop.manualRabbitMode(mode)
@@ -180,7 +229,7 @@ class FollowTheGreens:
         self.status = FTG_STATUS.AIRCRAFT
 
         # Info 2
-        logger.info(f"Aircraft postion {pos}, {hdg}")
+        logger.info(f"aircraft position {pos}, {hdg}")
         airport = self.aircraft.airport(pos)
         if airport is None:
             logger.debug("no airport")
@@ -191,7 +240,7 @@ class FollowTheGreens:
             return self.ui.promptForAirport()  # prompt for airport will continue with getDestination(airport)
 
         # Info 3
-        logger.info(f"At {airport.name}")
+        logger.info(f"at {airport.name}")
         self.status = FTG_STATUS.AIRPORT
         return self.afterAirport(airport.navAidID)
 
@@ -212,7 +261,7 @@ class FollowTheGreens:
         else:
             logger.debug(f"airport {self.airport.icao} already loaded")
 
-        logger.info(f"airport {self.airport.icao}  ready")
+        logger.info(f"airport {self.airport.icao} ready")
 
         self.move = self.airport.guessMove(self.aircraft.position())
         # Info 10
@@ -292,7 +341,7 @@ class FollowTheGreens:
         self.flightLoop.startFlightLoop()
         self.status = FTG_STATUS.ACTIVE
         # Info 14
-        logger.info("Flightloop started.")
+        logger.info("flightloop started.")
 
         # Hint: distance and heading to first light
         intro = f"Follow the greens to {destination}"
@@ -378,8 +427,9 @@ class FollowTheGreens:
         self.status = FTG_STATUS.INACTIVE
 
         if self.flightLoop:
+            self.flightLoop.global_stop_requested = True
             self.flightLoop.stopFlightLoop()
-            logger.info("Flightloop stopped.")
+            logger.info("flightloop stopped.")
 
         if self.lights:
             self.lights.destroy()

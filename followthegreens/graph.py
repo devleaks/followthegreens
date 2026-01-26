@@ -142,9 +142,17 @@ class Edge(Line):
         return self.usage2 != TAXIWAY_DIRECTION.OUTER
 
     @property
+    def is_inner_only(self):
+        return self.usage2 == TAXIWAY_DIRECTION.INNER
+
+    @property
     def is_outer(self):
         # note:   !is_inner <> is_outer
         return self.usage2 != TAXIWAY_DIRECTION.INNER
+
+    @property
+    def is_outer_only(self):
+        return self.usage2 == TAXIWAY_DIRECTION.OUTER
 
     def mkActives(self):
         ret = []
@@ -221,6 +229,10 @@ class Graph:  # Graph(FeatureCollection)?
             if v.usage2 not in s:
                 s[v.usage2] = 0
             s[v.usage2] = s[v.usage2] + 1
+            if "active" not in s:
+                s["active"] = 0
+            if v.has_active():
+                s["active"] = s["active"] + 1
             mi = min(mi, v.cost)
             ma = max(ma, v.cost)
         logger.debug(f"{len(self.edges_arr)} edges: {s}, cost=[{round(mi, 2)}, {round(ma, 2)}]")
