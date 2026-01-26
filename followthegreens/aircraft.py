@@ -45,6 +45,7 @@ AIRCRAFT_TYPES = {
         },
         AIRCRAFT.BRAKING_DISTANCE: 70.0,
         AIRCRAFT.WARNING_DISTANCE: 150.0,
+        AIRCRAFT.AVG_LENGTH: 10,
         AIRCRAFT.RABBIT: {
             RABBIT.LIGHTS_AHEAD: 30,  # in METERS
             RABBIT.LENGTH: 40,  # in **METERS**
@@ -64,6 +65,7 @@ AIRCRAFT_TYPES = {
         },
         AIRCRAFT.BRAKING_DISTANCE: 150.0,
         AIRCRAFT.WARNING_DISTANCE: 200.0,
+        AIRCRAFT.AVG_LENGTH: 25,
         AIRCRAFT.RABBIT: {
             RABBIT.LIGHTS_AHEAD: 50,  # in METERS
             RABBIT.LENGTH: 80,  # in **METERS**
@@ -88,6 +90,7 @@ AIRCRAFT_TYPES = {
         },
         AIRCRAFT.BRAKING_DISTANCE: 200.0,
         AIRCRAFT.WARNING_DISTANCE: 200.0,
+        AIRCRAFT.AVG_LENGTH: 40,
         AIRCRAFT.RABBIT: {
             RABBIT.LIGHTS_AHEAD: 120,  # in METERS
             RABBIT.LENGTH: 100,  # in **METERS**
@@ -110,6 +113,7 @@ AIRCRAFT_TYPES = {
         },
         AIRCRAFT.BRAKING_DISTANCE: 200.0,
         AIRCRAFT.WARNING_DISTANCE: 200.0,
+        AIRCRAFT.AVG_LENGTH: 55,
         AIRCRAFT.RABBIT: {
             RABBIT.LIGHTS_AHEAD: 150,  # in METERS
             RABBIT.LENGTH: 150,  # in **METERS**
@@ -131,6 +135,7 @@ AIRCRAFT_TYPES = {
         },
         AIRCRAFT.BRAKING_DISTANCE: 200.0,
         AIRCRAFT.WARNING_DISTANCE: 200.0,
+        AIRCRAFT.AVG_LENGTH: 70,
         AIRCRAFT.RABBIT: {
             RABBIT.LIGHTS_AHEAD: 200,  # in METERS
             RABBIT.LENGTH: 150,  # in **METERS**
@@ -150,6 +155,7 @@ AIRCRAFT_TYPES = {
         },
         AIRCRAFT.BRAKING_DISTANCE: 200.0,
         AIRCRAFT.WARNING_DISTANCE: 200.0,
+        AIRCRAFT.AVG_LENGTH: 85,
         AIRCRAFT.RABBIT: {
             RABBIT.LIGHTS_AHEAD: 200,  # in METERS
             RABBIT.LENGTH: 180,  # in **METERS**
@@ -177,9 +183,13 @@ class Aircraft:
 
         # PREFERENCES - Fetched by LightString
         # These preferences are specific for an aircraft
+        a = self.aircaft_preferences()
         r = self.rabbit_preferences()
+        acflength = a.get(AIRCRAFT.AVG_LENGTH, 50)  # meters
         self.lights_ahead = r.get(RABBIT.LIGHTS_AHEAD, 120)  # meters
+        # self.lights_ahead = self.lights_ahead + acflength  # meters
         self.rabbit_length = r.get(RABBIT.LENGTH, 100)  # meters
+        self.rabbit_length = self.rabbit_length + acflength  # meters
         self.rabbit_speed = r.get(RABBIT.SPEED, 0.2)  # seconds
         # If modified in preference file
         self.set_preferences()
@@ -195,6 +205,15 @@ class Aircraft:
         logger.debug(f"aircraft type {self.icao} not found in lists, using default category {self.width_code}")
 
     def set_preferences(self):
+        a = self.aircaft_preferences()
+        acflength = a.get(AIRCRAFT.AVG_LENGTH, 50)  # meters
+        # note: light count starts at the center of the aircraft.
+        #       if the aircraft is 40m in length, 16m between lights,
+        #       2 or more lights are not visible since under the aircraft.
+        #       we take that into account by adding a full aircraft length
+        #       to the desired rabbit length.
+        #       we might do the same for light ahead in the future.
+
         acf = self.prefs.get("Aircrafts", {})
 
         logger.debug(f"Aircraft preferences: {acf}")
@@ -226,7 +245,9 @@ class Aircraft:
             if RABBIT.SPEED.value in prefs:
                 self.rabbit_speed = prefs[RABBIT.SPEED.value]
 
-        logger.debug(f"AIRCRAFT rabbit (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m")
+        self.rabbit_length = self.rabbit_length + acflength  # meters
+        # self.lights_ahead = self.lights_ahead + acflength  # meters
+        logger.debug(f"AIRCRAFT rabbit (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={acflength}m)")
 
     def position(self) -> list:
         return [xp.getDataf(self.lat), xp.getDataf(self.lon)]
@@ -254,6 +275,10 @@ class Aircraft:
 
     def taxi_speed_ranges(self) -> dict:
         return AIRCRAFT_TYPES[self.width_code][AIRCRAFT.TAXI_SPEED]
+
+    def aircaft_preferences(self) -> dict:
+        # preferences for later user
+        return AIRCRAFT_TYPES[self.width_code]
 
     def rabbit_preferences(self, preferences: dict = {}) -> dict:
         # preferences for later user

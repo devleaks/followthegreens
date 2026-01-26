@@ -245,6 +245,7 @@ class AIRCRAFT(Enum):
     BRAKING_DISTANCE = "BRAKING_DISTANCE"
     WARNING_DISTANCE = "WARNING_DISTANCE"
     RABBIT = "RABBIT"
+    AVG_LENGTH = "AVG_LENGTH"
 
 
 # Aircraft preferences for rabbit

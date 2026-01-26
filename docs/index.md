@@ -156,24 +156,18 @@ XPPython3 release 4 or above is required.
 
 Follow the greens exposes a few limited set of preference parameters.
 Parameters are specified in a preference file that can be found at
-on of the two following locations:
-
-Either
-
-`<X-Plane 12 Folder> / Resources / plugins / PythonPlugins / followthegreens / followthegreens.prf`
-
-or
 
 `<X-Plane 12 Folder> / Output / preferences / followthegreens.prf`
 
-(The first one takes precedence on the second one.)
+(Recommanded preference file location for X-Plane 12.)
+
+It is a [TOML](https://toml.io/en/) formatted file.
 
 An empty preference file `followthegreens.prf` is created in `<X-Plane 12 Folder> / Output / preferences `
 on the first start.
 You can insert yourr preferences there.
 
 Here is an example of the content of a typical preference file.
-It is a [TOML](https://toml.io/en/) formatted file.
 
 ```
 DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # meters
@@ -192,8 +186,7 @@ Parameters in the above file refer to the following items:
 
 Please note that the values you enter here may affect X-Plane performances (faster rabbit, numerous taxiway lights...)
 
-Preference file is read on FtG startup.
-If you modify some parameters, you have to _reload python scripts_ to have them take effect.
+Preference file is each time a new FtG session is started.
 
 Here is description of the parameters available for customization.
 

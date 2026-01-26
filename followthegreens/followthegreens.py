@@ -42,6 +42,7 @@ class FollowTheGreens:
         logger.info("\n\n")
         logger.info("*-*" * 35)
         logger.info(f"Starting new FtG session {__VERSION__} at {datetime.now().astimezone().isoformat()}\n")
+        logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}\n")
 
         self.prefs = {}
         self.init_preferences()
@@ -76,22 +77,25 @@ class FollowTheGreens:
 
             logger.info(f"preferences file {filename} {loading}ed")
             logger.debug(f"preferences: {self.prefs}")
+
+        filename = os.path.join(".", "Output", "preferences", PREFERENCE_FILE_NAME)  # relative to X-Plane "rott/home" folder
+        if os.path.exists(filename):
+            with open(filename, "rb") as fp:
+                try:
+                    prefs = tomllib.load(fp)
+                    if len(self.prefs) > 0:
+                        logger.warning(f"some preferences may be overwritten")
+                    self.prefs = self.prefs | prefs
+                except:
+                    logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
+            logger.info(f"preferences file {filename} {loading}ed")
+            logger.debug(f"preferences: {self.prefs}")
         else:
             logger.debug(f"no preferences file {filename}")
-            filename = os.path.join(".", "Output", "preferences", PREFERENCE_FILE_NAME)  # relative to X-Plane "rott/home" folder
-            if os.path.exists(filename):
-                with open(filename, "rb") as fp:
-                    try:
-                        self.prefs = tomllib.load(fp)
-                    except:
-                        logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
-                logger.info(f"preferences file {filename} {loading}ed")
-                logger.debug(f"preferences: {self.prefs}")
-            else:
-                logger.debug(f"no preferences file {filename}")
-                self.create_empty_prefs()
+            self.create_empty_prefs()
 
         logger.info(f"preferences: {self.prefs}")
+
         ll = get_global("LOGGING_LEVEL", self.prefs)
         if type(ll) is int:
             logger.debug(f"log level: current={logger.level}, requested={ll}")
@@ -104,7 +108,7 @@ class FollowTheGreens:
         try:
             logger.debug(f"internal:\n{ '\n'.join([f'{g}: {get_global(g, preferences=self.prefs)}' for g in INTERNAL_CONSTANTS]) }'\n=====")
         except:  # in case str(value) fails
-            logger.debug("internal: some internals don't print", exc_info=True)
+            logger.debug("internal: some internals preference values don't print", exc_info=True)
 
     def create_empty_prefs(self):
         # Once, on first use, to help user

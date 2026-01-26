@@ -261,9 +261,10 @@ class FlightLoop:
         if idx == len(route.route):  # end of route
             logger.warning("reached end of route")
 
+        acf_move = speed * self.adjustedIter()  # meters
         logger.debug(
             f"currently at index {light.index}, next turn (>{TURN_LIMIT}deg) at index {idx-1}: "
-            + f"{round(turn, 0)}deg at {round(dist_before, 1)}m, current speed={round(speed, 1)}"
+            + f"{round(turn, 0)}deg at {round(dist_before, 1)}m, current speed={round(speed, 1)}, acf moved {round(acf_move, 1)}m during iteration"
         )
 
         # II. From distance to turn, and angle of turn, assess situation
