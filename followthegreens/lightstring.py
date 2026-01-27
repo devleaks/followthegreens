@@ -312,7 +312,7 @@ class LightString:
         return json.dumps({"type": "FeatureCollection", "features": self.features()})
 
     def has_rabbit(self) -> bool:
-        return (abs(self.rabbit_duration) > 0 and self.num_rabbit_lights > 0) or self.lights_ahead > 0
+        return abs(self.rabbit_duration) > 0 and self.num_rabbit_lights > 0  #  or self.lights_ahead > 0
 
     def features(self):
         fc = []
