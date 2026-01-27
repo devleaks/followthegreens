@@ -76,6 +76,7 @@ In addition to the 4rth dimension explained above, FtG4D adds the following impr
 
 - Follow the greens «rabbit» light speed and length automagically adjusted to invite pilots to speed up or slow down taxi ride.
 - A few parameters can be adjusted in a preference file.
+- Runway light intensity can be adjusted, even turned off while FtG4D is running.
 - Routing algorithms attempt to respect taxiway network constraints (taxiway width, one ways...).
 - FtG4D specific log file created to help us improve the plugin in case of misbehavior.
 

@@ -1,4 +1,4 @@
-● Developments
+# Developments
 ◉   UI prompt for destination: switch arrival.departure
 ◉   Prompt for « drifting away »
 ◉   Prompt for heading towards taxiways.
@@ -29,17 +29,18 @@
 ◉   Add a MaxLightsLit to only light that amount of lights in front of the plane. If 0, lights all lights until stop bar.
 
 
-● Log info
-◉   FTG started.
-◉   Plane position
-◉   Airport name
-◉   Airport has ATC
-◉   Airport has routing network (# nodes, # edges)
-◉   Request departure/arrival to DEST.
-◉   Route found.
-◉   Lights placed, N segments.
-◉   Segment # lit.
-◉   Stop bar # cleared.
-◉   Terminated successfully. (One more happy pilot.)
-◉   Cancelled by pilot.
+# Logged info
+
+1. FTG started.
+1. Plane position
+1. Airport name
+1. Airport has ATC
+1. Airport has routing network (# nodes, # edges)
+1. Request departure/arrival to DEST.
+1. Route found.
+1. Lights placed, N segments.
+1. Segment # lit.
+1. Stop bar # cleared.
+1. Terminated successfully. (One more happy pilot.)
+1. Cancelled by pilot.
 
