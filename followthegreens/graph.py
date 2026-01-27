@@ -154,12 +154,6 @@ class Edge(Line):
     def is_outer_only(self):
         return self.usage2 == TAXIWAY_DIRECTION.OUTER
 
-    def mkActives(self):
-        ret = []
-        for a in self.active:
-            ret.append({a.active.value: ",".join(a.runways)})  # "ils": "12L,30R"
-        return ret
-
     def add_active(self, active, runways):
         return self.active.append(Active(active, runways))
 
@@ -171,15 +165,21 @@ class Edge(Line):
             return False
         return self.has_active(TAXIWAY_ACTIVE.DEPARTURE) or self.has_active(TAXIWAY_ACTIVE.ARRIVAL)
 
-    def opposite(self):
-        return Edge(
-            src=self.end,
-            dst=self.start,
-            cost=self.cost,
-            direction=self.direction,
-            usage=self.usage,
-            name=self.name,
-        )
+    def mkActives(self):
+        ret = []
+        for a in self.active:
+            ret.append({a.active.value: ",".join(a.runways)})  # "ils": "12L,30R"
+        return ret
+
+    def showActives(self) -> str:
+        ret = ""
+        if self.has_active(TAXIWAY_ACTIVE.ARRIVAL):
+            ret = ret + "/A"
+        if self.has_active(TAXIWAY_ACTIVE.DEPARTURE):
+            ret = ret + "/D"
+        if self.has_active(TAXIWAY_ACTIVE.ILS):
+            ret = ret + "/I"
+        return ret.strip("/")
 
 
 class Graph:  # Graph(FeatureCollection)?

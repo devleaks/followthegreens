@@ -198,6 +198,7 @@ class Airport:
         self.distance_between_taxiway_lights = get_global(AIRPORT.DISTANCE_BETWEEN_LIGHTS.value, self.prefs)  # meters, for show_taxiways()
         self.distance_between_green_lights = get_global(AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value, self.prefs)  # meters for follow_the_greens()
         self.rabbit_speed = get_global(RABBIT.SPEED.value, self.prefs)  # seconds
+        # Info 4
         # Fine tune for specific airport(s)
         self.set_preferences()
         logger.debug(
@@ -859,6 +860,7 @@ class Route:
             self.edges.append(e)
         logger.debug(f"route (vtx): {self}.")
         logger.debug("route (edg): " + "-".join([e.name for e in self.edges]))
+        logger.debug("route (active): " + "-".join([e.showActive() for e in self.edges]))
         logger.debug(f"segment lengths: {[round(e.cost, 1) for e in self.edges]}")
 
     def mkVertices(self):

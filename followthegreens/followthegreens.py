@@ -19,6 +19,7 @@ from .nato import phonetic, toml_dumps
 PREFERENCE_FILE_NAME = "followthegreens.prf"  # followthegreens.prf
 VERSION = "VERSION"
 
+
 class FollowTheGreens:
 
     def __init__(self, pi):
@@ -41,6 +42,7 @@ class FollowTheGreens:
 
         logger.info("\n\n")
         logger.info("*-*" * 35)
+        logger.info(f"When sending session for debugging purpose, you can cut the file above the «Starting new FtG session» and after «FtG session ended»")
         logger.info(f"Starting new FtG session {__VERSION__} at {datetime.now().astimezone().isoformat()}\n")
         logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}\n")
 
@@ -252,7 +254,7 @@ VERSION = "{__VERSION__}"
         # Either a runway for departure or a parking for arrival.
         if not self.airport or (self.airport.icao != airport):  # we may have changed airport since last call
             airport = Airport(icao=airport, prefs=self.prefs)
-            # Info 4 to 8 in airport.prepare()
+            # Info 4 to 9 in airport.prepare()
             status = airport.prepare()  # [ok, errmsg]
             if not status[0]:
                 logger.warning(f"airport not ready: {status[1]}")
@@ -294,6 +296,8 @@ VERSION = "{__VERSION__}"
             return self.ui.tryAgain(route)
 
         # Info 12
+        logger.info(f"route to {destination}: {route}")
+
         pos = self.aircraft.position()
         hdg = self.aircraft.heading()
         gsp = self.aircraft.speed()
@@ -443,7 +447,7 @@ VERSION = "{__VERSION__}"
         # Info 16
         logger.info(f"terminated: {reason}")
         logger.info(f"FtG session ended at {datetime.now().astimezone().isoformat()}")
-        logger.info("==" * 50)
+        logger.info("*-*" * 35)
         logger.info("\n\n")
         return [True, ""]
 

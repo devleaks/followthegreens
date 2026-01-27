@@ -163,6 +163,16 @@ MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from spac
 # E 14m 65m Boeing 747 to 400 / A330/ 340 , 787-8 (DL)
 # F 16m 80m 747_800, airbus
 #
+# X-Plane World Editor values
+# ---------------------------
+# Size     Wingspan     Examples
+# A        < 15m        C172, B58
+# B        < 24m        King Air C90
+# C        < 36m        B737, A320, MD-80
+# D        < 52m        B767, A310, MD-10
+# E        < 65m        B777, B747, A340
+# F        < 80m        A380
+#
 # Aicraft type/class (size) is used to estimate minimal taxiway width
 #
 class TAXIWAY_WIDTH_CODE(Enum):  # Half width of taxiway in meters
