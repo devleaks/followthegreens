@@ -6,7 +6,7 @@
 
 ## Releases 2.0.0 to 2.2.0 are internal development releases
 
-- [2.1.21](https://github.com/devleaks/followthegreens/releases) - 26-JAN-2026 - Monitoring aircraft speed, recommending target speed range from position to next turn.
+- [2.1.22](https://github.com/devleaks/followthegreens/releases) - 27-JAN-2026 - Monitoring aircraft speed, recommending target speed range from position to next turn.
 
 - ... (development intermediate commits)
 - 2.1.0 - 07-JAN-2026 - Estimate optimal speed range from distance to next significant turn.
