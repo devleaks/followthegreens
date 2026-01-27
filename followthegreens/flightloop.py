@@ -44,6 +44,8 @@ class FlightLoop:
         self.global_stop_requested = False
 
         self.closestLight_cnt = 0
+        self.old_msg = ""
+        self.old_msg2 = ""
 
     def startFlightLoop(self):
         # @todo schedule/unschedule without destroying
@@ -274,10 +276,13 @@ class FlightLoop:
             logger.warning("reached end of route")
 
         acf_move = speed * self.adjustedIter()  # meters
-        logger.debug(
+        msg = (
             f"currently at index {light.index}, next turn (larger than {TURN_LIMIT}deg) at index {idx-1}: "
             + f"{round(turn, 0)}deg at {round(dist_before, 1)}m, current speed={round(speed, 1)}, acf moved {round(acf_move, 1)}m during iteration"
         )
+        if msg != self.old_msg:
+            logger.debug(msg)
+            self.old_msg = msg
 
         # II. From distance to turn, and angle of turn, assess situation
 
@@ -323,7 +328,12 @@ class FlightLoop:
                 mode = RABBIT_MODE.SLOWER
                 advise = "too fast, brake"
 
-        logger.debug(f"current speed={round(speed, 1)}, target={target}; rabbit current mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})")
+        msg = f"current speed={round(speed, 1)}, target={target}; rabbit current mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})"
+        if msg != self.old_msg2:
+            logger.debug(msg)
+            self.old_msg2 = msg
+
+        logger.debug()
 
         if self.rabbitMode != mode:
             self.rabbitMode = mode

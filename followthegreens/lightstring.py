@@ -318,13 +318,15 @@ class LightString:
         fc = []
         # Lights
         for light in self.lights:
-            light.position.markerColor = "#00ff00"
+            light.position.setProp("marker-color", "#00ff00")
             fc.append(light.position.feature())
+        # logger.debug(f"added {len(self.lights)} lights")
         # Stop lights
         for sb in self.stopbars:
             for light in sb.lights:
-                light.position.markerColor = "#ff0000"
+                light.position.setProp("marker-color", "#ff0000")
                 fc.append(light.position.feature())
+        # logger.debug(f"added {len(self.stopbars)} stopbars")
         return fc
 
     def closestEnd(self, light, edge):
@@ -373,7 +375,7 @@ class LightString:
         self.route = route
         graph = route.graph
         thisLights = []
-        onILS = False
+        onILSvtx = False
         onILSidx = None
         onRwy = onRunway
 
@@ -398,18 +400,18 @@ class LightString:
             nextVertex = graph.get_vertex(route.route[i])
             logger.debug(f"at vertex {i}, {nextVertex.id}, {len(thisLights)}")
 
-            distToNextVertex = distance(currPoint, nextVertex)
-            brng = bearing(currVertex, nextVertex)
-
             thisEdge = graph.get_edge(currVertex.id, nextVertex.id)
-            # logger.debug(f"thisEdge: {currVertex.id}-{thisEdge.end.id}, {thisEdge.usage}, {thisEdge.mkActives()}, rwy={onRwy}, ils={False if not onILS else True}")
-            if not onILS and thisEdge.has_active(TAXIWAY_ACTIVE.ILS):  # remember entry into ILS zone
-                logger.debug(f"thisEdge start active ils section: {thisEdge.start.id}-{thisEdge.end.id}, {i}, {thisEdge.usage}")
-                onILS = thisEdge
+            distToNextVertex = thisEdge.cost
+            brng = bearing(currVertex, nextVertex)  # make sure we have it the right orientation
+
+            # logger.debug(f"thisEdge: {currVertex.id}-{thisEdge.end.id}, {thisEdge.usage}, {thisEdge.mkActives()}, rwy={onRwy}, ils={False if not onILSvtx else True}")
+            if not onILSvtx and thisEdge.has_active(TAXIWAY_ACTIVE.ILS):  # remember entry into ILS zone
+                logger.debug(f"thisEdge start active ils section: {thisEdge.start.id}-{thisEdge.end.id}, route vertex={i}, usage={thisEdge.usage}")
+                onILSvtx = currVertex
                 onILSidx = len(thisLights)
-            elif not thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):  # no longer an ILS zone
-                logger.debug(f"thisEdge ends active ils section: {i}, {thisEdge.usage}")
-                onILS = False
+            elif onILSvtx and not thisEdge.has_active(TAXIWAY_ACTIVE.ILS) and not thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):  # no longer an ILS zone
+                logger.debug(f"thisEdge ends active ils section, and not followed by active departure: route vertex={i}, {thisEdge.usage}")
+                onILSvtx = False
 
             # logger.debug("dist to next: bearing: %f, distance: %f, type: %s", brng, distToNextVertex, thisEdge.usage)  # noqa: E501
 
@@ -417,18 +419,18 @@ class LightString:
                 # must place a stopbar
                 stopbarAt = currVertex
                 lightAtStopbar = len(thisLights)
-                if onILS:
-                    stopbarAt = graph.get_vertex(onILS.start.id)
+                if onILSvtx:
+                    stopbarAt = onILSvtx
                     lightAtStopbar = onILSidx  # we also remember the light# where we should place the stopbar.
-                    onILS = False
-                    logger.debug(f"potential stop bar on departure before ils at edge {i}, {lightAtStopbar}")
+                    onILSvtx = False
+                    logger.debug(f"potential stop bar on departure before previous ils at vertex={stopbarAt.id}, {lightAtStopbar}")
                 else:
-                    logger.debug(f"potential stop bar on departure at edge {i}, {lightAtStopbar}")
+                    logger.debug(f"potential stop bar on departure at vertex={stopbarAt.id}, {lightAtStopbar} (no ils before)")
 
                 # We remember the light index in the stopbar name. That way we can light the green up to the stopbar and light the stopbar
                 # Yup, orientation may be funny, may be not square to [currVertex,nextVertex].  @todo
                 if not onRwy:  # If we are on a runway, we assume that no stopbar is necessary to leave the runway
-                    logger.debug(f"departure: not on runway at edge {i}, {thisEdge.usage}, adding stop bar at {stopbarAt}")
+                    logger.debug(f"departure: not on runway at route vertex={i}, {thisEdge.usage}, adding stop bar at vertex {stopbarAt.id}")
                     self.mkStopbar(
                         lightIndex=lightAtStopbar,
                         src=stopbarAt,
@@ -451,17 +453,17 @@ class LightString:
             if route.move == MOVEMENT.ARRIVAL and thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE) and i > self.min_segments_before_hold:  # must place a stop bar
                 stopbarAt = currVertex  # but should avoid placing one as plane exits runway...
                 lightAtStopbar = len(thisLights)
-                if onILS:
-                    stopbarAt = graph.get_vertex(onILS.start.id)
+                if onILSvtx:
+                    stopbarAt = onILSvtx
                     lightAtStopbar = len(thisLights)
                     logger.debug(f"potential stop bar on arrival before ils {i}, {lightAtStopbar}")
-                    onILS = False
+                    onILSvtx = False
                 else:
                     logger.debug(f"potential stop bar on arrival {i}, {lightAtStopbar}")
 
                 # We remember the light index in the stopbar name. That way we can light the green up to the stopbar and light the stopbar
                 if not onRwy:  # If we are on a runway, we assume that no stopbar is necessary to leave the runway
-                    logger.debug(f"arrival: on runway {i}, {thisEdge.usage}, adding stop bar at {stopbarAt}")
+                    logger.debug(f"arrival: on runway {i}, {thisEdge.usage}, adding stop bar at vertex {stopbarAt.id}")
                     self.mkStopbar(
                         lightIndex=lightAtStopbar,
                         src=stopbarAt,
@@ -548,6 +550,11 @@ class LightString:
         logger.debug(f"lights ahead: {self.num_lights_ahead},  {self.aircraft.lights_ahead} m")
         logger.debug(f"rabbit: length: {self.num_rabbit_lights} lights, {self.aircraft.rabbit_length} m")
         logger.debug(f"runway lead-off lights: {self.lead_off_lights} lights, {float(get_global('LEAD_OFF_RUNWAY_DISTANCE', preferences=self.prefs))} m")
+        if logger.level < 10:
+            fn = os.path.join(os.path.dirname(__file__), "..", "ftg_ls.geojson")
+            with open(fn, "w") as fp:
+                print(self, file=fp)
+            logger.debug(f"LightString saved in {fn}")
 
     # We make a stopbar after the green light index lightIndex
     def mkStopbar(self, lightIndex, src, dst, extremity="end", size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.E, light: LIGHT_TYPE = LIGHT_TYPE.STOP):
@@ -561,7 +568,7 @@ class LightString:
             start = src
         stopbar = Stopbar(position=start, heading=brng, index=lightIndex, size=size, light=light)
         self.stopbars.append(stopbar)
-        logger.debug(f"added stopbar at {lightIndex}")
+        logger.debug(f"added stopbar at light index {lightIndex}")
 
         return stopbar.lights
 
@@ -584,9 +591,15 @@ class LightString:
             "intensity": 20,
             "texture": 3,
         }
+        PINK = self.prefs.get("VALENTINE", False)
+        pinkfn = ""
+        if PINK:
+            pinkfn = LightType.create(name="egg.obj", color=(0.9, 0.1, 0.9), size=18, intensity=10, texture=3)
         self.lightTypes = {}
         for k, f in LIGHT_TYPE_OBJFILES.items():
-            if type(f) is str:
+            if PINK and k != LIGHT_TYPE.STOP:
+                self.lightTypes[k] = LightType(k, pinkfn)
+            elif type(f) is str:
                 self.lightTypes[k] = LightType(k, f)
             elif type(f) in [tuple, list]:
                 fn = LightType.create(name=f[0], color=f[1], size=f[2], intensity=f[3], texture=f[4])
