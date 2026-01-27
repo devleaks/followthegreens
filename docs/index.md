@@ -31,7 +31,7 @@ X-Plane yellow painted coach arrows on taxiways are fine, useful, but look too a
 Follow the greens is an existing system used at a handful airports.
 But now, thanks to this plugin, even your local muni can get Follow the greens _(at no cost)_.
 
-## 4D ?
+## 4D
 
 After reading [this paper](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
 I found it amusing to incorporate their model and suggestions into FtG.
