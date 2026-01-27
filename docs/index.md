@@ -8,24 +8,22 @@ ATC Ground operators will highlight the taxi path the pilot has to follow with c
 A red line across the taxiway indicates the aircraft has to hold and wait for the red light to clear.
 Very much like car traffic lights.
 
+![FtG Principles](images/concept.png)
+
 No more path or taxiway segment names to remember. Just green lights to follow.
 
 Follow the greens is part of the serious _Advanced Surface Movement Guidance and Control System_ (A-SMGCS).
 
 Please have a look at the [following video](https://vimeo.com/101564135) and search for "airport Follow the greens" to get more information.
-See [http://followthegreens.com](http://followthegreens.com) if you are interested.
 There is nowadays a lot more information, manufacturers, and experimental project reports to learn from.
 
 Follow the greens has numerous advantages discussed in the above videos, ranking to ease of use, to smoother taxi rides,
 to lower interaction with ground control.
 
 Yeah, yeah, less fuel use also.
-
 Yeah, yeah, less CO~2~ produced.
-
-Yeah, yeah, follow the greens is realllly green. Can't be greener than that.
-
-Seriously. No green bashing.
+Yeah, yeah, follow the greens is realllly green.
+Can't be greener than that. No green bashing.
 
 I brought Follow the greens concept to X-Plane as ATC and "AI" struggle to guide you on the ground.
 X-Plane yellow painted coach arrows on taxiways are fine, useful, but look too artificial.
@@ -33,7 +31,24 @@ X-Plane yellow painted coach arrows on taxiways are fine, useful, but look too a
 Follow the greens is an existing system used at a handful airports.
 But now, thanks to this plugin, even your local muni can get Follow the greens _(at no cost)_.
 
-Follow the greens is abbreviated FtG.
+## 4D ?
+
+After reading [this paper](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
+I found it amusing to incorporate their model and suggestions into FtG.
+
+In a nutshell, FtG will now monitor your taxi speed and invite you to adjust it.
+It will do so by adjusting the speed of the «rabbit» light in front of the aircraft,
+(the pulsating light,)
+and the length of the rabbit run.
+If the rabbit runs fast and far, you can safely accelerate your taxi pace.
+If the rabbit is slow and short, you must reduce your speed because you are probably nearing a sharp turn or a mandatory stop.
+
+Could it be simpler?
+
+Follow the greens.
+
+Try to catch the rabbit.
+
 
 ![FtG Logo](images/ftg.png)
 
@@ -51,14 +66,11 @@ For the Release 2 of FtG, Version 4.5 or above of the XPPython3 plugin is requir
 Newer version of XPPython3 contain all you need to run Python plugin, including a version of the python language interpreter.
 There is no need to install other software.
 
-Once XPPython3 plugin is installed, python plugin scripts are located in
+Once XPPython3 plugin is installed, python plugin scripts are placed in
 
 ```
 <X-Plane 12 Folder> / resources / plugins / PythonPlugins
 ```
-
-(The XPPython3 plugin itself resides in `<X-Plane 12 Folder> / resources / plugins / XPPython3` folder,
-but you should not touch that folder content in any way.)
 
 [Download the FtG plugin code](https://github.com/devleaks/followthegreens/releases) and unzip it.
 
@@ -68,13 +80,10 @@ That's it.
 
 Reload X-Plane, or the plugins, or the python scripts and you are all set.
 
-When X-Plane is running and a plane is loaded, check the _Plugin_ menu item at the top.
+When X-Plane is running and a plane is loaded, check the _Plugins_ menu item at the top.
 It should now contain a _Follow the greens..._ menu item.
 
 ![Plugin Menu](images/menu.png)
-
-For Release 1 users on X-Plane 12 with a recent version of XPPython3,
-FtG is a drop-in replacement.
 
 
 # Usage
@@ -82,14 +91,13 @@ FtG is a drop-in replacement.
 To use Follow the greens at an airport facility, there is a little constrain on the airport:
 It must have a network of taxiways defined in its airport X-Plane file.
 Most airports do.
-
 If an airport does not have a network of taxiways defined in X-Plane,
 Follow the greens will tell you so and terminate.
 
-To start follow the greens, you will need to supply some information to it to start.
+To start follow the greens, you will need to supply some information.
 
 If you are at a stand location, ready for departure, you will need to supply the runway you are taking-off from.
-Follow the greens will light the path the the entrane of the runway.
+Follow the greens will light the path to the entrance of the runway.
 
 ![Departure dialog](images/departure.png)
 
@@ -98,8 +106,6 @@ It must be a stand location known from X-Plane for that airport.
 Follow the greens will light the way to the stand.
 
 ![Arrival dialog](images/arrival.png)
-
-If you added plugins like [AutoDGS](https://forums.x-plane.org/forums/topic/290222-autodgs-dgs-marshaller-or-vdgs-for-every-gateway-airport/#comment-2569544), you will be guided at the stand by a marshall or a VDG system.
 
 If your path come across an holding position, FtG will indicate the holding position with a red bar of lights
 across the taxiway.
@@ -125,8 +131,8 @@ That is it. Nothing more. Nothing less.
 After reading [this paper](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
 I found it amusing to incorporate their model and suggestions into FtG.
 
-*Release 2 adds a monitoring of your current taxi speed,
-and a variation of the rabbit light speed and length to invite you to either expedite your taxi ride,
+*Release 2 adds monitoring of your current taxi speed,
+and adjustments of the rabbit light speed and length to invite you to either expedite your taxi ride,
 or, on the opposite, to slow down before a sharp turn or stop.*
 
 (The _«rabbit light»_ is the pulsating light in front of the aircraft.)
@@ -141,12 +147,12 @@ And monitor your brakes temperature.
 
 Please notice the « overhype » with taxi _4D_ trajectories 🤣.
 FtG 1 is 2D (lateral guidance on the ground...), FtG 2 adds time information to get you there on time, that’s just a third dimension.
-FtG won’t ask you to fly to your holding position.
-(🤔 we may here have a definite path for improvement in a future release.)
+FtG won’t ask you to fly to your holding position. Yet.
+(🤔 We may here have a definite path for improvement in a future release.)
 
 Nowadays you know, you don’t sell anything if it does not have AI or 4D in its name.
-FtG 2.0 is therefore 4D compliant, with `altitude=0` all the way.
-There is absolutely not AI, just HFAB (human fun and bugs).
+FtG 2.0 is therefore 4D, with `altitude=0` all the way 😇.
+There is absolutely not AI, just HFAB (human fun and bugs, Claude did not even help me.).
 
 
 # Preference Parameters
@@ -162,7 +168,7 @@ It is a [TOML](https://toml.io/en/) formatted file.
 
 An empty preference file `followthegreens.prf` is created in `<X-Plane 12 Folder> / Output / preferences `
 on the first start.
-You can insert yourr preferences there.
+You can add your preferences there.
 
 Here is an example of the content of a typical preference file.
 
@@ -218,6 +224,16 @@ If set to `0`, all lights are lit up to the next stop bar, or to the end of the 
 If you want no light ahead of the rabbit lights, set it to `1`.
 
 
+## Use Threshold
+
+Normally, FtG4D will guide you to the threshold of the runway.
+If you'd rather go the the extreme begining of the runway, set it to false:
+
+```
+USE_THRESHOLD = false
+```
+
+
 ## Runway Light Intensity Control
 
 While FtG rabbit runs, all runway lights are dimmed to a preference value:
@@ -231,7 +247,7 @@ RUNWAY_LIGHT_LEVEL_WHILE_FTG = "lo"
 ```
 
 all runway lights will be dimmed to low while FtG is running.
-Even completely OFF if you choose to do so.
+Even completely _off_ if you choose to do so.
 Possible values are `lo`, `med`, `hi` and `off`.
 
 Runway light luminosity will be restored to its original value after FtG terminates.
@@ -250,14 +266,14 @@ standard X-Plane commands:
 The goal of Release 2 is to supply taxi speed information to the pilot in addition to the direction (follow the greens).
 The speed information is supplied with two _indicators_:
 
-- The *speed of the «rabbit»* (the faster the rabbit, the faster you should run to catch it up, the slower the rabbit, the slower you should go.)
+- The *speed of the «rabbit»* light (the faster the rabbit, the faster you should run to catch it up, the slower the rabbit, the slower you should go.)
 - The *length of the rabbit run* (the longer the rabbit, the more you can keep up with that speed, do not expect speed change.)
 
 
 The control of the speed works as follow:
 
 From the position of the aircraft, the distance to the next significan turn,
-and the type of the aircraft (if available), a speed range is estimated (min value, max value).
+and the type of the aircraft (if available), a _speed range_ is estimated (min value, max value).
 
 - If the aircraft is at or below the minimum range speed, the rabbit will propose to accelerate (run faster). This is indicated by a faster rabbit sequence.
 - If the aircraft is at or above the maximum range speed, the rabbit will propose to slow down. This is indicated by a slower rabbit sequence.
@@ -276,7 +292,7 @@ RABBIT_LENGTH = 10  # number of lights that blink in front of aircraft
 RABBIT_DURATION = 0.2  # sec duration of "off" light in rabbit
 ```
 
-Setting the `RABBIT_DURATION` to `0` (number zero) will disable the rabbit,
+Setting the `RABBIT_LENGTH` to `0`, or `RABBIT_DURATION` to `0` (number zero) will disable the rabbit,
 just leaving the entire path or a few static lights ahead.
 
 You can manually adjust rabbit speed and length with the following FtG commands:

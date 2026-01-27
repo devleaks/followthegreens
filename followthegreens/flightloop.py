@@ -333,8 +333,6 @@ class FlightLoop:
             logger.debug(msg)
             self.old_msg2 = msg
 
-        logger.debug()
-
         if self.rabbitMode != mode:
             self.rabbitMode = mode
         # logger.debug(f"..done ({advise})")

@@ -140,7 +140,8 @@ It is equivalent to selecting X-Plane Plugin menu entry.
 
 ## Release 2
 
-- [2.2.1](https://github.com/devleaks/followthegreens/releases) - ??-??-2026 - First public Release 2. Monitoring aircraft speed, recommending target speed range for taxiing, better routing.
+- [2.2.0](https://github.com/devleaks/followthegreens/releases) - ??-??-2026 - Follow the greens monitors aircraft taxi speed and advise to speed up or slow down. better routing.
+
 - ... (numerous development releases with little interest for production system...)
 - 2.0.0 - 29-DEC-2025 - Added hooks for FtG _4D_.
 
@@ -148,6 +149,7 @@ It is equivalent to selecting X-Plane Plugin menu entry.
 ## Release 1
 
 - [1.7.0](https://github.com/devleaks/followthegreens/releases/tag/1.7.0) - 14-JAN-2026 - Last Release 1 version (will only provide critical fixes).
+
 - 1.6.6 - 21-FEB-2024 - Added Cancel and OK (finish, bye, etc.) commands
 - ...
 - 1.0.0 - 01-APR-2021 - Initial release.
