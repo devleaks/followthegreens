@@ -31,8 +31,8 @@ X-Plane yellow painted coach arrows on taxiways are fine, useful, but look too a
 Follow the greens is an existing system used at a handful airports.
 But now, thanks to this plugin, even your local muni can get Follow the greens _(at no cost)_.
 
-![FtG Views](images/no-ftg.png)
-![FtG Views](images/with-ftg.png)
+![FtG Views](images/ex1-off.png)
+![FtG Views](images/ex1-on.png)
 
 
 ## 4D
@@ -157,6 +157,9 @@ FtG won’t ask you to fly to your holding position. Yet.
 Nowadays you know, you don’t sell anything if it does not have AI or 4D in its name.
 FtG 2.0 is therefore 4D, with `altitude=0` all the way 😇.
 There is absolutely not AI, just HFAB (human fun and bugs, Claude did not even help me.).
+
+![FtG Views](images/ex2-off.png)
+![FtG Views](images/ex2-on.png)
 
 
 # Preference Parameters
