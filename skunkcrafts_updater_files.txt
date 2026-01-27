@@ -11,6 +11,8 @@ followthegreens/globals.py
 followthegreens/graph.py
 followthegreens/lights/amber.obj
 followthegreens/lights/green.obj
+followthegreens/lights/greeen.obj
+followthegreens/lights/greeen.png
 followthegreens/lights/lights.png
 followthegreens/lights/off_light.obj
 followthegreens/lights/on_light.obj

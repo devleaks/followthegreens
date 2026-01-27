@@ -21,7 +21,7 @@ theme:
     toggle:
       icon: material/weather-night
       name: Switch to system preference
-  logo: x-plane.svg
+  logo: ftg4d.svg
 
 nav:
 - Welcome: index.md

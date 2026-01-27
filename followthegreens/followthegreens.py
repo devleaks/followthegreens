@@ -4,6 +4,7 @@
 import xp
 import os
 import tomllib
+from random import randint
 from datetime import datetime, timedelta
 from textwrap import wrap
 
@@ -18,6 +19,7 @@ from .nato import phonetic, toml_dumps
 
 PREFERENCE_FILE_NAME = "followthegreens.prf"  # followthegreens.prf
 VERSION = "VERSION"
+
 
 class FollowTheGreens:
 
@@ -38,10 +40,21 @@ class FollowTheGreens:
         self.zuluTime = xp.findDataRef("sim/time/zulu_time_sec")
         self.localTime = xp.findDataRef("sim/time/local_time_sec")
         self.localDay = xp.findDataRef("sim/time/local_date_days")
+        self.session = randint(1000, 9999)
 
         logger.info("\n\n")
-        logger.info("*-*" * 35)
-        logger.info(f"Starting new FtG session {__VERSION__} at {datetime.now().astimezone().isoformat()}\n")
+        logger.info(
+            " ".join(
+                [
+                    "When sending session for debugging purpose,",
+                    "you can cut the file above the 'Starting new FtG session'",
+                    "and after 'FtG session ended' with matching session identifier",
+                    f"(session id = {self.session})",
+                ]
+            )
+        )
+        logger.info("-=" * 50)
+        logger.info(f"Starting new FtG session {__VERSION__} at {datetime.now().astimezone().isoformat()} (session id = {self.session})")
         logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}\n")
 
         self.prefs = {}
@@ -83,6 +96,7 @@ class FollowTheGreens:
             with open(filename, "rb") as fp:
                 try:
                     prefs = tomllib.load(fp)
+                    logger.info(f"preferences file {filename} {loading}ed")
                     if VERSION not in prefs:
                         logger.warning("preferences file contains no version information")
                     else:
@@ -93,7 +107,6 @@ class FollowTheGreens:
                         self.prefs = self.prefs | prefs
                 except:
                     logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
-            logger.info(f"preferences file {filename} {loading}ed")
             logger.debug(f"preferences: {self.prefs}")
         else:
             logger.debug(f"no preferences file {filename}")
@@ -136,8 +149,8 @@ class FollowTheGreens:
 VERSION = "{__VERSION__}"
 #
 #
-# To set a preferred value, place the name of the preference = <value> on a new line.
 # Lines that starts with # are comments.
+# To set a preferred value, place the name of the preference = <value> on a new line.
 # Example:
 #LOGGING_LEVEL = 10
 # Remove the # character from the above line to enable debugging information logging.
@@ -252,7 +265,7 @@ VERSION = "{__VERSION__}"
         # Either a runway for departure or a parking for arrival.
         if not self.airport or (self.airport.icao != airport):  # we may have changed airport since last call
             airport = Airport(icao=airport, prefs=self.prefs)
-            # Info 4 to 8 in airport.prepare()
+            # Info 4 to 9 in airport.prepare()
             status = airport.prepare()  # [ok, errmsg]
             if not status[0]:
                 logger.warning(f"airport not ready: {status[1]}")
@@ -263,9 +276,8 @@ VERSION = "{__VERSION__}"
 
         logger.info(f"airport {self.airport.icao} ready")
 
-        self.move = self.airport.guessMove(self.aircraft.position())
         # Info 10
-        logger.info(f"guessing {self.move}")
+        self.move = self.airport.guessMove(self.aircraft.position())
         return self.ui.promptForDestination()
 
     def newGreen(self, destination):
@@ -294,6 +306,8 @@ VERSION = "{__VERSION__}"
             return self.ui.tryAgain(route)
 
         # Info 12
+        logger.info(f"route to {destination}: {route}")
+
         pos = self.aircraft.position()
         hdg = self.aircraft.heading()
         gsp = self.aircraft.speed()
@@ -442,8 +456,8 @@ VERSION = "{__VERSION__}"
 
         # Info 16
         logger.info(f"terminated: {reason}")
-        logger.info(f"FtG session ended at {datetime.now().astimezone().isoformat()}")
-        logger.info("==" * 50)
+        logger.info(f"FtG session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session})")
+        logger.info("-=" * 50)
         logger.info("\n\n")
         return [True, ""]
 

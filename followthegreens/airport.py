@@ -74,27 +74,29 @@ class Runway(Line):
         logger.debug(f"runway has {len(candidates)} vertices in buffering zone (width={RUNWAY_BUFFER_WIDTH}m)")
         return candidates
 
-    def firstEntry(self, graph: Graph):
+    def firstEntry(self, graph: Graph, use_threshold: bool = False):
         # return vertex that this on taxiway network, that is NOT a on a runway edge
         # and that is the closest to runway threshold
         # Select vertices from segments that are not runway
         # Select vertices that are "inside" a buffer around the runway
         # Select the vertex closest to the start or threshold
         candidates2 = self.runwayExits(graph=graph)
+        contact = self.threshold if use_threshold else self.start
+        contact_str = "threshold" if use_threshold else "begining of runway"
         # 2. keep closest to threshold
         closest = None
         shortest = math.inf
         for v in candidates2:
-            d = distance(v, self.threshold)
+            d = distance(v, contact)
             if d < shortest:
                 shortest = d
                 closest = v
         if closest is not None:
             self.first_exit = closest
-            logger.debug(f"entry closest to threshold {closest.id} at {round(shortest, 2)}m from threshold")
+            logger.debug(f"entry closest to {contact_str} {closest.id} at {round(shortest, 2)}m from {contact_str}")
             return [closest.id, shortest]
-        self.first_exit = self.threshold
-        logger.debug("entry closest to threshold not found, using threshold")
+        self.first_exit = contact
+        logger.debug(f"entry closest to {contact_str} not found, using {contact_str}")
         return None
 
     def nextExit(self, graph: Graph, pos: tuple, destination: Vertex) -> Tuple[str, float] | None:
@@ -195,9 +197,13 @@ class Airport:
 
         # PREFERENCES - Fetched by LightString
         # Set sensible default value from global preferences
+        self.use_threshold = get_global("USE_THRESHOLD", self.prefs)
+        if self.use_threshold is None:
+            self.use_threshold = True
         self.distance_between_taxiway_lights = get_global(AIRPORT.DISTANCE_BETWEEN_LIGHTS.value, self.prefs)  # meters, for show_taxiways()
         self.distance_between_green_lights = get_global(AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value, self.prefs)  # meters for follow_the_greens()
         self.rabbit_speed = get_global(RABBIT.SPEED.value, self.prefs)  # seconds
+        # Info 4
         # Fine tune for specific airport(s)
         self.set_preferences()
         logger.debug(
@@ -531,13 +537,17 @@ class Airport:
         return [False, None]
 
     def guessMove(self, coord) -> MOVEMENT:
+        # Info 10
         onRwy, runway = self.onRunway(coord)
         if onRwy:
-            logger.debug("on runway")
+            logger.info("aircraft appears to be on runway, assuming arrival")
             return MOVEMENT.ARRIVAL
         ret = self.findClosestRamp(coord)
         if ret[1] < DISTANCE_TO_RAMPS:  # meters, we are close to a ramp.
-            logger.debug("close to a parking stand")
+            closest = ""
+            if type(ret[0]) is str:
+                closest = f" close to stand {ret[0]}"
+            logger.info(f"aircraft appears to be on apron{closest}, assuming departure")
             return MOVEMENT.DEPARTURE
         return MOVEMENT.ARRIVAL
 
@@ -634,7 +644,12 @@ class Airport:
                     # this is currently equivalent to searching vertex closest to threshold like done right after...
                     # entry = runway.firstEntry(graph=self.graph)
                     # ...so we do not do it now. We'll refine the firstEntry() later.
-                    dst = self.findClosestVertex(runway.threshold.coords())
+                    if self.use_threshold:
+                        logger.debug("departure destination: using runway threshold")
+                        dst = self.findClosestVertex(runway.threshold.coords())
+                    else:
+                        logger.debug("departure destination: using end of runway")
+                        dst = self.findClosestVertex(runway.start.coords())
                 else:
                     return (False, f"We could not find runway {destination}.")
             elif destination in self.holds.keys():
@@ -854,11 +869,12 @@ class Route:
         for i in range(len(self.route) - 1):
             e = self.graph.get_edge(self.route[i], self.route[i + 1])
             v = self.graph.get_vertex(self.route[i])
-            v.setProp("taxiway-width", e.width_code)
+            v.setProp("taxiway-width", e.width_code.value if e.width_code is not None else "-")
             v.setProp("ls", i)
             self.edges.append(e)
         logger.debug(f"route (vtx): {self}.")
         logger.debug("route (edg): " + "-".join([e.name for e in self.edges]))
+        logger.debug("route (active): " + "-".join([e.showActives() for e in self.edges]))
         logger.debug(f"segment lengths: {[round(e.cost, 1) for e in self.edges]}")
 
     def mkVertices(self):

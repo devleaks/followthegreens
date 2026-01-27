@@ -263,7 +263,7 @@ class UIUtil:
             text = "RWY/HLD"
         else:
             self.validDestinations = self.ftg.airport.getDestinations(MOVEMENT.ARRIVAL)
-            prompt = "Please enter parking/stand/jetway number/name for arrival"
+            prompt = "Please enter stand number for arrival"
             button = "It is a departure"
             text = "RAMP"
 

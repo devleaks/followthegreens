@@ -3,6 +3,7 @@
 # Dijkstra stolen at https://www.bogotobogo.com/python/python_graph_data_structures.php
 # AStar implemented by myself.
 #
+import os
 import math
 import json
 from functools import reduce
@@ -118,23 +119,34 @@ class Edge(Line):
 
     def props(self):
         props = self.properties
-        props["stroke"] = "#aa0000"  # “taxiway”, “runway”
-        props["stroke-width"] = 1
+        props["stroke"] = "#000080"  # “taxiway”, “runway”, runway dark blue
+        props["stroke-width"] = 5
         props["stroke-opacity"] = 1
         if self.usage[0:4] == "taxi":
-            props["stroke"] = "#aaaa00"
+            props["stroke-width"] = 3
+            props["stroke"] = "#f0f080"  # yellowish
+
+            if self.has_active(TAXIWAY_ACTIVE.ARRIVAL):
+                props["stroke"] = "#00f000"  # green
+            if self.has_active(TAXIWAY_ACTIVE.DEPARTURE):
+                props["stroke"] = "#0000F0"  # blue
+            if self.has_active(TAXIWAY_ACTIVE.ILS):
+                props["stroke"] = "#ff0000"  # red
 
         if self.direction == TAXIWAY_DIRECTION.ONEWAY:
             props["stroke"] = "#00dd00"
-            props["stroke-width"] = 2
+            props["stroke-width"] = 1
+            props["stroke-style"] = "dashed"
 
+        # Meta
         props["name"] = self.name
         props["cost"] = self.cost
         props["direction"] = self.direction.value
-        props["usage"] = self.usage.value
-        props["usage2"] = self.usage2.value
-        props["width_code"] = self.width_code if self.width_code is not None else "-"
-        props["active"] = self.mkActives()
+        props["usage"] = self.usage.value  # “taxiway”, “runway”
+        props["usage2"] = self.usage2.value  # inner, “outer”, "both"
+        props["width_code"] = self.width_code.value if self.width_code is not None else "-"
+        props["active"] = self.showActives()
+        props["active-rwy"] = self.mkActives()
         return props
 
     @property
@@ -154,12 +166,6 @@ class Edge(Line):
     def is_outer_only(self):
         return self.usage2 == TAXIWAY_DIRECTION.OUTER
 
-    def mkActives(self):
-        ret = []
-        for a in self.active:
-            ret.append({a.active.value: ",".join(a.runways)})  # "ils": "12L,30R"
-        return ret
-
     def add_active(self, active, runways):
         return self.active.append(Active(active, runways))
 
@@ -171,15 +177,21 @@ class Edge(Line):
             return False
         return self.has_active(TAXIWAY_ACTIVE.DEPARTURE) or self.has_active(TAXIWAY_ACTIVE.ARRIVAL)
 
-    def opposite(self):
-        return Edge(
-            src=self.end,
-            dst=self.start,
-            cost=self.cost,
-            direction=self.direction,
-            usage=self.usage,
-            name=self.name,
-        )
+    def mkActives(self):
+        ret = []
+        for a in self.active:
+            ret.append({a.active.value: ",".join(a.runways)})  # "ils": "12L,30R"
+        return ret
+
+    def showActives(self) -> str:
+        ret = ""
+        if self.has_active(TAXIWAY_ACTIVE.ARRIVAL):
+            ret = ret + "/A"
+        if self.has_active(TAXIWAY_ACTIVE.DEPARTURE):
+            ret = ret + "/D"
+        if self.has_active(TAXIWAY_ACTIVE.ILS):
+            ret = ret + "/I"
+        return ret.strip("/")
 
 
 class Graph:  # Graph(FeatureCollection)?
@@ -236,10 +248,15 @@ class Graph:  # Graph(FeatureCollection)?
             mi = min(mi, v.cost)
             ma = max(ma, v.cost)
         logger.debug(f"{len(self.edges_arr)} edges: {s}, cost=[{round(mi, 2)}, {round(ma, 2)}]")
+        if logger.level < 10:
+            fn = os.path.join(os.path.dirname(__file__), "..", "ftg_tn.geojson")
+            with open(fn, "w") as fp:
+                print(self, file=fp)
+            logger.debug(f"taxiway network saved in {fn}")
 
     def features(self):
         def add(arr, v):
-            arr.append(v.feature(self))
+            arr.append(v.feature())
             return arr
 
         return reduce(add, self.edges_arr, [])

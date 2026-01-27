@@ -1,9 +1,12 @@
 
 # Current, X-Plane 12 Only
 
-(Releases 2.0.0 to 2.2.0 are internal development releases.)
+- [2.2.0](https://github.com/devleaks/followthegreens/releases) - XX-XXX-2026 - Follow the greens monitors aircraft taxi speed and advise to speed up or slow down.
 
-- [2.1.20](https://github.com/devleaks/followthegreens/releases) - 23-JAN-2026 - Monitoring aircraft speed, recommending target speed range from position to next turn.
+
+## Releases 2.0.0 to 2.2.0 are internal development releases
+
+- [2.1.21](https://github.com/devleaks/followthegreens/releases) - 26-JAN-2026 - Monitoring aircraft speed, recommending target speed range from position to next turn.
 
 - ... (development intermediate commits)
 - 2.1.0 - 07-JAN-2026 - Estimate optimal speed range from distance to next significant turn.
@@ -14,11 +17,8 @@
 
 # Older releases, X-Plane 11, X-Plane 12
 
-https://github.com/devleaks/followthegreens/releases/tag/1.7.0
-
 - [1.7.0](https://github.com/devleaks/followthegreens/releases/tag/1.7.0) - 14-JAN-2026 - Last Release 1 version (will only provide critical fixes).
 
-- 1.6.7 - 21-FEB-2024 - Added skunkcrafts updater files
 - 1.6.6 - 21-FEB-2024 - Added Cancel and OK (finish, bye, etc.) commands
 - 1.6.5 - 20-FEB-2024 - Now opening all files as UTF-8 files. Code blackened
 - 1.6.3 - 02-JAN-2024 - Added «clearance received» command
@@ -38,10 +38,3 @@ https://github.com/devleaks/followthegreens/releases/tag/1.7.0
 - 1.1.0 - 06-APR-2021 - Green lights appears progressively in front of the plane
 - 1.0.1 - 05-APR-2021 - Reset LastLit in flightloop
 - 1.0.0 - 01-APR-2021 - Initial release
-
-# Future
-
-These are not released yet.
-
-- 2.2.0 - ??-???-???? - Initial Follow the greens 4D distribution
-- 2.3.0 - ??-???-???? - Estimate braking distance for different aircraft type/size/weight, finer speed range recommendation.

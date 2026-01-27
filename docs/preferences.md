@@ -11,15 +11,12 @@ degrade X-Plane overall performances, even make X-Plane crash in some instances.
 
 Preferences are read on startup of FtG, each time it is called for a new FtG guidance session.
 
-If the preference file
-
-`<X-Plane 12 Folder> / Resources / plugins / PythonPlugins / followthegreens / followthegreens.prf`
-
-is found, it is used. If not found there, FtG tries to open the following preference file:
+FtG opens the following preference file:
 
 `<X-Plane 12 Folder> / Output / preferences / followthegreens.prf`
 
 If not found, there simply won't be any preference set up.
+FtG will create an empty file at that location for later use.
 
 If a preference file is found, loaded preferences are logged in the ftglog.txt file.
 
@@ -50,14 +47,13 @@ Global preferences are set at the highest level and apply to the entire FtG syst
 Airports may have particular setup for FtG.
 The following preferences can be set at an individual airport level:
 
-1. Distance between taxiway center lights (Expressed in meters.)
+1. Distance between taxiway center lights (expressed in meters.)
 1. Rabbit speed, including completely disabled by setting the speed to `0`. (Expressed in fraction of a second; would be the same for all aicrafts.)
-1. Rabbit length (Would be the same for all aicrafts.)
+1. Rabbit length (would be the same for all aicrafts.)
 1. Distance between lights when illuminating the whole taxiway network (Show taxiway, expressed in meters.).
 
-
-To adjust preferences for an airport, use the following snippet.
-Please notice the use of the airport ICAO code in the header part.
+To adjust preferences for a precise airport, use the following snippet.
+Please notice the use of the airport ICAO code in the section part.
 
 ```
 [Airports.EBBR]
@@ -70,6 +66,7 @@ RABBIT_LENGTH = 100  # meters
 DISTANCE_BETWEEN_GREEN_LIGHTS = 12  # meters
 ```
 
+
 # Aircraft Preferences
 
 The following preferences are set depending on the detected aircraft type:
@@ -80,14 +77,14 @@ The following preferences are set depending on the detected aircraft type:
 
 These preferences are always applied, unless a global preference has been imposed.
 
-For aircraft preferences, length must be expressed "physically", with metric units:
+TO adjust aircraft preferences, length must be expressed "physically", with metric units:
 
 For example, for a 40 meter aircraft (A320, B737), rabbit length should be 80m in front of the aircraft,
 and lights ahead another 50 meters ahead of the rabbit.
 
 The reason to express aircraft requirements in physical units is that the number of lights
 to be used for the rabbit is dependent on other paramters like the distance between lights,
-a parameter that may vary from airport to airport, and not related to an aircraft.
+a parameter that may vary from airport to airport, and is not related to an aircraft.
 
 It is possible to adjust the preferences for an entire aircraft category (class `A` to `F`),
 or for a specific aircraft ICOA identifier.

@@ -141,3 +141,13 @@ Thanks a lot for X-Plane. We have a lot of fun.
 Keep it open, so we can add our fantasies to your world.
 
 Best regards.
+
+# See Also
+
+[ATC Taxi Layouts](https://developer.x-plane.com/2012/01/atc-taxi-layouts/)
+
+[Correctly Forming Taxiways and Junctions](https://developer.x-plane.com/article/correctly-forming-taxiways-and-junctions/)
+
+[ATC Taxi Route Authoring](https://developer.x-plane.com/article/atc-taxi-route-authoring/)
+
+[Airport Data (apt.dat) 12.00 File Format Specification](https://developer.x-plane.com/article/airport-data-apt-dat-12-00-file-format-specification/)
