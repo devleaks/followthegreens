@@ -96,6 +96,9 @@ FTG_CANCEL_COMMAND_DESC = "Cancel Follow the greens"
 FTG_OK_COMMAND = FTG_PLUGIN_ROOT_PATH + "send_ok"
 FTG_OK_COMMAND_DESC = "Send OK to Follow the greens"
 
+FTG_NEWGREENS_COMMAND = FTG_PLUGIN_ROOT_PATH + "new_greens"
+FTG_NEWGREENS_COMMAND_DESC = "New greens"
+
 STW_COMMAND = FTG_PLUGIN_ROOT_PATH + "highlight_taxiways_toggle"
 STW_COMMAND_DESC = "Show / hide taxiway network"
 

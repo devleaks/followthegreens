@@ -532,6 +532,19 @@ class UIUtil:
             return 1
         return 0
 
+    def newGreensReceived(self):
+        logger.info("new greens command received")
+        if not self.dest:
+            logger.info("no destination")
+            return 1
+        if self.mainWindow is not None:
+            xp.hideWidget(self.mainWindow["widgetID"])
+            nextWindow = self.ftg.newGreen(self.dest)
+            xp.showWidget(nextWindow)
+        else:
+            logger.info("no window, probably not active")
+        return 1
+
     def cancelReceived(self, comment: str):
         logger.info("cancel command received")
         xp.hideWidget(self.mainWindow["widgetID"])

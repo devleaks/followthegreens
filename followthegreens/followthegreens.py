@@ -335,7 +335,8 @@ VERSION = "{__VERSION__}"
         if newGreen:  # We had a green, and we found a new one.
             # turn off previous lights
             self.terminate("new green requested")
-            # now create new ones
+            self.session = randint(1000, 9999)
+            logger.info(f"Starting new FtG session for greener greens (session id = {self.session})")
 
         # logger.debug(f"got route: {route}.")
         self.destination = destination
@@ -473,9 +474,12 @@ VERSION = "{__VERSION__}"
 
         # Info 16
         logger.info(f"terminated: {reason}")
-        logger.info(f"FtG session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session})")
-        logger.info("-=" * 50)
-        logger.info("\n\n")
+        if reason == "new green requested":
+            logger.info(f"FtG session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session}) for greener green")
+        else:
+            logger.info(f"FtG session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session})")
+            logger.info("-=" * 50)
+            logger.info("\n\n")
         return [True, ""]
 
     def hourOfDay(self):
