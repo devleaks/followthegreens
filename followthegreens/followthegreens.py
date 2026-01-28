@@ -34,9 +34,6 @@ class FollowTheGreens:
         self.move: MOVEMENT | None = None  # departure or arrival, guessed first, can be changed by pilot.
         self.destination = None  # Handy
 
-        self.ui = UIUtil(self)  # Where windows are built
-        self.flightLoop = FlightLoop(self)  # where the magic is done
-
         self.airport_light_level = xp.findDataRef(AMBIANT_RWY_LIGHT_VALUE)  # [off, lo, med, hi] = [0, 0.25, 0.5, 0.75, 1]
         self.zuluTime = xp.findDataRef("sim/time/zulu_time_sec")
         self.localTime = xp.findDataRef("sim/time/local_time_sec")
@@ -44,6 +41,7 @@ class FollowTheGreens:
         self.session = randint(1000, 9999)
 
         logger.info("\n\n")
+        logger.info("-=" * 50)
         logger.info(
             " ".join(
                 [
@@ -54,12 +52,15 @@ class FollowTheGreens:
                 ]
             )
         )
-        logger.info("-=" * 50)
         logger.info(f"Starting new FtG session {__VERSION__} at {datetime.now().astimezone().isoformat()} (session id = {self.session})")
         logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}\n")
 
         self.prefs = {}
         self.init_preferences()
+
+        self.ui = UIUtil(self)  # Where windows are built
+        self.flightLoop = FlightLoop(self)  # where the magic is done
+
         self.status = FTG_STATUS.INITIALIZED
 
     @property
@@ -106,9 +107,10 @@ class FollowTheGreens:
                         logger.warning("some preferences may be overwritten")
                     if len(prefs) > 0:
                         self.prefs = self.prefs | prefs
+                    # self.check_update_version(filename=filename, change=True)
                 except:
                     logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
-            logger.debug(f"preferences: {self.prefs}")
+            # logger.debug(f"preferences: {self.prefs}")
         else:
             logger.debug(f"no preferences file {filename}")
             self.create_empty_prefs()
@@ -123,6 +125,8 @@ class FollowTheGreens:
                 logger.log(ll, f"internal: debug level set to {ll}")
         else:
             logger.warning(f"invalid logging level {ll} ({type(ll)})")
+        logger.info(f"log level: {logger.level}")
+        # logger.info("You can change the logging level in the preference file by setting a interger value like so: LOGGING_LEVEL = 10")
 
         try:
             logger.debug(f"internal:\n{ '\n'.join([f'{g}: {get_global(g, preferences=self.prefs)}' for g in INTERNAL_CONSTANTS]) }'\n=====")
@@ -175,22 +179,25 @@ VERSION = "{__VERSION__}"
     def check_update_version(self, filename: str, change: bool = False):
         # Update version number in preference file if parameters still valid
         # and format is OK. This aims at auto-maintaining the preference file.
-        # Uses toml.write
-        # @todo: check parameters, if ok:
-        v = self.prefs.get(VERSION, "none")
-        if v != __VERSION__:
-            logger.warning(f"preference file version {v} and current application version {__VERSION__} differ")
-            if change:
-                f = None
-                with open(filename, "r") as fp:
-                    f = re.sub(r"^VERSION\s*=\s*\"([1-9]+\.[0-9]+\.[0-9]+)\"\s*$", f'VERSION = "{__VERSION__}"\n', fp.read(), flags=re.MULTILINE)
-                if type(f) is str and f != "":
-                    with open(filename, "w") as fp:
-                        print(f, file=fp)
-                        logger.warning(f"preference file updated to version {__VERSION__}")
+        # @todo: check parameters, if ok in new version.
+        NO_VERSION = "none"
+        v = self.prefs.get(VERSION, NO_VERSION)
+        if v == __VERSION__:
+            return
+        logger.warning(f"preference file version {v} and current application version {__VERSION__} differ")
+        if change:
+            f = None
+            with open(filename, "r") as fp:  # should replace literal...
+                f = re.sub(r"^VERSION\s*=\s*\"([1-9]+\.[0-9]+\.[0-9]+)\"\s*$", f'{VERSION} = "{__VERSION__}"\n', fp.read(), flags=re.MULTILINE)
+            if type(f) is str and f != "":
+                with open(filename, "w") as fp:
+                    print(f, file=fp)
+                    if v == NO_VERSION:
+                        print(f'\n{VERSION} = "{__VERSION__}"\n', file=fp)
+                        logger.info(f"preference file added missing version {__VERSION__}")
+                    logger.info(f"preference file updated to version {__VERSION__}")
 
-        self.prefs["VERSION"] = __VERSION__
-        # save to fn
+        self.prefs[VERSION] = __VERSION__
         logger.debug(toml_dumps(self.prefs))
         # with open(filename, "w") as fp:
         #     print(toml_dumps(self.prefs))
@@ -252,7 +259,7 @@ VERSION = "{__VERSION__}"
         self.status = FTG_STATUS.AIRCRAFT
 
         # Info 2
-        logger.info(f"aircraft position {pos}, {hdg}")
+        logger.info(f"aircraft position ok: {pos}, heading {round(hdg, 1)}")
         airport = self.aircraft.airport(pos)
         if airport is None:
             logger.debug("no airport")

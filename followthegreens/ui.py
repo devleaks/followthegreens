@@ -506,14 +506,14 @@ class UIUtil:
         return 0
 
     def clearanceReceived(self):
-        logger.info(f"clearance command received")
+        logger.info("clearance command received")
         if self.waiting_for_clearance:
             xp.hideWidget(self.mainWindow["widgetID"])
             self.waiting_for_clearance = False
             nextWindow = self.ftg.nextLeg()
             xp.showWidget(nextWindow)
         else:
-            logger.info(f"not waiting for clearance, ignoring command")
+            logger.info("not waiting for clearance, ignoring command")
 
     def cbClose(self, inMessage, inWidget, inParam1, inParam2):
         # pylint: disable=unused-argument
@@ -533,7 +533,7 @@ class UIUtil:
         return 0
 
     def cancelReceived(self, comment: str):
-        logger.info(f"cancel command received")
+        logger.info("cancel command received")
         xp.hideWidget(self.mainWindow["widgetID"])
         self.ftg.terminate(comment)
 
