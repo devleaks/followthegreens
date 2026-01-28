@@ -5,10 +5,7 @@ from random import random
 
 import xp
 
-from .globals import logger, MOVEMENT, GOOD
-from .globals import MAINWINDOW_AUTOHIDE, MAINWINDOW_DISPLAY_TIME
-from .globals import MAINWINDOW_WIDTH, MAINWINDOW_HEIGHT
-from .globals import MAINWINDOW_FROM_LEFT, MAINWINDOW_FROM_BOTTOM
+from .globals import get_global, logger, MOVEMENT, GOOD
 
 
 # Some texts we need to recognize. May be later translated.
@@ -39,6 +36,8 @@ class UIUtil:
         self._canHide = True
         self.displayTime = 0
         self.waiting_for_clearance = False
+        self.mainwindow_autohide = get_global("MAINWINDOW_AUTOHIDE", self.ftg.prefs)
+        self.mainwindow_display_time = get_global("MAINWINDOW_DISPLAY_TIME", self.ftg.prefs)
 
     def window(self, strings, btns):
         if self.mainWindow and "widgetID" in self.mainWindow.keys():  # We create a new window each time we are called.
@@ -56,10 +55,10 @@ class UIUtil:
         self.strHeight = strHeight
         linespace = 2.0
 
-        self.wLeft = MAINWINDOW_FROM_LEFT
-        self.wTop = MAINWINDOW_FROM_BOTTOM + MAINWINDOW_HEIGHT + len(strings) * int(linespace * self.strHeight)
-        self.wRight = MAINWINDOW_FROM_LEFT + MAINWINDOW_WIDTH
-        self.wBottom = MAINWINDOW_FROM_BOTTOM
+        self.wLeft = get_global("MAINWINDOW_FROM_LEFT", self.ftg.prefs)
+        self.wBottom = get_global("MAINWINDOW_FROM_BOTTOM", self.ftg.prefs)
+        self.wTop = self.wBottom + get_global("MAINWINDOW_HEIGHT", self.ftg.prefs) + len(strings) * int(linespace * self.strHeight)
+        self.wRight = self.wLeft + get_global("MAINWINDOW_WIDTH", self.ftg.prefs)
         widgetCenter = int(self.wLeft + (self.wRight - self.wLeft) / 2)
 
         widgetWindow["widgetID"] = xp.createWidget(
@@ -177,13 +176,13 @@ class UIUtil:
     def hideMainWindowIfOk(self, elapsed=0):
         # We always hide it on request, even if canHide is False
         self.displayTime += elapsed
-        if MAINWINDOW_AUTOHIDE and self.displayTime > MAINWINDOW_DISPLAY_TIME and self.canHide:
+        if self.mainwindow_autohide and self.displayTime > self.mainwindow_display_time and self.canHide:
             if SPECIAL_DEBUG:
                 logger.debug("auto hiding UI")
             self.hideMainWindow()
         else:
             if SPECIAL_DEBUG:
-                logger.debug(f"UI not allowed to hide (canHide={self.canHide}, elapsed={round(self.displayTime, 1)} < {MAINWINDOW_DISPLAY_TIME})")
+                logger.debug(f"UI not allowed to hide (canHide={self.canHide}, elapsed={round(self.displayTime, 1)} < {self.mainwindow_display_time})")
 
     def hideMainWindow(self):
         # We always hide it on request, even if canHide is False

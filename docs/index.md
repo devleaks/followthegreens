@@ -322,23 +322,7 @@ for discovery or testing for example.
 Once you'll get a feeling of the different mode, it will be magic to taxi just watching the greens.
 
 
-# Notes on Performances
-
-When inactive, FtG uses no resources.
-
-Recall that FtG is only active while it runs and during taxiing, when _fps_ is not an issue.
-
-Follow the greens uses little resources.
-
-1. Every 5 seconds or so, depending on the aircraft speed, FtG checks the aircraft position and speed and adjust greens accordingly. («aircraft flight loop») Checks occurs slightly more often if the aircraft moves fast.
-2. The rabbit flight loop» is called more often, depending on the rabbit speed. The faster the rabbit, the more pressure on X-Plane. With 0.2 seconds rabbit, FtG is _unnoticable_. Faster rabbits may impact performance.
-
-When a new green is initiated, one might expect a slight hiccup when looking for a route at a large airport with numerous taxiways.
-Hiccup should not last more than one or two seconds in this case.
-During the computation, X-Plane seems to freeze for a couple of seconds but it never last.
-
-
-### About Strict Route Search Mode
+## Strict Route Search Mode
 
 The goal of FtG is to provide a route from where the aircraft is located to a destination,
 either a runway entry, or a parking stand.
@@ -404,6 +388,22 @@ Follow the greens to proceed.
 If enabled, an additional entry is visible in the Plugins menu.
 Show taxiways is a command that will illuminate all taxiways at the current airport.
 Press the `OK` button in the dialog box or select the menu entry again to dismiss all lights.
+
+
+# Notes on Performances
+
+When inactive, FtG uses no resources.
+
+Recall that FtG is only active while it runs and during taxiing, when _fps_ is not an issue.
+
+Follow the greens uses little resources.
+
+1. Every 5 seconds or so, depending on the aircraft speed, FtG checks the aircraft position and speed and adjust greens accordingly. («aircraft flight loop») Checks occurs slightly more often if the aircraft moves fast.
+2. The rabbit flight loop» is called more often, depending on the rabbit speed. The faster the rabbit, the more pressure on X-Plane. With 0.2 seconds rabbit, FtG is _unnoticable_. Faster rabbits may impact performance.
+
+When a new green is initiated, one might expect a slight hiccup when looking for a route at a large airport with numerous taxiways.
+Hiccup should not last more than one or two seconds in this case.
+During the computation, X-Plane seems to freeze for a couple of seconds but it never last.
 
 
 # Troubleshooting

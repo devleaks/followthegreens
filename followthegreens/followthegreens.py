@@ -3,6 +3,7 @@
 #
 import xp
 import os
+import re
 import tomllib
 from random import randint
 from datetime import datetime, timedelta
@@ -171,7 +172,7 @@ VERSION = "{__VERSION__}"
                 )
             logger.info(f"preference file {filename} created")
 
-    def check_update_version(self, filename):
+    def check_update_version(self, filename: str, change: bool = False):
         # Update version number in preference file if parameters still valid
         # and format is OK. This aims at auto-maintaining the preference file.
         # Uses toml.write
@@ -179,6 +180,15 @@ VERSION = "{__VERSION__}"
         v = self.prefs.get(VERSION, "none")
         if v != __VERSION__:
             logger.warning(f"preference file version {v} and current application version {__VERSION__} differ")
+            if change:
+                f = None
+                with open(filename, "r") as fp:
+                    f = re.sub(r"^VERSION\s*=\s*\"([1-9]+\.[0-9]+\.[0-9]+)\"\s*$", f'VERSION = "{__VERSION__}"\n', fp.read(), flags=re.MULTILINE)
+                if type(f) is str and f != "":
+                    with open(filename, "w") as fp:
+                        print(f, file=fp)
+                        logger.warning(f"preference file updated to version {__VERSION__}")
+
         self.prefs["VERSION"] = __VERSION__
         # save to fn
         logger.debug(toml_dumps(self.prefs))
