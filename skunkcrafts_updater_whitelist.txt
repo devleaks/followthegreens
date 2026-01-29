@@ -20,3 +20,4 @@ followthegreens/lightstring.py|4167597500
 followthegreens/nato.py|617026325
 followthegreens/showtaxiways.py|2913088372
 followthegreens/ui.py|2631698776
+followthegreens/version.py|1717855118
