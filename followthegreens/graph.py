@@ -229,6 +229,7 @@ class Graph:  # Graph(FeatureCollection)?
         mi = 100000
         ma = 0
         s["width_code"] = 0
+        s["active"] = 0
         for v in self.edges_arr:
             if v.direction not in s:
                 s[v.direction] = 0
@@ -244,8 +245,6 @@ class Graph:  # Graph(FeatureCollection)?
             if v.usage2 not in s:
                 s[v.usage2] = 0
             s[v.usage2] = s[v.usage2] + 1
-            if "active" not in s:
-                s["active"] = 0
             if v.has_active():
                 s["active"] = s["active"] + 1
             mi = min(mi, v.cost)
@@ -360,7 +359,10 @@ class Graph:  # Graph(FeatureCollection)?
             t = e.usage.value
             if e.width_code is not None:
                 t = t + "_" + e.width_code.value
-            graph.add_edge(Edge(start, end, e.cost, e.direction.value, t, e.name))
+            e2 = Edge(start, end, e.cost, e.direction.value, t, e.name)
+            # copies extra info
+            e2.active = e.active.copy()
+            graph.add_edge(e2)
 
         logger.debug(
             f"cloned {len(graph.edges_arr)}/{len(self.edges_arr)}: width_code={width_code} (strict={width_strict}), move={move} "
