@@ -59,7 +59,7 @@ Please notice the use of the airport ICAO code in the preference section part.
 ```
 [Airports.EBBR]
 DISTANCE_BETWEEN_GREEN_LIGHTS = 8  # meters
-RABBIT_SPEED = 0.1  # seconds
+RABBIT_SPEED = 0.2  # seconds
 
 [Airports.EHAM]
 LIGHTS_AHEAD = 100  # meters
@@ -124,9 +124,9 @@ To change lights parameters for a type of light, insert the following preference
 
 ```
 [Lights.TAXIWAY_ALT]
-color = [1.0, 1.0, 0.0]
-intensity = 30
-size = 20
+color = [1.0, 1.0, 0.0]  # (r, g, b), values in [0, 1] range
+intensity = 20  # default value
+size = 20  # default value
 ```
 
 This would change the `TAXIWAY_ALT` light type to a bright yellow light.

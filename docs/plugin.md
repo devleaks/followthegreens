@@ -5,11 +5,12 @@ Follow the greens (FtG) is a (real-life) taxiway guidance system.
 It works by highlighting taxiway lights in front of the aircraft.
 The pilot only has to follow the green lights, and stop on red lights.
 
-But there is more now. There is a 4th dimension now.
+But now, there is more. There is a 4th dimension.
 
 Space. The final frontier? ghobe' (1). _Time_. The Ultimate Final Frontier.
 
-(1) No, in Klingon.
+
+(1) That's a No, in Klingon.
 
 
 # Follow the greens
@@ -35,10 +36,12 @@ Yeah, yeah, less CO2 produced too.
 
 Yeah, yeah, follow the greens is realllly green. Can't be greener. No green bashing.
 
-This plugin brings the Follow the greens concept to X-Plane as ATC and "AI" struggle to guide you on the ground.
-X-Plane yellow painted coach arrows on taxiways are fine, useful, but look too artificial.
+Follow the greens is used at a handful airports (OMDB, EGLL, EDDM, RKSI... _soon_ at EDDF).
 
-Follow the greens is an existing system used at a handful airports.
+This plugin brings the Follow the greens concept to X-Plane to guide you on the ground.
+X-Plane yellow painted coach arrows on taxiways are fine, but look too artificial.
+Follow the greens does the same thing but with a real-life existing system.
+
 But now, thanks to this plugin, even your local muni can get Follow the greens _(at no cost)_.
 
 
@@ -48,12 +51,11 @@ Yes 4D. Nowadays, you don’t sell anything if it isn’t 4D or AI-based.
 So FtG is 4D.
 
 After reading [this paper](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
-I found it amusing to incorporate their model and suggestions into FtG.
+I implemented their idea into FtG.
 
 In a nutshell, FtG will now monitor your taxi speed and invite you to adjust it.
-It will do so by adjusting the speed of the «rabbit» light in front of the aircraft,
-(the pulsating light,)
-and the length of the rabbit run.
+It will do so by adjusting the speed of the «rabbit» light (the pulsating light) in front of the aircraft,
+and the length of the rabbit «run».
 If the rabbit runs fast and far, you can safely accelerate your taxi pace.
 If the rabbit is slow and short, you must reduce your speed because you are probably nearing a sharp turn or a mandatory stop.
 
@@ -62,9 +64,9 @@ FtG 1 is 2D (lateral guidance on the ground...), FtG 2 adds time information to 
 FtG won’t ask you to fly to your holding position. Yet.
 (🤔 we may here have a definite path for improvement in a future release.)
 
+
 Follow the greens 4D is an experimental system only used at X-Plane airports.
 Yep. Even your local muni. At no cost.
-
 
 Could it be simpler?
 Follow the greens.
@@ -80,9 +82,10 @@ Release 2 is called _Follow the greens 4D_ (and may be abbreviated FtG4D).
 FtG4D adds the following improvements:
 
 - Follow the greens _rabbit_ light speed and length automagically adjusted to invite pilots to speed up or slow down taxi ride.
-- Parameters can be adjusted in a preference file.
+- Preferences can be adjusted in a file.
 - Runway light intensity can be adjusted, even turned off while FtG4D is running.
-- Routing algorithm attempt to respect taxiway network constraints (taxiway width, one ways...).
+- Improved routing algorithm attempt to respect taxiway network constraints (taxiway width, one ways...).
+- New commands to interact with FtG4D.
 - FtG4D specific log file created to help improve the plugin in case of misbehavior.
 
 
@@ -141,6 +144,21 @@ You can assign Follow the greens action to a key or button.
 It is equivalent to selecting X-Plane Plugin menu entry.
 
 
+# Help
+
+First [read the manual](https://devleaks.github.io/followthegreens/).
+
+Bug reports, comments, suggestions are always welcome.
+
+Please use the forum here (comments section),
+or the [discord server](https://discord.gg/AQjP2tWV),
+or [github issue](https://github.com/devleaks/followthegreens/issues).
+
+Taxi safely.
+
+Follow the greens.
+
+
 # Changelog
 
 ## Release 2
@@ -164,21 +182,6 @@ It is equivalent to selecting X-Plane Plugin menu entry.
 
 FtG is MIT license. Feel free to use, copy, distribute, but please do not sell.
 Fun is priceless.
-
-
-# Help
-
-First [read the manual](https://devleaks.github.io/followthegreens/).
-
-Bug reports, comments, suggestions are always welcome.
-
-Please use the forum here (comments section),
-or the [discord server](https://discord.gg/AQjP2tWV),
-or [github issue](https://github.com/devleaks/followthegreens/issues).
-
-Taxi safely.
-
-Follow the greens.
 
 
 # Weekly digest

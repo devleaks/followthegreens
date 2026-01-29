@@ -81,7 +81,7 @@ class TAXIWAY_ACTIVE(StrEnum):
 #
 # Menu entry texts
 FTG_MENU = "Follow the greens..."
-STW_MENU = "Show taxiways"  # if None, do not show menu entry for Show Taxiways, mainly used for debugging...
+STW_MENU = "Show taxiways"  # if None, do not show menu entry for Show Taxiways, mainly used for debugging. Equivalent to Developer Menu->Show airways.
 
 # Commands: Path and description
 FTG_COMMAND = FTG_PLUGIN_ROOT_PATH + "main_windown_toggle"

@@ -39,20 +39,22 @@ class ShowTaxiways(FollowTheGreens):
             if not status[0]:
                 logger.warning(f"airport not ready: {status[1]}")
                 return self.ui.sorry(status[1])
+            self.inc("taxiways_" + self.airport.icao)
         else:
             # @todo: Should check that airport already loaded is current airport...
             logger.debug(f"airport {self.airport.icao} already loaded")
 
         logger.info(f"airport {self.airport.icao}  ready")
-
         self._status = FTG_STATUS.AIRPORT
         self.lights = LightString(airport=self.airport, aircraft=self.aircraft, preferences=self.prefs)
         self._status = FTG_STATUS.READY
         self.lights.showAll(self.airport)
 
+        self.inc("show_taxiways")
         if len(self.lights.lights) == 0:
             logger.warning("no lights")
             return self.ui.sorry("We could not light taxiways.")
+        self.inc("taxiway_lights", qty=len(self.lights.lights))
 
         self.lights.printSegments()
 
@@ -95,6 +97,8 @@ class ShowTaxiways(FollowTheGreens):
             self.ui.destroyMainWindow()
             # self.ui = None
         self._status = FTG_STATUS.TERMINATED
+        self.inc("terminate_taxiways")
+        self.save_stats()
 
         # Info 16
         logger.info(f"terminated: reason {reason}.")

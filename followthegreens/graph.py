@@ -260,6 +260,7 @@ class Graph:  # Graph(FeatureCollection)?
         def add(arr, v):
             arr.append(v.feature())
             return arr
+
         fc = reduce(add, self.edges_arr, [])
         logger.debug(f"{len(fc)} features")
         return fc

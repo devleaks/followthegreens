@@ -12,10 +12,13 @@ Very much like car traffic lights.
 
 No more path or taxiway segment names to remember. Just green lights to follow.
 
-Follow the greens is part of the serious _Advanced Surface Movement Guidance and Control System_ (A-SMGCS).
+Follow the greens is part of the serious _Advanced Surface Movement Guidance and Control System_
+(A-SMGCS, See [here](https://tm3airports.com/asmgcs-design/) if interested).
 
 Please have a look at the [following video](https://vimeo.com/101564135) and search for "airport Follow the greens" to get more information.
 There is nowadays a lot more information, manufacturers, and experimental project reports to learn from.
+
+[ATRiCS TowerPad](https://vimeo.com/88129469)
 
 Follow the greens has numerous advantages discussed in the above videos, ranking to ease of use, to smoother taxi rides,
 to lower interaction with ground control.
@@ -363,6 +366,7 @@ FtG adds the follwoing commands:
 - `XPPython3/followthegreens/send_cancel`
 - `XPPython3/followthegreens/send_ok`
 - `XPPython3/followthegreens/highlight_taxiways_toggle`
+- `XPPython3/followthegreens/new_greens`
 - `XPPython3/followthegreens/bookmark`
 
 
@@ -381,6 +385,12 @@ Follow the greens to proceed.
 
 - `XPPython3/followthegreens/is_holding` dataref is meant to be used by other plugins to let them know FtG is waiting for clearance.
 - `XPPython3/followthegreens/send_clearance_ok` command be used by other plugins to signal FtG that the clearance is given.
+
+
+```
+if DatarefValue(XPPython3/followthegreens/is_holding) == 1 and clear:
+    execute Command(XPPython3/followthegreens/send_clearance_ok)
+```
 
 
 ## Show Taxiway
@@ -445,12 +455,14 @@ I did not see any stop bar.
 I surely must be entertaining for the pilot.
 Just follow the greens.
 Up to the last turn at the gate.
-
-IT was not 4D.
+It was not 4D.
 It would not adpat to circumstances like aircraft speed, or proximity to a sharp turn.
+(Search for follow the greens at https://www.pprune.org, it is ineresting to read what real pilots think.)
 
-Follow the Greens 4D is [experimental](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
-and only exist and run here!
+F
+ollow the Greens 4D is [experimental](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
+[SMGCS Level 4 compliant](https://tm3airports.com/follow-the-greens/),
+and only exist and run here in X-Plane 12+!
 
 If you have comments, or suggestions, or enhancement requests, please let us discuss on [discord](https://discord.gg/AQjP2tWV).
 
@@ -461,7 +473,7 @@ I hope FtG will make your taxi rides more enjoyable.
 
 FtG may sometimes not find a route, or show undesired behavior.
 
-FtG produces a log file named `ftglog.txt` located in python plugin folder, right next to `PI_FollowTheGrees.py` file.
+FtG produces a log file named `ftglog.txt` located in python plugin folder, right next to `PI_FollowTheGreens.py` file.
 
 In case of trouble, please always provide that file, very much like X-Plane support will ask you to provide the `log.txt` file.
 
@@ -473,8 +485,7 @@ To do so, please set the following variable in `followthegreens.prf` file:
 LOGGING_LEVEL = 10
 ```
 
-The value `10` above correspond to a python logging level (`logging.DEBUG`).
-The default value is `20` (`logging.INFO`).
+The default value is `20`. Lower value produces more logging.
 
 You can get support in the [forum thread dedicated to FtG](https://forums.x-plane.org/files/file/71124-follow-the-greens/).
 

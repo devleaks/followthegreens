@@ -99,7 +99,7 @@ def phonetic(instr: str) -> str:
     return " ".join([w if w.isalpha() and len(w) > 1 else nato_say(w) for w in str(instr).split(" ")])
 
 
-def toml_dumps(toml_dict: dict, table="") -> str:
+def toml_dumps(toml_dict: dict, table: str = "") -> str:
     # basic but sufficient for FtG
     def _dumps_value(value):
         if isinstance(value, bool):
