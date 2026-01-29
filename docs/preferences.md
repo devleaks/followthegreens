@@ -1,15 +1,15 @@
 # Advanced Preference Set up
 
 A number of FtG parameters are exposed as _Preferences_.
-It means that chaing the value of a preference will modify the behavior ans aspect of FtG.
-
+It means that chaing the value of a preference will modify the behavior and aspect of FtG.
 
 Please recall that setting inappropriate values may cause FtG to malfunction,
 degrade X-Plane overall performances, even make X-Plane crash in some instances.
 
+
 # How Preferece Works
 
-Preferences are read on startup of FtG, each time it is called for a new FtG guidance session.
+Preferences are read each time a new FtG guidance session is started.
 
 FtG opens the following preference file:
 
@@ -23,14 +23,15 @@ If a preference file is found, loaded preferences are logged in the ftglog.txt f
 
 # Preference Hierarchy
 
-Some preferences can be set a different level.
+Some preferences can be set at different level.
 For example, the length of the rabbit can be set
 
 1. At the global, FtG level,
 1. At the level of a given airport,
 1. At the level of an aircraft model.
 
-In the above example, the value of the preference is the value found at the highest level.
+In the above example, the value of the preference is the value found at the highest level,
+global first, particular last.
 
 
 # Global Preferences
@@ -53,7 +54,7 @@ The following preferences can be set at an individual airport level:
 1. Distance between lights when illuminating the whole taxiway network (Show taxiway, expressed in meters.).
 
 To adjust preferences for a precise airport, use the following snippet.
-Please notice the use of the airport ICAO code in the section part.
+Please notice the use of the airport ICAO code in the preference section part.
 
 ```
 [Airports.EBBR]
@@ -77,7 +78,7 @@ The following preferences are set depending on the detected aircraft type:
 
 These preferences are always applied, unless a global preference has been imposed.
 
-TO adjust aircraft preferences, length must be expressed "physically", with metric units:
+To adjust aircraft preferences, length must be expressed "physically", with metric units:
 
 For example, for a 40 meter aircraft (A320, B737), rabbit length should be 80m in front of the aircraft,
 and lights ahead another 50 meters ahead of the rabbit.
@@ -116,6 +117,7 @@ The different types of lights are:
 - VERTEX: Additional light added at taxiway network vertex, as published in the airport data file. Used for development mainly.
 - WARNING: Additional light, no longer used.
 - LAST: Last light of follow the greens.
+- ACTIVE: Light on a departure, arrival or ILS active segment.
 - DEFAULT: Light used by Show Taxiway to illuminate all taxiways.
 
 To change lights parameters for a type of light, insert the following preference:

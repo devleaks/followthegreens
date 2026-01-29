@@ -21,7 +21,7 @@ theme:
     toggle:
       icon: material/weather-night
       name: Switch to system preference
-  logo: ftg4d.svg
+  logo: ftg.svg
 
 nav:
 - Welcome: index.md

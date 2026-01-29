@@ -249,7 +249,7 @@ class Graph:  # Graph(FeatureCollection)?
             ma = max(ma, v.cost)
         logger.debug(f"{len(self.edges_arr)} edges: {s}, cost=[{round(mi, 2)}, {round(ma, 2)}]")
         if logger.level < 10:
-            fn = os.path.join(os.path.dirname(__file__), "..", "ftg_tn.geojson")
+            fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_tn_{self.name}.geojson")
             with open(fn, "w") as fp:
                 print(self, file=fp)
             logger.debug(f"taxiway network saved in {fn}")
@@ -556,7 +556,7 @@ class Graph:  # Graph(FeatureCollection)?
         else:
             # Including the source in the path
             route.insert(0, source)
-            logger.debug(f"route: {'-'.join(route)}")
+            logger.debug(f"route: {'-'.join([str(r) for r in route])}")
             return route
 
     def heuristic(self, a, b):  # On demand

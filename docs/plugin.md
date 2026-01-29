@@ -7,7 +7,9 @@ The pilot only has to follow the green lights, and stop on red lights.
 
 But there is more now. There is a 4th dimension now.
 
-Space. The final frontier? ghobe'. Time The Ultimate Final Frontier™.
+Space. The final frontier? ghobe' (1). _Time_. The Ultimate Final Frontier.
+
+(1) No, in Klingon.
 
 
 # Follow the greens
@@ -22,7 +24,6 @@ Very much like car traffic lights.
 Follow the greens is part of the serious _Advanced Surface Movement Guidance and Control System_ (A-SMGCS).
 
 Please have a look at the [following video](https://vimeo.com/101564135) and search for "airport Follow the greens" to get more information.
-See [http://followthegreens.com](http://followthegreens.com) if you are interested.
 There is nowaways a lot more information, manufacturers, and experimental project reports to learn from.
 
 Follow the greens has numerous advantages discussed in the above documents, ranking to ease of use, to smoother taxi rides,
@@ -61,6 +62,10 @@ FtG 1 is 2D (lateral guidance on the ground...), FtG 2 adds time information to 
 FtG won’t ask you to fly to your holding position. Yet.
 (🤔 we may here have a definite path for improvement in a future release.)
 
+Follow the greens 4D is an experimental system only used at X-Plane airports.
+Yep. Even your local muni. At no cost.
+
+
 Could it be simpler?
 Follow the greens.
 Try to catch the rabbit.
@@ -72,7 +77,7 @@ Two years since last update. It's time to dust off the plugin a bit.
 
 Release 2 is called _Follow the greens 4D_ (and may be abbreviated FtG4D).
 
-In addition to the 4rth dimension explained above, FtG4D adds the following improvements:
+FtG4D adds the following improvements:
 
 - Follow the greens _rabbit_ light speed and length automagically adjusted to invite pilots to speed up or slow down taxi ride.
 - Parameters can be adjusted in a preference file.
@@ -83,7 +88,7 @@ In addition to the 4rth dimension explained above, FtG4D adds the following impr
 
 # Installation
 
-FtG plugin is a «python plugin».
+FtG plugin is a _Python_ plugin.
 Therefore, you first need to install the [XPPython3 plugin](https://xppython3.readthedocs.io/en/latest/).
 Release 4.5 or above of the XPPython3 plugin is requested.
 Newer version of XPPython3 contains all you need to run Python plugin,
@@ -167,13 +172,14 @@ First [read the manual](https://devleaks.github.io/followthegreens/).
 
 Bug reports, comments, suggestions are always welcome.
 
-Please use the forum here,
-or [github issue](https://github.com/devleaks/followthegreens/issues),
-or the [discord server](https://discord.gg/AQjP2tWV).
+Please use the forum here (comments section),
+or the [discord server](https://discord.gg/AQjP2tWV),
+or [github issue](https://github.com/devleaks/followthegreens/issues).
 
 Taxi safely.
 
 Follow the greens.
+
 
 # Weekly digest
 

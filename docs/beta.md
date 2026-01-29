@@ -113,6 +113,14 @@ There is no garantee that strict mode will provide a route that respect all cont
 - Respect Oneway or all taxiways are twoway
 
 
+# Parameters to document:
+
+MAINWINDOW_AUTOHIDE, MAINWINDOW_DISPLAY_TIME
+MAINWINDOW_WIDTH, MAINWINDOW_HEIGHT
+MAINWINDOW_FROM_LEFT, MAINWINDOW_FROM_BOTTOM
+
+
+
 
 
 # Skunkcraft Updater

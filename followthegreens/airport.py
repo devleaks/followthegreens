@@ -4,6 +4,7 @@
 import os
 import re
 import math
+import json
 from typing import Tuple
 
 from .geo import Point, Line, Polygon, destination, distance, pointInPolygon
@@ -215,6 +216,10 @@ class Airport:
         if not status:
             return [False, f"We could not find airport named '{self.icao}'."]
 
+        # status = self.load_smooth()
+        # if not status:
+        #     return [False, f"We could not find smooth taxiway lines for airport named '{self.icao}'."]
+
         # Info 5
         logger.debug(f"Has ATC {self.hasATC()}.")  # actually, we don't care.
 
@@ -332,6 +337,45 @@ class Airport:
             aptfile.write(f"{line.linecode()} {line.content()}\n")
         aptfile.close()
 
+    def load_smooth(self):
+        fn = os.path.join(os.path.dirname(__file__), "..", f"{self.icao}.geojson")
+        data = {}
+        if not os.path.exists(fn):
+            return False
+
+        with open(fn, "r") as fp:
+            data = json.load(fp)
+        logger.debug(f"loaded {len(data['features'])} features")
+
+        # Create vertices, list edges
+        cnt = 1
+        for f in data["features"]:
+            g = f["geometry"]
+            if g["type"] == "Point":  # there shouldn't be any
+                self.smoothGraph.add_vertex(cnt, point=Point(lat=g["coordinates"][1], lon=g["coordinates"][0]), usage="taxiway")
+                cnt = cnt + 1
+            elif g["type"] == "LineString":
+                last = None
+                for p in g["coordinates"]:
+                    self.smoothGraph.add_vertex(cnt, point=Point(lat=p[1], lon=p[0]), usage="taxiway")
+                    if last is not None:
+                        cost = distance(self.smoothGraph.vert_dict[cnt - 1], self.smoothGraph.vert_dict[cnt])
+                        self.smoothGraph.add_edge(
+                            edge=Edge(
+                                src=self.smoothGraph.vert_dict[cnt - 1],
+                                dst=self.smoothGraph.vert_dict[cnt],
+                                cost=cost,
+                                direction="both",
+                                usage="taxiway",
+                                name="",
+                            )
+                        )
+                    last = self.smoothGraph.vert_dict[cnt]
+                    cnt = cnt + 1
+        # logger.debug(f"added {len(self.smoothGraph.vert_dict)} vertices, {len(self.smoothGraph.edges_arr)} edges")
+        self.smoothGraph.stats()
+        return True
+
     def stats(self):
         s = {}
         for l in self.lines:
@@ -339,15 +383,6 @@ class Airport:
                 s[l.linecode()] = 0
             s[l.linecode()] = s[l.linecode()] + 1
         logger.debug(f"airport apt.dat {len(self.lines)} lines: {dict(sorted(s.items()))}")
-
-    def smoothTaxiways(self, aptline):
-        # Create a smooth taxiway centerline network
-        # from Bézier points for strings line
-        #  - taxiway center line (1, 51)
-        #  - taxiway light line (101)
-        #  - runway safery zone green/amber lights (105) (LATER)
-        # Add Bézier curve to smoothGraph
-        self.smooth_line = self.smooth_line + 1
 
     # Collect 1201 and (102,1204) line codes and create routing network (graph) of taxiways
     def mkRoutingNetwork(self):
@@ -392,9 +427,6 @@ class Airport:
                     logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}.")
             else:
                 edge = None
-
-            if 111 <= aptline.linecode() <= 116:
-                self.smoothTaxiways(aptline)
 
         # Info 6
         self.stats()
@@ -699,12 +731,54 @@ class Airport:
             route.mkEdges()  # compute segment distances
             route.mkTurns()  # compute turn angles at end of segment
             logger.debug(f"route {route.text(destination=destination)}")
+            # sres, srte = self.mkSmoothRoute(aircraft, destination, move, use_strict_mode)
             return (True, route)
 
         return (False, "We could not find a route to your destination.")
 
-    # Returns ATC ground frequency if it exists
+    def mkSmoothRoute(self, aircraft, destination, move: MOVEMENT, use_strict_mode: bool):
+        def findClosestVertexSmooth(coord):
+            return self.smoothGraph.findClosestVertex(Point(coord[0], coord[1]))
+
+        pos = aircraft.position()
+        src = findClosestVertexSmooth(pos)
+        dst = src
+
+        if move == MOVEMENT.DEPARTURE:
+            if destination in self.runways.keys():
+                runway = self.getRunway(destination)
+                if runway is not None:  # we sure to find one because first test
+                    dstpt = runway.end  # Last "nice" turn will towards runways' end.
+                    # this is currently equivalent to searching vertex closest to threshold like done right after...
+                    # entry = runway.firstEntry(graph=self.graph)
+                    # ...so we do not do it now. We'll refine the firstEntry() later.
+                    if self.use_threshold:
+                        logger.debug("departure destination: using runway threshold")
+                        dst = findClosestVertexSmooth(runway.threshold.coords())
+                    else:
+                        logger.debug("departure destination: using end of runway")
+                        dst = findClosestVertexSmooth(runway.start.coords())
+                else:
+                    return (False, f"We could not find runway {destination}.")
+            elif destination in self.holds.keys():
+                dst = findClosestVertexSmooth(self.holds[destination].coords())
+                # dstpt: We don't know which way for takeoff.
+        else:
+            ramp = self.getRamp(destination)
+            if ramp is not None:
+                dstpt = ramp
+                dst = findClosestVertexSmooth(ramp.coords())
+            else:
+                return (False, f"We could not find parking or ramp {destination}.")
+
+        route = Route(self.smoothGraph, src[0], dst[0], move, {})
+        route.find()
+        if not route.found():  # if there were options, we try to find a route without option
+            return (False, "We could not find a smooth route to your destination.")
+        return [True, route]
+
     def hasATC(self):
+        # Returns ATC ground frequency if it exists
         self.atc_ground = None
 
         for line in self.lines:
