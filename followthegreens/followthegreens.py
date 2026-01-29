@@ -1,13 +1,17 @@
 # Follow the greens XPPYthon3 Plugin Interface
 #
 #
-import xp
 import os
 import re
 import tomllib
 from random import randint
 from datetime import datetime, timedelta
 from textwrap import wrap
+
+try:
+    import xp
+except ImportError:
+    print("X-Plane not loaded")
 
 from .version import __VERSION__
 from .globals import logger, get_global, INTERNAL_CONSTANTS, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE
@@ -19,6 +23,7 @@ from .ui import UIUtil
 from .nato import phonetic, toml_dumps
 
 PREFERENCE_FILE_NAME = "followthegreens.prf"  # followthegreens.prf
+STATS_FILE_NAME = "ftgstats.txt"
 VERSION = "VERSION"
 
 
@@ -55,6 +60,8 @@ class FollowTheGreens:
         logger.info(f"Starting new FtG session {__VERSION__} at {datetime.now().astimezone().isoformat()} (session id = {self.session})")
         logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}\n")
 
+        self.stats = {}
+        self.load_stats()
         self.prefs = {}
         self.init_preferences()
 
@@ -75,6 +82,25 @@ class FollowTheGreens:
     def status(self, status):
         self._status = status
         logger.debug(f"FtG is now {status}")
+
+    def inc(self, name: str, qty: int = 1):
+        self.stats[name] = qty if name not in self.stats else self.stats[name] + qty
+
+    def load_stats(self, filename: str = STATS_FILE_NAME):
+        fn = os.path.join(".", "Output", "logbooks", filename)  # relative to X-Plane "rott/home" folder
+        if os.path.exists(fn):
+            with open(fn, "rb") as fp:
+                try:
+                    self.stats = tomllib.load(fp)
+                    logger.info(f"loaded stats: {self.stats}")
+                except:
+                    logger.warning(f"stats file {fn} not loaded", exc_info=True)
+
+    def save_stats(self, filename: str = STATS_FILE_NAME):
+        fn = os.path.join(".", "Output", "logbooks", filename)  # relative to X-Plane "rott/home" folder
+        with open(fn, "w") as fp:
+            print(toml_dumps(self.stats), file=fp)
+            logger.info(f"stats written: {self.stats}")
 
     def init_preferences(self, reloading: bool = False):
         # Load optional preferences file (Rel. 2 onwards)
@@ -107,7 +133,7 @@ class FollowTheGreens:
                         logger.warning("some preferences may be overwritten")
                     if len(prefs) > 0:
                         self.prefs = self.prefs | prefs
-                    # self.check_update_version(filename=filename, change=True)
+                    self.check_update_version(filename=filename, change=False)
                 except:
                     logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
             # logger.debug(f"preferences: {self.prefs}")
@@ -215,6 +241,7 @@ VERSION = "{__VERSION__}"
 
         # Info 1
         logger.info("starting..")
+        self.inc("start")
         # BEGIN TEST : reloading preferences
         logger.debug("..reloading preferences..")
         self.init_preferences(reloading=True)
@@ -257,6 +284,7 @@ VERSION = "{__VERSION__}"
             return self.ui.sorry("We could not locate your aircraft.")
 
         self.status = FTG_STATUS.AIRCRAFT
+        self.inc(self.aircraft.icao)
 
         # Info 2
         logger.info(f"aircraft position ok: {pos}, heading {round(hdg, 1)}")
@@ -288,6 +316,7 @@ VERSION = "{__VERSION__}"
                 logger.warning(f"airport not ready: {status[1]}")
                 return self.ui.sorry(status[1])
             self.airport = airport
+            self.inc(self.airport.icao)
         else:
             logger.debug(f"airport {self.airport.icao} already loaded")
 
@@ -300,6 +329,7 @@ VERSION = "{__VERSION__}"
     def newGreen(self, destination):
         # What is we had a green, and now we don't?!
         # so we first make sur we find a new green, and if we do, we cancel the previous one.
+        self.inc("new_greens")
         return self.followTheGreen(destination, True)
 
     def followTheGreen(self, destination, newGreen: bool = False):
@@ -349,10 +379,11 @@ VERSION = "{__VERSION__}"
         self.status = FTG_STATUS.ROUTE
 
         self.lights = LightString(airport=self.airport, aircraft=self.aircraft, preferences=self.prefs)
-        self.lights.populate(route, onRwy)
+        self.lights.populate(route, move=self.move, onRunway=onRwy)
         if len(self.lights.lights) == 0:
             logger.debug("no lights")
             return self.ui.sorry("We could not light a route to your destination.")
+        self.inc("lights", qty=len(self.lights.lights))
 
         # Info 13
         self.lights.printSegments()
@@ -472,6 +503,9 @@ VERSION = "{__VERSION__}"
 
         self.status = FTG_STATUS.TERMINATED
 
+        self.inc("terminate")
+        self.save_stats()
+
         # Info 16
         logger.info(f"terminated: {reason}")
         if reason == "new green requested":
@@ -495,11 +529,14 @@ VERSION = "{__VERSION__}"
         l = datetime(year=u.year, month=1, day=1) + timedelta(days=d, seconds=ls)
         logger.info(f"BOOKMARK {u.isoformat()} {message}")
         logger.info(f"simulator zulu time is {z.isoformat()}, local time is {l.isoformat()}")
+        self.inc("bookmark")
 
     def disable(self):
         # alias to cancel
+        self.inc("disabled")
         return self.terminate("disabled")
 
     def stop(self):
         # alias to cancel
+        self.inc("stopped")
         return self.terminate("stopped")

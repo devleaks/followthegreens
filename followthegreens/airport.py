@@ -100,14 +100,13 @@ class Runway(Line):
         logger.debug(f"entry closest to {contact_str} not found, using {contact_str}")
         return None
 
-    def nextExit(self, graph: Graph, pos: tuple, destination: Vertex) -> Tuple[str, float] | None:
+    def nextExit(self, graph: Graph, position: Point, destination: Vertex) -> Tuple[str, float] | None:
         # return next vertex that this on taxiway network, that is NOT a on a runway edge
         # and that is the closest to position and "in front of" the position (i.e. close to end edge than position)
         # Aircraft landed, is rolling out, prompt for the greens.
         # What is the next exit in front of the aircraft suitable for routing?
         # Needs refining: left or right exit?
         # 𝑑=(𝑥−𝑥1)(𝑦2−𝑦1)−(𝑦−𝑦1)(𝑥2−𝑥1)
-        position = Point(lat=pos[0], lon=pos[1])
         candidates = self.runwayExits(graph=graph)
         pos_to_end = distance(position, self.end)
         side_needed = self.side(destination)
@@ -588,194 +587,110 @@ class Airport:
             self.ldRunways()
         return self.runways.keys()
 
-    def getRamp(self, name):
-        if not self.ramps:
-            self.ldRamps()
-        if name in self.ramps:
-            return self.ramps[name]
-        return None
-
-    def getRunway(self, name):
+    def getRunway(self, name) -> Runway | None:
         if not self.runways:
             self.ldRunways()
-        if name in self.runways:
-            return self.runways[name]
-        return None
+        return self.runways.get(name)
 
     def getRamps(self):
         if not self.ramps:
             self.ldRamps()
         return self.ramps.keys()
 
-    def getDestinations(self, mode: MOVEMENT):
+    def getRamp(self, name) -> Ramp | None:
+        if not self.ramps:
+            self.ldRamps()
+        return self.ramps.get(name)
+
+    def getDestinations(self, mode: MOVEMENT) -> list:
         if mode == MOVEMENT.DEPARTURE:
             return list(list(self.runways.keys()) + list(self.holds.keys()))
 
         return list(self.ramps.keys())
 
-    def mkRoute(self, aircraft, destination, move: MOVEMENT, use_strict_mode: bool):
+    def mkRoute(self, aircraft, destination, move: MOVEMENT, use_strict_mode: bool) -> tuple:
         # Returns (True, route object) or (False, error message)
         # From aircraft position..
-        pos = aircraft.position()
-        hdg = aircraft.heading()
-        dstpt = None
-        runway = None
         arrival_runway = None
-        if not pos:
-            logger.debug("plane could not be located")
-            return (False, "We could not locate your plane.")
-        logger.debug(f"got starting position {pos}")
-
-        if move == MOVEMENT.DEPARTURE:
-            src = self.findClosestVertex(pos)
-        else:  # arrival
-            brng = aircraft.heading()
-            speed = aircraft.speed()
-            logger.debug(f"arrival: trying vertex ahead {brng}, {speed}.")
-            src = self.findClosestVertexAheadGuess(pos, brng, speed)
-            if src is None or src[0] is None:  # tries a less constraining search...
-                logger.debug("no vertex ahead.")
-                src = self.findClosestVertex(pos)
+        if move == MOVEMENT.ARRIVAL:
+            pos = aircraft.position()
+            if not pos:
+                logger.debug("plane could not be located")
+                return (False, "We could not locate your plane.")
+            hdg = aircraft.heading()
             onRwy, arrival_runway = self.onRunway(pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg)
-            if onRwy:
-                if arrival_runway is not None:
-                    ramp = self.getRamp(destination)
-                    if ramp is not None:
-                        nextexit = arrival_runway.nextExit(graph=self.graph, pos=pos, destination=ramp)
-                        if nextexit is not None:
-                            src = nextexit
-                            logger.debug(f"Arrival: on runway {arrival_runway.name}, closest exit vertex in front is {nextexit[0]}.")
-                logger.debug(f"Arrival: on runway {arrival_runway.name}.")
-            else:
-                logger.debug("Arrival: not on runway.")
-
-        if src is None:
-            logger.debug("no return from findClosestVertex")
-            return (False, "Your plane is too far from the taxiways.")
-
-        logger.debug(f"src={src}")
-
-        if src[0] is None:
-            logger.debug("no close vertex")
-            return (False, "Your plane is too far from the taxiways.")
-
-        if src[1] > TOO_FAR:
-            logger.debug(f"plane too far from taxiways ({round(src[1], 2)}m)")
-            return (False, "Your plane is too far from the taxiways.")
-
-        logger.debug(f"got starting vertex {src}")
 
         # ..to destination
-        dst = None
-        dstpt = None  # heading after destination reached (heading of runway/takeoff or heading of parking)
+        dst_pos = None
+        dst_type = ""
         if move == MOVEMENT.DEPARTURE:
             if destination in self.runways.keys():
-                runway = self.getRunway(destination)
-                if runway is not None:  # we sure to find one because first test
-                    dstpt = runway.end  # Last "nice" turn will towards runways' end.
-                    # this is currently equivalent to searching vertex closest to threshold like done right after...
-                    # entry = runway.firstEntry(graph=self.graph)
-                    # ...so we do not do it now. We'll refine the firstEntry() later.
-                    if self.use_threshold:
-                        logger.debug("departure destination: using runway threshold")
-                        dst = self.findClosestVertex(runway.threshold.coords())
-                    else:
-                        logger.debug("departure destination: using end of runway")
-                        dst = self.findClosestVertex(runway.start.coords())
-                else:
+                dst_pos = self.getRunway(destination)
+                if dst_pos is None:  # we sure to find one because first test
                     return (False, f"We could not find runway {destination}.")
+                dst_type = "runway"
             elif destination in self.holds.keys():
-                dst = self.findClosestVertex(self.holds[destination].coords())
-                # dstpt: We don't know which way for takeoff.
+                dst_pos = self.holds[destination].coords()
+                if dst_pos is None:  # we sure to find one because first test
+                    return (False, f"We could not find hold position {destination}.")
+                dst_type = "hold"
         else:
-            ramp = self.getRamp(destination)
-            if ramp is not None:
-                dstpt = ramp
-                dst = self.findClosestVertex(ramp.coords())
-            else:
-                return (False, f"We could not find parking or ramp {destination}.")
+            dst_pos = self.getRamp(destination)
+            if dst_pos is None:
+                return (False, f"We could not find stand {destination}.")
+            dst_type = "stand"
 
-        if dst is None:
-            logger.debug("no return from findClosestVertex")
-            return (False, f"We could not find parking or ramp {destination}.")
-
-        if dst[0] is None:
-            logger.debug("no close vertex")
-            return (False, f"We could not find a taxiway near parking or ramp {destination}.")
-
-        if dst[1] > TOO_FAR:
-            logger.debug("plane too far from taxiways")
-            return (False, "Your destination is too far from the taxiways.")
-
-        logger.debug(f"got destination vertex {dst}")
-
-        # Try to find route (src and dst are vertex ids)
-        opts = {"taxiwayOnly": True}
-        route = Route(self.graph, src[0], dst[0], move, opts)
-        if use_strict_mode:
-            logger.info("searching with constraints..")
-            route.findExtended(width_code=aircraft.width_code, move=move, use_runway=arrival_runway is not None)
-            logger.debug("..done")
-        else:
-            logger.info("searching with loose constraints..")
-            # use specified algorithm
-            route.find()
-            if not route.found() and len(opts.keys()) > 0:  # if there were options, we try to find a route without option
-                # only relax oneway/twoway constraint; second attempt may work...
-                logger.debug("route not found with options, trying without option.")
-                route.options = {}
-                route.find()
+        route = Route.Find(self.graph, aircraft, arrival_runway, dst_pos, dst_type, move, use_strict_mode, self.use_threshold)
 
         if route.found():
             route.runway = arrival_runway
             route.mkEdges()  # compute segment distances
             route.mkTurns()  # compute turn angles at end of segment
             logger.debug(f"route {route.text(destination=destination)}")
-            # sres, srte = self.mkSmoothRoute(aircraft, destination, move, use_strict_mode)
             return (True, route)
 
         return (False, "We could not find a route to your destination.")
 
-    def mkSmoothRoute(self, aircraft, destination, move: MOVEMENT, use_strict_mode: bool):
-        def findClosestVertexSmooth(coord):
-            return self.smoothGraph.findClosestVertex(Point(coord[0], coord[1]))
+    # def mkSmoothRoute(self, aircraft, destination, move: MOVEMENT, use_strict_mode: bool):
+    #     def findClosestVertexSmooth(coord):
+    #         return self.smoothGraph.findClosestVertex(Point(coord[0], coord[1]))
 
-        pos = aircraft.position()
-        src = findClosestVertexSmooth(pos)
-        dst = src
+    #     pos = aircraft.position()
+    #     src = findClosestVertexSmooth(pos)
+    #     dst = src
 
-        if move == MOVEMENT.DEPARTURE:
-            if destination in self.runways.keys():
-                runway = self.getRunway(destination)
-                if runway is not None:  # we sure to find one because first test
-                    dstpt = runway.end  # Last "nice" turn will towards runways' end.
-                    # this is currently equivalent to searching vertex closest to threshold like done right after...
-                    # entry = runway.firstEntry(graph=self.graph)
-                    # ...so we do not do it now. We'll refine the firstEntry() later.
-                    if self.use_threshold:
-                        logger.debug("departure destination: using runway threshold")
-                        dst = findClosestVertexSmooth(runway.threshold.coords())
-                    else:
-                        logger.debug("departure destination: using end of runway")
-                        dst = findClosestVertexSmooth(runway.start.coords())
-                else:
-                    return (False, f"We could not find runway {destination}.")
-            elif destination in self.holds.keys():
-                dst = findClosestVertexSmooth(self.holds[destination].coords())
-                # dstpt: We don't know which way for takeoff.
-        else:
-            ramp = self.getRamp(destination)
-            if ramp is not None:
-                dstpt = ramp
-                dst = findClosestVertexSmooth(ramp.coords())
-            else:
-                return (False, f"We could not find parking or ramp {destination}.")
+    #     if move == MOVEMENT.DEPARTURE:
+    #         if destination in self.runways.keys():
+    #             runway = self.getRunway(destination)
+    #             if runway is not None:  # we sure to find one because first test
+    #                 dstpt = runway.end  # Last "nice" turn will towards runways' end.
+    #                 # this is currently equivalent to searching vertex closest to threshold like done right after...
+    #                 # entry = runway.firstEntry(graph=self.graph)
+    #                 # ...so we do not do it now. We'll refine the firstEntry() later.
+    #                 if self.use_threshold:
+    #                     logger.debug("departure destination: using runway threshold")
+    #                     dst = findClosestVertexSmooth(runway.threshold.coords())
+    #                 else:
+    #                     logger.debug("departure destination: using end of runway")
+    #                     dst = findClosestVertexSmooth(runway.start.coords())
+    #             else:
+    #                 return (False, f"We could not find runway {destination}.")
+    #         elif destination in self.holds.keys():
+    #             dst = findClosestVertexSmooth(self.holds[destination].coords())
+    #             # dstpt: We don't know which way for takeoff.
+    #     else:
+    #         ramp = self.getRamp(destination)
+    #         if ramp is not None:
+    #             dstpt = ramp
+    #             dst = findClosestVertexSmooth(ramp.coords())
+    #         else:
+    #             return (False, f"We could not find parking or ramp {destination}.")
 
-        route = Route(self.smoothGraph, src[0], dst[0], move, {})
-        route.find()
-        if not route.found():  # if there were options, we try to find a route without option
-            return (False, "We could not find a smooth route to your destination.")
-        return [True, route]
+    #     route = Route(self.smoothGraph, src[0], dst[0], None, None, move, {})
+    #     route.find()
+    #     if not route.found():  # if there were options, we try to find a route without option
+    #         return (False, "We could not find a smooth route to your destination.")
+    #     return [True, route]
 
     def hasATC(self):
         # Returns ATC ground frequency if it exists
@@ -803,12 +718,8 @@ class Airport:
 
 class Route:
     # Container for route from src to dst on graph
-    def __init__(self, graph, src, dst, move, options):
+    def __init__(self, graph):
         self.graph = graph
-        self.src = src
-        self.dst = dst
-        self.move = move
-        self.options = options
         self.route = []
         self.vertices = None
         self.edges = None
@@ -822,118 +733,17 @@ class Route:
             return "-".join(self.route)
         return ""
 
-    def _find(
-        self,
-        algorithm: ROUTING_ALGORITHMS,
-        width_code: TAXIWAY_WIDTH_CODE,
-        move: MOVEMENT,
-        respect_width: bool = False,
-        respect_inner: bool = False,
-        use_runway: bool = True,
-        respect_oneway: bool = True,
-    ):
-        # Preselect edge set with supplied constraints
-        if move != self.move:
-            logger.debug("searching for different movement")
-
-        graph = self.graph.clone(
-            width_code=width_code,
-            move=move,
-            respect_width=respect_width,
-            respect_inner=respect_inner,
-            use_runway=use_runway,
-            respect_oneway=respect_oneway,
-        )
-
-        if len(graph.edges_arr) == 0:
-            return None
-
-        # note: sometimes, self.src and self.dst vertices are not in cloned graph!
-        if graph.get_vertex(self.src) is None or graph.get_vertex(self.dst) is None:
-            return None
-
-        r = None
-        if algorithm == ROUTING_ALGORITHMS.ASTAR:
-            r = graph.AStar(self.src, self.dst)
-        else:
-            r = graph.Dijkstra(self.src, self.dst)
-
-        result = "found" if r is not None and len(r) > 2 else "failed"
-        logger.info(
-            f"{result} algorithm={algorithm}, respect_oneway={respect_oneway}, use_runway={use_runway}, respect_width={respect_width}"
-        )  # respect_inner={respect_inner}, # unused
-        return r
-
-    def findExtended(self, width_code: TAXIWAY_WIDTH_CODE, move: MOVEMENT, use_runway: bool = False):
-        # Clone orignal graph as collected from apt.dat file
-        # while relaxing some constraints during the cloning
-        # Starts with original graph, then relax constraints until route is found
-        logger.debug("started")
-        for algorithm in [ROUTING_ALGORITHMS.ASTAR, ROUTING_ALGORITHMS.DIJKSTRA]:  # try A*Star first
-            for respect_width_code in [True, False]:
-
-                if not use_runway:
-                    # Strict, do not use runways, respect oneway, respect minimal width for acf
-                    self.route = self._find(
-                        algorithm=algorithm,
-                        width_code=width_code,
-                        move=move,
-                        respect_width=respect_width_code,
-                        respect_inner=False,  # unsued anyway
-                        use_runway=False,
-                        respect_oneway=True,
-                    )
-                    if self.found():
-                        return self
-                else:
-                    logger.debug("runway can be used while taxiing, probably because we are on a runway...")
-
-                # Do not respect one ways
-                self.route = self._find(
-                    algorithm=algorithm,
-                    width_code=width_code,
-                    move=move,
-                    respect_width=respect_width_code,
-                    respect_inner=False,  # unsued anyway
-                    use_runway=True,
-                    respect_oneway=True,
-                )
-                if self.found():
-                    return self
-
-                # Use runway
-                self.route = self._find(
-                    algorithm=algorithm,
-                    width_code=width_code,
-                    move=move,
-                    respect_width=respect_width_code,
-                    respect_inner=False,  # unsued anyway
-                    use_runway=True,
-                    respect_oneway=False,
-                )
-                if self.found():
-                    return self
-
-        # We're desperate
-        logger.info(f"failed to find restricted route, trying wide search using algorithm {self.algorithm}")
-        self.options = {}
-        logger.debug("all constraints relaxed")
-        # self.route = self._find(algorithm=ROUTING_ALGORITHM, width_code=width_code, move=move) # no other restriction
-        # logger.debug(f"find extended return {self.route}, {self.graph.Dijkstra(self.src, self.dst)}")
-        return self.find()
-
-    def find(self):
-        # If requested to try AStar, rty it first, if failed, try Dijkstra
+    def _find(self, src, dst) -> bool:
+        # If requested to try AStar, try it first, if failed, try Dijkstra
         # If Dijstra fails, we really can't do anything about it.
         if self.algorithm == ROUTING_ALGORITHMS.ASTAR:
-            self.route = self.graph.AStar(self.src, self.dst)
-            if self.found():
-                return self
-            logger.info(f"failed to find route using algorithm {self.algorithm}, will try fallback algorithm Dijkstra")
-        self.route = self.graph.Dijkstra(self.src, self.dst, self.options)
-        return self
+            self.route = self.graph.AStar(src, dst)
+            logger.info(f"..failed to find route using algorithm {self.algorithm}, will try algorithm Dijkstra..")
+            return self.found()
+        self.route = self.graph.Dijkstra(src, dst)
+        return self.found()
 
-    def found(self):
+    def found(self) -> bool:
         return self.route is not None and len(self.route) > 2
 
     def mkEdges(self):
@@ -985,3 +795,191 @@ class Route:
         # else:
         #     logger.debug(f"taxi route {route_str}")
         return route_str
+
+    @classmethod
+    def Find(
+        cls,
+        graph,
+        aircraft,
+        arrival_runway: Runway | None,
+        dst_pos: Runway | Ramp | Hold,
+        dst_type: str,
+        move: MOVEMENT,
+        use_strict_mode: bool,
+        use_threshold: bool,
+    ):
+        # Returns first route that works, or a route that does not work
+        if use_strict_mode:
+            logger.info("searching restricted route..")
+            width_code = aircraft.width_code
+            for respect_width_code in [True, False]:
+                wc = "Y" if respect_width_code else "N"
+                # WY/IY/RY/OY = respect_width/respect_inner/user_runway/respect_one_way
+                if arrival_runway is None:  # not forced to use runway
+                    # Strict, do not use runways, respect oneway, respect inner/outer
+                    # subgraph = graph.clone(
+                    #     width_code=width_code,
+                    #     move=move,
+                    #     respect_width=respect_width_code,
+                    #     respect_inner=True
+                    #     use_runway=False,
+                    #     respect_oneway=True,
+                    # )
+                    # route = cls(subgraph)
+                    # if route.find(aircraft, arrival_runway, dst_pos, dst_type, move, use_threshold=use_threshold):
+                    #     logger.info(f"..found/W{wc}IYRNOY")
+                    #     return route
+                    # logger.debug("..failed..")
+
+                    # do not use runways, respect oneway
+                    subgraph = graph.clone(
+                        width_code=width_code,
+                        move=move,
+                        respect_width=respect_width_code,
+                        respect_inner=False,  # unused anyway
+                        use_runway=False,
+                        respect_oneway=True,
+                    )
+                    route = cls(subgraph)
+                    if route.find(aircraft, arrival_runway, dst_pos, dst_type, move, use_threshold=use_threshold):
+                        logger.info(f"..found/W{wc}INRNOY")
+                        return route
+                    logger.debug("..failed..")
+                    # Alternative:
+                    # route = Route.Find(subgraph, aircraft, arrival_runway, dst_pos, dst_type, move, use_strict_mode=False, use_threshold=use_threshold)
+                    # if route.found():
+                    #     logger.info(f"..found/W{wc}INRNOY")
+                    #     return route
+                    # logger.debug("..failed..")
+
+                    # do not respect one ways
+                    subgraph = graph.clone(
+                        width_code=width_code,
+                        move=move,
+                        respect_width=respect_width_code,
+                        respect_inner=False,  # unused anyway
+                        use_runway=False,
+                        respect_oneway=False,
+                    )
+                    route = cls(subgraph)
+                    if route.find(aircraft, arrival_runway, dst_pos, dst_type, move, use_threshold=use_threshold):
+                        logger.info(f"..found/W{wc}INRNON")
+                        return route
+                    logger.debug("..failed..")
+                else:
+                    logger.debug("runway can be used while taxiing, probably because we are on a runway...")
+
+                # use runway
+                subgraph = graph.clone(
+                    width_code=width_code,
+                    move=move,
+                    respect_width=respect_width_code,
+                    respect_inner=False,  # unused anyway
+                    use_runway=True,
+                    respect_oneway=True,
+                )
+                route = cls(subgraph)
+                if route.find(aircraft, arrival_runway, dst_pos, dst_type, move, use_threshold=use_threshold):
+                    logger.info(f"..found/W{wc}INRYOY")
+                    return route
+                logger.debug("..failed..")
+
+                # do not respect one ways
+                subgraph = graph.clone(
+                    width_code=width_code,
+                    move=move,
+                    respect_width=respect_width_code,
+                    respect_inner=False,  # unused anyway
+                    use_runway=True,
+                    respect_oneway=False,
+                )
+                route = cls(subgraph)
+                if route.find(aircraft, arrival_runway, dst_pos, dst_type, move, use_threshold=use_threshold):
+                    logger.info(f"..found/W{wc}INRYON")
+                    return route
+
+            # We're desperate
+            logger.info("..failed to find restricted route, trying wide search..")
+        else:
+            logger.info("searching route without restriction..")
+
+        # else, default on whole graph
+        route = cls(graph)
+        if route.find(aircraft, arrival_runway, dst_pos, dst_type, move, use_strict_mode, use_threshold):
+            logger.info("..found")
+        else:
+            logger.info("..failed (definitively)")
+        return route
+
+    def find(self, aircraft, arrival_runway: Runway | None, dst_pos: Runway | Ramp | Hold, dst_type: str, move: MOVEMENT, use_threshold: bool) -> bool:
+        # From aircraft position..
+        pos = aircraft.position()
+        if not pos:
+            logger.debug("plane could not be located")
+            return self.found()
+        pos_pt = Point(pos[0], pos[1])
+        logger.debug(f"..got starting position {pos}..")
+
+        src = None
+        if move == MOVEMENT.DEPARTURE:
+            src = self.graph.findClosestVertex(pos_pt)
+        else:  # arrival
+            brng = aircraft.heading()
+            speed = aircraft.speed()
+            logger.debug(f"arrival: trying vertex ahead {brng}, {speed}.")
+            src = self.graph.findClosestVertexAheadGuess(pos_pt, brng, speed)
+            if src is None or src[0] is None:  # tries a less constraining search...
+                logger.debug("no vertex ahead.")
+                src = self.graph.findClosestVertex(pos_pt)
+            if arrival_runway is not None and dst_type == "stand":
+                if dst_pos is not None:
+                    nextexit = arrival_runway.nextExit(graph=self.graph, position=pos_pt, destination=dst_pos)
+                    if nextexit is not None:
+                        src = nextexit
+                        logger.debug(f"Arrival: on runway {arrival_runway.name}, closest exit vertex in front is {nextexit[0]}.")
+                logger.debug(f"Arrival: on runway {arrival_runway.name}.")
+            else:
+                logger.debug("Arrival: not on runway.")
+
+        if src is None:
+            logger.debug("no return from findClosestVertex")
+            return self.found()
+        if src[0] is None:
+            logger.debug("no close vertex")
+            return self.found()
+        if src[1] > TOO_FAR:
+            logger.debug(f"aircraft too far from taxiways ({round(src[1], 2)}m)")
+            return self.found()
+        logger.debug("..got starting vertex..")
+
+        # ..to destination
+        dst = None
+        if move == MOVEMENT.DEPARTURE:
+            if dst_type == "runway":
+                if use_threshold:
+                    logger.debug("departure destination: using runway threshold")
+                    dst = self.graph.findClosestVertex(dst_pos.threshold)
+                else:
+                    logger.debug("departure destination: using end of runway")
+                    dst = self.graph.findClosestVertex(dst_pos.start)
+            elif dst_type == "hold":
+                dst = self.graph.findClosestVertex(dst_pos)
+            else:
+                logger.warning("departure destination is not a runway or a hold position")
+        else:  # arrival, dst_type == "stand"
+            if dst_type != "stand":
+                logger.warning("arrival destination is not a stand")
+            dst = self.graph.findClosestVertex(dst_pos)
+
+        if dst is None:
+            logger.debug("no return from findClosestVertex")
+            return self.found()
+        if dst[0] is None:
+            logger.debug("no close vertex")
+            return self.found()
+        if dst[1] > TOO_FAR:
+            logger.debug(f"aircraft too far from taxiways ({round(dst[1], 2)}m)")
+            return self.found()
+        logger.debug("..got destination vertex..")
+
+        return self._find(src[0], dst[0])

@@ -6,7 +6,10 @@ import json
 import os.path
 from random import randint
 
-import xp
+try:
+    import xp
+except ImportError:
+    print("X-Plane not loaded")
 
 from .geo import Point, distance, bearing, destination, convertAngleTo360, pointInPolygon
 from .globals import (
@@ -24,7 +27,7 @@ from .globals import (
     TAXIWAY_WIDTH_CODE,
 )
 
-HARDCODED_MIN_DISTANCE = 10  # meters
+HARDCODED_MIN_DISTANCE = 50  # meters
 HARDCODED_MIN_TIME = 0.1  # secs
 HARDCODED_MIN_RABBIT_LENGTH = 6  # lights
 
@@ -34,6 +37,15 @@ SPECIAL_DEBUG = False
 class LightType:
     # A light to follow, or a stopbar light
     # Holds a referece to its instance
+
+    DEFAULT_TEXTURE_CODE = 1
+    TEXTURES = [
+        "0.5  1.0  1.0  0.5",  # 0: TOP RIGHT
+        "0.0  1.0  0.5  0.5",  # 1: TOP LEFT
+        "0.5  0.5  1.0  0.0",  # 2: BOT RIGHT
+        "0.0  0.5  0.5  0.0",  # 3: BOT LEFT
+    ]
+
     def __init__(self, name, filename):
         self.name = name
         self.filename = filename
@@ -67,12 +79,6 @@ class LightType:
         returns:
             str: file name of ligght object
         """
-        TEXTURES = [
-            "0.5  1.0  1.0  0.5",  # TOP RIGHT
-            "0.0  1.0  0.5  0.5",  # TOP LEFT
-            "0.5  0.5  1.0  0.0",  # BOT RIGHT
-            "0.0  0.5  0.5  0.0",  # BOT LEFT
-        ]
         curr_dir = os.path.dirname(os.path.realpath(__file__))
         fn = os.path.join(curr_dir, "lights", name)
         fsize = round(size / 100, 2)
@@ -91,11 +97,11 @@ POINT_COUNTS    0 0 0 0
 """,
                 file=fp,
             )
-            ltext = TEXTURES[0]
+            ltext = LightType.TEXTURES[LightType.DEFAULT_TEXTURE_CODE]  # default
             if type(texture) in [list, tuple]:
                 ltext = texture
             elif type(texture) is int:
-                ltext = TEXTURES[texture]
+                ltext = LightType.TEXTURES[texture]
             ls = f"LIGHT_CUSTOM 0 1 0 {round(color[0],2)} {round(color[1],2)} {round(color[2],2)} {alpha} {fsize} {ltext} UNUSED"
             logger.debug(f"create light {name} ({size}, {intensity}): {ls}")
             for i in range(intensity):
@@ -264,6 +270,9 @@ class LightString:
         self.distance_between_lights = airport.distance_between_green_lights  # float(get_global("DISTANCE_BETWEEN_GREEN_LIGHTS", preferences=self.prefs))
         if self.distance_between_lights == 0:
             self.distance_between_lights = 10
+        self.distance_between_taxiway_lights = airport.distance_between_taxiway_lights
+        if self.distance_between_lights == 0:
+            self.distance_between_lights = 100
         self.lead_off_lights = int(float(get_global("LEAD_OFF_RUNWAY_DISTANCE", preferences=self.prefs)) / self.distance_between_lights)
         self.rwy_twy_lights = self.lead_off_lights  # initial value
 
@@ -327,6 +336,7 @@ class LightString:
                 light.position.setProp("marker-color", "#ff0000")
                 fc.append(light.position.feature())
         # logger.debug(f"added {len(self.stopbars)} stopbars")
+        logger.debug(f"{len(fc)} features")
         return fc
 
     def closestEnd(self, light, edge):
@@ -369,7 +379,7 @@ class LightString:
         self.changeRabbit(length=length, duration=speed, ahead=ahead)
         logger.info(f"rabbit mode: {mode}: {length}, {round(speed, 2)} (ahead={self.num_lights_ahead})")
 
-    def populate(self, route, onRunway=False):
+    def populate(self, route, move: MOVEMENT, onRunway: bool = False):
         # @todo: If already populated, must delete lights first
         logger.debug(f"populate: on runway = {onRunway}")
         self.route = route
@@ -415,7 +425,7 @@ class LightString:
 
             # logger.debug("dist to next: bearing: %f, distance: %f, type: %s", brng, distToNextVertex, thisEdge.usage)  # noqa: E501
 
-            if route.move == MOVEMENT.DEPARTURE and thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):
+            if move == MOVEMENT.DEPARTURE and thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):
                 # must place a stopbar
                 stopbarAt = currVertex
                 lightAtStopbar = len(thisLights)
@@ -450,7 +460,7 @@ class LightString:
             # note: if move=arrival, we should not stop on the first taxiway segment, but we may have to cross another runway further on...
             # the criteria here should be refined. test for active=arrival, and runway=runway where we landed. @todo.
             # @todo: check also for hasActive(ARRIVAL)? Or either or both?
-            if route.move == MOVEMENT.ARRIVAL and thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE) and i > self.min_segments_before_hold:  # must place a stop bar
+            if move == MOVEMENT.ARRIVAL and thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE) and i > self.min_segments_before_hold:  # must place a stop bar
                 stopbarAt = currVertex  # but should avoid placing one as plane exits runway...
                 lightAtStopbar = len(thisLights)
                 if onILSvtx:
@@ -589,12 +599,12 @@ class LightString:
             "color": [1, 1, 1],  # white
             "size": 20,
             "intensity": 20,
-            "texture": 3,
+            "texture": LightType.DEFAULT_TEXTURE_CODE,
         }
         PINK = self.prefs.get("VALENTINE", False)
         pinkfn = ""
         if PINK:
-            pinkfn = LightType.create(name="egg.obj", color=(0.9, 0.1, 0.9), size=18, intensity=10, texture=3)
+            pinkfn = LightType.create(name="egg.obj", color=(0.9, 0.1, 0.9), size=18, intensity=10, texture=LightType.DEFAULT_TEXTURE_CODE)
         self.lightTypes = {}
         for k, f in LIGHT_TYPE_OBJFILES.items():
             if PINK and k != LIGHT_TYPE.STOP:
@@ -829,7 +839,7 @@ class LightString:
             self.lights.append(Light(LIGHT_TYPE.DEFAULT, s.start, brng, cnt))
             cnt += 1
 
-            step = max(self.distance_between_lights, HARDCODED_MIN_DISTANCE)
+            step = max(self.distance_between_taxiway_lights, HARDCODED_MIN_DISTANCE)
             dist = step
             while dist < s.length():
                 pos = destination(s.start, brng, dist)

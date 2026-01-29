@@ -7,10 +7,15 @@
 from traceback import print_exc
 from typing import Any
 
-import xp
+try:
+    import xp
+except ImportError:
+    print("X-Plane not loaded")
 
-from followthegreens import __VERSION__, __NAME__, __DESCRIPTION__
 from followthegreens import (
+    __VERSION__,
+    __NAME__,
+    __DESCRIPTION__,
     FollowTheGreens,
     ShowTaxiways,
     RABBIT_MODE,
@@ -28,6 +33,8 @@ from followthegreens import (
     FTG_COMMAND_DESC,
     FTG_BOOKMARK_COMMAND,
     FTG_BOOKMARK_COMMAND_DESC,
+    FTG_NEWGREENS_COMMAND,
+    FTG_NEWGREENS_COMMAND_DESC,
     FTG_MENU,
     STW_COMMAND,
     STW_COMMAND_DESC,
@@ -75,6 +82,7 @@ class PythonInterface:
             ],
             FTG_CANCEL_COMMAND: [FTG_CANCEL_COMMAND_DESC, self.cancelCmd],
             FTG_OK_COMMAND: [FTG_OK_COMMAND_DESC, self.okCmd],
+            FTG_NEWGREENS_COMMAND: [FTG_NEWGREENS_COMMAND_DESC, self.newGreensCmd],
             FTG_BOOKMARK_COMMAND: [FTG_BOOKMARK_COMMAND_DESC, self.bookmarkCmd],
             STW_COMMAND: [STW_COMMAND_DESC, self.showTaxiwaysCmd],
         }
@@ -341,6 +349,26 @@ class PythonInterface:
                 print_exc()
         elif not self.followTheGreens:
             self.debug("okCmd: no FollowTheGreens running", force=True)
+
+        return 0
+
+    def newGreensCmd(self, commandRef, phase: int, refCon: Any):
+        # pylint: disable=unused-argument
+        if not self.enabled:
+            self.debug("newGreensCmd: not enabled.")
+            return 0
+
+        if self.followTheGreens and phase == 0:
+            self.debug("newGreensCmd: available.")
+            try:
+                self.followTheGreens.ui.newGreensReceived()
+                self.debug("newGreensCmd: executed.")
+                return 1
+            except:
+                self.debug("newGreensCmd: exception")
+                print_exc()
+        elif not self.followTheGreens:
+            self.debug("newGreensCmd: no FollowTheGreens running", force=True)
 
         return 0
 

@@ -1,6 +1,9 @@
 # Aircraft data encapsulator
 #
-import xp
+try:
+    import xp
+except ImportError:
+    print("X-Plane not loaded")
 
 from .globals import logger, get_global, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT
 
@@ -212,7 +215,10 @@ class Aircraft:
         #       2 or more lights are not visible since under the aircraft.
         #       we take that into account by adding a full aircraft length
         #       to the desired rabbit length.
-        #       we might do the same for light ahead in the future.
+        #       we do the same for light ahead if the rabbit length is 0.
+        # May be, one day, we will allow for other preferences to be set:
+        # AIRCRAFT.BRAKING_DISTANCE, AIRCRAFT.WARNING_DISTANCE
+        #
 
         acf = self.prefs.get("Aircrafts", {})
 
@@ -245,8 +251,10 @@ class Aircraft:
             if RABBIT.SPEED.value in prefs:
                 self.rabbit_speed = prefs[RABBIT.SPEED.value]
 
-        self.rabbit_length = self.rabbit_length + acflength  # meters
-        # self.lights_ahead = self.lights_ahead + acflength  # meters
+        if self.rabbit_length == 0:  # no rabbit
+            self.lights_ahead = self.lights_ahead + acflength  # meters
+        else:
+            self.rabbit_length = self.rabbit_length + acflength  # meters
         logger.debug(
             f"AIRCRAFT rabbit (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={acflength}m)"
         )

@@ -1,0 +1,29 @@
+name: skunkcrafts_updater
+on:
+  push:
+    branches:
+      - main
+      - beta
+permissions:
+  contents: write
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.head_ref }}
+          # Value already defaults to true, but `persist-credentials` is required to push new commits to the repository.
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.x
+      - uses: actions/cache@v4
+        with:
+          key: ${{ github.ref }}
+          path: .cache
+      - run: python skunkcrafts_file_generator.py
+      - uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: Skunkcrafts Updater files generated
+          file_pattern: 'skunkcrafts_updater*'
