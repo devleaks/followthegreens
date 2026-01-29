@@ -260,8 +260,9 @@ class Graph:  # Graph(FeatureCollection)?
         def add(arr, v):
             arr.append(v.feature())
             return arr
-
-        return reduce(add, self.edges_arr, [])
+        fc = reduce(add, self.edges_arr, [])
+        logger.debug(f"{len(fc)} features")
+        return fc
 
     def add_vertex(self, node, point, usage, name=""):
         new_vertex = Vertex(node, point, usage, name="")

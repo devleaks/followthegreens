@@ -330,6 +330,7 @@ class LightString:
                 light.position.setProp("marker-color", "#ff0000")
                 fc.append(light.position.feature())
         # logger.debug(f"added {len(self.stopbars)} stopbars")
+        logger.debug(f"{len(fc)} features")
         return fc
 
     def closestEnd(self, light, edge):

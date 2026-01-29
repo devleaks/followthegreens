@@ -111,7 +111,7 @@ class FollowTheGreens:
                         logger.warning("some preferences may be overwritten")
                     if len(prefs) > 0:
                         self.prefs = self.prefs | prefs
-                    # self.check_update_version(filename=filename, change=True)
+                    self.check_update_version(filename=filename, change=False)
                 except:
                     logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
             # logger.debug(f"preferences: {self.prefs}")
