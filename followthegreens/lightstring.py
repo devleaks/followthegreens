@@ -369,7 +369,7 @@ class LightString:
         self.changeRabbit(length=length, duration=speed, ahead=ahead)
         logger.info(f"rabbit mode: {mode}: {length}, {round(speed, 2)} (ahead={self.num_lights_ahead})")
 
-    def populate(self, route, onRunway=False):
+    def populate(self, route, move: MOVEMENT, onRunway: bool = False):
         # @todo: If already populated, must delete lights first
         logger.debug(f"populate: on runway = {onRunway}")
         self.route = route
@@ -415,7 +415,7 @@ class LightString:
 
             # logger.debug("dist to next: bearing: %f, distance: %f, type: %s", brng, distToNextVertex, thisEdge.usage)  # noqa: E501
 
-            if route.move == MOVEMENT.DEPARTURE and thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):
+            if move == MOVEMENT.DEPARTURE and thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):
                 # must place a stopbar
                 stopbarAt = currVertex
                 lightAtStopbar = len(thisLights)
@@ -450,7 +450,7 @@ class LightString:
             # note: if move=arrival, we should not stop on the first taxiway segment, but we may have to cross another runway further on...
             # the criteria here should be refined. test for active=arrival, and runway=runway where we landed. @todo.
             # @todo: check also for hasActive(ARRIVAL)? Or either or both?
-            if route.move == MOVEMENT.ARRIVAL and thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE) and i > self.min_segments_before_hold:  # must place a stop bar
+            if move == MOVEMENT.ARRIVAL and thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE) and i > self.min_segments_before_hold:  # must place a stop bar
                 stopbarAt = currVertex  # but should avoid placing one as plane exits runway...
                 lightAtStopbar = len(thisLights)
                 if onILSvtx:

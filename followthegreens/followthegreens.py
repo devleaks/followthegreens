@@ -349,7 +349,7 @@ VERSION = "{__VERSION__}"
         self.status = FTG_STATUS.ROUTE
 
         self.lights = LightString(airport=self.airport, aircraft=self.aircraft, preferences=self.prefs)
-        self.lights.populate(route, onRwy)
+        self.lights.populate(route, move=self.move, onRunway=onRwy)
         if len(self.lights.lights) == 0:
             logger.debug("no lights")
             return self.ui.sorry("We could not light a route to your destination.")

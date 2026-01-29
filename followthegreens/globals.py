@@ -199,7 +199,7 @@ class TAXIWAY_WIDTH(Enum):  # Half width of taxiway in meters
 # ROUTING
 class ROUTING_ALGORITHMS(StrEnum):
     DIJKSTRA = "dijkstra"
-    ASTAR = "astart"
+    ASTAR = "astar"
 
 
 ROUTING_ALGORITHM = ROUTING_ALGORITHMS.ASTAR  # astar, dijkstra (default)

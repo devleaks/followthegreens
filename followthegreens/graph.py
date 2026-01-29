@@ -228,13 +228,16 @@ class Graph:  # Graph(FeatureCollection)?
         s = {}
         mi = 100000
         ma = 0
+        s["width_code"] = 0
         for v in self.edges_arr:
             if v.direction not in s:
                 s[v.direction] = 0
             s[v.direction] = s[v.direction] + 1
-            if v.width_code not in s:
-                s[v.width_code] = 0
-            s[v.width_code] = s[v.width_code] + 1
+            if v.width_code is not None:
+                s["width_code"] += 1
+                if v.width_code not in s:
+                    s[v.width_code] = 0
+                s[v.width_code] = s[v.width_code] + 1
             if v.usage not in s:
                 s[v.usage] = 0
             s[v.usage] = s[v.usage] + 1
@@ -416,7 +419,7 @@ class Graph:  # Graph(FeatureCollection)?
                 if d < shortest:
                     shortest = d
                     closest = n
-        logger.debug(f"{closest} at {shortest}")
+        logger.debug(f"{closest} at {round(shortest, 1)}m")
         return [closest, shortest]
 
     def findVertexInPolygon(self, polygon):
