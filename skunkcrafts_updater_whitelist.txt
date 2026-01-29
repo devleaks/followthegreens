@@ -8,7 +8,7 @@ followthegreens/flightloop.py|1956723286
 followthegreens/followthegreens.py|2123052696
 followthegreens/geo.py|3885647500
 followthegreens/globals.py|3822623494
-followthegreens/graph.py|4216937447
+followthegreens/graph.py|3484078465
 followthegreens/lights/amber.obj|2967866194
 followthegreens/lights/green.obj|833283030
 followthegreens/lights/lights.png|1859086726
