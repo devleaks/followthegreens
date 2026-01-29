@@ -12,7 +12,10 @@
 # You are too far from the taxiways.
 # We could not find a suitable route to your destination.
 #
-import xp
+try:
+    import xp
+except ImportError:
+    print("X-Plane not loaded")
 
 from .followthegreens import FollowTheGreens
 from .airport import Airport

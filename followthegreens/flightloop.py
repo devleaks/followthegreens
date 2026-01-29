@@ -3,7 +3,10 @@
 #
 from datetime import datetime, timedelta
 
-import xp
+try:
+    import xp
+except ImportError:
+    print("X-Plane not loaded")
 
 from .globals import (
     logger,

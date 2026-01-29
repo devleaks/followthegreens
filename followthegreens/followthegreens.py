@@ -1,7 +1,6 @@
 # Follow the greens XPPYthon3 Plugin Interface
 #
 #
-import xp
 import os
 import re
 import tomllib
@@ -9,7 +8,12 @@ from random import randint
 from datetime import datetime, timedelta
 from textwrap import wrap
 
-from ..version import __VERSION__
+try:
+    import xp
+except ImportError:
+    print("X-Plane not loaded")
+
+from .version import __VERSION__
 from .globals import logger, get_global, INTERNAL_CONSTANTS, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE
 from .aircraft import Aircraft
 from .airport import Airport

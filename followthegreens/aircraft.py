@@ -1,6 +1,9 @@
 # Aircraft data encapsulator
 #
-import xp
+try:
+    import xp
+except ImportError:
+    print("X-Plane not loaded")
 
 from .globals import logger, get_global, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT
 

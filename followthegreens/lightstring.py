@@ -6,7 +6,10 @@ import json
 import os.path
 from random import randint
 
-import xp
+try:
+    import xp
+except ImportError:
+    print("X-Plane not loaded")
 
 from .geo import Point, distance, bearing, destination, convertAngleTo360, pointInPolygon
 from .globals import (

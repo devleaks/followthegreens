@@ -7,7 +7,10 @@
 from traceback import print_exc
 from typing import Any
 
-import xp
+try:
+    import xp
+except ImportError:
+    print("X-Plane not loaded")
 
 from followthegreens import (
     __VERSION__,

@@ -1,10 +1,10 @@
 import os
 import binascii
 import glob
-from version import __VERSION__, __NAME__
+
+from PI_FollowTheGreens import __VERSION__, __NAME__
 
 WRITE_FILE = True
-
 
 excluded = [".DS_Store", "gensc.py", "xpdepot.py", "docs", "mkdocs.yml", "ftg_log.txt", "PI_test.py"]
 starts_with = ["docs", "out", "temp"]

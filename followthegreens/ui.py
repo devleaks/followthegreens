@@ -3,10 +3,12 @@
 #
 from random import random
 
-import xp
+try:
+    import xp
+except ImportError:
+    print("X-Plane not loaded")
 
 from .globals import get_global, logger, MOVEMENT, GOOD
-
 
 # Some texts we need to recognize. May be later translated.
 CLOSE_TEXT = "Close"

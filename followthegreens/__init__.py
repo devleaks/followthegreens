@@ -1,4 +1,4 @@
-from ..version import __VERSION__, __NAME__, __DESCRIPTION__
+from .version import __VERSION__, __NAME__, __DESCRIPTION__
 from .globals import (
     RABBIT_MODE,
     FTG_PLUGIN_ROOT_PATH,
