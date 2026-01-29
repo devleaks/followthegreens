@@ -1,8 +1,4 @@
-__NAME__ = "Follow the greens"
-__DESCRIPTION__ = "Follow the greens, a 4D X-Plane ATC A-SMGCS experience"
-
-from .version import __VERSION__
-
+from ..version import __VERSION__, __NAME__, __DESCRIPTION__
 from .followthegreens import FollowTheGreens
 from .showtaxiways import ShowTaxiways
 from .globals import FTG_IS_RUNNING, FTG_PLUGIN_ROOT_PATH, RABBIT_MODE

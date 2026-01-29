@@ -9,8 +9,10 @@ from typing import Any
 
 import xp
 
-from followthegreens import __VERSION__, __NAME__, __DESCRIPTION__
 from followthegreens import (
+    __VERSION__,
+    __NAME__,
+    __DESCRIPTION__,
     FollowTheGreens,
     ShowTaxiways,
     RABBIT_MODE,

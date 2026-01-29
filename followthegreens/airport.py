@@ -845,7 +845,6 @@ class Route:
                         logger.info(f"..found/W{wc}INRNOY")
                         return route
                     logger.debug("..failed..")
-
                     # Alternative:
                     # route = Route.Find(subgraph, aircraft, arrival_runway, dst_pos, dst_type, move, use_strict_mode=False, use_threshold=use_threshold)
                     # if route.found():
