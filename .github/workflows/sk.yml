@@ -1,8 +1,8 @@
-name: sk
+name: skunkcrafts_updater
 on:
   push:
     branches:
-      # master, main
+      - main
       - beta
 permissions:
   contents: write
