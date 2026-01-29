@@ -1,7 +1,7 @@
 LICENSE|1078
 PI_FollowTheGreens.py|19706
 README.md|75
-followthegreens/__init__.py|734
+followthegreens/__init__.py|663
 followthegreens/aircraft.py|12606
 followthegreens/airport.py|42821
 followthegreens/flightloop.py|17817
