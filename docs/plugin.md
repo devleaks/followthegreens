@@ -2,7 +2,10 @@
 
 Follow the greens (FtG) is a (real-life) taxiway guidance system.
 
-It works by highlighting taxiway lights in front of the aircraft.
+Follow the greens is part of the modern _Advanced Surface Movement Guidance and Control System_ (A-SMGCS).
+It currently is implemented in at several large airports like London, Dubai, Munich, Seoul and Frankfurt soon.
+
+The system works by highlighting taxiway lights in front of the aircraft.
 The pilot only has to follow the green lights, and stop on red lights.
 
 But now, there is more. There is a 4th dimension.
@@ -37,7 +40,7 @@ This plugin brings the Follow the greens concept to X-Plane to guide you on the 
 X-Plane yellow painted coach arrows on taxiways are fine, but look too artificial.
 Follow the greens does the same thing but with a real-life existing system.
 
-Follow the greens is used at a handful airports (OMDB, EGLL, EDDM, RKSI... _soon_ at EDDF).
+Follow the greens is already used at several airports (OMDB, EGLL, EDDM, RKSI... _soon_ at EDDF).
 Thanks to this plugin, even your local muni can get Follow the greens _(at no cost)_.
 
 
@@ -104,7 +107,7 @@ There is no need to install other software.
 Once the XPPython3 plugin is installed and working,
 download the [FtG plugin code](https://github.com/devleaks/followthegreens/releases) and unzip it.
 
-Place both the file `PI_Followthegreens.py` and the folder `followthegreens` in `<X-Plane 12 Folder> / resources / plugins / PythonPlugins`.
+Place both file `PI_Followthegreens.py` and folder `followthegreens` in `<X-Plane 12 Folder> / resources / plugins / PythonPlugins`.
 
 That's it.
 
@@ -133,14 +136,14 @@ To select your destination, *first click inside the input text box to set focus 
 If you hit a text key or a number key, selection jumps to the first matching destination.
 Only the *first key you type* is used to jump to the first matching destination.
 
-I apoligize for the poor user interface.
+I apologize for the poor user interface.
 It is developed with standard X-Plane user interface elements,
 which do not include sophisticated widgets like menu boxes.
 
 The (main and unique) user interface window of _Follow the greens_ is designed to disappear after a few seconds of inactivity.
 Select Follow the greens in the plugin menu to display it again.
 
-You can assign Follow the greens action to a key or button.
+You can assign Follow the greens actions to keys or buttons.
 It is equivalent to selecting X-Plane Plugin menu entry.
 
 

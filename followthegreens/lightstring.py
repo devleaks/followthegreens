@@ -38,7 +38,7 @@ class LightType:
     # A light to follow, or a stopbar light
     # Holds a referece to its instance
 
-    DEFAULT_TEXTURE_CODE = 1
+    DEFAULT_TEXTURE_CODE = 3
     TEXTURES = [
         "0.5  1.0  1.0  0.5",  # 0: TOP RIGHT
         "0.0  1.0  0.5  0.5",  # 1: TOP LEFT
