@@ -615,12 +615,20 @@ class LightString:
                 fn = LightType.create(name=f[0], color=f[1], size=f[2], intensity=f[3], texture=f[4])
                 self.lightTypes[k] = LightType(k, fn)
             if k in lightsConfig:
-                thisLightConfig = DEFAULT_LIGHT_VALUES | lightsConfig.get(k)
-                if not thisLightConfig["name"].endswith(".obj"):
-                    thisLightConfig["name"] = thisLightConfig["name"] + ".obj"
-                fn = LightType.create(**thisLightConfig)
-                self.lightTypes[k] = LightType(k, fn)
-                logger.debug(f"created preferred light {thisLightConfig}")
+                cfg = lightsConfig.get(k)
+                if type(cfg) is dict:
+                    thisLightConfig = DEFAULT_LIGHT_VALUES | cfg
+                    if not thisLightConfig["name"].endswith(".obj"):
+                        thisLightConfig["name"] = thisLightConfig["name"] + ".obj"
+                    fn = LightType.create(**thisLightConfig)
+                    self.lightTypes[k] = LightType(k, fn)
+                    logger.debug(f"created preferred light {thisLightConfig}")
+                elif type(cfg) is str:  # simple alternate name for obj file
+                    self.lightTypes[k] = LightType(k, cfg)
+                    logger.debug(f"created preferred light named {cfg}")
+                else:
+                    logger.warning(f"invalid config {lightsConfig.get(k)} for light{k}, ignored")
+                    continue
             self.lightTypes[k].load()
         logger.debug("loaded.")
         return True

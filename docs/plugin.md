@@ -8,9 +8,9 @@ It currently is implemented in at several large airports like London, Dubai, Mun
 The system works by highlighting taxiway lights in front of the aircraft.
 The pilot only has to follow the green lights, and stop on red lights.
 
-But now, there is more. There is a 4th dimension.
+But now, there is a 4th dimension.
 
-Space. The final frontier. _Time_. The ultimate frontier.
+Space. The final frontier? _Time_. The ultimate frontier.
 
 
 # Follow the greens
@@ -21,8 +21,6 @@ It is an aid for ground movement, to indicate to pilots where and how to circula
 ATC Ground operators will highlight the taxi path the pilot has to follow with center taxiway green lights.
 A red line across the taxiway indicates the aircraft has to hold and wait for the red light to clear.
 Very much like car traffic lights.
-
-Follow the greens is part of the serious _Advanced Surface Movement Guidance and Control System_ (A-SMGCS).
 
 Please have a look at the [following video](https://vimeo.com/101564135) and search for "airport Follow the greens" to get more information.
 There is nowaways a lot more information, manufacturers, and experimental project reports to learn from.
@@ -67,9 +65,7 @@ FtG 1 is 2D (lateral guidance on the ground...), FtG 2 adds time information to 
 FtG won’t ask you to fly to your holding position. Yet.
 (🤔 we may here have a definite path for improvement in a future release.)
 
-
-Follow the greens 4D is an experimental system only used at X-Plane airports.
-Yep. Even your local muni.
+Follow the greens 4D is an A-SMGCS Level 4 compliant experimental system only used at X-Plane airports.
 
 Could it be simpler?
 Follow the greens.
@@ -78,11 +74,7 @@ Try to catch the rabbit.
 
 ## What's New in Release 2
 
-Two years since last update. It's time to dust off the plugin a bit.
-
-Release 2 is called _Follow the greens 4D_ (and may be abbreviated FtG4D).
-
-FtG4D adds the following improvements:
+Release 2 called _Follow the greens 4D_ (FtG4D) adds the following improvements:
 
 - Follow the greens _rabbit_ light speed and length automagically adjusted to invite pilots to speed up or slow down taxi ride.
 - Preferences can be adjusted in a file.
@@ -119,7 +111,7 @@ It should now contain a _Follow the greens..._ menu item.
 
 # Usage
 
-Please refer to the manual [here](https://devleaks.github.io/followthegreens/) for detailed usage instructions.
+Please refer to the [manual](https://devleaks.github.io/followthegreens/) for detailed usage instructions.
 There are also a few documented parameters you can adjust to your liking.
 
 There are a few requirements for FtG to work.
@@ -144,7 +136,6 @@ The (main and unique) user interface window of _Follow the greens_ is designed t
 Select Follow the greens in the plugin menu to display it again.
 
 You can assign Follow the greens actions to keys or buttons.
-It is equivalent to selecting X-Plane Plugin menu entry.
 
 
 # Help
@@ -153,8 +144,8 @@ First [read the manual](https://devleaks.github.io/followthegreens/).
 
 Bug reports, comments, suggestions are always welcome.
 
-Please use the forum here (comments section),
-or the [discord server](https://discord.gg/AQjP2tWV),
+Please use the forum here ([comments section](https://forums.x-plane.org/files/file/71124-follow-the-greens/?tab=comments)),
+the [discord server](https://discord.gg/AQjP2tWV),
 or [github issue](https://github.com/devleaks/followthegreens/issues).
 
 Taxi safely.
@@ -166,20 +157,20 @@ Follow the greens.
 
 ## Release 2
 
-- [2.2.0](https://github.com/devleaks/followthegreens/releases) - ??-??-2026 - Follow the greens monitors aircraft taxi speed and advise to speed up or slow down. better routing.
-
-- ... (numerous development releases with little interest for production system...)
+- [2.2.0](https://github.com/devleaks/followthegreens/releases) - ??-??-2026 - Follow the greens monitors aircraft taxi speed and advise to speed up or slow down.
+- (...development releases...)
 - 2.0.0 - 29-DEC-2025 - Added hooks for FtG _4D_.
 
 
 ## Release 1
 
-- [1.7.0](https://github.com/devleaks/followthegreens/releases/tag/1.7.0) - 14-JAN-2026 - Last Release 1 version (will only provide critical fixes).
+- [1.7.0](https://github.com/devleaks/followthegreens/releases/tag/1.7.0) - 14-JAN-2026 - Last Release 1 version (will only provide critical fixes). Works on X-Plane 11 and order version of XPPython3 plugin.
 
 - 1.6.6 - 21-FEB-2024 - Added Cancel and OK (finish, bye, etc.) commands
 - ...
 - 1.0.0 - 01-APR-2021 - Initial release.
 
+[Detailed Changelog](https://devleaks.github.io/followthegreens/changelog/)
 
 # License
 

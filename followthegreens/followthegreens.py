@@ -26,6 +26,7 @@ PREFERENCE_FILE_NAME = "followthegreens.prf"  # followthegreens.prf
 STATS_FILE_NAME = "ftgstats.txt"
 VERSION = "VERSION"
 
+SAY_L4 = True
 
 class FollowTheGreens:
 
@@ -409,17 +410,20 @@ VERSION = "{__VERSION__}"
         # Hint: distance and heading to first light
         intro = f"Follow the greens to {destination}"
         speak = f"Follow the greens to {phonetic(destination)}"
+        intro_arr = []
         if SAY_ROUTE:
             rt = route.text()
             if len(rt) > 0:
                 intro = intro + f" via taxiways {rt}"
                 speak = speak + f" via taxiways {phonetic(rt)}"
-            intro_arr = wrap(intro + ".", width=80)  # might be long
+            intro_arr = intro_arr + wrap(intro + ".", width=80)  # might be long
             speak = speak + "."
+        if SAY_L4:
+            intro_arr.append(f"Expect taxi ride of {round(route.dleft[0]/1000, 1)}km, about {round((route.tleft[0]+30)/60)} minutes.")
         if initdiff > 20 or initdist > 200:
             dist_str = " ".join(f"{int(initdist):d}")
             hdg_str = " ".join(f"{int(initbrgn):03d}")
-            intro_arr = intro_arr + [f"Start is at about {int(initdist):d} meters heading {int(initbrgn):03d}."]
+            intro_arr.append(f"Start is at about {int(initdist):d} meters heading {int(initbrgn):03d}.")
             speak = speak + f" Start is at about {phonetic(dist_str)} meters heading {phonetic(hdg_str)}."
         logger.debug(" ".join(intro_arr))
         xp.speakString(speak)

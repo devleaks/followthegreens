@@ -2,6 +2,7 @@
 # We currently have two loops, one for rabbit, one to monitor plane position.
 #
 from datetime import datetime, timedelta
+from math import log
 
 try:
     import xp
@@ -241,7 +242,7 @@ class FlightLoop:
         nextvtx = route.graph.get_vertex(nextvtxid)
 
         # 2. distance to that next vertex and turn at that vertex
-        dist = distance(Point(lat=position[0], lon=position[1]), nextvtx)
+        dist_to_next_vertex = distance(Point(lat=position[0], lon=position[1]), nextvtx)
         turn = route.turns[light.index]
 
         # 3. current speed
@@ -267,7 +268,14 @@ class FlightLoop:
 
         # 4. Find next "significant" turn of more than TURN_LIMIT
         idx = light.index + 1
-        dist_before = dist
+
+        # logger.debug(f"current vertex={light.index}, distance to next vertex {idx}: {round(dist_to_next_vertex, 1)}m")
+        # logger.debug(f"at vertext {idx}: turn={round(route.turns[idx], 1)} DEG")
+        # dist_to_next_turn = 0 if abs(route.turns[idx]) > TURN_LIMIT else route.dtb[idx]
+        # logger.debug(f"at vertext {idx}: distance to add to next turn={round(dist_to_next_turn, 1)}m")
+
+        dist = dist_to_next_vertex
+        dist_before = 0
         while abs(turn) < TURN_LIMIT and idx < len(route.route):
             turn = route.turns[idx]
             dist_before = dist
@@ -276,7 +284,26 @@ class FlightLoop:
 
         # @todo: What if no more turn but end of greens reached?
         if idx == len(route.route):  # end of route
-            logger.warning("reached end of route")
+            logger.info("reached end of route")
+
+        # logger.debug(f"LOOP COMPUTED index of vertex where next turn {idx - 1}: turn={round(route.turns[idx], 1)} DEG")
+        # logger.debug(f"LOOP COMPUTED distance to next turn at vertex {idx - 1}: {round(dist_before, 1)}m")
+
+        # TEST:BEGIN
+        if hasattr(route, "dtb") and idx < len(route.dtb):
+            logger.debug(f"distance to next turn PRECOMPUTE: nextvtx to next turn: {round(dist_to_next_turn, 1)}m + {round(dist_to_next_vertex, 1)}m => precomputed: {round(dist_to_next_turn + dist_to_next_vertex, 1)}m")
+        else:
+            logger.debug(f"distance to next turn LOOP: {round(dist_before, 1)}m")
+        # TEST:END
+
+        # II.1  determine target speed (range)
+        taxi_speed_ranges = self.ftg.aircraft.taxi_speed_ranges()
+        braking_distance = self.ftg.aircraft.braking_distance()  # m should be a function of acf mass/type and current speed
+
+        target = taxi_speed_ranges[TAXI_SPEED.MED]  # target speed range
+
+        est_speed = max(speed, target)  # m/s
+        time_to_next_vertex = dist_to_next_vertex / est_speed
 
         acf_move = speed * self.adjustedIter()  # meters
         msg = (
@@ -285,15 +312,16 @@ class FlightLoop:
         )
         if msg != self.old_msg:
             logger.debug(msg)
+            logger.debug(f"remaining: {round(dist_to_next_vertex + route.dleft[light.index + 1], 1)}m, {round((time_to_next_vertex + route.tleft[light.index + 1] + 30)/60)}min")
             self.old_msg = msg
 
         # II. From distance to turn, and angle of turn, assess situation
 
         # II.1  determine target speed (range)
-        taxi_speed_ranges = self.ftg.aircraft.taxi_speed_ranges()
-        braking_distance = self.ftg.aircraft.braking_distance()  # m should be a function of acf mass/type and current speed
+        # taxi_speed_ranges = self.ftg.aircraft.taxi_speed_ranges()
+        # braking_distance = self.ftg.aircraft.braking_distance()  # m should be a function of acf mass/type and current speed
 
-        target = taxi_speed_ranges[TAXI_SPEED.MED]  # target speed range
+        # target = taxi_speed_ranges[TAXI_SPEED.MED]  # target speed range
         comment = "continue"
 
         if dist_before < braking_distance:
