@@ -26,7 +26,6 @@ PREFERENCE_FILE_NAME = "followthegreens.prf"  # followthegreens.prf
 STATS_FILE_NAME = "ftgstats.txt"
 VERSION = "VERSION"
 
-SAY_L4 = True
 
 class FollowTheGreens:
 
@@ -418,7 +417,7 @@ VERSION = "{__VERSION__}"
                 speak = speak + f" via taxiways {phonetic(rt)}"
             intro_arr = intro_arr + wrap(intro + ".", width=80)  # might be long
             speak = speak + "."
-        if SAY_L4:
+        if get_global("LEVEL4", self.prefs) > 0:
             intro_arr.append(f"Expect taxi ride of {round(route.dleft[0]/1000, 1)}km, about {round((route.tleft[0]+30)/60)} minutes.")
         if initdiff > 20 or initdist > 200:
             dist_str = " ".join(f"{int(initdist):d}")

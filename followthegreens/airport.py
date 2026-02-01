@@ -651,7 +651,7 @@ class Airport:
             route.mkEdges()  # compute segment distances
             route.mkTurns()  # compute turn angles at end of segment
             route.mkDistToBrake()
-            route.mkTiming(speed=10.0)
+            route.mkTiming(speed=aircraft.taxi_speed())
             return (True, route)
 
         return (False, "We could not find a route to your destination.")

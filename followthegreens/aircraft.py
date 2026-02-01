@@ -303,3 +303,7 @@ class Aircraft:
         # @todo: Estimate braking distance from current speed to target
         # currently hardcoded to ~200m
         return AIRCRAFT_TYPES[self.width_code][AIRCRAFT.BRAKING_DISTANCE]
+
+    def taxi_speed(self) -> float:
+        taxi_speed_ranges = self.taxi_speed_ranges()
+        return sum(taxi_speed_ranges[TAXI_SPEED.MED])/len(taxi_speed_ranges[TAXI_SPEED.MED])

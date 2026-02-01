@@ -267,7 +267,7 @@ class FlightLoop:
         SPEED_DELTA = 5.0  # in m/s
 
         # 4. Find next "significant" turn of more than TURN_LIMIT
-        idx = light.index + 1
+        idx = light.index + 1  # starts at next vertex
 
         # logger.debug(f"current vertex={light.index}, distance to next vertex {idx}: {round(dist_to_next_vertex, 1)}m")
         # logger.debug(f"at vertext {idx}: turn={round(route.turns[idx], 1)} DEG")
@@ -297,13 +297,8 @@ class FlightLoop:
         # TEST:END
 
         # II.1  determine target speed (range)
-        taxi_speed_ranges = self.ftg.aircraft.taxi_speed_ranges()
-        braking_distance = self.ftg.aircraft.braking_distance()  # m should be a function of acf mass/type and current speed
-
-        target = taxi_speed_ranges[TAXI_SPEED.MED]  # target speed range
-
-        est_speed = max(speed, target)  # m/s
-        time_to_next_vertex = dist_to_next_vertex / est_speed
+        taxi_speed = max(speed, self.ftg.aircraft.taxi_speed())  # m/s
+        time_to_next_vertex = dist_to_next_vertex / taxi_speed
 
         acf_move = speed * self.adjustedIter()  # meters
         msg = (
