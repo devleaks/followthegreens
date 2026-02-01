@@ -1,14 +1,13 @@
 # X-Plane Follow the Greens 4D Plugin
 
 Follow the greens (FtG) is a (real-life) taxiway guidance system.
-
-Follow the greens is part of the modern _Advanced Surface Movement Guidance and Control System_ (A-SMGCS).
+It is part of the modern _Advanced Surface Movement Guidance and Control System_ (A-SMGCS).
 It currently is implemented in at several large airports like London, Dubai, Munich, Seoul and Frankfurt soon.
 
 The system works by highlighting taxiway lights in front of the aircraft.
 The pilot only has to follow the green lights, and stop on red lights.
 
-But now, there is a 4th dimension.
+But there is more now, there is a 4th dimension.
 
 Space. The final frontier? _Time_. The ultimate frontier.
 
@@ -28,18 +27,15 @@ There is nowaways a lot more information, manufacturers, and experimental projec
 Follow the greens has numerous advantages discussed in the above documents, ranking to ease of use, to smoother taxi rides,
 shorter taxi times, to lower interaction with ground control.
 
-Yeah, yeah, less fuel use also.
-
-Yeah, yeah, less CO2 produced too.
-
-Yeah, yeah, follow the greens is realllly green. Can't be greener. No green bashing.
+Less fuel use, less CO2 produce, follow the greens is realllly green.
+Can't be greener. No green bashing.
 
 This plugin brings the Follow the greens concept to X-Plane to guide you on the ground.
 X-Plane yellow painted coach arrows on taxiways are fine, but look too artificial.
 Follow the greens does the same thing but with a real-life existing system.
 
 Follow the greens is already used at several airports (OMDB, EGLL, EDDM, RKSI... _soon_ at EDDF).
-Thanks to this plugin, even your local muni can get Follow the greens _(at no cost)_.
+Thanks to this plugin, even your local muni can get Follow the greens _at no cost_.
 
 
 # 4D !?

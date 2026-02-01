@@ -271,7 +271,7 @@ class FlightLoop:
 
         # logger.debug(f"current vertex={light.index}, distance to next vertex {idx}: {round(dist_to_next_vertex, 1)}m")
         # logger.debug(f"at vertext {idx}: turn={round(route.turns[idx], 1)} DEG")
-        # dist_to_next_turn = 0 if abs(route.turns[idx]) > TURN_LIMIT else route.dtb[idx]
+        dist_to_next_turn = 0 if abs(route.turns[idx]) > TURN_LIMIT else route.dtb[idx]
         # logger.debug(f"at vertext {idx}: distance to add to next turn={round(dist_to_next_turn, 1)}m")
 
         dist = dist_to_next_vertex

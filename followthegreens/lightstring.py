@@ -103,7 +103,7 @@ POINT_COUNTS    0 0 0 0
             elif type(texture) is int:
                 ltext = LightType.TEXTURES[texture]
             ls = f"LIGHT_CUSTOM 0 1 0 {round(color[0],2)} {round(color[1],2)} {round(color[2],2)} {alpha} {fsize} {ltext} UNUSED"
-            logger.debug(f"create light {name} ({size}, {intensity}): {ls}")
+            logger.debug(f"create LIGHT_CUSTOM {name} ({size}, {intensity}): {ls}")
             for i in range(intensity):
                 print(ls, file=fp)
         return name
@@ -238,6 +238,170 @@ class Stopbar:
         for light in self.lights:
             light.destroy()
 
+    @staticmethod
+    def create_taxiway_light(name: str, color: str, intensity: int, position: tuple = (0.0, 0.0, 0.0)) -> str:
+        """Creates a light object file with content derived from parameters.
+
+        Args:
+            name (str): file name of light object
+            color (tuple): RGB colors, each value between 0 and 1.
+            intensity (int): number of times the lihgt unit is releated. The more the brighter and the less natural...
+
+        returns:
+            str: file name of ligght object
+        """
+        curr_dir = os.path.dirname(os.path.realpath(__file__))
+        fn = os.path.join(curr_dir, "lights", name)
+        with open(fn, "w") as fp:
+            print(
+                f"""I
+800
+OBJ
+
+POINT_COUNTS    0 0 0 0
+
+""",
+                file=fp,
+            )
+            if color not in "bgry" or len(color) != 1:
+                color = "g"
+            ls1 = f"LIGHT_NAMED taxi_{color} +0.05 0.01 0.07"
+            ls2 = f"LIGHT_NAMED taxi_{color} -0.05 0.01 0.07"
+            logger.debug(f"create LIGHT_NAMED {name} ({color}, {intensity})")
+            for i in range(intensity):
+                print(ls1, file=fp)
+                print(ls2, file=fp)
+        return name
+
+
+class Light:
+    # A light to follow, or a stopbar light
+    # Holds a referece to its instance
+    def __init__(self, lightType, position, heading, index):
+        self.lightType = lightType
+        self.index = index
+        self.position = position
+        self.heading = heading  # this should be the heading to the previous light
+        self.params = []  # LIGHT_PARAM_DEF       full_custom_halo        9   R   G   B   A   S       X   Y   Z   F
+        self.drefs = []
+        self.lightObject = None
+        self.xyz = None
+        self.instance = None
+        self.instanceOff = None
+
+    def groundXYZ(self, latstr, lonstr, altstr):
+        lat, lon, alt = (float(latstr), float(lonstr), float(altstr))
+        (x, y, z) = xp.worldToLocal(lat, lon, alt)  # this return proper altitude
+        probe = xp.createProbe(xp.ProbeY)
+        info = xp.probeTerrainXYZ(probe, x, y, z)
+        if info.result == xp.ProbeError:
+            logger.debug("Terrain error")
+            (x, y, z) = xp.worldToLocal(lat, lon, alt)
+        elif info.result == xp.ProbeMissed:
+            logger.debug("Terrain Missed")
+            (x, y, z) = xp.worldToLocal(lat, lon, alt)
+        elif info.result == xp.ProbeHitTerrain:
+            # logger.debug("Terrain info is [{}] {}".format(info.result, info))
+            (x, y, z) = (info.locationX, info.locationY, info.locationZ)
+            # (lat, lng, alt) = xp.localToWorld(info.locationX, info.locationY, info.locationZ)
+            # logger.debug('lat, lng, alt is {} feet'.format((lat, lng, alt * 3.28)))
+        xp.destroyProbe(probe)
+        # (x, y, z) = xp.worldToLocal(float(light.position.lat), float(light.position.lon), alt)
+        return (x, y, z)
+
+    def place(self, lightType, lightTypeOff=None):
+        self.lightObject = lightType.obj
+        pitch, roll, alt = (0, 0, 0)
+        (x, y, z) = self.groundXYZ(self.position.lat, self.position.lon, alt)
+        self.xyz = (x, y, z, pitch, self.heading, roll)
+        if lightTypeOff and not self.instanceOff:
+            self.instanceOff = xp.createInstance(lightTypeOff.obj, self.drefs)
+            xp.instanceSetPosition(self.instanceOff, self.xyz, self.params)
+            # logger.debug("LightString::place: light off placed")
+
+    def on(self):
+        if not self.xyz:
+            logger.debug("light not placed")
+            return
+        if self.lightObject and not self.instance:
+            self.instance = xp.createInstance(self.lightObject, self.drefs)
+            xp.instanceSetPosition(self.instance, self.xyz, self.params)
+
+    def off(self):
+        if self.instance:
+            xp.destroyInstance(self.instance)
+            self.instance = None
+
+    def destroy(self):
+        self.off()
+        if self.instanceOff:
+            xp.destroyInstance(self.instanceOff)
+            self.instanceOff = None
+
+
+class Stopbar:
+    # A set of red lights perpendicular to the taxiway direction (=heading).
+    # Width is set by the taxiway width code if available, F (very wide) as default.
+    # Holds a referece to its lights
+    def __init__(
+        self,
+        position,
+        heading,
+        index,
+        size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.F,
+        distance_between_stoplights: int = DISTANCE_BETWEEN_STOPLIGHTS,
+        light: LIGHT_TYPE = LIGHT_TYPE.STOP,
+    ):
+        self.lights = []
+        self.position = position
+        self.heading = heading
+        self.lightStringIndex = index
+        self.width = TAXIWAY_WIDTH[size.value].value
+        self.distance_between_stoplights = distance_between_stoplights
+        self.light = light
+        self._on = False
+        self._cleared = False
+        self.make()
+
+    def make(self):
+        numlights = int(self.width / self.distance_between_stoplights)
+
+        if numlights < 4:
+            logger.warning(f"stopbar has not enough lights {numlights}")
+            numlights = 4
+
+        # centerline
+        self.lights.append(Light(self.light, self.position, 0, 0))
+
+        # one side of centerline
+        brng = self.heading + 90
+        for i in range(numlights):
+            pos = destination(self.position, brng, i * self.distance_between_stoplights)
+            self.lights.append(Light(self.light, pos, 0, i))
+
+        # the other side of centerline
+        brng = self.heading - 90
+        for i in range(numlights):
+            pos = destination(self.position, brng, i * self.distance_between_stoplights)
+            self.lights.append(Light(self.light, pos, 0, numlights + i))
+
+    def place(self, lightTypes):
+        for light in self.lights:
+            light.place(lightTypes[light.lightType], lightTypes[LIGHT_TYPE.OFF])
+
+    def on(self):
+        for light in self.lights:
+            light.on()
+        self._on = True
+
+    def off(self):
+        for light in self.lights:
+            light.off()
+        self._on = False
+
+    def destroy(self):
+        for light in self.lights:
+            light.destroy()
 
 class LightString:
 
