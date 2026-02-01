@@ -313,8 +313,8 @@ class FlightLoop:
         # II. From distance to turn, and angle of turn, assess situation
 
         # II.1  determine target speed (range)
-        # taxi_speed_ranges = self.ftg.aircraft.taxi_speed_ranges()
-        # braking_distance = self.ftg.aircraft.braking_distance()  # m should be a function of acf mass/type and current speed
+        taxi_speed_ranges = self.ftg.aircraft.taxi_speed_ranges()
+        braking_distance = self.ftg.aircraft.braking_distance()  # m should be a function of acf mass/type and current speed
 
         # target = taxi_speed_ranges[TAXI_SPEED.MED]  # target speed range
         comment = "continue"
