@@ -959,7 +959,7 @@ class Route:
 
         # else, default on whole graph
         route = cls(graph)
-        if route.find(aircraft, arrival_runway, dst_pos, dst_type, move, use_strict_mode, use_threshold):
+        if route.find(aircraft, arrival_runway, dst_pos, dst_type, move, use_threshold):
             logger.info("..found")
         else:
             logger.info("..failed (definitively)")
