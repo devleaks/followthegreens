@@ -296,7 +296,6 @@ class FlightLoop:
             logger.debug(f"distance to next turn LOOP: {round(dist_before, 1)}m")
         # TEST:END
 
-        # II.1  determine target speed (range)
         taxi_speed = max(speed, self.ftg.aircraft.taxi_speed())  # m/s
         time_to_next_vertex = dist_to_next_vertex / taxi_speed
 
@@ -316,7 +315,7 @@ class FlightLoop:
         taxi_speed_ranges = self.ftg.aircraft.taxi_speed_ranges()
         braking_distance = self.ftg.aircraft.braking_distance()  # m should be a function of acf mass/type and current speed
 
-        # target = taxi_speed_ranges[TAXI_SPEED.MED]  # target speed range
+        target = taxi_speed_ranges[TAXI_SPEED.MED]  # target speed range
         comment = "continue"
 
         if dist_before < braking_distance:
