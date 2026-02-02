@@ -58,12 +58,12 @@ class FlightLoop:
             logger.debug("global stop requested")
             return
 
-        phase = xp.FlightLoop_Phase_AfterFlightModel
         # @todo: make function to reset lastLit counter
         self.lastLit = 0
 
         if self.has_rabbit():
             if not self.rabbitRunning:
+                phase = xp.FlightLoop_Phase_BeforeFlightModel
                 params = [phase, self.rabbitFLCB, self.refrabbit]
                 self.flrabbit = xp.createFlightLoop(params)
                 xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)
@@ -75,7 +75,8 @@ class FlightLoop:
             logger.debug("no rabbit requested.")
 
         if not self.planeRunning:
-            params = [phase, self.planeFLCB, self.refplane]
+            phase = xp.FlightLoop_Phase_AfterFlightModel
+            params = [phase, self.rabbitFLCB, self.refrabbit]
             self.flplane = xp.createFlightLoop(params)
             xp.scheduleFlightLoop(self.flplane, 10.0, 1)
             self.planeRunning = True
