@@ -37,6 +37,7 @@ class FlightLoop:
         self.flplane = None
         self.planeRunning = False
         self.nextIter = PLANE_MONITOR_DURATION  # seconds
+        self.lastIter = PLANE_MONITOR_DURATION  # seconds
         self.lastLit = 0
         self.distance = EARTH
         self.diftingLimit = DRIFTING_LIMIT * DISTANCE_BETWEEN_GREEN_LIGHTS  # After that, we send a warning, and we may cancel FTG.
@@ -289,13 +290,6 @@ class FlightLoop:
         # logger.debug(f"LOOP COMPUTED index of vertex where next turn {idx - 1}: turn={round(route.turns[idx], 1)} DEG")
         # logger.debug(f"LOOP COMPUTED distance to next turn at vertex {idx - 1}: {round(dist_before, 1)}m")
 
-        # TEST:BEGIN
-        if hasattr(route, "dtb") and idx < len(route.dtb):
-            logger.debug(f"distance to next turn PRECOMPUTE: nextvtx to next turn: {round(dist_to_next_turn, 1)}m + {round(dist_to_next_vertex, 1)}m => precomputed: {round(dist_to_next_turn + dist_to_next_vertex, 1)}m")
-        else:
-            logger.debug(f"distance to next turn LOOP: {round(dist_before, 1)}m")
-        # TEST:END
-
         taxi_speed = max(speed, self.ftg.aircraft.taxi_speed())  # m/s
         time_to_next_vertex = dist_to_next_vertex / taxi_speed
 
@@ -306,6 +300,11 @@ class FlightLoop:
         )
         if msg != self.old_msg:
             logger.debug(msg)
+            # TEST:BEGIN
+            if hasattr(route, "dtb") and idx < len(route.dtb):
+                logger.debug(f"distance to next turn PRECOMPUTE: nextvtx to next turn: {round(dist_to_next_turn, 1)}m + {round(dist_to_next_vertex, 1)}m => precomputed: {round(dist_to_next_turn + dist_to_next_vertex, 1)}m")
+            logger.debug(f"distance to next turn LOOP: {round(dist_before, 1)}m")
+            # TEST:END
             logger.debug(f"remaining: {round(dist_to_next_vertex + route.dleft[light.index + 1], 1)}m, {round((time_to_next_vertex + route.tleft[light.index + 1] + 30)/60)}min")
             self.old_msg = msg
 
@@ -376,7 +375,9 @@ class FlightLoop:
         while i < len(SPEEDS):
             if speed > SPEEDS[i][0]:
                 j = SPEEDS[i][1]
-                logger.debug(f"speed {round(speed, 1)}, iter reduced to {j}")
+                if i != self.lastIter:
+                    logger.debug(f"speed {round(speed, 1)}, iter reduced to {j}")
+                    self.lastIter = j
                 return j
             i = i + 1
         return self.nextIter
