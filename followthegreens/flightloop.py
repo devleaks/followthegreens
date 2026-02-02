@@ -192,30 +192,10 @@ class FlightLoop:
             logger.info(f"must wait {round(MAX_UPDATE_FREQUENCY - delay, 2)} seconds before changing rabbit")
             return
 
-        if self.rabbitRunning:
-            xp.destroyFlightLoop(self.flrabbit)
-            self.rabbitRunning = False
-            logger.debug("rabbit stopped before adjustments")
-        else:
-            logger.debug("rabbit not running.")
-
         self.ftg.lights.rabbitMode(mode)
         self._rabbit_mode = mode
         self.last_updated = now
         logger.debug(f"rabbit mode set to {mode}")
-
-        if not self.global_stop_requested:
-            # if FtG was busy changing rabbit speed while user requests to stop/new green/etc.
-            phase = xp.FlightLoop_Phase_AfterFlightModel
-            # @todo: make function to reset lastLit counter
-            self.lastLit = 0
-            params = [phase, self.rabbitFLCB, self.refrabbit]
-            self.flrabbit = xp.createFlightLoop(params)
-            xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)
-            self.rabbitRunning = True
-            logger.debug("rabbit restarted after adjustments")
-        else:
-            logger.debug("global stop requested, rabbit not restarted")
 
     def adjustRabbit(self, position, closestLight):
         # Important note:
@@ -231,155 +211,150 @@ class FlightLoop:
             logger.debug("..autotune not permitted")
             return
 
-        # I. Collect information
+        try:
+            # I. Collect information
+            # 1. Distance to next vertex (= distance to next potential turn)
+            route = self.ftg.lights.route
+            light = self.ftg.lights.lights[closestLight]
+            nextvertex = light.index + 1
+            if nextvertex >= len(route.route):  # end of route
+                nextvertex = len(route.route) - 1
+            nextvtxid = route.route[nextvertex]
+            nextvtx = route.graph.get_vertex(nextvtxid)
 
-        # 1. Distance to next vertex (= distance to next potential turn)
-        route = self.ftg.lights.route
-        light = self.ftg.lights.lights[closestLight]
-        nextvertex = light.index + 1
-        if nextvertex >= len(route.route):  # end of route
-            nextvertex = len(route.route) - 1
-        nextvtxid = route.route[nextvertex]
-        nextvtx = route.graph.get_vertex(nextvtxid)
+            # 2. distance to that next vertex and turn at that vertex
+            dist_to_next_vertex = distance(Point(lat=position[0], lon=position[1]), nextvtx)
+            turn = route.turns[light.index]
 
-        # 2. distance to that next vertex and turn at that vertex
-        dist_to_next_vertex = distance(Point(lat=position[0], lon=position[1]), nextvtx)
-        turn = route.turns[light.index]
+            # 3. current speed
+            speed = self.ftg.aircraft.speed()
+            # logger.debug(f"closest light: vertex index {light.index}, next vertex={nextvtx}, distance={round(dist, 1)}, turn={round(turn, 0)}, speed={round(speed, 1)}")
+            # logger.debug(f"start turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
 
-        # 3. current speed
-        speed = self.ftg.aircraft.speed()
-        # logger.debug(f"closest light: vertex index {light.index}, next vertex={nextvtx}, distance={round(dist, 1)}, turn={round(turn, 0)}, speed={round(speed, 1)}")
-        # logger.debug(f"start turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
+            # From observation/experience:
+            #
+            # Taxi very fast=20 m/s
+            # Taxi fast=15 m/s
+            # Taxi cautious = 6m/s
+            # Turn (90°): 3-4 m/s
+            # Brake: 12m/s to 3: 100 m with A321, 200m with A330
+            # WE decide:
+            # Turn < 15°, speed "cautious"
+            # Turn > 15°, speed "turn"
+            #
+            TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
+            SMALL_TURN_LIMIT = 15.0  # °, below this, it is a small turn, recommended to slow down a bit but not too much
+            MOVEIT_DIST = 400.0  # m no reason to not go fast
+            SPEED_DELTA = 5.0  # in m/s
 
-        # From observation/experience:
-        #
-        # Taxi very fast=20 m/s
-        # Taxi fast=15 m/s
-        # Taxi cautious = 6m/s
-        # Turn (90°): 3-4 m/s
-        # Brake: 12m/s to 3: 100 m with A321, 200m with A330
-        # WE decide:
-        # Turn < 15°, speed "cautious"
-        # Turn > 15°, speed "turn"
-        #
-        TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
-        SMALL_TURN_LIMIT = 15.0  # °, below this, it is a small turn, recommended to slow down a bit but not too much
-        MOVEIT_DIST = 400.0  # m no reason to not go fast
-        SPEED_DELTA = 5.0  # in m/s
+            # 4. Find next "significant" turn of more than TURN_LIMIT
+            idx = light.index + 1  # starts at next vertex
 
-        # 4. Find next "significant" turn of more than TURN_LIMIT
-        idx = light.index + 1  # starts at next vertex
+            # @todo: What if no more turn but end of greens reached?
+            if idx >= len(route.route):  # end of route
+                idx = len(route.route) - 1
+                logger.info("reached end of route")
 
-        # logger.debug(f"current vertex={light.index}, distance to next vertex {idx}: {round(dist_to_next_vertex, 1)}m")
-        # logger.debug(f"at vertext {idx}: turn={round(route.turns[idx], 1)} DEG")
-        dist_to_next_turn = 0 if abs(route.turns[idx]) > TURN_LIMIT else route.dtb[idx]
-        # logger.debug(f"at vertext {idx}: distance to add to next turn={round(dist_to_next_turn, 1)}m")
+            # logger.debug(f"current vertex={light.index}, distance to next vertex {idx}: {round(dist_to_next_vertex, 1)}m")
+            # logger.debug(f"at vertext {idx}: turn={round(route.turns[idx], 1)} DEG")
+            dist_to_next_turn = 0 if abs(route.turns[idx]) > TURN_LIMIT else route.dtb[idx]
+            # logger.debug(f"at vertext {idx}: distance to add to next turn={round(dist_to_next_turn, 1)}m")
 
-        dist = dist_to_next_vertex
-        dist_before = 0
-        while abs(turn) < TURN_LIMIT and idx < len(route.route):
-            turn = route.turns[idx]
-            dist_before = dist
-            dist = dist + route.edges[idx].cost
-            idx = idx + 1
+            dist_before = dist_to_next_turn + dist_to_next_vertex
 
-        # @todo: What if no more turn but end of greens reached?
-        if idx == len(route.route):  # end of route
-            logger.info("reached end of route")
+            taxi_speed = max(speed, self.ftg.aircraft.taxi_speed())  # m/s
+            time_to_next_vertex = dist_to_next_vertex / taxi_speed
 
-        # logger.debug(f"LOOP COMPUTED index of vertex where next turn {idx - 1}: turn={round(route.turns[idx], 1)} DEG")
-        # logger.debug(f"LOOP COMPUTED distance to next turn at vertex {idx - 1}: {round(dist_before, 1)}m")
+            next_iter = self.adjustedIter()  # meters
+            acf_move = speed * next_iter
+            msg = (
+                f"currently at index {light.index}, next turn (larger than {TURN_LIMIT}deg) at index {idx-1}: "
+                + f"{round(turn, 0)}deg at {round(dist_before, 1)}m, current speed={round(speed, 1)}, acf moved {round(acf_move, 1)}m during iteration ({next_iter} secs)"
+            )
+            if msg != self.old_msg:
+                logger.debug(msg)
+                logger.debug(f"remaining: {round(dist_to_next_vertex + route.dleft[light.index + 1], 1)}m, {round((time_to_next_vertex + route.tleft[light.index + 1] + 30)/60)}min")
+                self.old_msg = msg
 
-        taxi_speed = max(speed, self.ftg.aircraft.taxi_speed())  # m/s
-        time_to_next_vertex = dist_to_next_vertex / taxi_speed
+            # II. From distance to turn, and angle of turn, assess situation
+            # II.1  determine target speed (range)
+            taxi_speed_ranges = self.ftg.aircraft.taxi_speed_ranges()
+            braking_distance = self.ftg.aircraft.braking_distance()  # m should be a function of acf mass/type and current speed
 
-        acf_move = speed * self.adjustedIter()  # meters
-        msg = (
-            f"currently at index {light.index}, next turn (larger than {TURN_LIMIT}deg) at index {idx-1}: "
-            + f"{round(turn, 0)}deg at {round(dist_before, 1)}m, current speed={round(speed, 1)}, acf moved {round(acf_move, 1)}m during iteration"
-        )
-        if msg != self.old_msg:
-            logger.debug(msg)
-            # TEST:BEGIN
-            if hasattr(route, "dtb") and idx < len(route.dtb):
-                logger.debug(f"distance to next turn PRECOMPUTE: nextvtx to next turn: {round(dist_to_next_turn, 1)}m + {round(dist_to_next_vertex, 1)}m => precomputed: {round(dist_to_next_turn + dist_to_next_vertex, 1)}m")
-            logger.debug(f"distance to next turn LOOP: {round(dist_before, 1)}m")
-            # TEST:END
-            logger.debug(f"remaining: {round(dist_to_next_vertex + route.dleft[light.index + 1], 1)}m, {round((time_to_next_vertex + route.tleft[light.index + 1] + 30)/60)}min")
-            self.old_msg = msg
+            target = taxi_speed_ranges[TAXI_SPEED.MED]  # target speed range
+            comment = "continue"
 
-        # II. From distance to turn, and angle of turn, assess situation
+            if dist_before < braking_distance:
+                if abs(turn) < SMALL_TURN_LIMIT:
+                    comment = "small turn at braking distance, caution"
+                    target = taxi_speed_ranges[TAXI_SPEED.CAUTION]
+                else:
+                    comment = "turn at braking distance"
+                    target = taxi_speed_ranges[TAXI_SPEED.TURN]
+            elif dist_before > MOVEIT_DIST:
+                comment = "no turn before large distance, move it"
+                target = taxi_speed_ranges[TAXI_SPEED.FAST]
 
-        # II.1  determine target speed (range)
-        taxi_speed_ranges = self.ftg.aircraft.taxi_speed_ranges()
-        braking_distance = self.ftg.aircraft.braking_distance()  # m should be a function of acf mass/type and current speed
+            # II.2 adjust rabbit mode from current speed to target speed range
+            advise = "on target"  # ..within range, mode = normal/medium
+            mode = RABBIT_MODE.MED
 
-        target = taxi_speed_ranges[TAXI_SPEED.MED]  # target speed range
-        comment = "continue"
+            srange = target
+            if speed < STOPPED_SPEED:  # m/s
+                advise = f"probably stopped ({round(speed, 1)}m/s < {STOPPED_SPEED})"
+            elif speed < srange[0]:
+                delta = srange[0] - speed
+                if delta > SPEED_DELTA:
+                    mode = RABBIT_MODE.FASTEST
+                    advise = "really too slow, accelerate"
+                else:
+                    mode = RABBIT_MODE.FASTER
+                    advise = "too slow, accelerate"
+            elif speed > srange[1]:
+                delta = speed - srange[1]
+                if delta > SPEED_DELTA:
+                    mode = RABBIT_MODE.SLOWEST
+                    advise = "really too fast, brake"
+                else:
+                    mode = RABBIT_MODE.SLOWER
+                    advise = "too fast, brake"
 
-        if dist_before < braking_distance:
-            if abs(turn) < SMALL_TURN_LIMIT:
-                comment = "small turn at braking distance, caution"
-                target = taxi_speed_ranges[TAXI_SPEED.CAUTION]
-            else:
-                comment = "turn at braking distance"
-                target = taxi_speed_ranges[TAXI_SPEED.TURN]
-        elif dist_before > MOVEIT_DIST:
-            comment = "no turn before large distance, move it"
-            target = taxi_speed_ranges[TAXI_SPEED.FAST]
+            msg = f"current speed={round(speed, 1)}, target={target}; rabbit current mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})"
+            if msg != self.old_msg2:
+                logger.debug(msg)
+                self.old_msg2 = msg
+        except:
+            logger.error("adjustRabbit:compute", exc_info=True)
 
-        # II.2 adjust rabbit mode from current speed to target speed range
-        advise = "on target"  # ..within range, mode = normal/medium
-        mode = RABBIT_MODE.MED
-
-        srange = target
-        if speed < STOPPED_SPEED:  # m/s
-            advise = f"probably stopped ({round(speed, 1)}m/s < {STOPPED_SPEED})"
-        elif speed < srange[0]:
-            delta = srange[0] - speed
-            if delta > SPEED_DELTA:
-                mode = RABBIT_MODE.FASTEST
-                advise = "really too slow, accelerate"
-            else:
-                mode = RABBIT_MODE.FASTER
-                advise = "too slow, accelerate"
-        elif speed > srange[1]:
-            delta = speed - srange[1]
-            if delta > SPEED_DELTA:
-                mode = RABBIT_MODE.SLOWEST
-                advise = "really too fast, brake"
-            else:
-                mode = RABBIT_MODE.SLOWER
-                advise = "too fast, brake"
-
-        msg = f"current speed={round(speed, 1)}, target={target}; rabbit current mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})"
-        if msg != self.old_msg2:
-            logger.debug(msg)
-            self.old_msg2 = msg
-
-        if self.rabbitMode != mode:
-            self.rabbitMode = mode
+        try:
+            if self.rabbitMode != mode:
+                self.rabbitMode = mode
+        except:
+            logger.error("adjustRabbit:set", exc_info=True)
         # logger.debug(f"..done ({advise})")
 
     def adjustedIter(self) -> float:
         # If aircraft move fast, we check/update FtG more often
-        speed = self.ftg.aircraft.speed()
-        if speed is None or speed < STOPPED_SPEED:
-            return self.nextIter
-        SPEEDS = [  # [speed=m/s, iter=s]
-            [12, 0.8],
-            [10, 1],
-            [7, 1.2],
-        ]
-        i = 0
-        while i < len(SPEEDS):
-            if speed > SPEEDS[i][0]:
-                j = SPEEDS[i][1]
-                if i != self.lastIter:
-                    logger.debug(f"speed {round(speed, 1)}, iter reduced to {j}")
-                    self.lastIter = j
-                return j
-            i = i + 1
+        try:
+            speed = self.ftg.aircraft.speed()
+            if speed is None or speed < STOPPED_SPEED:
+                return self.nextIter
+            SPEEDS = [  # [speed=m/s, iter=s]
+                [12, 0.8],
+                [10, 1],
+                [7, 1.2],
+            ]
+            i = 0
+            while i < len(SPEEDS):
+                if speed > SPEEDS[i][0]:
+                    j = SPEEDS[i][1]
+                    if i != self.lastIter:
+                        logger.debug(f"speed {round(speed, 1)}, iter reduced to {j}")
+                        self.lastIter = j
+                    return j
+                i = i + 1
+        except:
+            logger.error("adjustedIter", exc_info=True)
         return self.nextIter
 
     def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
@@ -395,53 +370,69 @@ class FlightLoop:
         # logger.debug('%2f, %2f, %d', elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter)
         self.ftg.ui.hideMainWindowIfOk(elapsedSinceLastCall)
 
+
         pos = self.ftg.aircraft.position()
         if not pos or (pos[0] == 0 and pos[1] == 0):
             logger.debug("no position.")
             return self.nextIter
 
         # @todo: WARNING_DISTANCE should be computed from acf type (weigth, size) and speed
-        nextStop, warn = self.ftg.lights.toNextStop(pos)
-        if nextStop and warn < self.ftg.aircraft.warning_distance():
-            logger.debug("closing to stop.")
+        try:
+            nextStop, warn = self.ftg.lights.toNextStop(pos)
+            if nextStop and warn < self.ftg.aircraft.warning_distance():
+                logger.debug("closing to stop.")
+                if self.has_rabbit():
+                    self.rabbitMode = RABBIT_MODE.SLOWEST
+                    # prevent rabbit auto-tuning, must remain slow until stop bar cleared
+                    self.disallow_rabbit_autotune("close to stop")
+                if not self.ftg.ui.isMainWindowVisible():
+                    logger.debug("showing UI.")
+                    self.ftg.ui.showMainWindow(False)
+            else:
+                if not self.may_rabbit_autotune:
+                    self.allow_rabbit_autotune("no longer close to stop")
+
+            closestLight, distance = self.ftg.lights.closest(pos)
+            if closestLight is None:
+                if self.closestLight_cnt % 20:
+                    logger.debug("no close light.")
+                self.closestLight_cnt = self.closestLight_cnt + 1
+                return self.adjustedIter()
+        except:
+            logger.error("ERROR BLOCK 1", exc_info=True)
+            return self.nextIter
+
+        try:
+            self.closestLight_cnt = 0
+
             if self.has_rabbit():
-                self.rabbitMode = RABBIT_MODE.SLOWEST
-                # prevent rabbit auto-tuning, must remain slow until stop bar cleared
-                self.disallow_rabbit_autotune("close to stop")
-            if not self.ftg.ui.isMainWindowVisible():
-                logger.debug("showing UI.")
-                self.ftg.ui.showMainWindow(False)
-        else:
-            if not self.may_rabbit_autotune:
-                self.allow_rabbit_autotune("no longer close to stop")
+                self.adjustRabbit(position=pos, closestLight=closestLight)  # Here is the 4D!
 
-        closestLight, distance = self.ftg.lights.closest(pos)
-        if closestLight is None:
-            if self.closestLight_cnt % 20:
-                logger.debug("no close light.")
-            self.closestLight_cnt = self.closestLight_cnt + 1
-            return self.adjustedIter()
+        except:
+            logger.error("ERROR BLOCK 2", exc_info=True)
+            return self.nextIter
 
-        self.closestLight_cnt = 0
 
-        if self.has_rabbit():
-            self.adjustRabbit(position=pos, closestLight=closestLight)  # Here is the 4D!
+        try:
+            # logger.debug("closest %d %f", closestLight, distance)
+            if closestLight > self.lastLit and distance < self.diftingLimit:  # Progress OK
+                # logger.debug("moving %d %d", closestLight, self.lastLit)
+                self.lastLit = closestLight
+                self.distance = distance
+                return self.adjustedIter()
 
-        # logger.debug("closest %d %f", closestLight, distance)
-        if closestLight > self.lastLit and distance < self.diftingLimit:  # Progress OK
-            # logger.debug("moving %d %d", closestLight, self.lastLit)
-            self.lastLit = closestLight
+            if self.lastLit == closestLight and (abs(self.distance - distance) < DISTANCE_BETWEEN_GREEN_LIGHTS):  # not moved enought, may even be stopped
+                return self.adjustedIter()
+
+            # @todo
+            # Need to send warning when pilot moves away from the green.
+            # if distance > DRIFTING_DISTANCE send warning?
+            if distance > DRIFTING_DISTANCE:
+                logger.debug(f"aircraft drifting away from track? (d={round(distance, 1)} > {DRIFTING_DISTANCE})")
+
             self.distance = distance
-            return self.adjustedIter()
+        except:
+            logger.error("ERROR BLOCK 3", exc_info=True)
+            return self.nextIter
 
-        if self.lastLit == closestLight and (abs(self.distance - distance) < DISTANCE_BETWEEN_GREEN_LIGHTS):  # not moved enought, may even be stopped
-            return self.adjustedIter()
-
-        # @todo
-        # Need to send warning when pilot moves away from the green.
-        # if distance > DRIFTING_DISTANCE send warning?
-        if distance > DRIFTING_DISTANCE:
-            logger.debug(f"aircraft drifting away from track? (d={round(distance, 1)} > {DRIFTING_DISTANCE})")
-
-        self.distance = distance
         return self.adjustedIter()

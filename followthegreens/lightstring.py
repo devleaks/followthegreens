@@ -466,6 +466,10 @@ class LightString:
             logger.debug(f"rabbit_length defined from aircraft preferences {self.rabbit_length}")
         self.num_rabbit_lights = self.rabbit_length  # can be 0, this adjusts with acf speed
 
+        # when reset
+        self.new_num_rabbit_lights = self.num_rabbit_lights
+        self.new_num_lights_ahead = self.num_lights_ahead
+
         self.rabbit_speed = get_global("RABBIT_SPEED", self.prefs)  # this never changes
         logger.debug(f"rabbit_speed global preferences {self.rabbit_speed}")
         if "RABBIT_SPEED" not in self.prefs and self.rabbit_speed != 0.0 and aircraft.rabbit_speed != 0:  # if not explicitely defined for entire application
@@ -517,7 +521,7 @@ class LightString:
         maxl = min(len(self.lights), self.lastLit + self.num_rabbit_lights + self.num_lights_ahead)
         for i in range(self.lastLit, maxl):
             self.lights[i].on()
-        logger.debug(f"rabbit reset: {self.lastLit} -> {maxl}")
+        logger.debug(f"reset: {self.lastLit} -> {maxl}")
 
     def newRabbitParameters(self, mode: RABBIT_MODE) -> tuple:
         # For now, parameters are static, they will become dynamic later
@@ -529,19 +533,18 @@ class LightString:
     def changeRabbit(self, length: int, duration: float, ahead: int):
         if not self.has_rabbit():
             return
-        self.num_rabbit_lights = length
+        self.new_num_rabbit_lights = length
+        self.new_num_lights_ahead = ahead
         self.rabbit_duration = duration
-        self.num_lights_ahead = ahead
-        logger.info(f"rabbit mode: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}")
 
     def rabbitMode(self, mode: RABBIT_MODE):
         if not self.has_rabbit():
             return
         self.rabbit_mode = mode
         length, speed, ahead = self.newRabbitParameters(mode)
-        self.resetRabbit()
+        # self.resetRabbit()  # moved to rabbit()
         self.changeRabbit(length=length, duration=speed, ahead=ahead)
-        logger.info(f"rabbit mode: {mode}: {length}, {round(speed, 2)} (ahead={self.num_lights_ahead})")
+        logger.info(f"mode: {mode}: {length} lights, {round(speed, 2)}secs (ahead={self.num_lights_ahead} lights)")
 
     def populate(self, route, move: MOVEMENT, onRunway: bool = False):
         # @todo: If already populated, must delete lights first
@@ -967,6 +970,12 @@ class LightString:
             if prev < rn:
                 self.lights[prev].on()
 
+        if self.new_num_rabbit_lights != self.num_rabbit_lights or self.new_num_lights_ahead != self.num_lights_ahead:
+            logger.debug(f"adjustment: #rabbit: {self.num_rabbit_lights}->{self.new_num_rabbit_lights}, #ahead: {self.num_lights_ahead}->{self.new_num_lights_ahead}")
+            self.resetRabbit()
+            self.num_rabbit_lights = self.new_num_rabbit_lights
+            self.num_lights_ahead = self.new_num_lights_ahead
+
         rabbitNose = self.nextStop()
 
         if start != self.oldStart:  # restore previous but with old start
@@ -1045,20 +1054,23 @@ class LightString:
     def destroy(self):
         # Destroy each green light
         self.rabbitCanRun = False
-        if self.lights:
+        if self.lights is not None and type(self.lights) is list and len(self.lights) > 0:
             for light in self.lights:
                 light.destroy()
             logger.debug("destroy(green): done.")
 
         # Destroy each stopbar
-        if self.stopbars:
+        if self.stopbars is not None and type(self.stopbars) is list and len(self.stopbars) > 0:
             for sb in self.stopbars:
                 sb.destroy()
             logger.debug("destroy(stop): done.")
 
         # Unload light objects
-        if self.lightTypes:
+        if self.lightTypes is not None and type(self.lightTypes) is list and len(self.lightTypes) > 0:
             for k, f in self.lightTypes.items():
-                f.unload()
+                try:
+                    f.unload()
+                except:
+                    logger.error("destroy(stop): {k}", exc_info=True)
             self.lightTypes = None
             logger.debug("destroy: unloaded.")
