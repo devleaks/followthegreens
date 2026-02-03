@@ -64,6 +64,7 @@ class LightType:
         for f, o in LightType.LightObjects.items():
             xp.unloadObject(o)
             logger.debug(f"object {f} unloaded")
+        LightType.LightObjects = {}
 
     @staticmethod
     def create(name: str, color: tuple, size: int, intensity: int, texture: int | list | tuple, texture_file: str = "lights.png") -> str:
