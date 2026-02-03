@@ -333,7 +333,7 @@ class UIUtil:
         return self.window(
             intro
             + [
-                "Follow the greens until you encounter a line of red stop lights.",
+                "Follow the greens until you encounter red stop lights across the taxiway.",
                 "At the stop lights, contact GROUND ATC for clearance. Press Clearance received when cleared.",
             ],
             btns,
