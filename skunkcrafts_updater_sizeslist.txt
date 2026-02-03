@@ -4,10 +4,10 @@ README.md|75
 followthegreens/__init__.py|662
 followthegreens/aircraft.py|13588
 followthegreens/airport.py|45159
-followthegreens/flightloop.py|18897
+followthegreens/flightloop.py|19566
 followthegreens/followthegreens.py|22875
 followthegreens/geo.py|13711
-followthegreens/globals.py|15379
+followthegreens/globals.py|15396
 followthegreens/graph.py|26046
 followthegreens/lights/amber.obj|2516
 followthegreens/lights/green.obj|1817
