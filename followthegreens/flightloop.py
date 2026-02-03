@@ -49,8 +49,8 @@ class FlightLoop:
         self.runway_level_original = 1
         self.global_stop_requested = False
 
-        self.started = None
-        self.est_end = None
+        self.actual_start = None  # actual taxi start time
+        self.planned = None  # planned time of arrival at destination after taxi started
         self.closestLight_cnt = 0
         self.old_msg = ""
         self.old_msg2 = ""
@@ -273,7 +273,7 @@ class FlightLoop:
         if msg != self.old_msg:
             logger.debug(msg)
             left = time_to_next_vertex + route.tleft[light.index + 1] + 30
-            is_late = self.late(t0=left)
+            is_late = self.late(t0=left)  # will display original estimated vs new estimate
             logger.debug(f"remaining: {round(dist_to_next_vertex + route.dleft[light.index + 1], 1)}m, {round(left/60)}min")
             self.old_msg = msg
 
@@ -362,13 +362,16 @@ class FlightLoop:
         # We cannot use XP's counter because it does not increment by 1 just for us.
         return self.ftg.lights.rabbit(self.lastLit)
 
-    def late(self, t0: float = 0):
-        if self.started is None:
+    def late(self, t0: float = 0.0) -> bool:
+        # when taxi is started, we determine an ETA at destination
+        # compare now + time remaining vs ETA
+        if self.actual_start is None or self.planned is None:
+            logger.debug("no start time")
             return False
-        d, s = self.ftg.route.baseline()
-        t = (datetime.now(tz=timezone.utc) + timedelta(seconds=t0)) - self.started
-        logger.debug(f"on time: {round(t.seconds, 1)} secs")
-        return t.seconds < 0
+        eta = datetime.now(tz=timezone.utc) + timedelta(seconds=t0)
+        tdiff = self.planned - eta
+        logger.debug(f"remaining: {round(t0, 1)}, delta time: {round(tdiff.seconds, 1)} secs (positive is advance, negative is late)")
+        return tdiff.seconds < 0  # is late
 
     def planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
@@ -381,11 +384,14 @@ class FlightLoop:
             logger.debug("no position.")
             return self.nextIter
 
-        if self.started is None:
+        if self.actual_start is None:
             if self.ftg.aircraft.moved() > MIN_DIST or self.ftg.aircraft.speed() > MIN_SPEED:
-                self.started = datetime.now(tz=timezone.utc)
+                self.actual_start = datetime.now(tz=timezone.utc)
                 d, s = self.ftg.route.baseline()
-                self.est_end = self.started + timedelta(seconds=s)
+                self.planned = self.actual_start + timedelta(seconds=s)
+                logger.debug(f"taxi started, estimated takeoff hold at {self.planned}.")
+            else:
+                logger.debug(f"not started taxiing yet, {self.ftg.aircraft.moved()} < {MIN_DIST}, {self.ftg.aircraft.speed()} < {MIN_SPEED}")
 
         # @todo: WARNING_DISTANCE should be computed from acf type (weigth, size) and speed
         nextStop, warn = self.ftg.lights.toNextStop(pos)

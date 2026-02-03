@@ -207,7 +207,7 @@ class ROUTING_ALGORITHMS(StrEnum):
 ROUTING_ALGORITHM = ROUTING_ALGORITHMS.ASTAR  # astar, dijkstra (default)
 RESPECT_CONSTRAINTS = True  # set to True at your own risk
 SAY_ROUTE = True  # Print route on pop up display and speak it orally.
-LEVEL4 = 1  # ASMGCS LEVEL 4 Compliance steps (highly experimental)
+LEVEL4 = 1  # ASMGCS LEVEL 4 Compliance steps (highly experimental, DO NOT CHANGE.)
 
 
 # ################################
@@ -289,8 +289,8 @@ class TAXI_SPEED(Enum):  # in m/s
 
 # These are global default values, only used if no other value if found.
 LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
-RABBIT_LENGTH = 10  # number of lights that blink in front of aircraft
-RABBIT_SPEED = 0.20  # sec duration of "off" light in rabbit
+RABBIT_LENGTH = 12  # number of lights that blink in front of aircraft
+RABBIT_SPEED = 0.166  # sec duration of "off" light in rabbit
 
 # Rabbit length and speed variation for each indication
 # Base length and speed depends on airport/aircraft
