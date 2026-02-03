@@ -5,6 +5,7 @@ import math
 import json
 import os.path
 from random import randint
+from datetime import datetime
 
 try:
     import xp
@@ -22,7 +23,6 @@ from .globals import (
     MOVEMENT,
     RABBIT_MODE,
     TAXIWAY_ACTIVE,
-    TAXIWAY_DIRECTION,
     TAXIWAY_WIDTH,
     TAXIWAY_WIDTH_CODE,
 )
@@ -46,23 +46,24 @@ class LightType:
         "0.0  0.5  0.5  0.0",  # 3: BOT LEFT
     ]
 
+    LightObjects = {}
+
     def __init__(self, name, filename):
         self.name = name
-        self.filename = filename
-        self.obj = None
+        curr_dir = os.path.dirname(os.path.realpath(__file__))
+        self.filename = os.path.abspath(os.path.join(curr_dir, "lights", filename))
+        if self.filename not in LightType.LightObjects:
+            LightType.LightObjects[self.filename] = xp.loadObject(self.filename)
+            logger.debug(f"loadObject {self.name} object {self.filename} loaded")
+        else:
+            logger.debug(f"loadObject {self.name} object {self.filename} already loaded")
+        self.obj = LightType.LightObjects.get(self.filename)
 
-    def load(self):
-        if not self.obj:
-            curr_dir = os.path.dirname(os.path.realpath(__file__))
-            real_path = os.path.join(curr_dir, "lights", self.filename)
-            self.obj = xp.loadObject(real_path)
-            logger.debug(f"loadObject {self.filename} loaded")
-
-    def unload(self):
-        if self.obj:
-            xp.unloadObject(self.obj)
-            self.obj = None
-            logger.debug(f"unloadObject {self.name} unloaded")
+    @staticmethod
+    def unload():
+        for f, o in LightType.LightObjects.items():
+            xp.unloadObject(o)
+            logger.debug(f"object {f} unloaded")
 
     @staticmethod
     def create(name: str, color: tuple, size: int, intensity: int, texture: int | list | tuple, texture_file: str = "lights.png") -> str:
@@ -107,136 +108,6 @@ POINT_COUNTS    0 0 0 0
             for i in range(intensity):
                 print(ls, file=fp)
         return name
-
-
-class Light:
-    # A light to follow, or a stopbar light
-    # Holds a referece to its instance
-    def __init__(self, lightType, position, heading, index):
-        self.lightType = lightType
-        self.index = index
-        self.position = position
-        self.heading = heading  # this should be the heading to the previous light
-        self.params = []  # LIGHT_PARAM_DEF       full_custom_halo        9   R   G   B   A   S       X   Y   Z   F
-        self.drefs = []
-        self.lightObject = None
-        self.xyz = None
-        self.instance = None
-        self.instanceOff = None
-
-    def groundXYZ(self, latstr, lonstr, altstr):
-        lat, lon, alt = (float(latstr), float(lonstr), float(altstr))
-        (x, y, z) = xp.worldToLocal(lat, lon, alt)  # this return proper altitude
-        probe = xp.createProbe(xp.ProbeY)
-        info = xp.probeTerrainXYZ(probe, x, y, z)
-        if info.result == xp.ProbeError:
-            logger.debug("Terrain error")
-            (x, y, z) = xp.worldToLocal(lat, lon, alt)
-        elif info.result == xp.ProbeMissed:
-            logger.debug("Terrain Missed")
-            (x, y, z) = xp.worldToLocal(lat, lon, alt)
-        elif info.result == xp.ProbeHitTerrain:
-            # logger.debug("Terrain info is [{}] {}".format(info.result, info))
-            (x, y, z) = (info.locationX, info.locationY, info.locationZ)
-            # (lat, lng, alt) = xp.localToWorld(info.locationX, info.locationY, info.locationZ)
-            # logger.debug('lat, lng, alt is {} feet'.format((lat, lng, alt * 3.28)))
-        xp.destroyProbe(probe)
-        # (x, y, z) = xp.worldToLocal(float(light.position.lat), float(light.position.lon), alt)
-        return (x, y, z)
-
-    def place(self, lightType, lightTypeOff=None):
-        self.lightObject = lightType.obj
-        pitch, roll, alt = (0, 0, 0)
-        (x, y, z) = self.groundXYZ(self.position.lat, self.position.lon, alt)
-        self.xyz = (x, y, z, pitch, self.heading, roll)
-        if lightTypeOff and not self.instanceOff:
-            self.instanceOff = xp.createInstance(lightTypeOff.obj, self.drefs)
-            xp.instanceSetPosition(self.instanceOff, self.xyz, self.params)
-            # logger.debug("LightString::place: light off placed")
-
-    def on(self):
-        if not self.xyz:
-            logger.debug("light not placed")
-            return
-        if self.lightObject and not self.instance:
-            self.instance = xp.createInstance(self.lightObject, self.drefs)
-            xp.instanceSetPosition(self.instance, self.xyz, self.params)
-
-    def off(self):
-        if self.instance:
-            xp.destroyInstance(self.instance)
-            self.instance = None
-
-    def destroy(self):
-        self.off()
-        if self.instanceOff:
-            xp.destroyInstance(self.instanceOff)
-            self.instanceOff = None
-
-
-class Stopbar:
-    # A set of red lights perpendicular to the taxiway direction (=heading).
-    # Width is set by the taxiway width code if available, F (very wide) as default.
-    # Holds a referece to its lights
-    def __init__(
-        self,
-        position,
-        heading,
-        index,
-        size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.F,
-        distance_between_stoplights: int = DISTANCE_BETWEEN_STOPLIGHTS,
-        light: LIGHT_TYPE = LIGHT_TYPE.STOP,
-    ):
-        self.lights = []
-        self.position = position
-        self.heading = heading
-        self.lightStringIndex = index
-        self.width = TAXIWAY_WIDTH[size.value].value
-        self.distance_between_stoplights = distance_between_stoplights
-        self.light = light
-        self._on = False
-        self._cleared = False
-        self.make()
-
-    def make(self):
-        numlights = int(self.width / self.distance_between_stoplights)
-
-        if numlights < 4:
-            logger.warning(f"stopbar has not enough lights {numlights}")
-            numlights = 4
-
-        # centerline
-        self.lights.append(Light(self.light, self.position, 0, 0))
-
-        # one side of centerline
-        brng = self.heading + 90
-        for i in range(numlights):
-            pos = destination(self.position, brng, i * self.distance_between_stoplights)
-            self.lights.append(Light(self.light, pos, 0, i))
-
-        # the other side of centerline
-        brng = self.heading - 90
-        for i in range(numlights):
-            pos = destination(self.position, brng, i * self.distance_between_stoplights)
-            self.lights.append(Light(self.light, pos, 0, numlights + i))
-
-    def place(self, lightTypes):
-        for light in self.lights:
-            light.place(lightTypes[light.lightType], lightTypes[LIGHT_TYPE.OFF])
-
-    def on(self):
-        for light in self.lights:
-            light.on()
-        self._on = True
-
-    def off(self):
-        for light in self.lights:
-            light.off()
-        self._on = False
-
-    def destroy(self):
-        for light in self.lights:
-            light.destroy()
 
     @staticmethod
     def create_taxiway_light(name: str, color: str, intensity: int, position: tuple = (0.0, 0.0, 0.0)) -> str:
@@ -388,20 +259,25 @@ class Stopbar:
     def place(self, lightTypes):
         for light in self.lights:
             light.place(lightTypes[light.lightType], lightTypes[LIGHT_TYPE.OFF])
+        logger.debug(f"stop bar at {self.lightStringIndex} placed")
 
     def on(self):
         for light in self.lights:
             light.on()
         self._on = True
+        logger.debug(f"stop bar at {self.lightStringIndex} on")
 
     def off(self):
         for light in self.lights:
             light.off()
         self._on = False
+        logger.debug(f"stop bar at {self.lightStringIndex} off")
 
     def destroy(self):
         for light in self.lights:
             light.destroy()
+        logger.debug(f"stop bar at {self.lightStringIndex} destroyed")
+
 
 class LightString:
 
@@ -466,16 +342,17 @@ class LightString:
             logger.debug(f"rabbit_length defined from aircraft preferences {self.rabbit_length}")
         self.num_rabbit_lights = self.rabbit_length  # can be 0, this adjusts with acf speed
 
-        # when reset
-        self.new_num_rabbit_lights = self.num_rabbit_lights
-        self.new_num_lights_ahead = self.num_lights_ahead
-
         self.rabbit_speed = get_global("RABBIT_SPEED", self.prefs)  # this never changes
         logger.debug(f"rabbit_speed global preferences {self.rabbit_speed}")
         if "RABBIT_SPEED" not in self.prefs and self.rabbit_speed != 0.0 and aircraft.rabbit_speed != 0:  # if not explicitely defined for entire application
             self.rabbit_speed = airport.rabbit_speed  # this never changes
             logger.debug(f"rabbit_speed defined from aircraft preferences {self.rabbit_speed}")
         self.rabbit_duration = self.rabbit_speed  # this adjusts with acf speed
+
+        # when reset
+        self.new_num_rabbit_lights = self.num_rabbit_lights
+        self.new_num_lights_ahead = self.num_lights_ahead
+        self.new_rabbit_speed = self.rabbit_speed
 
         # control logged info
         self._info_sent = False
@@ -535,7 +412,7 @@ class LightString:
             return
         self.new_num_rabbit_lights = length
         self.new_num_lights_ahead = ahead
-        self.rabbit_duration = duration
+        self.new_rabbit_duration = duration
 
     def rabbitMode(self, mode: RABBIT_MODE):
         if not self.has_rabbit():
@@ -976,6 +853,10 @@ class LightString:
             self.num_rabbit_lights = self.new_num_rabbit_lights
             self.num_lights_ahead = self.new_num_lights_ahead
 
+        if self.new_rabbit_duration != self.rabbit_duration: # no reset necessary, just logging info
+            logger.debug(f"adjustment: rabbit speed: {self.rabbit_duration}->{self.new_rabbit_duration}")
+            self.rabbit_duration = self.new_rabbit_duration
+
         rabbitNose = self.nextStop()
 
         if start != self.oldStart:  # restore previous but with old start
@@ -1057,20 +938,14 @@ class LightString:
         if self.lights is not None and type(self.lights) is list and len(self.lights) > 0:
             for light in self.lights:
                 light.destroy()
-            logger.debug("destroy(green): done.")
+            logger.debug("destroyed greens")
 
         # Destroy each stopbar
         if self.stopbars is not None and type(self.stopbars) is list and len(self.stopbars) > 0:
             for sb in self.stopbars:
                 sb.destroy()
-            logger.debug("destroy(stop): done.")
+            logger.debug("destroyed stop bars")
 
         # Unload light objects
-        if self.lightTypes is not None and type(self.lightTypes) is list and len(self.lightTypes) > 0:
-            for k, f in self.lightTypes.items():
-                try:
-                    f.unload()
-                except:
-                    logger.error("destroy(stop): {k}", exc_info=True)
-            self.lightTypes = None
-            logger.debug("destroy: unloaded.")
+        LightType.unload()
+        logger.debug("unloaded light objects")

@@ -2,7 +2,6 @@
 # We currently have two loops, one for rabbit, one to monitor plane position.
 #
 from datetime import datetime, timedelta
-from math import log
 
 try:
     import xp
@@ -63,9 +62,7 @@ class FlightLoop:
 
         if self.has_rabbit():
             if not self.rabbitRunning:
-                phase = xp.FlightLoop_Phase_BeforeFlightModel
-                params = [phase, self.rabbitFLCB, self.refrabbit]
-                self.flrabbit = xp.createFlightLoop(params)
+                self.flrabbit = xp.createFlightLoop(callback=self.rabbitFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refrabbit)
                 xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)
                 self.rabbitRunning = True
                 logger.debug(f"rabbit started ({self._rabbit_mode}).")
@@ -75,9 +72,7 @@ class FlightLoop:
             logger.debug("no rabbit requested.")
 
         if not self.planeRunning:
-            phase = xp.FlightLoop_Phase_AfterFlightModel
-            params = [phase, self.rabbitFLCB, self.refrabbit]
-            self.flplane = xp.createFlightLoop(params)
+            self.flplane = xp.createFlightLoop(callback=self.planeFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refplane)
             xp.scheduleFlightLoop(self.flplane, 10.0, 1)
             self.planeRunning = True
             logger.debug(f"aircraft tracking started (iter={self.nextIter}).")

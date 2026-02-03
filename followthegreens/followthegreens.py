@@ -174,6 +174,8 @@ class FollowTheGreens:
 #
 # {PREFERENCE_FILE_NAME} (this file) is a TOML (https://toml.io/en/) formatted file.
 # Please adhere to the TOML formatting/standard when adding preferences.
+# For example, boolean values are true and false, lower case.
+# If True or False is used, an error will be issued and the preference file ignored.
 #
 # Do not touch the following line.
 #

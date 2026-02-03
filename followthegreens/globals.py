@@ -24,6 +24,7 @@ from typing import Any
 #
 FTG_PLUGIN_ROOT_PATH = "XPPython3/followthegreens/"
 
+IMPERIAL_UNITS = False  # only for US or Lybia
 
 class FTG_STATUS(StrEnum):
     NEW = "NEW"  # ftg just created
@@ -203,7 +204,7 @@ class ROUTING_ALGORITHMS(StrEnum):
 
 
 ROUTING_ALGORITHM = ROUTING_ALGORITHMS.ASTAR  # astar, dijkstra (default)
-RESPECT_CONSTRAINTS = False  # set to True at your own risk
+RESPECT_CONSTRAINTS = True  # set to True at your own risk
 SAY_ROUTE = True  # Print route on pop up display and speak it orally.
 LEVEL4 = 1  # ASMGCS LEVEL 4 Compliance steps (highly experimental)
 

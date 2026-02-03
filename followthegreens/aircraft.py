@@ -50,7 +50,7 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.WARNING_DISTANCE: 150.0,
         AIRCRAFT.AVG_LENGTH: 10,
         AIRCRAFT.RABBIT: {
-            RABBIT.LIGHTS_AHEAD: 30,  # in METERS
+            RABBIT.LIGHTS_AHEAD: 0,  # 30,  # in METERS
             RABBIT.LENGTH: 40,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
@@ -70,7 +70,7 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.WARNING_DISTANCE: 200.0,
         AIRCRAFT.AVG_LENGTH: 25,
         AIRCRAFT.RABBIT: {
-            RABBIT.LIGHTS_AHEAD: 50,  # in METERS
+            RABBIT.LIGHTS_AHEAD: 0,  # 50,  # in METERS
             RABBIT.LENGTH: 80,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
@@ -95,7 +95,7 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.WARNING_DISTANCE: 200.0,
         AIRCRAFT.AVG_LENGTH: 40,
         AIRCRAFT.RABBIT: {
-            RABBIT.LIGHTS_AHEAD: 120,  # in METERS
+            RABBIT.LIGHTS_AHEAD: 0,  # 120,  # in METERS
             RABBIT.LENGTH: 100,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
@@ -118,7 +118,7 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.WARNING_DISTANCE: 200.0,
         AIRCRAFT.AVG_LENGTH: 55,
         AIRCRAFT.RABBIT: {
-            RABBIT.LIGHTS_AHEAD: 150,  # in METERS
+            RABBIT.LIGHTS_AHEAD: 0,  # 150,  # in METERS
             RABBIT.LENGTH: 150,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
@@ -140,7 +140,7 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.WARNING_DISTANCE: 200.0,
         AIRCRAFT.AVG_LENGTH: 70,
         AIRCRAFT.RABBIT: {
-            RABBIT.LIGHTS_AHEAD: 200,  # in METERS
+            RABBIT.LIGHTS_AHEAD: 0,  # 200,  # in METERS
             RABBIT.LENGTH: 150,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
@@ -160,7 +160,7 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.WARNING_DISTANCE: 200.0,
         AIRCRAFT.AVG_LENGTH: 85,
         AIRCRAFT.RABBIT: {
-            RABBIT.LIGHTS_AHEAD: 200,  # in METERS
+            RABBIT.LIGHTS_AHEAD: 0,  # 200,  # in METERS
             RABBIT.LENGTH: 180,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
@@ -251,10 +251,10 @@ class Aircraft:
             if RABBIT.SPEED.value in prefs:
                 self.rabbit_speed = prefs[RABBIT.SPEED.value]
 
-        if self.rabbit_length == 0:  # no rabbit
-            self.lights_ahead = self.lights_ahead + acflength  # meters
-        else:
+        if self.rabbit_length > 0:  # == 0 = no rabbit
             self.rabbit_length = self.rabbit_length + acflength  # meters
+        if self.lights_ahead > 0:  # == 0 = whole path
+            self.lights_ahead = self.lights_ahead + acflength  # meters
         logger.debug(
             f"AIRCRAFT rabbit (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={acflength}m)"
         )
