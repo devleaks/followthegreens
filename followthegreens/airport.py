@@ -13,7 +13,6 @@ from .globals import (
     logger,
     get_global,
     DISTANCE_TO_RAMPS,
-    TAXIWAY_WIDTH_CODE,
     TAXIWAY_TYPE,
     RUNWAY_BUFFER_WIDTH,
     AIRPORT,
@@ -25,6 +24,11 @@ from .globals import (
 )
 
 SYSTEM_DIRECTORY = "."
+
+
+def minsec(t: float) -> str:
+    a = int(t)
+    return f"{int(a/60)}:{a%60:02d}"
 
 
 class Runway(Line):
@@ -206,9 +210,7 @@ class Airport:
         # Info 4
         # Fine tune for specific airport(s)
         self.set_preferences()
-        logger.debug(
-            f"AIRPORT rabbit: btw greens={self.distance_between_green_lights}m, whole net={self.distance_between_taxiway_lights}m, speed={self.rabbit_speed}s"
-        )
+        logger.debug(f"AIRPORT rabbit: btw greens={self.distance_between_green_lights}m, whole net={self.distance_between_taxiway_lights}m, speed={self.rabbit_speed}s")
 
     def prepare(self):
         status = self.load()
@@ -442,12 +444,8 @@ class Airport:
             if aptline.linecode() == 100:  # runway
                 args = aptline.content().split()
                 runway = Polygon.mkPolygon(lat1=args[8], lon1=args[9], lat2=args[17], lon2=args[18], width=float(args[0]))
-                runways[args[7]] = Runway(
-                    name=args[7], width=args[0], lat=args[8], lon=args[9], dt=args[10], dbo=args[11], lat2=args[17], lon2=args[18], pol=runway
-                )
-                runways[args[16]] = Runway(
-                    name=args[16], width=args[0], lat=args[17], lon=args[18], dt=args[19], dbo=args[20], lat2=args[8], lon2=args[9], pol=runway
-                )
+                runways[args[7]] = Runway(name=args[7], width=args[0], lat=args[8], lon=args[9], dt=args[10], dbo=args[11], lat2=args[17], lon2=args[18], pol=runway)
+                runways[args[16]] = Runway(name=args[16], width=args[0], lat=args[17], lon=args[18], dt=args[19], dbo=args[20], lat2=args[8], lon2=args[9], pol=runway)
 
         self.runways = runways
         logger.debug(f"added {len(runways.keys())} runways")
@@ -644,9 +642,12 @@ class Airport:
 
         if route.found():
             route.runway = arrival_runway
+            logger.debug(f"route {route.text(destination=destination)}")
+
             route.mkEdges()  # compute segment distances
             route.mkTurns()  # compute turn angles at end of segment
-            logger.debug(f"route {route.text(destination=destination)}")
+            route.mkDistToBrake()
+            route.mkTiming(speed=aircraft.taxi_speed())
             return (True, route)
 
         return (False, "We could not find a route to your destination.")
@@ -724,6 +725,9 @@ class Route:
         self.vertices = None
         self.edges = None
         self.turns = None
+        self.dtb = None
+        self.dleft = []
+        self.tleft = []
         self.smoothed = None
         self.algorithm = ROUTING_ALGORITHM  # default, unused
         self.runway = None
@@ -746,6 +750,12 @@ class Route:
     def found(self) -> bool:
         return self.route is not None and len(self.route) > 2
 
+    def baseline(self, idx: int = 0) -> tuple:
+        # Returns distance and time left at route index
+        if len(self.dleft) > 0 and len(self.tleft) > 0:
+            return self.dleft[idx], self.tleft[idx]
+        return 0, 0
+
     def mkEdges(self):
         # From liste of vertices, build list of edges
         # but also set the size of the taxiway in the vertex
@@ -760,6 +770,17 @@ class Route:
         logger.debug("route (edg): " + "-".join([e.name for e in self.edges]))
         logger.debug("route (active): " + "-".join([e.showActives() for e in self.edges]))
         logger.debug(f"segment lengths: {[round(e.cost, 1) for e in self.edges]}")
+        # Cumulative distance left to taxi
+        # at vertex i, there is dleft[i] meter left to taxi
+        total = 0
+        self.dleft = []
+        for i in range(len(self.route) - 1, 1, -1):
+            self.dleft.append(total)
+            e = self.graph.get_edge(self.route[i - 1], self.route[i])
+            total = total + e.cost
+        self.dleft.append(total)
+        self.dleft.reverse()
+        logger.debug(f"segment distance left: {[round(e, 1) for e in self.dleft]}")
 
     def mkVertices(self):
         self.vertices = list(map(lambda x: self.graph.get_vertex(x), self.route))
@@ -778,6 +799,41 @@ class Route:
             v0 = v1
             v1 = v2
         logger.debug(f"turns at vertices: {[round(t, 0) for t in self.turns]}")
+
+    def mkDistToBrake(self):
+        # for each vertex, write the distance to the next vertex
+        # where there is a reason to slow down at that vertex: Either a sharp turn (> SMALL_TURN_LIMIT), or a stop bar (later).
+        SMALL_TURN_LIMIT = 15.0  # °, above this angle, it is recommended to slow down for the turn
+
+        self.dtb = []
+        total = 0
+        self.dtb.append(total)  # at last vertex, no distance to next turn
+        for i in range(len(self.route) - 1, 0, -1):
+            total = total + self.edges[i - 1].cost
+            self.dtb.append(total)
+            if abs(self.turns[i - 1]) > SMALL_TURN_LIMIT:
+                total = 0
+        self.dtb.reverse()
+        logger.debug(f"segment left: {[round(e, 1) for e in self.dtb]}")
+
+    def mkTiming(self, speed: float):
+        if speed <= 0:
+            logger.debug(f"invalid speed {speed}")
+            return
+        TURN_ANGLE = 45  # degree
+        TURN_PENALTY = 30  # seconds
+        self.tleft = []
+        total = 0
+        penalty = 0
+        for i in range(len(self.edges) - 1, 0, -1):
+            self.tleft.append(total)
+            total = total + self.edges[i].cost / speed
+            if abs(self.turns[i]) > TURN_ANGLE:
+                total = total + TURN_PENALTY
+                penalty = penalty + 1
+        self.tleft.append(total)
+        self.tleft.reverse()
+        logger.debug(f"segment time left to destination (speed={round(speed, 1)}m/s, {penalty} turns): {', '.join([minsec(e) for e in self.tleft])}")
 
     def text(self, destination: str = "destination") -> str:
         if self.edges is None or len(self.edges) == 0:
@@ -905,7 +961,7 @@ class Route:
 
         # else, default on whole graph
         route = cls(graph)
-        if route.find(aircraft, arrival_runway, dst_pos, dst_type, move, use_strict_mode, use_threshold):
+        if route.find(aircraft, arrival_runway, dst_pos, dst_type, move, use_threshold):
             logger.info("..found")
         else:
             logger.info("..failed (definitively)")

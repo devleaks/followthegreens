@@ -1,7 +1,7 @@
 # X-Plane Interaction Class
 # We currently have two loops, one for rabbit, one to monitor plane position.
 #
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 try:
     import xp
@@ -22,8 +22,10 @@ from .globals import (
 )
 from .geo import EARTH, Point, distance
 
-MAX_UPDATE_FREQUENCY = 10  # seconds
+MAX_UPDATE_FREQUENCY = 10  # seconds, rabbit cannot change again more that 10 seconds it changed
 STOPPED_SPEED = 0.01  # m/s
+MIN_DIST = 100  # meters
+MIN_SPEED = 3  # m/sec.
 
 
 class FlightLoop:
@@ -36,6 +38,7 @@ class FlightLoop:
         self.flplane = None
         self.planeRunning = False
         self.nextIter = PLANE_MONITOR_DURATION  # seconds
+        self.lastIter = PLANE_MONITOR_DURATION  # seconds
         self.lastLit = 0
         self.distance = EARTH
         self.diftingLimit = DRIFTING_LIMIT * DISTANCE_BETWEEN_GREEN_LIGHTS  # After that, we send a warning, and we may cancel FTG.
@@ -46,6 +49,8 @@ class FlightLoop:
         self.runway_level_original = 1
         self.global_stop_requested = False
 
+        self.actual_start = None  # actual taxi start time
+        self.planned = None  # planned time of arrival at destination after taxi started
         self.closestLight_cnt = 0
         self.old_msg = ""
         self.old_msg2 = ""
@@ -56,14 +61,12 @@ class FlightLoop:
             logger.debug("global stop requested")
             return
 
-        phase = xp.FlightLoop_Phase_AfterFlightModel
         # @todo: make function to reset lastLit counter
         self.lastLit = 0
 
         if self.has_rabbit():
             if not self.rabbitRunning:
-                params = [phase, self.rabbitFLCB, self.refrabbit]
-                self.flrabbit = xp.createFlightLoop(params)
+                self.flrabbit = xp.createFlightLoop(callback=self.rabbitFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refrabbit)
                 xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)
                 self.rabbitRunning = True
                 logger.debug(f"rabbit started ({self._rabbit_mode}).")
@@ -73,8 +76,7 @@ class FlightLoop:
             logger.debug("no rabbit requested.")
 
         if not self.planeRunning:
-            params = [phase, self.planeFLCB, self.refplane]
-            self.flplane = xp.createFlightLoop(params)
+            self.flplane = xp.createFlightLoop(callback=self.planeFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refplane)
             xp.scheduleFlightLoop(self.flplane, 10.0, 1)
             self.planeRunning = True
             logger.debug(f"aircraft tracking started (iter={self.nextIter}).")
@@ -190,30 +192,10 @@ class FlightLoop:
             logger.info(f"must wait {round(MAX_UPDATE_FREQUENCY - delay, 2)} seconds before changing rabbit")
             return
 
-        if self.rabbitRunning:
-            xp.destroyFlightLoop(self.flrabbit)
-            self.rabbitRunning = False
-            logger.debug("rabbit stopped before adjustments")
-        else:
-            logger.debug("rabbit not running.")
-
         self.ftg.lights.rabbitMode(mode)
         self._rabbit_mode = mode
         self.last_updated = now
         logger.debug(f"rabbit mode set to {mode}")
-
-        if not self.global_stop_requested:
-            # if FtG was busy changing rabbit speed while user requests to stop/new green/etc.
-            phase = xp.FlightLoop_Phase_AfterFlightModel
-            # @todo: make function to reset lastLit counter
-            self.lastLit = 0
-            params = [phase, self.rabbitFLCB, self.refrabbit]
-            self.flrabbit = xp.createFlightLoop(params)
-            xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)
-            self.rabbitRunning = True
-            logger.debug("rabbit restarted after adjustments")
-        else:
-            logger.debug("global stop requested, rabbit not restarted")
 
     def adjustRabbit(self, position, closestLight):
         # Important note:
@@ -230,7 +212,6 @@ class FlightLoop:
             return
 
         # I. Collect information
-
         # 1. Distance to next vertex (= distance to next potential turn)
         route = self.ftg.lights.route
         light = self.ftg.lights.lights[closestLight]
@@ -241,7 +222,7 @@ class FlightLoop:
         nextvtx = route.graph.get_vertex(nextvtxid)
 
         # 2. distance to that next vertex and turn at that vertex
-        dist = distance(Point(lat=position[0], lon=position[1]), nextvtx)
+        dist_to_next_vertex = distance(Point(lat=position[0], lon=position[1]), nextvtx)
         turn = route.turns[light.index]
 
         # 3. current speed
@@ -266,29 +247,37 @@ class FlightLoop:
         SPEED_DELTA = 5.0  # in m/s
 
         # 4. Find next "significant" turn of more than TURN_LIMIT
-        idx = light.index + 1
-        dist_before = dist
-        while abs(turn) < TURN_LIMIT and idx < len(route.route):
-            turn = route.turns[idx]
-            dist_before = dist
-            dist = dist + route.edges[idx].cost
-            idx = idx + 1
+        idx = light.index + 1  # starts at next vertex
 
         # @todo: What if no more turn but end of greens reached?
-        if idx == len(route.route):  # end of route
-            logger.warning("reached end of route")
+        if idx >= len(route.route):  # end of route
+            idx = len(route.route) - 1
+            logger.info("reached end of route")
 
-        acf_move = speed * self.adjustedIter()  # meters
+        # logger.debug(f"current vertex={light.index}, distance to next vertex {idx}: {round(dist_to_next_vertex, 1)}m")
+        # logger.debug(f"at vertext {idx}: turn={round(route.turns[idx], 1)} DEG")
+        dist_to_next_turn = 0 if abs(route.turns[idx]) > TURN_LIMIT else route.dtb[idx]
+        # logger.debug(f"at vertext {idx}: distance to add to next turn={round(dist_to_next_turn, 1)}m")
+
+        dist_before = dist_to_next_turn + dist_to_next_vertex
+
+        taxi_speed = max(speed, self.ftg.aircraft.taxi_speed())  # m/s
+        time_to_next_vertex = dist_to_next_vertex / taxi_speed
+
+        next_iter = self.adjustedIter()  # meters
+        acf_move = speed * next_iter
         msg = (
             f"currently at index {light.index}, next turn (larger than {TURN_LIMIT}deg) at index {idx-1}: "
-            + f"{round(turn, 0)}deg at {round(dist_before, 1)}m, current speed={round(speed, 1)}, acf moved {round(acf_move, 1)}m during iteration"
+            + f"{round(turn, 0)}deg at {round(dist_before, 1)}m, current speed={round(speed, 1)}, acf moved {round(acf_move, 1)}m during iteration ({next_iter} secs)"
         )
         if msg != self.old_msg:
             logger.debug(msg)
+            left = time_to_next_vertex + route.tleft[light.index + 1] + 30
+            is_late = self.late(t0=left)  # will display original estimated vs new estimate
+            logger.debug(f"remaining: {round(dist_to_next_vertex + route.dleft[light.index + 1], 1)}m, {round(left/60)}min")
             self.old_msg = msg
 
         # II. From distance to turn, and angle of turn, assess situation
-
         # II.1  determine target speed (range)
         taxi_speed_ranges = self.ftg.aircraft.taxi_speed_ranges()
         braking_distance = self.ftg.aircraft.braking_distance()  # m should be a function of acf mass/type and current speed
@@ -336,27 +325,34 @@ class FlightLoop:
             logger.debug(msg)
             self.old_msg2 = msg
 
-        if self.rabbitMode != mode:
-            self.rabbitMode = mode
-        # logger.debug(f"..done ({advise})")
+        try:
+            if self.rabbitMode != mode:
+                self.rabbitMode = mode
+        except:
+            logger.error("adjustRabbit:set", exc_info=True)
 
     def adjustedIter(self) -> float:
         # If aircraft move fast, we check/update FtG more often
-        speed = self.ftg.aircraft.speed()
-        if speed is None or speed < STOPPED_SPEED:
-            return self.nextIter
-        SPEEDS = [  # [speed=m/s, iter=s]
-            [12, 0.8],
-            [10, 1],
-            [7, 1.2],
-        ]
-        i = 0
-        while i < len(SPEEDS):
-            if speed > SPEEDS[i][0]:
-                j = SPEEDS[i][1]
-                logger.debug(f"speed {round(speed, 1)}, iter reduced to {j}")
-                return j
-            i = i + 1
+        try:
+            speed = self.ftg.aircraft.speed()
+            if speed is None or speed < STOPPED_SPEED:
+                return self.nextIter
+            SPEEDS = [  # [speed=m/s, iter=s]
+                [12, 0.8],
+                [10, 1],
+                [7, 1.2],
+            ]
+            i = 0
+            while i < len(SPEEDS):
+                if speed > SPEEDS[i][0]:
+                    j = SPEEDS[i][1]
+                    if i != self.lastIter:
+                        logger.debug(f"speed {round(speed, 1)}, iter reduced to {j}")
+                        self.lastIter = j
+                    return j
+                i = i + 1
+        except:
+            logger.error("adjustedIter", exc_info=True)
         return self.nextIter
 
     def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
@@ -365,6 +361,17 @@ class FlightLoop:
         # plane is supposed to Follow the greens and it close to green light index self.lastLit.
         # We cannot use XP's counter because it does not increment by 1 just for us.
         return self.ftg.lights.rabbit(self.lastLit)
+
+    def late(self, t0: float = 0.0) -> bool:
+        # when taxi is started, we determine an ETA at destination
+        # compare now + time remaining vs ETA
+        if self.actual_start is None or self.planned is None:
+            logger.debug("no start time")
+            return False
+        eta = datetime.now(tz=timezone.utc) + timedelta(seconds=t0)
+        tdiff = self.planned - eta
+        logger.debug(f"remaining: {round(t0, 1)}, delta time: {round(tdiff.seconds, 1)} secs (positive is advance, negative is late)")
+        return tdiff.seconds < 0  # is late
 
     def planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
@@ -377,11 +384,21 @@ class FlightLoop:
             logger.debug("no position.")
             return self.nextIter
 
+        if self.actual_start is None:
+            if self.ftg.aircraft.moved() > MIN_DIST or self.ftg.aircraft.speed() > MIN_SPEED:
+                self.actual_start = datetime.now(tz=timezone.utc)
+                d, s = self.ftg.route.baseline()
+                self.planned = self.actual_start + timedelta(seconds=s)
+                logger.debug(f"taxi started, estimated takeoff hold at {self.planned}.")
+            else:
+                logger.debug(f"not started taxiing yet, {self.ftg.aircraft.moved()} < {MIN_DIST}, {self.ftg.aircraft.speed()} < {MIN_SPEED}")
+
         # @todo: WARNING_DISTANCE should be computed from acf type (weigth, size) and speed
         nextStop, warn = self.ftg.lights.toNextStop(pos)
         if nextStop and warn < self.ftg.aircraft.warning_distance():
             logger.debug("closing to stop.")
             if self.has_rabbit():
+                self.allow_rabbit_autotune("close to stop")
                 self.rabbitMode = RABBIT_MODE.SLOWEST
                 # prevent rabbit auto-tuning, must remain slow until stop bar cleared
                 self.disallow_rabbit_autotune("close to stop")
@@ -421,4 +438,5 @@ class FlightLoop:
             logger.debug(f"aircraft drifting away from track? (d={round(distance, 1)} > {DRIFTING_DISTANCE})")
 
         self.distance = distance
+
         return self.adjustedIter()

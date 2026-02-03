@@ -6,7 +6,7 @@ except ImportError:
     print("X-Plane not loaded")
 
 from .globals import logger, get_global, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT
-
+from .geo import distance, Point
 
 # fmt: off
 ICAO_AND_IATA_AIRLINERS_CODES = [
@@ -50,7 +50,7 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.WARNING_DISTANCE: 150.0,
         AIRCRAFT.AVG_LENGTH: 10,
         AIRCRAFT.RABBIT: {
-            RABBIT.LIGHTS_AHEAD: 30,  # in METERS
+            RABBIT.LIGHTS_AHEAD: 0,  # 30,  # in METERS
             RABBIT.LENGTH: 40,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
@@ -70,7 +70,7 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.WARNING_DISTANCE: 200.0,
         AIRCRAFT.AVG_LENGTH: 25,
         AIRCRAFT.RABBIT: {
-            RABBIT.LIGHTS_AHEAD: 50,  # in METERS
+            RABBIT.LIGHTS_AHEAD: 0,  # 50,  # in METERS
             RABBIT.LENGTH: 80,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
@@ -95,7 +95,7 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.WARNING_DISTANCE: 200.0,
         AIRCRAFT.AVG_LENGTH: 40,
         AIRCRAFT.RABBIT: {
-            RABBIT.LIGHTS_AHEAD: 120,  # in METERS
+            RABBIT.LIGHTS_AHEAD: 0,  # 120,  # in METERS
             RABBIT.LENGTH: 100,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
@@ -118,7 +118,7 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.WARNING_DISTANCE: 200.0,
         AIRCRAFT.AVG_LENGTH: 55,
         AIRCRAFT.RABBIT: {
-            RABBIT.LIGHTS_AHEAD: 150,  # in METERS
+            RABBIT.LIGHTS_AHEAD: 0,  # 150,  # in METERS
             RABBIT.LENGTH: 150,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
@@ -140,7 +140,7 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.WARNING_DISTANCE: 200.0,
         AIRCRAFT.AVG_LENGTH: 70,
         AIRCRAFT.RABBIT: {
-            RABBIT.LIGHTS_AHEAD: 200,  # in METERS
+            RABBIT.LIGHTS_AHEAD: 0,  # 200,  # in METERS
             RABBIT.LENGTH: 150,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
@@ -160,7 +160,7 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.WARNING_DISTANCE: 200.0,
         AIRCRAFT.AVG_LENGTH: 85,
         AIRCRAFT.RABBIT: {
-            RABBIT.LIGHTS_AHEAD: 200,  # in METERS
+            RABBIT.LIGHTS_AHEAD: 0,  # 200,  # in METERS
             RABBIT.LENGTH: 180,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
@@ -196,6 +196,9 @@ class Aircraft:
         self.rabbit_speed = r.get(RABBIT.SPEED, 0.2)  # seconds
         # If modified in preference file
         self.set_preferences()
+
+        self.positions = [self.position()]
+        self.speeds = [self.speed()]
 
     def init(self):
         self.icao = xp.getDatas(self.icaomodel)
@@ -251,13 +254,11 @@ class Aircraft:
             if RABBIT.SPEED.value in prefs:
                 self.rabbit_speed = prefs[RABBIT.SPEED.value]
 
-        if self.rabbit_length == 0:  # no rabbit
-            self.lights_ahead = self.lights_ahead + acflength  # meters
-        else:
+        if self.rabbit_length > 0:  # == 0 = no rabbit
             self.rabbit_length = self.rabbit_length + acflength  # meters
-        logger.debug(
-            f"AIRCRAFT rabbit (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={acflength}m)"
-        )
+        if self.lights_ahead > 0:  # == 0 = whole path
+            self.lights_ahead = self.lights_ahead + acflength  # meters
+        logger.debug(f"AIRCRAFT rabbit (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={acflength}m)")
 
     def position(self) -> list:
         return [xp.getDataf(self.lat), xp.getDataf(self.lon)]
@@ -267,6 +268,15 @@ class Aircraft:
 
     def speed(self) -> float:
         return xp.getDataf(self.groundspeed)
+
+    def mark(self) -> int:
+        self.positions.append(self.position())
+        self.speeds.append(self.speed())
+        return len(self.positions)
+
+    def moved(self, orig: int = 0) -> float:
+        pos = self.position()
+        return distance(Point(lat=self.positions[0][0], lon=self.positions[0][1]), Point(lat=pos[0], lon=pos[1]))
 
     def tiller(self) -> float:
         # runs [-50, 50]
@@ -303,3 +313,7 @@ class Aircraft:
         # @todo: Estimate braking distance from current speed to target
         # currently hardcoded to ~200m
         return AIRCRAFT_TYPES[self.width_code][AIRCRAFT.BRAKING_DISTANCE]
+
+    def taxi_speed(self) -> float:
+        taxi_speed_ranges = self.taxi_speed_ranges()
+        return sum(taxi_speed_ranges[TAXI_SPEED.MED]) / len(taxi_speed_ranges[TAXI_SPEED.MED])

@@ -5,6 +5,7 @@ import math
 import json
 import os.path
 from random import randint
+from datetime import datetime
 
 try:
     import xp
@@ -22,13 +23,12 @@ from .globals import (
     MOVEMENT,
     RABBIT_MODE,
     TAXIWAY_ACTIVE,
-    TAXIWAY_DIRECTION,
     TAXIWAY_WIDTH,
     TAXIWAY_WIDTH_CODE,
 )
 
 HARDCODED_MIN_DISTANCE = 50  # meters
-HARDCODED_MIN_TIME = 0.1  # secs
+HARDCODED_MIN_TIME = 0.04  # secs
 HARDCODED_MIN_RABBIT_LENGTH = 6  # lights
 
 SPECIAL_DEBUG = False
@@ -38,7 +38,7 @@ class LightType:
     # A light to follow, or a stopbar light
     # Holds a referece to its instance
 
-    DEFAULT_TEXTURE_CODE = 1
+    DEFAULT_TEXTURE_CODE = 3
     TEXTURES = [
         "0.5  1.0  1.0  0.5",  # 0: TOP RIGHT
         "0.0  1.0  0.5  0.5",  # 1: TOP LEFT
@@ -46,23 +46,38 @@ class LightType:
         "0.0  0.5  0.5  0.0",  # 3: BOT LEFT
     ]
 
+    LightObjects = {}
+
     def __init__(self, name, filename):
         self.name = name
-        self.filename = filename
+        curr_dir = os.path.dirname(os.path.realpath(__file__))
+        self.filename = os.path.abspath(os.path.join(curr_dir, "lights", filename))
         self.obj = None
+        if os.path.exists(self.filename):
+            if LightType.LightObjects.get(self.filename) is None:
+                LightType.LightObjects[self.filename] = xp.loadObject(self.filename)
+                logger.debug(f"loadObject {self.name} object {self.filename} loaded")
+            else:
+                logger.debug(f"loadObject {self.name} object {self.filename} already loaded ({LightType.LightObjects.get(self.filename)})")
+            self.obj = LightType.LightObjects.get(self.filename)
+        else:
+            logger.debug(f"loadObject {self.name} file {self.filename} not found")
 
-    def load(self):
-        if not self.obj:
-            curr_dir = os.path.dirname(os.path.realpath(__file__))
-            real_path = os.path.join(curr_dir, "lights", self.filename)
-            self.obj = xp.loadObject(real_path)
-            logger.debug(f"loadObject {self.filename} loaded")
+    @property
+    def has_obj(self) -> bool:
+        return self.obj is not None
 
-    def unload(self):
-        if self.obj:
-            xp.unloadObject(self.obj)
-            self.obj = None
-            logger.debug(f"unloadObject {self.name} unloaded")
+    @staticmethod
+    def unload():
+        to_unload = list(LightType.LightObjects.keys())
+        for f in to_unload:
+            o = LightType.LightObjects.get(f)
+            if o is not None:
+                xp.unloadObject(o)
+                LightType.LightObjects[f] = None  # just to be sure...
+                del LightType.LightObjects[f]
+                logger.debug(f"object {f} unloaded")
+        LightType.LightObjects = {}
 
     @staticmethod
     def create(name: str, color: tuple, size: int, intensity: int, texture: int | list | tuple, texture_file: str = "lights.png") -> str:
@@ -103,9 +118,44 @@ POINT_COUNTS    0 0 0 0
             elif type(texture) is int:
                 ltext = LightType.TEXTURES[texture]
             ls = f"LIGHT_CUSTOM 0 1 0 {round(color[0],2)} {round(color[1],2)} {round(color[2],2)} {alpha} {fsize} {ltext} UNUSED"
-            logger.debug(f"create light {name} ({size}, {intensity}): {ls}")
+            logger.debug(f"create LIGHT_CUSTOM {name} ({size}, {intensity}): {ls}")
             for i in range(intensity):
                 print(ls, file=fp)
+        return name
+
+    @staticmethod
+    def create_taxiway_light(name: str, color: str, intensity: int, position: tuple = (0.0, 0.0, 0.0)) -> str:
+        """Creates a light object file with content derived from parameters.
+
+        Args:
+            name (str): file name of light object
+            color (tuple): RGB colors, each value between 0 and 1.
+            intensity (int): number of times the lihgt unit is releated. The more the brighter and the less natural...
+
+        returns:
+            str: file name of ligght object
+        """
+        curr_dir = os.path.dirname(os.path.realpath(__file__))
+        fn = os.path.join(curr_dir, "lights", name)
+        with open(fn, "w") as fp:
+            print(
+                f"""I
+800
+OBJ
+
+POINT_COUNTS    0 0 0 0
+
+""",
+                file=fp,
+            )
+            if color not in "bgry" or len(color) != 1:
+                color = "g"
+            ls1 = f"LIGHT_NAMED taxi_{color} +0.05 0.01 0.07"
+            ls2 = f"LIGHT_NAMED taxi_{color} -0.05 0.01 0.07"
+            logger.debug(f"create LIGHT_NAMED {name} ({color}, {intensity})")
+            for i in range(intensity):
+                print(ls1, file=fp)
+                print(ls2, file=fp)
         return name
 
 
@@ -130,10 +180,10 @@ class Light:
         probe = xp.createProbe(xp.ProbeY)
         info = xp.probeTerrainXYZ(probe, x, y, z)
         if info.result == xp.ProbeError:
-            logger.debug("Terrain error")
+            logger.debug("terrain error")
             (x, y, z) = xp.worldToLocal(lat, lon, alt)
         elif info.result == xp.ProbeMissed:
-            logger.debug("Terrain Missed")
+            logger.debug("terrain Missed")
             (x, y, z) = xp.worldToLocal(lat, lon, alt)
         elif info.result == xp.ProbeHitTerrain:
             # logger.debug("Terrain info is [{}] {}".format(info.result, info))
@@ -145,11 +195,21 @@ class Light:
         return (x, y, z)
 
     def place(self, lightType, lightTypeOff=None):
+        self.lightObject = None
+        if not lightType.has_obj:
+            logger.debug(f"lightType {lightType.name} appears to have no object")
+            return
+        self.lightObject = lightType.obj
+
+        if not lightTypeOff.has_obj:
+            logger.debug(f"lightType off {lightTypeOff.name} appears to have no object")
+            return
+
         self.lightObject = lightType.obj
         pitch, roll, alt = (0, 0, 0)
         (x, y, z) = self.groundXYZ(self.position.lat, self.position.lon, alt)
         self.xyz = (x, y, z, pitch, self.heading, roll)
-        if lightTypeOff and not self.instanceOff:
+        if lightTypeOff is not None and not self.instanceOff:
             self.instanceOff = xp.createInstance(lightTypeOff.obj, self.drefs)
             xp.instanceSetPosition(self.instanceOff, self.xyz, self.params)
             # logger.debug("LightString::place: light off placed")
@@ -223,20 +283,24 @@ class Stopbar:
     def place(self, lightTypes):
         for light in self.lights:
             light.place(lightTypes[light.lightType], lightTypes[LIGHT_TYPE.OFF])
+        logger.debug(f"stop bar at {self.lightStringIndex} placed")
 
     def on(self):
         for light in self.lights:
             light.on()
         self._on = True
+        logger.debug(f"stop bar at {self.lightStringIndex} on")
 
     def off(self):
         for light in self.lights:
             light.off()
         self._on = False
+        logger.debug(f"stop bar at {self.lightStringIndex} off")
 
     def destroy(self):
         for light in self.lights:
             light.destroy()
+        logger.debug(f"stop bar at {self.lightStringIndex} destroyed")
 
 
 class LightString:
@@ -293,12 +357,16 @@ class LightString:
         self.lights_ahead = get_global("LIGHTS_AHEAD", self.prefs)
         if "LIGHTS_AHEAD" not in self.prefs:  # if not explicitely defined for entire application
             self.lights_ahead = int(aircraft.lights_ahead / self.distance_between_lights)  # this never changes
+            if self.lights_ahead == 0 and aircraft.lights_ahead > 0:
+                self.lights_ahead = 1
             logger.debug(f"lights_ahead defined from aircraft preferences {self.lights_ahead}")
         self.num_lights_ahead = self.lights_ahead  # this adjusts with acf speed
 
         self.rabbit_length = get_global("RABBIT_LENGTH", self.prefs)
         if "RABBIT_LENGTH" not in self.prefs:  # if not explicitely defined for entire application
             self.rabbit_length = int(aircraft.rabbit_length / self.distance_between_lights)  # this never changes
+            if self.rabbit_length == 0 and aircraft.rabbit_length > 0:
+                self.rabbit_length = 1
             logger.debug(f"rabbit_length defined from aircraft preferences {self.rabbit_length}")
         self.num_rabbit_lights = self.rabbit_length  # can be 0, this adjusts with acf speed
 
@@ -309,13 +377,16 @@ class LightString:
             logger.debug(f"rabbit_speed defined from aircraft preferences {self.rabbit_speed}")
         self.rabbit_duration = self.rabbit_speed  # this adjusts with acf speed
 
+        # when reset
+        self.new_num_rabbit_lights = self.num_rabbit_lights
+        self.new_num_lights_ahead = self.num_lights_ahead
+        self.new_rabbit_duration = self.rabbit_duration
+
         # control logged info
         self._info_sent = False
 
         logger.debug(f"physical units: rabbit {aircraft.rabbit_length}m, {abs(round(self.rabbit_duration, 2))} secs., ahead {aircraft.lights_ahead}m")
-        logger.info(
-            f"rabbit: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}, greens={self.distance_between_lights}m"
-        )
+        logger.info(f"rabbit: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}, greens={self.distance_between_lights}m")
 
     def __str__(self):
         return json.dumps({"type": "FeatureCollection", "features": self.features()})
@@ -353,31 +424,32 @@ class LightString:
         maxl = min(len(self.lights), self.lastLit + self.num_rabbit_lights + self.num_lights_ahead)
         for i in range(self.lastLit, maxl):
             self.lights[i].on()
-        logger.debug(f"rabbit reset: {self.lastLit} -> {maxl}")
+        logger.debug(f"reset: {self.lastLit} -> {maxl}")
 
     def newRabbitParameters(self, mode: RABBIT_MODE) -> tuple:
         # For now, parameters are static, they will become dynamic later
         # When taxiing fast, make sure enough lights are in front i.e. rabbit length is function of speed?
         adjustment = FTG_SPEED_PARAMS[mode]
         #          self.num_rabbit_lights,              self.rabbit_duration,            , self.num_lights_ahead
-        return int(self.rabbit_length * adjustment[0]), self.rabbit_speed * adjustment[1], int(self.lights_ahead * adjustment[0])
+        new_rl = int(max(self.rabbit_length * adjustment[0], 1)) if self.rabbit_length > 0 else 0
+        new_la = int(max(self.lights_ahead * adjustment[0], 1)) if self.lights_ahead > 0 else 0
+        return new_rl, self.rabbit_speed * adjustment[1], new_la
 
     def changeRabbit(self, length: int, duration: float, ahead: int):
         if not self.has_rabbit():
             return
-        self.num_rabbit_lights = length
-        self.rabbit_duration = duration
-        self.num_lights_ahead = ahead
-        logger.info(f"rabbit mode: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}")
+        self.new_num_rabbit_lights = length
+        self.new_num_lights_ahead = ahead
+        self.new_rabbit_duration = duration
 
     def rabbitMode(self, mode: RABBIT_MODE):
         if not self.has_rabbit():
             return
         self.rabbit_mode = mode
         length, speed, ahead = self.newRabbitParameters(mode)
-        self.resetRabbit()
+        # self.resetRabbit()  # moved to rabbit()
         self.changeRabbit(length=length, duration=speed, ahead=ahead)
-        logger.info(f"rabbit mode: {mode}: {length}, {round(speed, 2)} (ahead={self.num_lights_ahead})")
+        logger.info(f"mode: {mode}: {length} lights, {round(speed, 2)}secs (ahead={self.num_lights_ahead} lights)")
 
     def populate(self, route, move: MOVEMENT, onRunway: bool = False):
         # @todo: If already populated, must delete lights first
@@ -615,13 +687,20 @@ class LightString:
                 fn = LightType.create(name=f[0], color=f[1], size=f[2], intensity=f[3], texture=f[4])
                 self.lightTypes[k] = LightType(k, fn)
             if k in lightsConfig:
-                thisLightConfig = DEFAULT_LIGHT_VALUES | lightsConfig.get(k)
-                if not thisLightConfig["name"].endswith(".obj"):
-                    thisLightConfig["name"] = thisLightConfig["name"] + ".obj"
-                fn = LightType.create(**thisLightConfig)
-                self.lightTypes[k] = LightType(k, fn)
-                logger.debug(f"created preferred light {thisLightConfig}")
-            self.lightTypes[k].load()
+                cfg = lightsConfig.get(k)
+                if type(cfg) is dict:
+                    thisLightConfig = DEFAULT_LIGHT_VALUES | cfg
+                    if not thisLightConfig["name"].endswith(".obj"):
+                        thisLightConfig["name"] = thisLightConfig["name"] + ".obj"
+                    fn = LightType.create(**thisLightConfig)
+                    self.lightTypes[k] = LightType(k, fn)
+                    logger.debug(f"created preferred light {thisLightConfig}")
+                elif type(cfg) is str:  # simple alternate name for obj file
+                    self.lightTypes[k] = LightType(k, cfg)
+                    logger.debug(f"created preferred light named {cfg}")
+                else:
+                    logger.warning(f"invalid config {lightsConfig.get(k)} for light{k}, ignored")
+                    continue
         logger.debug("loaded.")
         return True
 
@@ -795,6 +874,16 @@ class LightString:
             if prev < rn:
                 self.lights[prev].on()
 
+        if self.new_num_rabbit_lights != self.num_rabbit_lights or self.new_num_lights_ahead != self.num_lights_ahead:
+            logger.debug(f"adjustment: #rabbit: {self.num_rabbit_lights}->{self.new_num_rabbit_lights}, #ahead: {self.num_lights_ahead}->{self.new_num_lights_ahead}")
+            self.resetRabbit()
+            self.num_rabbit_lights = self.new_num_rabbit_lights
+            self.num_lights_ahead = self.new_num_lights_ahead
+
+        if self.new_rabbit_duration != self.rabbit_duration:  # no reset necessary, just logging info
+            logger.debug(f"adjustment: rabbit speed: {self.rabbit_duration}->{self.new_rabbit_duration}")
+            self.rabbit_duration = self.new_rabbit_duration
+
         rabbitNose = self.nextStop()
 
         if start != self.oldStart:  # restore previous but with old start
@@ -873,20 +962,17 @@ class LightString:
     def destroy(self):
         # Destroy each green light
         self.rabbitCanRun = False
-        if self.lights:
+        if self.lights is not None and type(self.lights) is list and len(self.lights) > 0:
             for light in self.lights:
                 light.destroy()
-            logger.debug("destroy(green): done.")
+            logger.debug("destroyed greens")
 
         # Destroy each stopbar
-        if self.stopbars:
+        if self.stopbars is not None and type(self.stopbars) is list and len(self.stopbars) > 0:
             for sb in self.stopbars:
                 sb.destroy()
-            logger.debug("destroy(stop): done.")
+            logger.debug("destroyed stop bars")
 
         # Unload light objects
-        if self.lightTypes:
-            for k, f in self.lightTypes.items():
-                f.unload()
-            self.lightTypes = None
-            logger.debug("destroy: unloaded.")
+        LightType.unload()
+        logger.debug("unloaded light objects")

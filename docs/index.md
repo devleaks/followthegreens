@@ -15,10 +15,16 @@ No more path or taxiway segment names to remember. Just green lights to follow.
 Follow the greens is part of the serious _Advanced Surface Movement Guidance and Control System_
 (A-SMGCS, See [here](https://tm3airports.com/asmgcs-design/) if interested).
 
-Please have a look at the [following video](https://vimeo.com/101564135) and search for "airport Follow the greens" to get more information.
-There is nowadays a lot more information, manufacturers, and experimental project reports to learn from.
+Please have a look at the following videos and search for
+« [airport follow the greens](https://duckduckgo.com/?t=ffab&q=airport+follow+the+greens&ia=web) »
+to get more information.
+There is nowadays a lot more information,
+there are a lot more manufacturers, and experimental project reports to learn from.
 
-[ATRiCS TowerPad](https://vimeo.com/88129469)
+- [Follow the greens]((https://vimeo.com/101564135))
+- [ATRiCS TowerPad](https://vimeo.com/88129469)
+
+You'll find a lot more video through the search like.
 
 Follow the greens has numerous advantages discussed in the above videos, ranking to ease of use, to smoother taxi rides,
 to lower interaction with ground control.
@@ -459,8 +465,7 @@ It was not 4D.
 It would not adpat to circumstances like aircraft speed, or proximity to a sharp turn.
 (Search for follow the greens at https://www.pprune.org, it is ineresting to read what real pilots think.)
 
-F
-ollow the Greens 4D is [experimental](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
+Follow the Greens 4D is [experimental](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
 [SMGCS Level 4 compliant](https://tm3airports.com/follow-the-greens/),
 and only exist and run here in X-Plane 12+!
 

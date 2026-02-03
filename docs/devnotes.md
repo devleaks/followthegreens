@@ -32,7 +32,7 @@ If you missed a turn, just ask a new "green path" and the plugin will re-route y
 
 When reaching a stop bar (red lights across the taxiway), you must stop and ask for clearance.
 The plugin will prompt you to tell it when you received clearance.
-Since this plugin does not make any ATC, you have to ask for the clearance yourself to TOWER.
+Since this plugin does not make any ATC, you have to ask for the clearance yourself to GROUND.
 Once cleared, simply press the "Clearance Received" button and the plug in will light the next
 leg of green to your destination.
 
