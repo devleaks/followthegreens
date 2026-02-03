@@ -2,12 +2,12 @@ LICENSE|1078
 PI_FollowTheGreens.py|19767
 README.md|75
 followthegreens/__init__.py|662
-followthegreens/aircraft.py|13071
+followthegreens/aircraft.py|13154
 followthegreens/airport.py|45018
-followthegreens/flightloop.py|19112
-followthegreens/followthegreens.py|22784
+followthegreens/flightloop.py|19012
+followthegreens/followthegreens.py|22931
 followthegreens/geo.py|13711
-followthegreens/globals.py|15332
+followthegreens/globals.py|15378
 followthegreens/graph.py|26105
 followthegreens/lights/amber.obj|2516
 followthegreens/lights/green.obj|1817
@@ -16,7 +16,7 @@ followthegreens/lights/off_light.obj|10640
 followthegreens/lights/on_light.obj|617
 followthegreens/lights/red.obj|1817
 followthegreens/lights/white.obj|1817
-followthegreens/lightstring.py|47551
+followthegreens/lightstring.py|43105
 followthegreens/nato.py|2898
 followthegreens/showtaxiways.py|4071
 followthegreens/ui.py|21161
