@@ -352,7 +352,7 @@ class LightString:
         # when reset
         self.new_num_rabbit_lights = self.num_rabbit_lights
         self.new_num_lights_ahead = self.num_lights_ahead
-        self.new_rabbit_speed = self.rabbit_speed
+        self.new_rabbit_duration = self.rabbit_duration
 
         # control logged info
         self._info_sent = False
@@ -673,7 +673,6 @@ class LightString:
                 else:
                     logger.warning(f"invalid config {lightsConfig.get(k)} for light{k}, ignored")
                     continue
-            self.lightTypes[k].load()
         logger.debug("loaded.")
         return True
 
