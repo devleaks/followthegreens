@@ -44,6 +44,7 @@ class FollowTheGreens:
         self.localTime = xp.findDataRef("sim/time/local_time_sec")
         self.localDay = xp.findDataRef("sim/time/local_date_days")
         self.session = randint(1000, 9999)
+        self.route = None
 
         logger.info("\n\n")
         logger.info("-=" * 50)
@@ -348,14 +349,14 @@ VERSION = "{__VERSION__}"
 
         # Info 11
         logger.info(f"destination {destination}.")
-        rerr, route = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("RESPECT_CONSTRAINTS", preferences=self.prefs))
+        rerr, self.route = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("RESPECT_CONSTRAINTS", preferences=self.prefs))
 
         if not rerr:
-            logger.info(f"no route to destination {destination} (route  {route})")
-            return self.ui.tryAgain(route)
+            logger.info(f"no route to destination {destination} (route  {self.route})")
+            return self.ui.tryAgain(self.route)
 
         # Info 12
-        logger.info(f"route to {destination}: {route}")
+        logger.info(f"route to {destination}: {self.route}")
 
         pos = self.aircraft.position()
         hdg = self.aircraft.heading()
@@ -379,7 +380,7 @@ VERSION = "{__VERSION__}"
         self.status = FTG_STATUS.ROUTE
 
         self.lights = LightString(airport=self.airport, aircraft=self.aircraft, preferences=self.prefs)
-        self.lights.populate(route, move=self.move, onRunway=onRwy)
+        self.lights.populate(self.route, move=self.move, onRunway=onRwy)
         if len(self.lights.lights) == 0:
             logger.debug("no lights")
             return self.ui.sorry("We could not light a route to your destination.")
@@ -411,14 +412,14 @@ VERSION = "{__VERSION__}"
         speak = f"Follow the greens to {phonetic(destination)}"
         intro_arr = []
         if SAY_ROUTE:
-            rt = route.text()
+            rt = self.route.text()
             if len(rt) > 0:
                 intro = intro + f" via taxiways {rt}"
                 speak = speak + f" via taxiways {phonetic(rt)}"
             intro_arr = intro_arr + wrap(intro + ".", width=80)  # might be long
             speak = speak + "."
         if get_global("LEVEL4", self.prefs) > 0:
-            intro_arr.append(f"Expect taxi ride of {round(route.dleft[0]/1000, 1)}km, about {round((route.tleft[0]+30)/60)} minutes.")
+            intro_arr.append(f"Expect taxi ride of {round(self.route.dleft[0]/1000, 1)}km, about {round((self.route.tleft[0]+30)/60)} minutes.")
         if initdiff > 20 or initdist > 200:
             dist_str = " ".join(f"{int(initdist):d}")
             hdg_str = " ".join(f"{int(initbrgn):03d}")
@@ -457,7 +458,6 @@ VERSION = "{__VERSION__}"
             # Info 16.a
             logger.info("done.")
             self.segment = 0  # reset
-            self.status = FTG_STATUS.INACTIVE
             return self.ui.bye()
 
         self.status = FTG_STATUS.GREENS
@@ -478,7 +478,6 @@ VERSION = "{__VERSION__}"
             # Info 16.b
             logger.info("ready for take-off.")
             self.segment = 0  # reset
-            self.status = FTG_STATUS.INACTIVE
             return self.ui.bye()
 
         if self.move == MOVEMENT.ARRIVAL and self.segment == self.lights.segments:

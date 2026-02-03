@@ -336,7 +336,7 @@ LIGHT_TYPE_OBJFILES = {
     LIGHT_TYPE.WARNING: "amber.obj",
     LIGHT_TYPE.LAST: "green.obj",
     LIGHT_TYPE.DEFAULT: "white.obj",
-    LIGHT_TYPE.ACTIVE: "amber.obj",
+    LIGHT_TYPE.ACTIVE: "green.obj",
     # LIGHT_TYPE.RUNWAY: "green.obj",
     # LIGHT_TYPE.ACTIVE_DEP: "green.obj",
     # LIGHT_TYPE.ACTIVE_ARR: "green.obj",

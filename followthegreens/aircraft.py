@@ -6,7 +6,7 @@ except ImportError:
     print("X-Plane not loaded")
 
 from .globals import logger, get_global, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT
-
+from .geo import distance, Point
 
 # fmt: off
 ICAO_AND_IATA_AIRLINERS_CODES = [
@@ -197,6 +197,9 @@ class Aircraft:
         # If modified in preference file
         self.set_preferences()
 
+        self.positions = [self.position()]
+        self.speeds = [self.speed()]
+
     def init(self):
         self.icao = xp.getDatas(self.icaomodel)
         if self.icao is None:
@@ -265,6 +268,15 @@ class Aircraft:
 
     def speed(self) -> float:
         return xp.getDataf(self.groundspeed)
+
+    def mark(self) -> int:
+        self.positions.append(self.position())
+        self.speeds.append(self.speed())
+        return len(self.positions)
+
+    def moved(self, orig: int = 0) -> float:
+        pos = self.position()
+        return distance(Point(lat=self.positions[0][0], lon=self.positions[0][1]), Point(lat=pos[0], lon=pos[1]))
 
     def tiller(self) -> float:
         # runs [-50, 50]

@@ -28,7 +28,7 @@ from .globals import (
 )
 
 HARDCODED_MIN_DISTANCE = 50  # meters
-HARDCODED_MIN_TIME = 0.1  # secs
+HARDCODED_MIN_TIME = 0.04  # secs
 HARDCODED_MIN_RABBIT_LENGTH = 6  # lights
 
 SPECIAL_DEBUG = False
@@ -52,18 +52,31 @@ class LightType:
         self.name = name
         curr_dir = os.path.dirname(os.path.realpath(__file__))
         self.filename = os.path.abspath(os.path.join(curr_dir, "lights", filename))
-        if self.filename not in LightType.LightObjects:
-            LightType.LightObjects[self.filename] = xp.loadObject(self.filename)
-            logger.debug(f"loadObject {self.name} object {self.filename} loaded")
+        self.obj = None
+        if os.path.exists(self.filename):
+            if LightType.LightObjects.get(self.filename) is None:
+                LightType.LightObjects[self.filename] = xp.loadObject(self.filename)
+                logger.debug(f"loadObject {self.name} object {self.filename} loaded")
+            else:
+                logger.debug(f"loadObject {self.name} object {self.filename} already loaded ({LightType.LightObjects.get(self.filename)})")
+            self.obj = LightType.LightObjects.get(self.filename)
         else:
-            logger.debug(f"loadObject {self.name} object {self.filename} already loaded")
-        self.obj = LightType.LightObjects.get(self.filename)
+            logger.debug(f"loadObject {self.name} file {self.filename} not found")
+
+    @property
+    def has_obj(self) -> bool:
+        return self.obj is not None
 
     @staticmethod
     def unload():
-        for f, o in LightType.LightObjects.items():
-            xp.unloadObject(o)
-            logger.debug(f"object {f} unloaded")
+        to_unload = list(LightType.LightObjects.keys())
+        for f in to_unload:
+            o = LightType.LightObjects.get(f)
+            if o is not None:
+                xp.unloadObject(o)
+                LightType.LightObjects[f] = None  # just to be sure...
+                del LightType.LightObjects[f]
+                logger.debug(f"object {f} unloaded")
         LightType.LightObjects = {}
 
     @staticmethod
@@ -167,10 +180,10 @@ class Light:
         probe = xp.createProbe(xp.ProbeY)
         info = xp.probeTerrainXYZ(probe, x, y, z)
         if info.result == xp.ProbeError:
-            logger.debug("Terrain error")
+            logger.debug("terrain error")
             (x, y, z) = xp.worldToLocal(lat, lon, alt)
         elif info.result == xp.ProbeMissed:
-            logger.debug("Terrain Missed")
+            logger.debug("terrain Missed")
             (x, y, z) = xp.worldToLocal(lat, lon, alt)
         elif info.result == xp.ProbeHitTerrain:
             # logger.debug("Terrain info is [{}] {}".format(info.result, info))
@@ -182,11 +195,21 @@ class Light:
         return (x, y, z)
 
     def place(self, lightType, lightTypeOff=None):
+        self.lightObject = None
+        if not lightType.has_obj:
+            logger.debug(f"lightType {lightType.name} appears to have no object")
+            return
+        self.lightObject = lightType.obj
+
+        if not lightTypeOff.has_obj:
+            logger.debug(f"lightType off {lightTypeOff.name} appears to have no object")
+            return
+
         self.lightObject = lightType.obj
         pitch, roll, alt = (0, 0, 0)
         (x, y, z) = self.groundXYZ(self.position.lat, self.position.lon, alt)
         self.xyz = (x, y, z, pitch, self.heading, roll)
-        if lightTypeOff and not self.instanceOff:
+        if lightTypeOff is not None and not self.instanceOff:
             self.instanceOff = xp.createInstance(lightTypeOff.obj, self.drefs)
             xp.instanceSetPosition(self.instanceOff, self.xyz, self.params)
             # logger.debug("LightString::place: light off placed")
@@ -334,12 +357,16 @@ class LightString:
         self.lights_ahead = get_global("LIGHTS_AHEAD", self.prefs)
         if "LIGHTS_AHEAD" not in self.prefs:  # if not explicitely defined for entire application
             self.lights_ahead = int(aircraft.lights_ahead / self.distance_between_lights)  # this never changes
+            if self.lights_ahead == 0 and aircraft.lights_ahead > 0:
+                self.lights_ahead = 1
             logger.debug(f"lights_ahead defined from aircraft preferences {self.lights_ahead}")
         self.num_lights_ahead = self.lights_ahead  # this adjusts with acf speed
 
         self.rabbit_length = get_global("RABBIT_LENGTH", self.prefs)
         if "RABBIT_LENGTH" not in self.prefs:  # if not explicitely defined for entire application
             self.rabbit_length = int(aircraft.rabbit_length / self.distance_between_lights)  # this never changes
+            if self.rabbit_length == 0 and aircraft.rabbit_length > 0:
+                self.rabbit_length = 1
             logger.debug(f"rabbit_length defined from aircraft preferences {self.rabbit_length}")
         self.num_rabbit_lights = self.rabbit_length  # can be 0, this adjusts with acf speed
 
@@ -404,7 +431,9 @@ class LightString:
         # When taxiing fast, make sure enough lights are in front i.e. rabbit length is function of speed?
         adjustment = FTG_SPEED_PARAMS[mode]
         #          self.num_rabbit_lights,              self.rabbit_duration,            , self.num_lights_ahead
-        return int(self.rabbit_length * adjustment[0]), self.rabbit_speed * adjustment[1], int(self.lights_ahead * adjustment[0])
+        new_rl = int(max(self.rabbit_length * adjustment[0], 1)) if self.rabbit_length > 0 else 0
+        new_la = int(max(self.lights_ahead * adjustment[0], 1)) if self.lights_ahead > 0 else 0
+        return new_rl, self.rabbit_speed * adjustment[1], new_la
 
     def changeRabbit(self, length: int, duration: float, ahead: int):
         if not self.has_rabbit():

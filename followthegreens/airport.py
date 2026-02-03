@@ -750,6 +750,12 @@ class Route:
     def found(self) -> bool:
         return self.route is not None and len(self.route) > 2
 
+    def baseline(self, idx: int = 0) -> tuple:
+        # Returns distance and time left at route index
+        if len(self.dleft) > 0 and len(self.tleft) > 0:
+            return self.dleft[idx], self.tleft[idx]
+        return 0, 0
+
     def mkEdges(self):
         # From liste of vertices, build list of edges
         # but also set the size of the taxiway in the vertex
