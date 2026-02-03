@@ -269,7 +269,9 @@ class FlightLoop:
             )
             if msg != self.old_msg:
                 logger.debug(msg)
-                logger.debug(f"remaining: {round(dist_to_next_vertex + route.dleft[light.index + 1], 1)}m, {round((time_to_next_vertex + route.tleft[light.index + 1] + 30)/60)}min")
+                logger.debug(
+                    f"remaining: {round(dist_to_next_vertex + route.dleft[light.index + 1], 1)}m, {round((time_to_next_vertex + route.tleft[light.index + 1] + 30)/60)}min"
+                )
                 self.old_msg = msg
 
             # II. From distance to turn, and angle of turn, assess situation
@@ -366,7 +368,6 @@ class FlightLoop:
         # logger.debug('%2f, %2f, %d', elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter)
         self.ftg.ui.hideMainWindowIfOk(elapsedSinceLastCall)
 
-
         pos = self.ftg.aircraft.position()
         if not pos or (pos[0] == 0 and pos[1] == 0):
             logger.debug("no position.")
@@ -407,7 +408,6 @@ class FlightLoop:
         except:
             logger.error("ERROR BLOCK 2", exc_info=True)
             return self.nextIter
-
 
         try:
             # logger.debug("closest %d %f", closestLight, distance)

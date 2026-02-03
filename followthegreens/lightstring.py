@@ -358,9 +358,7 @@ class LightString:
         self._info_sent = False
 
         logger.debug(f"physical units: rabbit {aircraft.rabbit_length}m, {abs(round(self.rabbit_duration, 2))} secs., ahead {aircraft.lights_ahead}m")
-        logger.info(
-            f"rabbit: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}, greens={self.distance_between_lights}m"
-        )
+        logger.info(f"rabbit: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}, greens={self.distance_between_lights}m")
 
     def __str__(self):
         return json.dumps({"type": "FeatureCollection", "features": self.features()})
@@ -852,7 +850,7 @@ class LightString:
             self.num_rabbit_lights = self.new_num_rabbit_lights
             self.num_lights_ahead = self.new_num_lights_ahead
 
-        if self.new_rabbit_duration != self.rabbit_duration: # no reset necessary, just logging info
+        if self.new_rabbit_duration != self.rabbit_duration:  # no reset necessary, just logging info
             logger.debug(f"adjustment: rabbit speed: {self.rabbit_duration}->{self.new_rabbit_duration}")
             self.rabbit_duration = self.new_rabbit_duration
 

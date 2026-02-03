@@ -26,6 +26,7 @@ FTG_PLUGIN_ROOT_PATH = "XPPython3/followthegreens/"
 
 IMPERIAL_UNITS = False  # only for US or Lybia
 
+
 class FTG_STATUS(StrEnum):
     NEW = "NEW"  # ftg just created
     INITIALIZED = "INITIALIZED"  # ftg initialized (preferences, etc.)

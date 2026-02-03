@@ -374,9 +374,7 @@ VERSION = "{__VERSION__}"
         self.destination = destination
         onRwy = False
         if self.move == MOVEMENT.ARRIVAL:
-            onRwy, runway = self.airport.onRunway(
-                pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg
-            )  # RUNWAY_BUFFER_WIDTH either side of runway, return [True,Runway()] or [False, None]
+            onRwy, runway = self.airport.onRunway(pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg)  # RUNWAY_BUFFER_WIDTH either side of runway, return [True,Runway()] or [False, None]
 
         self.status = FTG_STATUS.ROUTE
 

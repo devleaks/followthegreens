@@ -25,9 +25,11 @@ from .globals import (
 
 SYSTEM_DIRECTORY = "."
 
+
 def minsec(t: float) -> str:
     a = int(t)
     return f"{int(a/60)}:{a%60:02d}"
+
 
 class Runway(Line):
     # A place to be. But not too long.
@@ -208,9 +210,7 @@ class Airport:
         # Info 4
         # Fine tune for specific airport(s)
         self.set_preferences()
-        logger.debug(
-            f"AIRPORT rabbit: btw greens={self.distance_between_green_lights}m, whole net={self.distance_between_taxiway_lights}m, speed={self.rabbit_speed}s"
-        )
+        logger.debug(f"AIRPORT rabbit: btw greens={self.distance_between_green_lights}m, whole net={self.distance_between_taxiway_lights}m, speed={self.rabbit_speed}s")
 
     def prepare(self):
         status = self.load()
@@ -444,12 +444,8 @@ class Airport:
             if aptline.linecode() == 100:  # runway
                 args = aptline.content().split()
                 runway = Polygon.mkPolygon(lat1=args[8], lon1=args[9], lat2=args[17], lon2=args[18], width=float(args[0]))
-                runways[args[7]] = Runway(
-                    name=args[7], width=args[0], lat=args[8], lon=args[9], dt=args[10], dbo=args[11], lat2=args[17], lon2=args[18], pol=runway
-                )
-                runways[args[16]] = Runway(
-                    name=args[16], width=args[0], lat=args[17], lon=args[18], dt=args[19], dbo=args[20], lat2=args[8], lon2=args[9], pol=runway
-                )
+                runways[args[7]] = Runway(name=args[7], width=args[0], lat=args[8], lon=args[9], dt=args[10], dbo=args[11], lat2=args[17], lon2=args[18], pol=runway)
+                runways[args[16]] = Runway(name=args[16], width=args[0], lat=args[17], lon=args[18], dt=args[19], dbo=args[20], lat2=args[8], lon2=args[9], pol=runway)
 
         self.runways = runways
         logger.debug(f"added {len(runways.keys())} runways")
@@ -805,11 +801,11 @@ class Route:
 
         self.dtb = []
         total = 0
-        self.dtb.append(total) # at last vertex, no distance to next turn
+        self.dtb.append(total)  # at last vertex, no distance to next turn
         for i in range(len(self.route) - 1, 0, -1):
-            total = total + self.edges[i-1].cost
+            total = total + self.edges[i - 1].cost
             self.dtb.append(total)
-            if abs(self.turns[i-1]) > SMALL_TURN_LIMIT:
+            if abs(self.turns[i - 1]) > SMALL_TURN_LIMIT:
                 total = 0
         self.dtb.reverse()
         logger.debug(f"segment left: {[round(e, 1) for e in self.dtb]}")

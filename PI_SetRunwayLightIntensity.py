@@ -5,6 +5,7 @@ __VERSION__ = "1.0.1"
 __NAME__ = "Set Runway Light Intensity"
 __DESCRIPTION__ = "Wrapper around X-Plane runway light control commands"
 
+
 class PythonInterface:
 
     LEVEL = {
@@ -26,7 +27,7 @@ class PythonInterface:
     # Plugin Interface
     def XPluginStart(self) -> tuple:
         self.menuIdx = xp.createMenu(name="Set Runway Lights")
-        self.cmdRefs = {v: xp.findCommand(name="sim/operation/rwy_lights_" + k) for k,v in self.LEVEL.items()}
+        self.cmdRefs = {v: xp.findCommand(name="sim/operation/rwy_lights_" + k) for k, v in self.LEVEL.items()}
         self.menuIdxs = {k: xp.appendMenuItemWithCommand(menuID=self.menuIdx, name=k, commandRef=v) for k, v in self.cmdRefs.items() if v is not None}
         return self.Name, self.Sig, self.Desc
 

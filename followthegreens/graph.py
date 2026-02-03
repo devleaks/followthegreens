@@ -67,13 +67,9 @@ class Vertex(Point):  ## Vertex(Point)
         # Turn angle coming from src and going to dst
         # Will be used as a weighted extra cost when visited from src to dst
         if src.id not in self.adjacent and self.id not in src.adjacent:
-            logger.warning(
-                f"turn: at {self.id}: from {src.id} to {dst.id}, src not in adjacents {self.adjacent} or self not in src {src.adjacent} ({type(self.id)})"
-            )
+            logger.warning(f"turn: at {self.id}: from {src.id} to {dst.id}, src not in adjacents {self.adjacent} or self not in src {src.adjacent} ({type(self.id)})")
         if dst.id not in self.adjacent and self.id not in dst.adjacent:
-            logger.warning(
-                f"turn: at {self.id}: from {src.id} to {dst.id}, dst not in adjacents {self.adjacent} or self not in dst {dst.adjacent} ({type(self.id)})"
-            )
+            logger.warning(f"turn: at {self.id}: from {src.id} to {dst.id}, dst not in adjacents {self.adjacent} or self not in dst {dst.adjacent} ({type(self.id)})")
         b1 = bearing(src, self)
         b2 = bearing(self, dst)
         return turn(b1, b2)
@@ -260,6 +256,7 @@ class Graph:  # Graph(FeatureCollection)?
         def add(arr, v):
             arr.append(v.feature())
             return arr
+
         fc = reduce(add, self.edges_arr, [])
         logger.debug(f"{len(fc)} features")
         return fc

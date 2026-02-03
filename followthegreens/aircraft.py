@@ -255,9 +255,7 @@ class Aircraft:
             self.rabbit_length = self.rabbit_length + acflength  # meters
         if self.lights_ahead > 0:  # == 0 = whole path
             self.lights_ahead = self.lights_ahead + acflength  # meters
-        logger.debug(
-            f"AIRCRAFT rabbit (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={acflength}m)"
-        )
+        logger.debug(f"AIRCRAFT rabbit (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={acflength}m)")
 
     def position(self) -> list:
         return [xp.getDataf(self.lat), xp.getDataf(self.lon)]
@@ -306,4 +304,4 @@ class Aircraft:
 
     def taxi_speed(self) -> float:
         taxi_speed_ranges = self.taxi_speed_ranges()
-        return sum(taxi_speed_ranges[TAXI_SPEED.MED])/len(taxi_speed_ranges[TAXI_SPEED.MED])
+        return sum(taxi_speed_ranges[TAXI_SPEED.MED]) / len(taxi_speed_ranges[TAXI_SPEED.MED])
