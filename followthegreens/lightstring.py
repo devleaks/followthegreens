@@ -881,7 +881,7 @@ class LightString:
             self.num_lights_ahead = self.new_num_lights_ahead
 
         if self.new_rabbit_duration != self.rabbit_duration:  # no reset necessary, just logging info
-            logger.debug(f"adjustment: rabbit speed: {self.rabbit_duration}->{self.new_rabbit_duration}")
+            logger.debug(f"adjustment: rabbit speed: {round(self.rabbit_duration, 3)}->{round(self.new_rabbit_duration, 3)}")
             self.rabbit_duration = self.new_rabbit_duration
 
         rabbitNose = self.nextStop()
@@ -905,7 +905,7 @@ class LightString:
                         for redlight in sb.lights:
                             redlight.on()
                         # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
-                        logger.debug(f"light ahead: instanciate stopbar {self.currentSegment}: done.")
+                        logger.debug(f"light ahead: instanciate stop bar {self.currentSegment}: done.")
 
         else:  # restore previous
             restore(start, self.rabbitIdx, rabbitNose)
