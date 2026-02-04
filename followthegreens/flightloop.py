@@ -1,5 +1,5 @@
 # X-Plane Interaction Class
-# We currently have two loops, one for rabbit, one to monitor plane position.
+# We currently have two loops, one for rabbit, one to monitor aircraft position.
 #
 from datetime import datetime, timedelta, timezone
 
@@ -49,22 +49,20 @@ class FlightLoop:
         self._may_adjust_rabbit = True
         self.manual_mode = False
         self.runway_level_original = 1
-        self.global_stop_requested = False
-
+        # ASMCMS Level 4 compliance stuff:
         self.target_time = None  # target takeoff hold time, ready to takeoff for ACDM compliance. (Filled/provided externally.)
         self.actual_start = None  # actual taxi start time
         self.planned = None  # planned time of arrival at destination after taxi started
-
+        # Monitoring globals
+        self.remaining_time = 0
+        self.remaining_dist = 0
+        self.is_late = False
+        # less verbose debug
         self.closestLight_cnt = 0
         self.old_msg = ""
         self.old_msg2 = ""
 
     def startFlightLoop(self):
-        # @todo schedule/unschedule without destroying
-        if self.global_stop_requested:
-            logger.debug("global stop requested")
-            return
-
         # @todo: make function to reset lastLit counter
         self.lastLit = 0
 
@@ -115,7 +113,7 @@ class FlightLoop:
         if self.planeRunning:
             xp.destroyFlightLoop(self.flplane)
             self.planeRunning = False
-            logger.debug("plane tracking stopped.")
+            logger.debug("aircraft tracking stopped.")
             # if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
             #     logger.debug(f"Unchecking menu {self.ftg.pi.menuIdx}..")
             #     xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Unchecked)
@@ -123,10 +121,7 @@ class FlightLoop:
             # else:
             #     logger.debug(f"menu not checked (index {self.ftg.pi.menuIdx})")
         else:
-            logger.debug("plane not tracked.")
-
-        self.global_stop_requested = False
-        # terminated
+            logger.debug("aircraft not tracked.")
 
         # Restore runway lights according to what it was
         if not self.planeRunning:
@@ -275,9 +270,12 @@ class FlightLoop:
         )
         if msg != self.old_msg:
             logger.debug(msg)
-            left = time_to_next_vertex + route.tleft[light.index + 1] + 30
-            is_late = self.late(t0=left)  # will display original estimated vs new estimate
-            logger.debug(f"remaining: {round(dist_to_next_vertex + route.dleft[light.index + 1], 1)}m, {round(left/60)}min, (late={is_late})")
+            self.remaining_time = time_to_next_vertex + route.tleft[light.index + 1] + 30
+            self.remaining_dist = dist_to_next_vertex + route.dleft[light.index + 1]
+            self.is_late = self.late(t0=self.remaining_time)  # will display original estimated vs new estimate
+            self.remaining = f"{round(self.remaining_dist):4d}m, {round(self.remaining_time/60):2d}:{round(self.remaining_time) % 60:02d}"
+            logger.debug(f"remaining: {round(self.remaining_dist, 1)}m, {round(self.remaining_time/60)}min, {'(late)' if self.is_late else '(on time)'}")
+            logger.debug(f"{self.remaining}")
             self.old_msg = msg
 
         # II. From distance to turn, and angle of turn, assess situation

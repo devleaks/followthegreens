@@ -21,10 +21,10 @@ to get more information.
 There is nowadays a lot more information,
 there are a lot more manufacturers, and experimental project reports to learn from.
 
-- [Follow the greens]((https://vimeo.com/101564135))
+- [Follow the greens](https://vimeo.com/101564135)
 - [ATRiCS TowerPad](https://vimeo.com/88129469)
 
-You'll find a lot more video through the search like.
+You'll find a lot more video through the search link above.
 
 Follow the greens has numerous advantages discussed in the above videos, ranking to ease of use, to smoother taxi rides,
 to lower interaction with ground control.
