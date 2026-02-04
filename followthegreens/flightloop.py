@@ -22,10 +22,12 @@ from .globals import (
 )
 from .geo import EARTH, Point, distance
 
-MAX_UPDATE_FREQUENCY = 10  # seconds, rabbit cannot change again more that 10 seconds it changed
-STOPPED_SPEED = 0.01  # m/s
-MIN_DIST = 100  # meters
-MIN_SPEED = 3  # m/sec.
+
+# Hardcaded here, not preferences
+MAX_UPDATE_FREQUENCY = 10  # seconds, rabbit cannot change again more that 8 seconds it changed
+STOPPED_SPEED = 0.01  # m/s, under that speed, things are considered stopped, not moving.
+MIN_DIST = 100  # meters, minimum distance to move to consider object is actually moving
+MIN_SPEED = 3  # m/sec., minimum speed to consider object is actually moving significantly
 
 
 class FlightLoop:
@@ -49,8 +51,10 @@ class FlightLoop:
         self.runway_level_original = 1
         self.global_stop_requested = False
 
+        self.target_time = None  # target takeoff hold time, ready to takeoff for ACDM compliance. (Filled/provided externally.)
         self.actual_start = None  # actual taxi start time
         self.planned = None  # planned time of arrival at destination after taxi started
+
         self.closestLight_cnt = 0
         self.old_msg = ""
         self.old_msg2 = ""
@@ -264,17 +268,16 @@ class FlightLoop:
         taxi_speed = max(speed, self.ftg.aircraft.taxi_speed())  # m/s
         time_to_next_vertex = dist_to_next_vertex / taxi_speed
 
-        next_iter = self.adjustedIter()  # meters
-        acf_move = speed * next_iter
+        acf_move = speed * self.lastIter
         msg = (
-            f"currently at index {light.index}, next turn (larger than {TURN_LIMIT}deg) at index {idx-1}: "
-            + f"{round(turn, 0)}deg at {round(dist_before, 1)}m, current speed={round(speed, 1)}, acf moved {round(acf_move, 1)}m during iteration ({next_iter} secs)"
+            f"currently at index {light.index}, next turn (larger than {TURN_LIMIT}deg) at index {idx-1}, {round(turn, 0)}deg at {round(dist_before, 1)}m, "
+            + f"current speed={round(speed, 1)}, acf moved {round(acf_move, 1)}m during last iteration ({self.lastIter} secs)"
         )
         if msg != self.old_msg:
             logger.debug(msg)
             left = time_to_next_vertex + route.tleft[light.index + 1] + 30
             is_late = self.late(t0=left)  # will display original estimated vs new estimate
-            logger.debug(f"remaining: {round(dist_to_next_vertex + route.dleft[light.index + 1], 1)}m, {round(left/60)}min")
+            logger.debug(f"remaining: {round(dist_to_next_vertex + route.dleft[light.index + 1], 1)}m, {round(left/60)}min, (late={is_late})")
             self.old_msg = msg
 
         # II. From distance to turn, and angle of turn, assess situation
@@ -329,7 +332,7 @@ class FlightLoop:
             if self.rabbitMode != mode:
                 self.rabbitMode = mode
         except:
-            logger.error("adjustRabbit:set", exc_info=True)
+            logger.error("set rabbitMode", exc_info=True)
 
     def adjustedIter(self) -> float:
         # If aircraft move fast, we check/update FtG more often
@@ -346,10 +349,10 @@ class FlightLoop:
             while i < len(SPEEDS):
                 if speed > SPEEDS[i][0]:
                     j = SPEEDS[i][1]
-                    if i != self.lastIter:
-                        logger.debug(f"speed {round(speed, 1)}, iter reduced to {j}")
+                    if j != self.lastIter:
+                        logger.debug(f"speed {round(speed, 1)}, iter set to {j}")
                         self.lastIter = j
-                    return j
+                        return j
                 i = i + 1
         except:
             logger.error("adjustedIter", exc_info=True)
@@ -386,10 +389,10 @@ class FlightLoop:
 
         if self.actual_start is None:
             if self.ftg.aircraft.moved() > MIN_DIST or self.ftg.aircraft.speed() > MIN_SPEED:
-                self.actual_start = datetime.now(tz=timezone.utc)
+                self.actual_start = datetime.now(tz=timezone.utc).replace(microsecond=0)
                 d, s = self.ftg.route.baseline()
-                self.planned = self.actual_start + timedelta(seconds=s)
-                logger.debug(f"taxi started, estimated takeoff hold at {self.planned}.")
+                self.planned = self.actual_start + timedelta(seconds=round(s))
+                logger.debug(f"taxi started, estimated takeoff hold at {self.planned.strftime("%H:%M")}Z.")
             else:
                 logger.debug(f"not started taxiing yet, {self.ftg.aircraft.moved()} < {MIN_DIST}, {self.ftg.aircraft.speed()} < {MIN_SPEED}")
 
@@ -429,6 +432,7 @@ class FlightLoop:
             return self.adjustedIter()
 
         if self.lastLit == closestLight and (abs(self.distance - distance) < DISTANCE_BETWEEN_GREEN_LIGHTS):  # not moved enought, may even be stopped
+            # logger.debug("aircraft did not move")
             return self.adjustedIter()
 
         # @todo
