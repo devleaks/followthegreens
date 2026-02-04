@@ -4,7 +4,7 @@ README.md|75
 followthegreens/__init__.py|662
 followthegreens/aircraft.py|13588
 followthegreens/airport.py|45159
-followthegreens/flightloop.py|19566
+followthegreens/flightloop.py|20003
 followthegreens/followthegreens.py|22875
 followthegreens/geo.py|13711
 followthegreens/globals.py|15396
