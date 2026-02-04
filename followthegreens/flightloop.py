@@ -57,6 +57,8 @@ class FlightLoop:
         self.remaining_time = 0
         self.remaining_dist = 0
         self.is_late = False
+        self.remaining = "waiting for data..."
+        self.dist_to_next_turn = 0
         # less verbose debug
         self.closestLight_cnt = 0
         self.old_msg = ""
@@ -217,6 +219,7 @@ class FlightLoop:
         nextvertex = light.index + 1
         if nextvertex >= len(route.route):  # end of route
             nextvertex = len(route.route) - 1
+            logger.info("reached end of route")
         nextvtxid = route.route[nextvertex]
         nextvtx = route.graph.get_vertex(nextvtxid)
 
@@ -246,20 +249,25 @@ class FlightLoop:
         SPEED_DELTA = 5.0  # in m/s
 
         # 4. Find next "significant" turn of more than TURN_LIMIT
-        idx = light.index + 1  # starts at next vertex
-
-        # @todo: What if no more turn but end of greens reached?
+        idx = nextvertex  # starts at next vertex
+        # dist2 = dist_to_next_vertex
+        # dist_before2 = dist2
+        while abs(turn) < TURN_LIMIT and idx < len(route.route):
+            turn = route.turns[idx]
+            # dist_before2 = dist2
+            # dist2 = dist2 + route.edges[idx].cost
+            idx = idx + 1
         if idx >= len(route.route):  # end of route
             idx = len(route.route) - 1
             logger.info("reached end of route")
 
         # logger.debug(f"current vertex={light.index}, distance to next vertex {idx}: {round(dist_to_next_vertex, 1)}m")
         # logger.debug(f"at vertext {idx}: turn={round(route.turns[idx], 1)} DEG")
-        dist_to_next_turn = 0 if abs(route.turns[idx]) > TURN_LIMIT else route.dtb[idx]
+        dist_to_next_turn = 0 if abs(route.turns[nextvertex]) > TURN_LIMIT else route.dtb[nextvertex]
         # logger.debug(f"at vertext {idx}: distance to add to next turn={round(dist_to_next_turn, 1)}m")
 
         dist_before = dist_to_next_turn + dist_to_next_vertex
-
+        self.dist_to_next_turn = dist_before
         taxi_speed = max(speed, self.ftg.aircraft.taxi_speed())  # m/s
         time_to_next_vertex = dist_to_next_vertex / taxi_speed
 
@@ -270,12 +278,16 @@ class FlightLoop:
         )
         if msg != self.old_msg:
             logger.debug(msg)
-            self.remaining_time = time_to_next_vertex + route.tleft[light.index + 1] + 30
-            self.remaining_dist = dist_to_next_vertex + route.dleft[light.index + 1]
+
+            self.remaining_dist = dist_to_next_vertex + route.dleft[nextvertex]
+            logger.debug(f"remaining dist: {round(dist_to_next_vertex, 1)}m + {round(route.dleft[nextvertex], 1)}m = {round(self.remaining_dist, 1)}m")
+            self.remaining_time = time_to_next_vertex + route.tleft[nextvertex] + 30
+            logger.debug(f"remaining time: {round(time_to_next_vertex, 1)}sec + {round(route.tleft[nextvertex], 1)}sec + 30sec = {round(self.remaining_time, 1)}sec")
+
             self.is_late = self.late(t0=self.remaining_time)  # will display original estimated vs new estimate
             self.remaining = f"{round(self.remaining_dist):4d}m, {round(self.remaining_time/60):2d}:{round(self.remaining_time) % 60:02d}"
             logger.debug(f"remaining: {round(self.remaining_dist, 1)}m, {round(self.remaining_time/60)}min, {'(late)' if self.is_late else '(on time)'}")
-            logger.debug(f"{self.remaining}")
+            # logger.debug(f"{self.remaining}")
             self.old_msg = msg
 
         # II. From distance to turn, and angle of turn, assess situation

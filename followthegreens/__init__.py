@@ -2,6 +2,8 @@ from .version import __VERSION__, __NAME__, __DESCRIPTION__
 from .globals import (
     RABBIT_MODE,
     FTG_PLUGIN_ROOT_PATH,
+    FTG_HUD_DESC,
+    FTG_HUD,
     FTG_CANCEL_COMMAND,
     FTG_CANCEL_COMMAND_DESC,
     FTG_OK_COMMAND,

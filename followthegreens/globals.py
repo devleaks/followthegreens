@@ -89,6 +89,9 @@ STW_MENU = "Show taxiways"  # if None, do not show menu entry for Show Taxiways,
 FTG_COMMAND = FTG_PLUGIN_ROOT_PATH + "main_windown_toggle"
 FTG_COMMAND_DESC = "Open or close Follow the greens window"
 
+FTG_HUD = FTG_PLUGIN_ROOT_PATH + "taxihud"
+FTG_HUD_DESC = "Show or hide Follow the greens hud"
+
 FTG_CLEARANCE_COMMAND = FTG_PLUGIN_ROOT_PATH + "send_clearance_ok"
 FTG_CLEARANCE_COMMAND_DESC = "Clears next stop bar on greens"
 
