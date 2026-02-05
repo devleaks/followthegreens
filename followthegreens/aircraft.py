@@ -40,7 +40,7 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.AIRCRAFTS: ["C172"],
         # fmt: on
         AIRCRAFT.TAXI_SPEED: {
-            TAXI_SPEED.FAST: [12, 18],
+            TAXI_SPEED.FAST: [12, 15],
             TAXI_SPEED.MED: [7, 10],
             TAXI_SPEED.SLOW: [5, 8],
             TAXI_SPEED.CAUTION: [3, 6],
@@ -60,13 +60,13 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.AIRCRAFTS: ["GLF5"],
         # fmt: on
         AIRCRAFT.TAXI_SPEED: {
-            TAXI_SPEED.FAST: [12, 18],
+            TAXI_SPEED.FAST: [12, 15],
             TAXI_SPEED.MED: [7, 10],
             TAXI_SPEED.SLOW: [5, 8],
             TAXI_SPEED.CAUTION: [3, 6],
             TAXI_SPEED.TURN: [1, 3],
         },
-        AIRCRAFT.BRAKING_DISTANCE: 150.0,
+        AIRCRAFT.BRAKING_DISTANCE: 120.0,
         AIRCRAFT.WARNING_DISTANCE: 200.0,
         AIRCRAFT.AVG_LENGTH: 25,
         AIRCRAFT.RABBIT: {
@@ -85,13 +85,13 @@ AIRCRAFT_TYPES = {
         ],
         # fmt: on
         AIRCRAFT.TAXI_SPEED: {
-            TAXI_SPEED.FAST: [12, 18],
+            TAXI_SPEED.FAST: [12, 15],
             TAXI_SPEED.MED: [7, 10],
             TAXI_SPEED.SLOW: [5, 8],
             TAXI_SPEED.CAUTION: [3, 6],
             TAXI_SPEED.TURN: [1, 5],
         },
-        AIRCRAFT.BRAKING_DISTANCE: 200.0,
+        AIRCRAFT.BRAKING_DISTANCE: 160.0,
         AIRCRAFT.WARNING_DISTANCE: 200.0,
         AIRCRAFT.AVG_LENGTH: 40,
         AIRCRAFT.RABBIT: {
@@ -108,14 +108,14 @@ AIRCRAFT_TYPES = {
         ],
         # fmt: on
         AIRCRAFT.TAXI_SPEED: {
-            TAXI_SPEED.FAST: [10, 16],
+            TAXI_SPEED.FAST: [10, 14],
             TAXI_SPEED.MED: [7, 10],
-            TAXI_SPEED.SLOW: [5, 8],
+            TAXI_SPEED.SLOW: [4, 7],
             TAXI_SPEED.CAUTION: [3, 6],
             TAXI_SPEED.TURN: [1, 4],
         },
         AIRCRAFT.BRAKING_DISTANCE: 200.0,
-        AIRCRAFT.WARNING_DISTANCE: 200.0,
+        AIRCRAFT.WARNING_DISTANCE: 220.0,
         AIRCRAFT.AVG_LENGTH: 55,
         AIRCRAFT.RABBIT: {
             RABBIT.LIGHTS_AHEAD: 0,  # 150,  # in METERS
@@ -130,14 +130,14 @@ AIRCRAFT_TYPES = {
         ],
         # fmt: on
         AIRCRAFT.TAXI_SPEED: {
-            TAXI_SPEED.FAST: [10, 14],
-            TAXI_SPEED.MED: [7, 10],
-            TAXI_SPEED.SLOW: [5, 8],
-            TAXI_SPEED.CAUTION: [3, 6],
+            TAXI_SPEED.FAST: [9, 13],
+            TAXI_SPEED.MED: [7, 9],
+            TAXI_SPEED.SLOW: [3, 7],
+            TAXI_SPEED.CAUTION: [3, 5],
             TAXI_SPEED.TURN: [1, 3],
         },
         AIRCRAFT.BRAKING_DISTANCE: 200.0,
-        AIRCRAFT.WARNING_DISTANCE: 200.0,
+        AIRCRAFT.WARNING_DISTANCE: 250.0,
         AIRCRAFT.AVG_LENGTH: 70,
         AIRCRAFT.RABBIT: {
             RABBIT.LIGHTS_AHEAD: 0,  # 200,  # in METERS
@@ -150,14 +150,14 @@ AIRCRAFT_TYPES = {
         AIRCRAFT.AIRCRAFTS: ["A380", "A388", "380", "38F", "B747"],
         # fmt: on
         AIRCRAFT.TAXI_SPEED: {
-            TAXI_SPEED.FAST: [10, 14],
-            TAXI_SPEED.MED: [7, 10],
-            TAXI_SPEED.SLOW: [5, 8],
-            TAXI_SPEED.CAUTION: [3, 6],
+            TAXI_SPEED.FAST: [8, 12],
+            TAXI_SPEED.MED: [7, 9],
+            TAXI_SPEED.SLOW: [3, 6],
+            TAXI_SPEED.CAUTION: [3, 4],
             TAXI_SPEED.TURN: [1, 3],
         },
         AIRCRAFT.BRAKING_DISTANCE: 200.0,
-        AIRCRAFT.WARNING_DISTANCE: 200.0,
+        AIRCRAFT.WARNING_DISTANCE: 300.0,
         AIRCRAFT.AVG_LENGTH: 85,
         AIRCRAFT.RABBIT: {
             RABBIT.LIGHTS_AHEAD: 0,  # 200,  # in METERS
@@ -276,7 +276,7 @@ class Aircraft:
 
     def moved(self, orig: int = 0) -> float:
         pos = self.position()
-        return distance(Point(lat=self.positions[0][0], lon=self.positions[0][1]), Point(lat=pos[0], lon=pos[1]))
+        return distance(Point(lat=self.positions[orig][0], lon=self.positions[orig][1]), Point(lat=pos[0], lon=pos[1]))
 
     def tiller(self) -> float:
         # runs [-50, 50]

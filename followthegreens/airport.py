@@ -907,7 +907,11 @@ class Route:
             for respect_width_code in [True, False]:
                 wc = "Y" if respect_width_code else "N"
                 # WY/IY/RY/OY = respect_width/respect_inner/user_runway/respect_one_way
-                if arrival_runway is None:  # not forced to use runway
+
+                cannot_use_runway = True  # forced, otherwise wierd things happen
+                # cannot_use_runway = arrival_runway is None
+
+                if cannot_use_runway:
                     # Strict, do not use runways, respect oneway, respect inner/outer
                     # subgraph = graph.clone(
                     #     width_code=width_code,
