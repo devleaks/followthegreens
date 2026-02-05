@@ -646,8 +646,13 @@ class Airport:
 
             route.mkEdges()  # compute segment distances
             route.mkTurns()  # compute turn angles at end of segment
-            route.mkDistToBrake()
-            route.mkTiming(speed=aircraft.taxi_speed())
+            route.mkTiming(speed=aircraft.taxi_speed())  # compute total time left to reach destination
+            route.mkDistToBrake()  # distance before significant turn
+            if logger.level < 10:
+                fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_route_{route.route[0]}-{route.route[-1]}.geojson")
+                with open(fn, "w") as fp:
+                    print(route.to_geojson(), file=fp)
+                logger.debug(f"taxiway network saved in {fn}")
             return (True, route)
 
         return (False, "We could not find a route to your destination.")
@@ -725,7 +730,8 @@ class Route:
         self.vertices = None
         self.edges = None
         self.turns = None
-        self.dtb = None
+        self.dtb = None  # Distance To Brake (distance before reason to brake)
+        self.dtb_at = None
         self.dleft = []
         self.tleft = []
         self.smoothed = None
@@ -736,6 +742,27 @@ class Route:
         if self.found():
             return "-".join(self.route)
         return ""
+
+    def to_geojson(self) -> str:
+        TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
+        features = []
+        for i in range(len(self.route) - 1):
+            v = self.graph.get_vertex(self.route[i])
+            v.setProp("index", i)
+            v.setProp("turn", self.turns[i])
+            v.setProp("remaining", self.dleft[i])
+            v.setProp("remaining_time", self.tleft[i])
+            v.setProp("tobrake", self.dtb[i])
+            v.setProp("tobrake_index", self.dtb_at[i])
+            f = v.feature()
+            if abs(self.turns[i]) > TURN_LIMIT:
+                f["properties"]["marker-color"] = "#006600" # dark green
+            else:
+                f["properties"]["marker-color"] = "#00FF00" # green
+            features.append(f)
+            e = self.graph.get_edge(self.route[i], self.route[i + 1])
+            features.append(e.feature())
+        return json.dumps({"type": "FeatureCollection", "features": features})
 
     def _find(self, src, dst) -> bool:
         # If requested to try AStar, try it first, if failed, try Dijkstra
@@ -768,19 +795,19 @@ class Route:
             self.edges.append(e)
         logger.debug(f"route (vtx): {self}.")
         logger.debug("route (edg): " + "-".join([e.name for e in self.edges]))
-        logger.debug("route (active): " + "-".join([e.showActives() for e in self.edges]))
+        logger.debug("route: " + self.text())
         logger.debug(f"segment lengths: {[round(e.cost, 1) for e in self.edges]}")
         # Cumulative distance left to taxi
         # at vertex i, there is dleft[i] meter left to taxi
         total = 0
         self.dleft = []
-        for i in range(len(self.route) - 1, 1, -1):
+        for i in range(len(self.route) - 1, 0, -1):
             self.dleft.append(total)
             e = self.graph.get_edge(self.route[i - 1], self.route[i])
             total = total + e.cost
         self.dleft.append(total)
         self.dleft.reverse()
-        logger.debug(f"segment distance left: {[round(e, 1) for e in self.dleft]}")
+        logger.debug(f"distance left to destination at vertex: {[round(e, 1) for e in self.dleft]}")
 
     def mkVertices(self):
         self.vertices = list(map(lambda x: self.graph.get_vertex(x), self.route))
@@ -798,23 +825,32 @@ class Route:
             self.turns.append(v1.turn(v0, v2))
             v0 = v1
             v1 = v2
-        logger.debug(f"turns at vertices: {[round(t, 0) for t in self.turns]}")
+        logger.debug(f"turns at vertex: {[round(t, 0) for t in self.turns]}")
 
     def mkDistToBrake(self):
         # for each vertex, write the distance to the next vertex
         # where there is a reason to slow down at that vertex: Either a sharp turn (> SMALL_TURN_LIMIT), or a stop bar (later).
         SMALL_TURN_LIMIT = 15.0  # °, above this angle, it is recommended to slow down for the turn
 
+        if self.turns is None or len(self.turns) == 0:
+            return
         self.dtb = []
+        self.dtb_at = []
         total = 0
+        next_at = 0
         self.dtb.append(total)  # at last vertex, no distance to next turn
         for i in range(len(self.route) - 1, 0, -1):
             total = total + self.edges[i - 1].cost
             self.dtb.append(total)
+            self.dtb_at.append(next_at)
             if abs(self.turns[i - 1]) > SMALL_TURN_LIMIT:
+                next_at = i - 1
                 total = 0
         self.dtb.reverse()
-        logger.debug(f"segment left: {[round(e, 1) for e in self.dtb]}")
+        # self.dtb_at.append(self.dtb_at[-1])
+        self.dtb_at.reverse()
+        logger.debug(f"distance before turn brake at vertex: {[round(e, 1) for e in self.dtb]}")
+        logger.debug(f"next turn brake at vertex: {[e for e in self.dtb_at]}")
 
     def mkTiming(self, speed: float):
         if speed <= 0:
@@ -833,7 +869,7 @@ class Route:
                 penalty = penalty + 1
         self.tleft.append(total)
         self.tleft.reverse()
-        logger.debug(f"segment time left to destination (speed={round(speed, 1)}m/s, {penalty} turns): {', '.join([minsec(e) for e in self.tleft])}")
+        logger.debug(f"time left to destination at vertex (speed={round(speed, 1)}m/s, {penalty} turns): {', '.join([minsec(e) for e in self.tleft])}")
 
     def text(self, destination: str = "destination") -> str:
         if self.edges is None or len(self.edges) == 0:
@@ -845,7 +881,7 @@ class Route:
                 route_str = route_str + " " + e.name
                 last = e.name
         route_str = route_str.strip().upper()
-        logger.debug(f"route to {destination} via {route_str}")
+        # logger.debug(f"route to {destination} via {route_str}")
         # if destination != "":
         #     logger.debug(f"route to {destination} via {route_str}")
         # else:
@@ -871,7 +907,11 @@ class Route:
             for respect_width_code in [True, False]:
                 wc = "Y" if respect_width_code else "N"
                 # WY/IY/RY/OY = respect_width/respect_inner/user_runway/respect_one_way
-                if arrival_runway is None:  # not forced to use runway
+
+                cannot_use_runway = True  # forced, otherwise wierd things happen
+                # cannot_use_runway = arrival_runway is None
+
+                if cannot_use_runway:
                     # Strict, do not use runways, respect oneway, respect inner/outer
                     # subgraph = graph.clone(
                     #     width_code=width_code,

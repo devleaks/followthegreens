@@ -89,6 +89,9 @@ STW_MENU = "Show taxiways"  # if None, do not show menu entry for Show Taxiways,
 FTG_COMMAND = FTG_PLUGIN_ROOT_PATH + "main_windown_toggle"
 FTG_COMMAND_DESC = "Open or close Follow the greens window"
 
+FTG_HUD = FTG_PLUGIN_ROOT_PATH + "taxihud"
+FTG_HUD_DESC = "Show or hide Follow the greens hud"
+
 FTG_CLEARANCE_COMMAND = FTG_PLUGIN_ROOT_PATH + "send_clearance_ok"
 FTG_CLEARANCE_COMMAND_DESC = "Clears next stop bar on greens"
 
@@ -207,7 +210,7 @@ class ROUTING_ALGORITHMS(StrEnum):
 ROUTING_ALGORITHM = ROUTING_ALGORITHMS.ASTAR  # astar, dijkstra (default)
 RESPECT_CONSTRAINTS = True  # set to True at your own risk
 SAY_ROUTE = True  # Print route on pop up display and speak it orally.
-LEVEL4 = 1  # ASMGCS LEVEL 4 Compliance steps (highly experimental, DO NOT CHANGE.)
+LEVEL4 = 0  # ASMGCS LEVEL 4 Compliance steps (highly experimental, DO NOT CHANGE.)
 
 
 # ################################
@@ -352,34 +355,29 @@ LIGHT_TYPE_OBJFILES = {
 #
 # Values of the following parameters is show on debug
 INTERNAL_CONSTANTS = [
-    "ADD_LIGHT_AT_LAST_VERTEX",
-    "ADD_LIGHT_AT_VERTEX",
-    "AIRPORTLIGHT_ON",
-    "AMBIANT_RWY_LIGHT_CMDROOT",
-    "AMBIANT_RWY_LIGHT_VALUE",
-    "DISTANCE_BETWEEN_GREEN_LIGHTS",
-    "DISTANCE_BETWEEN_LIGHTS",
-    "DISTANCE_BETWEEN_STOPLIGHTS",
-    "DISTANCE_TO_RAMPS",
-    "DRIFTING_DISTANCE",
-    "DRIFTING_LIMIT",
-    "FTG_PLUGIN_ROOT_PATH",
-    "FTG_SPEED_PARAMS",
-    "LEAD_OFF_RUNWAY_DISTANCE",
-    "LIGHT_TYPE_OBJFILES",
-    "LIGHTS_AHEAD",
     "LOGGING_LEVEL",
-    "MIN_SEGMENTS_BEFORE_HOLD",
-    "PLANE_MONITOR_DURATION",
+    "RESPECT_CONSTRAINTS",
+    "USE_THRESHOLD",
     "RABBIT_SPEED",
     "RABBIT_LENGTH",
+    "LIGHTS_AHEAD",
+    "DISTANCE_BETWEEN_GREEN_LIGHTS",
+    "DISTANCE_BETWEEN_LIGHTS",
+    "SAY_ROUTE",
+    "DISTANCE_BETWEEN_STOPLIGHTS",
+    "DISTANCE_TO_RAMPS",
+    "ADD_LIGHT_AT_LAST_VERTEX",
+    "ADD_LIGHT_AT_VERTEX",
+    "DRIFTING_DISTANCE",
+    "DRIFTING_LIMIT",
+    "FTG_SPEED_PARAMS",
+    "LEAD_OFF_RUNWAY_DISTANCE",
+    "MIN_SEGMENTS_BEFORE_HOLD",
+    "PLANE_MONITOR_DURATION",
     "ROUTING_ALGORITHM",
     "RUNWAY_BUFFER_WIDTH",
     "RUNWAY_LIGHT_LEVEL_WHILE_FTG",
-    "SAY_ROUTE",
     "TOO_FAR",
-    "USE_THRESHOLD",
-    "RESPECT_CONSTRAINTS",
     "WARNING_DISTANCE",
     "MAINWINDOW_FROM_BOTTOM",
     "MAINWINDOW_FROM_LEFT",
@@ -485,12 +483,3 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger("FtG")
-
-
-# https://gist.github.com/daaniam/041bfd34c1d14e5aeb1bf84537b47fb6
-def _format_logging_time(self, record, datefmt: str | None = None) -> str:
-    """Return time for logging with microseconds and timezone. datefmt is ignored."""
-    return str(datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat())
-
-
-# logging.Formatter.formatTime = _format_logging_time

@@ -20,6 +20,8 @@ from followthegreens import (
     ShowTaxiways,
     RABBIT_MODE,
     FTG_PLUGIN_ROOT_PATH,
+    FTG_HUD_DESC,
+    FTG_HUD,
     FTG_CANCEL_COMMAND,
     FTG_CANCEL_COMMAND_DESC,
     FTG_OK_COMMAND,
@@ -43,6 +45,7 @@ from followthegreens import (
 
 # Produces additional debugging information in XPPython3Log.txt file if set to True
 SHOW_TRACE = False
+USE_WIDGET = True
 
 
 class PythonInterface:
@@ -80,6 +83,7 @@ class PythonInterface:
                 FTG_CLEARANCE_COMMAND_DESC,
                 self.clearanceCmd,
             ],
+            FTG_HUD: [FTG_HUD_DESC, self.hudToggle],
             FTG_CANCEL_COMMAND: [FTG_CANCEL_COMMAND_DESC, self.cancelCmd],
             FTG_OK_COMMAND: [FTG_OK_COMMAND_DESC, self.okCmd],
             FTG_NEWGREENS_COMMAND: [FTG_NEWGREENS_COMMAND_DESC, self.newGreensCmd],
@@ -102,6 +106,7 @@ class PythonInterface:
                 self.rabbitModeAuto,
             ]
         }
+        self._hud = True
 
     def debug(self, message, force: bool = False):
         if self.trace or force:
@@ -215,6 +220,9 @@ class PythonInterface:
     def XPluginEnable(self):
         self.debug("XPluginEnable: enabling..", force=True)
 
+        if USE_WIDGET:
+            xp.registerDrawCallback(self.hud)
+
         try:
             self.followTheGreens = FollowTheGreens(self)
 
@@ -278,6 +286,10 @@ class PythonInterface:
             self.debug("XPluginDisable: ShowTaxiways disabled")
             self.enabled = False
             self.debug("XPluginDisable: ..disabled")
+
+            if USE_WIDGET:
+                xp.unregisterDrawCallback(self.hud)
+
             return None
         except:
             self.debug("XPluginDisable: exception")
@@ -520,6 +532,16 @@ class PythonInterface:
             self.debug("rabbitMode: Error: could not create FollowTheGreens", force=True)
         return 0
 
+    def hudToggle(self, commandRef, phase: int, refCon: Any):
+        # pylint: disable=unused-argument
+        if not self.enabled:
+            self.debug("hudToggle: not enabled", force=True)
+            return 0
+        if phase == 0:
+            self._hud = not self._hud
+            return 1
+        return 0
+
     # Data accessors
     def getRunningStatusCallback(self, inRefcon):
         # Returns 1 if actually running (lights blinking on taxiways). 0 otherwise.
@@ -537,3 +559,14 @@ class PythonInterface:
         get a callback like this -- instead, our Accessors are called: MySetData(f|d)Callback.
         """
         pass
+
+    def hud(self, phase, after, refCon):
+        if not self._hud or self.followTheGreens is None or not self.followTheGreens.flightLoop.rabbitRunning:
+            return
+        fl = self.followTheGreens.flightLoop
+        xp.setGraphicsState(0, 1, 0, 0, 0, 0, 0)
+        xp.drawString((0.0, 1.0, 0.0), 217, 50, "GREENS")  # Title/header
+        color = (1.0, 0.0, 0.0) if fl.is_late else (0.0, 1.0, 0.0)
+        xp.drawString(color, 220, 35, fl.remaining)  # 1234m, 12:45   indication
+        xp.drawString(color, 220, 20, f"{round(fl.dist_to_next_turn):4d}m")  # 1234m
+        # xp.drawString(color, 220, 5, 'last line')  #

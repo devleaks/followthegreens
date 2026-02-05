@@ -492,7 +492,6 @@ VERSION = "{__VERSION__}"
         self.status = FTG_STATUS.INACTIVE
 
         if self.flightLoop:
-            self.flightLoop.global_stop_requested = True
             self.flightLoop.stopFlightLoop()
             logger.info("flightloop stopped.")
 
@@ -511,7 +510,7 @@ VERSION = "{__VERSION__}"
         # Info 16
         logger.info(f"terminated: {reason}")
         if reason == "new green requested":
-            logger.info(f"FtG session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session}) for greener green")
+            logger.info(f"FtG session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session}) for greener greens")
         else:
             logger.info(f"FtG session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session})")
             logger.info("-=" * 50)

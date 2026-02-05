@@ -27,7 +27,7 @@ There is nowaways a lot more information, manufacturers, and experimental projec
 Follow the greens has numerous advantages discussed in the above documents, ranking to ease of use, to smoother taxi rides,
 shorter taxi times, to lower interaction with ground control.
 
-Less fuel use, less CO2 produce, follow the greens is realllly green.
+Less fuel use, less CO2 produced, follow the greens is realllly green.
 Can't be greener. No green bashing.
 
 This plugin brings the Follow the greens concept to X-Plane to guide you on the ground.
@@ -48,13 +48,11 @@ I implemented their idea into FtG.
 
 In a nutshell, FtG will now monitor your taxi speed and invite you to adjust it.
 It will do so by adjusting the speed of the «rabbit» light (the pulsating light) in front of the aircraft,
-and the length of the rabbit «run».
+and the length of the rabbit _«run»_.
 If the rabbit runs fast and far, you can safely accelerate your taxi pace.
-If the rabbit is slow and short, you must reduce your speed because you are probably nearing a sharp turn or a mandatory stop.
+If the rabbit is slow and short, you must reduce your speed because you are nearing a sharp turn or a mandatory stop.
 
 It currently only monitor your speed and recommand to adjust it.
-It does not enforce meeting time slot requirements (but it easily could).
-
 
 Please notice the _« over hype »_ of _4D_ trajectories 🤣.
 FtG 1 is 2D (lateral guidance on the ground...), FtG 2 adds time information to get you there on time, that’s just a third dimension.
@@ -62,6 +60,7 @@ FtG won’t ask you to fly to your holding position. Yet.
 (🤔 we may here have a definite path for improvement in a future release.)
 
 Follow the greens 4D is an A-SMGCS Level 4 compliant experimental system only used at X-Plane airports.
+Your local muni included.
 
 Could it be simpler?
 Follow the greens.
@@ -131,7 +130,7 @@ which do not include sophisticated widgets like menu boxes.
 The (main and unique) user interface window of _Follow the greens_ is designed to disappear after a few seconds of inactivity.
 Select Follow the greens in the plugin menu to display it again.
 
-You can assign Follow the greens actions to keys or buttons.
+You can assign Follow the greens actions to keys or buttons so that you never have to use the mouse to acknowledge a message.
 
 
 # Help
@@ -144,6 +143,13 @@ Please use the forum here ([comments section](https://forums.x-plane.org/files/f
 the [discord server](https://discord.gg/AQjP2tWV),
 or [github issue](https://github.com/devleaks/followthegreens/issues).
 
+FtG4D produces a file named `ftg_log.txt` located in the `PythonPlugins` folder.
+You always must provide that file, and may be the file `XPPython3Log.txt` and even the familiar `log.txt` files
+in the X-Plane folder to help us track the issue.
+
+We may ask you to set the LOGGING_LEVEL preference to a precise value in your the preference file to help us pinpoint the issue.
+With your cooperation and input, FtG4D will become more reliable.
+
 Taxi safely.
 
 Follow the greens.
@@ -153,7 +159,7 @@ Follow the greens.
 
 ## Release 2
 
-- [2.2.0](https://github.com/devleaks/followthegreens/releases) - ??-??-2026 - Follow the greens monitors aircraft taxi speed and advise to speed up or slow down.
+- [2.2.0](https://github.com/devleaks/followthegreens/releases) - 09-FEB-2026 - Follow the greens monitors aircraft taxi speed and advise to speed up or slow down.
 - (...development releases...)
 - 2.0.0 - 29-DEC-2025 - Added hooks for FtG _4D_.
 
@@ -161,9 +167,7 @@ Follow the greens.
 ## Release 1
 
 - [1.7.0](https://github.com/devleaks/followthegreens/releases/tag/1.7.0) - 14-JAN-2026 - Last Release 1 version (will only provide critical fixes). Works on X-Plane 11 and order version of XPPython3 plugin.
-
-- 1.6.6 - 21-FEB-2024 - Added Cancel and OK (finish, bye, etc.) commands
-- ...
+- (...intermediate releases...)
 - 1.0.0 - 01-APR-2021 - Initial release.
 
 [Detailed Changelog](https://devleaks.github.io/followthegreens/changelog/)
