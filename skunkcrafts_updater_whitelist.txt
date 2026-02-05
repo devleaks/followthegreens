@@ -7,7 +7,7 @@ followthegreens/airport.py|3495548869
 followthegreens/flightloop.py|2996779053
 followthegreens/followthegreens.py|1215673014
 followthegreens/geo.py|3885647500
-followthegreens/globals.py|2751983636
+followthegreens/globals.py|2913485955
 followthegreens/graph.py|132718387
 followthegreens/lights/amber.obj|3715877085
 followthegreens/lights/green.obj|833283030
