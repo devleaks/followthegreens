@@ -254,7 +254,7 @@ class FlightLoop:
         # following is precomputed once and for all in mkDistToBrake() (.dtb[<route-vertex-index>])
         # dist2 = dist_to_next_vertex
         # dist_before2 = dist2
-        idx = light.index  # starts at acf position, next vertex is light.index + 1, it might be a turn
+        idx = next_vertex
         while abs(turn) < TURN_LIMIT and idx < len(route.route):
             turn = route.turns[idx]
             # dist_before2 = dist2
