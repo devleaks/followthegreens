@@ -726,6 +726,7 @@ class Route:
         self.edges = None
         self.turns = None
         self.dtb = None
+        self.dtb_at = None
         self.dleft = []
         self.tleft = []
         self.smoothed = None
@@ -805,15 +806,22 @@ class Route:
         # where there is a reason to slow down at that vertex: Either a sharp turn (> SMALL_TURN_LIMIT), or a stop bar (later).
         SMALL_TURN_LIMIT = 15.0  # °, above this angle, it is recommended to slow down for the turn
 
+        if self.turns is None or len(self.turns) == 0:
+            return
         self.dtb = []
+        self.dtb_at = []
         total = 0
+        next_at = len(self.route) - 1
         self.dtb.append(total)  # at last vertex, no distance to next turn
         for i in range(len(self.route) - 1, 0, -1):
             total = total + self.edges[i - 1].cost
             self.dtb.append(total)
+            self.dtb_at.append(next_at)
             if abs(self.turns[i - 1]) > SMALL_TURN_LIMIT:
+                next_at = len(self.route) - i
                 total = 0
         self.dtb.reverse()
+        self.dtb_at.reverse()
         logger.debug(f"segment left: {[round(e, 1) for e in self.dtb]}")
 
     def mkTiming(self, speed: float):

@@ -47,6 +47,7 @@ class FlightLoop:
         self.last_updated = datetime.now() - timedelta(seconds=MAX_UPDATE_FREQUENCY)
         self._rabbit_mode = RABBIT_MODE.MED
         self._may_adjust_rabbit = True
+        self.reason = ""
         self.manual_mode = False
         self.runway_level_original = 1
         # ASMCMS Level 4 compliance stuff:
@@ -158,11 +159,13 @@ class FlightLoop:
 
     def allow_rabbit_autotune(self, reason: str = ""):
         self._may_adjust_rabbit = True
+        self.reason = reason
         logger.debug(f"rabbit adjustment authorized (reason {reason})")
 
     def disallow_rabbit_autotune(self, reason: str = ""):
         self._may_adjust_rabbit = False
-        logger.debug(f"rabbit adjustment forbidden (reason {reason})")
+        self.reason = reason
+        logger.debug(f"rabbit adjustment not permitted (reason {reason})")
 
     def manualRabbitMode(self, mode: RABBIT_MODE):
         self.manual_mode = True
@@ -185,12 +188,12 @@ class FlightLoop:
         if self.rabbitMode == mode:
             return
         if not self.may_rabbit_autotune:
-            logger.info("rabbit adjustment forbidden")
+            logger.debug(f"rabbit adjustment not permitted ({self.reason})")
             return
         now = datetime.now()
         delay = (now - self.last_updated).total_seconds()
         if delay < MAX_UPDATE_FREQUENCY:
-            logger.info(f"must wait {round(MAX_UPDATE_FREQUENCY - delay, 2)} seconds before changing rabbit")
+            logger.debug(f"must wait {round(MAX_UPDATE_FREQUENCY - delay, 2)} seconds before changing rabbit")
             return
 
         self.ftg.lights.rabbitMode(mode)
@@ -209,18 +212,18 @@ class FlightLoop:
             logger.debug("..no rabbit")
             return
         if not self.may_rabbit_autotune:
-            logger.debug("..autotune not permitted")
+            logger.debug(f"..autotune not permitted ({self.reason})")
             return
 
         # I. Collect information
         # 1. Distance to next vertex (= distance to next potential turn)
         route = self.ftg.lights.route
         light = self.ftg.lights.lights[closestLight]
-        nextvertex = light.index + 1
-        if nextvertex >= len(route.route):  # end of route
-            nextvertex = len(route.route) - 1
+        next_vertex = light.index + 1
+        if next_vertex >= len(route.route):  # end of route
+            next_vertex = len(route.route) - 1
             logger.info("reached end of route")
-        nextvtxid = route.route[nextvertex]
+        nextvtxid = route.route[next_vertex]
         nextvtx = route.graph.get_vertex(nextvtxid)
 
         # 2. distance to that next vertex and turn at that vertex
@@ -233,25 +236,25 @@ class FlightLoop:
         # logger.debug(f"start turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
 
         # From observation/experience:
-        #
-        # Taxi very fast=20 m/s
-        # Taxi fast=15 m/s
+        # Taxi very fast> 15 m/s
+        # Taxi fast=12 m/s
         # Taxi cautious = 6m/s
         # Turn (90°): 3-4 m/s
         # Brake: 12m/s to 3: 100 m with A321, 200m with A330
-        # WE decide:
+        # We decide:
         # Turn < 15°, speed "cautious"
         # Turn > 15°, speed "turn"
         #
         TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
         SMALL_TURN_LIMIT = 15.0  # °, below this, it is a small turn, recommended to slow down a bit but not too much
         MOVEIT_DIST = 400.0  # m no reason to not go fast
-        SPEED_DELTA = 5.0  # in m/s
+        SPEED_DELTA = 4.0  # in m/s
 
         # 4. Find next "significant" turn of more than TURN_LIMIT
-        idx = nextvertex  # starts at next vertex
+        # following is precomputed once and for all in mkDistToBrake() (.dtb[<route-vertex-index>])
         # dist2 = dist_to_next_vertex
         # dist_before2 = dist2
+        idx = next_vertex  # starts at next vertex
         while abs(turn) < TURN_LIMIT and idx < len(route.route):
             turn = route.turns[idx]
             # dist_before2 = dist2
@@ -263,32 +266,43 @@ class FlightLoop:
 
         # logger.debug(f"current vertex={light.index}, distance to next vertex {idx}: {round(dist_to_next_vertex, 1)}m")
         # logger.debug(f"at vertext {idx}: turn={round(route.turns[idx], 1)} DEG")
-        dist_to_next_turn = 0 if abs(route.turns[nextvertex]) > TURN_LIMIT else route.dtb[nextvertex]
+        dist_to_next_turn = 0 if abs(route.turns[next_vertex]) > TURN_LIMIT else route.dtb[next_vertex]
         # logger.debug(f"at vertext {idx}: distance to add to next turn={round(dist_to_next_turn, 1)}m")
 
         dist_before = dist_to_next_turn + dist_to_next_vertex
-        self.dist_to_next_turn = dist_before
+        self.dist_to_next_turn = dist_before  # for hud, temporarily
         taxi_speed = max(speed, self.ftg.aircraft.taxi_speed())  # m/s
         time_to_next_vertex = dist_to_next_vertex / taxi_speed
 
         acf_move = speed * self.lastIter
-        msg = (
-            f"currently at index {light.index}, next turn (larger than {TURN_LIMIT}deg) at index {idx-1}, {round(turn, 0)}deg at {round(dist_before, 1)}m, "
-            + f"current speed={round(speed, 1)}, acf moved {round(acf_move, 1)}m during last iteration ({self.lastIter} secs)"
-        )
+        msg0 = f"dist to next vertex {next_vertex}: {round(dist_to_next_vertex, 1)}m, dist from next_vertex to next turn: {round(dist_to_next_turn, 1)}m"
+        msg = f"currently at index {light.index}, next turn (larger than {TURN_LIMIT}deg) at index {idx-1}, {round(turn)}deg at {round(dist_before, 1)}m, "
+        msg2 = f"current speed={round(speed, 1)}, acf moved {round(acf_move, 1)}m during last iteration ({self.lastIter} secs)"
+
         if msg != self.old_msg:
             logger.debug(msg)
+            logger.debug(msg2)
+            logger.debug(msg0)
+            self.old_msg = msg
 
-            self.remaining_dist = dist_to_next_vertex + route.dleft[nextvertex]
-            logger.debug(f"remaining dist: {round(dist_to_next_vertex, 1)}m + {round(route.dleft[nextvertex], 1)}m = {round(self.remaining_dist, 1)}m")
-            self.remaining_time = time_to_next_vertex + route.tleft[nextvertex] + 30
-            logger.debug(f"remaining time: {round(time_to_next_vertex, 1)}sec + {round(route.tleft[nextvertex], 1)}sec + 30sec = {round(self.remaining_time, 1)}sec")
+            # dist to next vertex + remaining at next vertex = total left
+            self.remaining_dist = dist_to_next_vertex + route.dleft[next_vertex]
+            logger.debug(f"remaining dist to {next_vertex}: nxt {round(dist_to_next_vertex, 1)}m + end {round(route.dleft[next_vertex], 1)}m = {round(self.remaining_dist, 1)}m")
 
+            self.remaining_time = time_to_next_vertex + route.tleft[next_vertex] + 30
+            logger.debug(f"remaining time to {next_vertex}: nxt {round(time_to_next_vertex, 1)}sec + end {round(route.tleft[next_vertex], 1)}sec + mgn 30sec = {round(self.remaining_time, 1)}sec")
+
+
+            # logical controls
+            # 1. dist to next turn + remaining at turn = total left
+            logger.debug(f"remaining dist to {idx-1}: nxt turn {round(dist_before, 1)}m + end {round(route.dleft[idx-1], 1)}m = {round(dist_before + route.dleft[idx-1], 1)}m")
+
+
+            # precompute for hud
             self.is_late = self.late(t0=self.remaining_time)  # will display original estimated vs new estimate
             self.remaining = f"{round(self.remaining_dist):4d}m, {round(self.remaining_time/60):2d}:{round(self.remaining_time) % 60:02d}"
             logger.debug(f"remaining: {round(self.remaining_dist, 1)}m, {round(self.remaining_time/60)}min, {'(late)' if self.is_late else '(on time)'}")
             # logger.debug(f"{self.remaining}")
-            self.old_msg = msg
 
         # II. From distance to turn, and angle of turn, assess situation
         # II.1  determine target speed (range)
