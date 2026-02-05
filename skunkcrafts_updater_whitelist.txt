@@ -2,8 +2,8 @@ LICENSE|3164972148
 PI_FollowTheGreens.py|2876157303
 README.md|3816865703
 followthegreens/__init__.py|571708981
-followthegreens/aircraft.py|4096904215
-followthegreens/airport.py|1870372405
+followthegreens/aircraft.py|3568943078
+followthegreens/airport.py|3495548869
 followthegreens/flightloop.py|2996779053
 followthegreens/followthegreens.py|1215673014
 followthegreens/geo.py|3885647500
