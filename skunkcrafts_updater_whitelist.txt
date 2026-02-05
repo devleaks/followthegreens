@@ -4,7 +4,7 @@ README.md|3816865703
 followthegreens/__init__.py|571708981
 followthegreens/aircraft.py|3568943078
 followthegreens/airport.py|3495548869
-followthegreens/flightloop.py|2996779053
+followthegreens/flightloop.py|1407048546
 followthegreens/followthegreens.py|1215673014
 followthegreens/geo.py|3885647500
 followthegreens/globals.py|2913485955
@@ -20,4 +20,4 @@ followthegreens/lightstring.py|3461843117
 followthegreens/nato.py|2108547532
 followthegreens/showtaxiways.py|728290670
 followthegreens/ui.py|3907716184
-followthegreens/version.py|1709225952
+followthegreens/version.py|1680006615
