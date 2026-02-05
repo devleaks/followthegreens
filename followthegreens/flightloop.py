@@ -275,15 +275,12 @@ class FlightLoop:
         time_to_next_vertex = dist_to_next_vertex / taxi_speed
 
         acf_move = speed * self.lastIter
-        msg0 = f"dist to next vertex {next_vertex}: {round(dist_to_next_vertex, 1)}m, dist from next_vertex to next turn: {round(dist_to_next_turn, 1)}m"
         msg = f"currently at index {light.index}, next turn (larger than {TURN_LIMIT}deg) at index {idx-1}, {round(turn)}deg at {round(dist_before, 1)}m, "
-        msg2 = f"current speed={round(speed, 1)}, acf moved {round(acf_move, 1)}m during last iteration ({self.lastIter} secs)"
-
         if msg != self.old_msg:
             logger.debug(msg)
-            logger.debug(msg2)
-            logger.debug(msg0)
             self.old_msg = msg
+            logger.debug(f"current speed={round(speed, 1)}, acf moved {round(acf_move, 1)}m during last iteration ({self.lastIter} secs)")
+            logger.debug(f"dist to next vertex {next_vertex}: {round(dist_to_next_vertex, 1)}m, dist from next_vertex to next turn: {round(dist_to_next_turn, 1)}m")
 
             # dist to next vertex + remaining at next vertex = total left
             self.remaining_dist = dist_to_next_vertex + route.dleft[next_vertex]
@@ -295,7 +292,7 @@ class FlightLoop:
 
             # logical controls
             # 1. dist to next turn + remaining at turn = total left
-            logger.debug(f"remaining dist to {idx-1}: nxt turn {round(dist_before, 1)}m + end {round(route.dleft[idx-1], 1)}m = {round(dist_before + route.dleft[idx-1], 1)}m")
+            logger.debug(f"remaining dist: nxt turn at index {idx} {round(dist_before, 1)}m + end {round(route.dleft[idx], 1)}m = {round(dist_before + route.dleft[idx], 1)}m")
 
 
             # precompute for hud

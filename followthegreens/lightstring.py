@@ -38,7 +38,7 @@ class LightType:
     # A light to follow, or a stopbar light
     # Holds a referece to its instance
 
-    DEFAULT_TEXTURE_CODE = 3
+    DEFAULT_TEXTURE_CODE = 3  # bottom left
     TEXTURES = [
         "0.5  1.0  1.0  0.5",  # 0: TOP RIGHT
         "0.0  1.0  0.5  0.5",  # 1: TOP LEFT
@@ -46,7 +46,7 @@ class LightType:
         "0.0  0.5  0.5  0.0",  # 3: BOT LEFT
     ]
 
-    LightObjects = {}
+    LightObjects = {}  # database of light objects {<filename>: <light-object>}
 
     def __init__(self, name, filename):
         self.name = name
@@ -701,7 +701,7 @@ class LightString:
                 else:
                     logger.warning(f"invalid config {lightsConfig.get(k)} for light{k}, ignored")
                     continue
-        logger.debug("loaded.")
+        logger.debug("light objects loaded")
         return True
 
     def placeLights(self):
@@ -712,14 +712,14 @@ class LightString:
             sb.place(self.lightTypes)
 
         self.xyzPlaced = True
-        logger.debug("placed.")
+        logger.debug("lights placed")
         return True
 
     def blackenSegment(self, segment):
         if segment >= len(self.stopbars):
             return
         self.stopbars[segment].off()
-        logger.debug("done.")
+        logger.debug(f"blackened stopbar at segment {segment}")
 
     def illuminateSegment(self, segment):
         # Lights up a segment of lights between 2 stop bars
@@ -741,7 +741,7 @@ class LightString:
                 lastSb = self.stopbars[segment - 1]
                 start = lastSb.lightStringIndex
             end = len(self.lights)
-            logger.debug(f"will instanciate(green): last segment {segment} between {start} and {end}.")
+            logger.debug(f"illuminated last segment {segment} between {start} and {end}")
         else:
             sbend = self.stopbars[segment]
             if segment > 0:
@@ -749,14 +749,14 @@ class LightString:
                 sbbeging = self.stopbars[segment - 1]
                 start = sbbeging.lightStringIndex
             end = sbend.lightStringIndex
-            logger.debug(f"will instanciate(green): {segment} between {start} and {end}.")
+            logger.debug(f"illuminated segment {segment} between {start} and {end}")
 
         if self.num_lights_ahead is None or self.num_lights_ahead == 0:
             # Instanciate for each green light in segment and stop bar
             for i in range(start, end):
                 self.lights[i].on()
             # map(lambda x: x.on(self.txy_light_obj), self.lights[start:end])
-            logger.debug("no light ahead: instanciate(green): done.")
+            logger.debug("no light ahead: illuminated whole greens")
         # else, lights will be turned on in front of rabbit
 
         # Instanciate for each stop light
@@ -767,12 +767,13 @@ class LightString:
                 light.on()
             logger.debug(f"illuminated {len(sbend.lights)} stop lights")
             # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
-        logger.debug("no light ahead: instanciate(stop): done.")
+        else:
+            logger.debug("no stop bar to illuminate")
 
         if not self.rabbitCanRun:
             self.rabbitCanRun = True
 
-        return [True, "green is set"]
+        return [True, "greens are set"]
 
     def nextTaxiwayLight(self, position, edge) -> LIGHT_TYPE:
         # This is to provide alternate green/amber light
@@ -827,7 +828,7 @@ class LightString:
         return len(self.lights) - 1
 
     def closest(self, position, after: int = 0):
-        # Find closest light to position (often plane)
+        # Find closest light to position (often aircraft)
         dist = math.inf
         idx = None
         point = Point(position[0], position[1])
@@ -841,7 +842,7 @@ class LightString:
         return [idx, dist]
 
     def toNextStop(self, position):
-        # ilight index of next stop position and distance to it
+        # light index of next stop position and distance to it
         ns = self.nextStop()
         light = self.lights[ns]
         point = Point(position[0], position[1])
@@ -853,7 +854,7 @@ class LightString:
             for i in range(self.lastLit, idx):
                 self.lights[i].off()
             self.lastLit = idx
-            logger.debug(f"turned off {idx} -> {self.lastLit}")
+            logger.debug(f"turned off lights {idx} -> {self.lastLit}")
         # else: idx out of range?
 
     def onToIndex(self, idx):
@@ -861,7 +862,7 @@ class LightString:
         for i in range(self.lastLit, last):
             self.lights[i].on()
         # warning, verbose, since called at each rabbit flightloop
-        # logger.debug("turned on %d -> %d.", self.lastLit, last)
+        logger.debug("turned on lights %d -> %d.", self.lastLit, last)
 
     def rabbit(self, start: int):
         if not self.rabbitCanRun:
@@ -875,7 +876,7 @@ class LightString:
                 self.lights[prev].on()
 
         if self.new_num_rabbit_lights != self.num_rabbit_lights or self.new_num_lights_ahead != self.num_lights_ahead:
-            logger.debug(f"adjustment: #rabbit: {self.num_rabbit_lights}->{self.new_num_rabbit_lights}, #ahead: {self.num_lights_ahead}->{self.new_num_lights_ahead}")
+            logger.debug(f"adjustment: rabbit #lights: {self.num_rabbit_lights}->{self.new_num_rabbit_lights}, #ahead: {self.num_lights_ahead}->{self.new_num_lights_ahead}")
             self.resetRabbit()
             self.num_rabbit_lights = self.new_num_rabbit_lights
             self.num_lights_ahead = self.new_num_lights_ahead
@@ -905,7 +906,7 @@ class LightString:
                         for redlight in sb.lights:
                             redlight.on()
                         # map(lambda x: x.on(self.stp_light_obj), sbend.lights)
-                        logger.debug(f"light ahead: instanciate stop bar {self.currentSegment}: done.")
+                        logger.debug(f"light ahead: instanciate stop bar at segment {self.currentSegment}: done")
 
         else:  # restore previous
             restore(start, self.rabbitIdx, rabbitNose)
