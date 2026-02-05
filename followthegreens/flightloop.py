@@ -254,7 +254,7 @@ class FlightLoop:
         # following is precomputed once and for all in mkDistToBrake() (.dtb[<route-vertex-index>])
         # dist2 = dist_to_next_vertex
         # dist_before2 = dist2
-        idx = next_vertex  # starts at next vertex
+        idx = light.index  # starts at acf position, next vertex is light.index + 1, it might be a turn
         while abs(turn) < TURN_LIMIT and idx < len(route.route):
             turn = route.turns[idx]
             # dist_before2 = dist2
@@ -291,7 +291,7 @@ class FlightLoop:
             self.remaining_time = time_to_next_vertex + route.tleft[next_vertex] + 30
             logger.debug(f"remaining time to {next_vertex}: nxt {round(time_to_next_vertex, 1)}sec + end {round(route.tleft[next_vertex], 1)}sec + mgn 30sec = {round(self.remaining_time, 1)}sec")
 
-            logger.debug(f"next turn index control next_turn_vertex_index={next_turn_vertex_index}, dtb_at[light.index]={route.dtb_at[light.index]}, idx={idx} (computed)")
+            logger.debug(f"next turn index control next_turn_vertex_index={next_turn_vertex_index}, dtb_at[light.index]={route.dtb_at[light.index]}, idx={idx-1} (computed)")
 
             # logical controls
             # 1. dist to next turn + remaining at turn = total left
@@ -416,9 +416,9 @@ class FlightLoop:
                 self.actual_start = datetime.now(tz=timezone.utc).replace(microsecond=0)
                 d, s = self.ftg.route.baseline()
                 self.planned = self.actual_start + timedelta(seconds=round(s))
-                logger.debug(f"taxi started, estimated takeoff hold at {self.planned.strftime("%H:%M")}Z.")
+                logger.debug(f"taxi started, estimated takeoff hold at {self.planned.strftime("%H:%M")}Z")
             else:
-                logger.debug(f"not started taxiing yet, {self.ftg.aircraft.moved()} < {MIN_DIST}, {self.ftg.aircraft.speed()} < {MIN_SPEED}")
+                logger.debug(f"not started taxiing yet, {round(self.ftg.aircraft.moved(), 1)} < {MIN_DIST}, {round(self.ftg.aircraft.speed(), 1)} < {MIN_SPEED}")
 
         # @todo: WARNING_DISTANCE should be computed from acf type (weigth, size) and speed
         nextStop, warn = self.ftg.lights.toNextStop(pos)

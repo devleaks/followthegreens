@@ -3,9 +3,10 @@
 #
 import os
 import re
+from time import timezone
 import tomllib
 from random import randint
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from textwrap import wrap
 
 try:
@@ -478,6 +479,7 @@ VERSION = "{__VERSION__}"
             # Info 16.b
             logger.info("ready for take-off.")
             self.segment = 0  # reset
+            logger.debug(f"taxi ended at {datetime.now(tz=timezone.utc).strftime("%H:%M")}Z")
             return self.ui.bye()
 
         if self.move == MOVEMENT.ARRIVAL and self.segment == self.lights.segments:
