@@ -143,7 +143,7 @@ Please use the forum here ([comments section](https://forums.x-plane.org/files/f
 the [discord server](https://discord.gg/AQjP2tWV),
 or [github issue](https://github.com/devleaks/followthegreens/issues).
 
-FtG4D produces a file named `ftglog.txt` located in the `PythonPlugins` folder.
+FtG4D produces a file named `ftg_log.txt` located in the `PythonPlugins` folder.
 You always must provide that file, and may be the file `XPPython3Log.txt` and even the familiar `log.txt` files
 in the X-Plane folder to help us track the issue.
 

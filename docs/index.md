@@ -478,7 +478,7 @@ I hope FtG will make your taxi rides more enjoyable.
 
 FtG may sometimes not find a route, or show undesired behavior.
 
-FtG produces a log file named `ftglog.txt` located in python plugin folder, right next to `PI_FollowTheGreens.py` file.
+FtG produces a log file named `ftg_log.txt` located in python plugin folder, right next to `PI_FollowTheGreens.py` file.
 
 In case of trouble, please always provide that file, very much like X-Plane support will ask you to provide the `log.txt` file.
 

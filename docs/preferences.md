@@ -18,7 +18,7 @@ FtG opens the following preference file:
 If not found, there simply won't be any preference set up.
 FtG will create an empty file at that location for later use.
 
-If a preference file is found, loaded preferences are logged in the ftglog.txt file.
+If a preference file is found, loaded preferences are logged in the ftg_log.txt file.
 
 
 # Preference Hierarchy
