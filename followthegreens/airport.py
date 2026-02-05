@@ -756,9 +756,9 @@ class Route:
             v.setProp("tobrake_index", self.dtb_at[i])
             f = v.feature()
             if abs(self.turns[i]) > TURN_LIMIT:
-                f["properties"]["marker-color"] = "#006600" # dark green
+                f["properties"]["marker-color"] = "#006600"  # dark green
             else:
-                f["properties"]["marker-color"] = "#00FF00" # green
+                f["properties"]["marker-color"] = "#00FF00"  # green
             features.append(f)
             e = self.graph.get_edge(self.route[i], self.route[i + 1])
             features.append(e.feature())

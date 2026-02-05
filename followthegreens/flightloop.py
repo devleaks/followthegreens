@@ -289,14 +289,17 @@ class FlightLoop:
             logger.debug(f"remaining dist to {next_vertex}: nxt {round(dist_to_next_vertex, 1)}m + end {round(route.dleft[next_vertex], 1)}m = {round(self.remaining_dist, 1)}m")
 
             self.remaining_time = time_to_next_vertex + route.tleft[next_vertex] + 30
-            logger.debug(f"remaining time to {next_vertex}: nxt {round(time_to_next_vertex, 1)}sec + end {round(route.tleft[next_vertex], 1)}sec + mgn 30sec = {round(self.remaining_time, 1)}sec")
+            logger.debug(
+                f"remaining time to {next_vertex}: nxt {round(time_to_next_vertex, 1)}sec + end {round(route.tleft[next_vertex], 1)}sec + mgn 30sec = {round(self.remaining_time, 1)}sec"
+            )
 
             logger.debug(f"next turn index control next_turn_vertex_index={next_turn_vertex_index}, dtb_at[light.index]={route.dtb_at[light.index]}, idx={idx-1} (computed)")
 
             # logical controls
             # 1. dist to next turn + remaining at turn = total left
-            logger.debug(f"remaining dist: nxt turn at index {idx-1} {round(dist_before, 1)}m + end {round(route.dleft[idx-1], 1)}m = {round(dist_before + route.dleft[idx-1], 1)}m")
-
+            logger.debug(
+                f"remaining dist: nxt turn at index {idx-1} {round(dist_before, 1)}m + end {round(route.dleft[idx-1], 1)}m = {round(dist_before + route.dleft[idx-1], 1)}m"
+            )
 
             # precompute for hud
             self.is_late = self.late(t0=self.remaining_time)  # will display original estimated vs new estimate
