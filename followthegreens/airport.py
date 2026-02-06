@@ -649,7 +649,7 @@ class Airport:
             route.mkDistToBrake()  # distance before significant turn
             if logger.level < 10:
                 fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_route.geojson")  # _{route.route[0]}-{route.route[-1]}
-                fc = FeatureCollection(features=self.features())
+                fc = FeatureCollection(features=route.features())
                 fc.save(fn)
                 logger.debug(f"taxiway network saved in {fn}")
             return (True, route)
