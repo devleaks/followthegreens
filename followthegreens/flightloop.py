@@ -460,7 +460,7 @@ class FlightLoop:
                 if msg != self.old_msg:
                     logger.debug(msg)
                     self.old_msg = msg
-                return
+                return self.nextIter
 
         # @todo: WARNING_DISTANCE should be computed from acf type (weigth, size) and speed
         nextStop, warn = self.ftg.lights.toNextStop(pos)
