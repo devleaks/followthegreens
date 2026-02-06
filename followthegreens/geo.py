@@ -108,6 +108,7 @@ class FeatureCollection:
         with open(filename, "w") as fp:
             json.dump(self.featureCollection(), fp, indent=2)
 
+
 class Point(Feature):
     def __init__(self, lat, lon, alt=0):
         Feature.__init__(self)
