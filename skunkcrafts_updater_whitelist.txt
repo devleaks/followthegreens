@@ -3,7 +3,7 @@ PI_FollowTheGreens.py|2422279202
 README.md|3816865703
 followthegreens/__init__.py|571708981
 followthegreens/aircraft.py|590393862
-followthegreens/airport.py|2685357883
+followthegreens/airport.py|1846385152
 followthegreens/flightloop.py|2306663463
 followthegreens/followthegreens.py|2570010684
 followthegreens/geo.py|2298138747
