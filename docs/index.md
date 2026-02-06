@@ -47,7 +47,7 @@ But now, thanks to this plugin, even your local muni can get Follow the greens _
 ## 4D
 
 After reading [this paper](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
-I found it amusing to incorporate their model and suggestions into FtG.
+I decided to incorporate their proposal into FtG.
 
 In a nutshell, FtG will now monitor your taxi speed and invite you to adjust it.
 It will do so by adjusting the speed of the «rabbit» light in front of the aircraft,
@@ -141,14 +141,13 @@ That is it. Nothing more. Nothing less.
 
 # What's New in Release 2
 
-After reading [this paper](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
-I found it amusing to incorporate their model and suggestions into FtG.
-
 *Release 2 adds monitoring of your current taxi speed,
 and adjustments of the rabbit light speed and length to invite you to either expedite your taxi ride,
 or, on the opposite, to slow down before a sharp turn or stop.*
 
 (The _«rabbit light»_ is the pulsating light in front of the aircraft.)
+
+This enhancement sets the path for A-SMGCS Level 4 compliance.
 
 If you’re rather safely go through your pre-takeoff checklist while taxiing,
 gently blow the daffodils on the sides of the taxiway with warm air,

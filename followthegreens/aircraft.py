@@ -186,8 +186,8 @@ class Aircraft:
 
         # PREFERENCES - Fetched by LightString
         # These preferences are specific for an aircraft
-        a = self.aircaft_preferences()
-        r = self.rabbit_preferences()
+        a = self.aircaftPreferences()
+        r = self.rabbitPreferences()
         acflength = a.get(AIRCRAFT.AVG_LENGTH, 50)  # meters
         self.lights_ahead = r.get(RABBIT.LIGHTS_AHEAD, 120)  # meters
         # self.lights_ahead = self.lights_ahead + acflength  # meters
@@ -195,7 +195,7 @@ class Aircraft:
         self.rabbit_length = self.rabbit_length + acflength  # meters
         self.rabbit_speed = r.get(RABBIT.SPEED, 0.2)  # seconds
         # If modified in preference file
-        self.set_preferences()
+        self.setPreferences()
 
         self.positions = [self.position()]
         self.speeds = [self.speed()]
@@ -210,8 +210,8 @@ class Aircraft:
                 return
         logger.info(f"aircraft type {self.icao} not found in lists, using default category {self.width_code}")
 
-    def set_preferences(self):
-        a = self.aircaft_preferences()
+    def setPreferences(self):
+        a = self.aircaftPreferences()
         acflength = a.get(AIRCRAFT.AVG_LENGTH, 50)  # meters
         # note: light count starts at the center of the aircraft.
         #       if the aircraft is 40m in length, 16m between lights,
@@ -293,27 +293,32 @@ class Aircraft:
         # Used to determine rabbit length
         return distance / lights
 
-    def taxi_speed_ranges(self) -> dict:
+    def taxiSpeedRanges(self) -> dict:
         return AIRCRAFT_TYPES[self.width_code][AIRCRAFT.TAXI_SPEED]
 
-    def aircaft_preferences(self) -> dict:
+    def aircaftPreferences(self) -> dict:
         # preferences for later user
         return AIRCRAFT_TYPES[self.width_code]
 
-    def rabbit_preferences(self, preferences: dict = {}) -> dict:
+    def rabbitPreferences(self, preferences: dict = {}) -> dict:
         # preferences for later user
         return AIRCRAFT_TYPES[self.width_code][AIRCRAFT.RABBIT]
 
-    def warning_distance(self, target: float = 0.0) -> float:
+    def warningDistance(self, target: float = 0.0) -> float:
         # @todo: Estimate braking distance from current speed to target
         # currently hardcoded to ~200m
         return AIRCRAFT_TYPES[self.width_code][AIRCRAFT.WARNING_DISTANCE]
 
-    def braking_distance(self, target: float = 0.0) -> float:
-        # @todo: Estimate braking distance from current speed to target
-        # currently hardcoded to ~200m
-        return AIRCRAFT_TYPES[self.width_code][AIRCRAFT.BRAKING_DISTANCE]
+    def brakingDistance(self, target: float = 0.0) -> float:
+        d = AIRCRAFT_TYPES[self.width_code][AIRCRAFT.BRAKING_DISTANCE]
+        tr = self.taxiSpeedRanges()
+        fast = min(tr[TAXI_SPEED.FAST])
+        s = self.speed()
+        slow = abs(s - target)  # speed to loose in m/s
+        if slow > fast:
+            d = d * 1.5
+        return d
 
-    def taxi_speed(self) -> float:
-        taxi_speed_ranges = self.taxi_speed_ranges()
+    def avgTaxiSpeed(self) -> float:
+        taxi_speed_ranges = self.taxiSpeedRanges()
         return sum(taxi_speed_ranges[TAXI_SPEED.MED]) / len(taxi_speed_ranges[TAXI_SPEED.MED])

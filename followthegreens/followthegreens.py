@@ -3,9 +3,10 @@
 #
 import os
 import re
+from time import timezone
 import tomllib
 from random import randint
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from textwrap import wrap
 
 try:
@@ -468,7 +469,7 @@ VERSION = "{__VERSION__}"
         logger.debug(f"lights instanciated ({self.segment}).")
 
         # re-authorize rabbit auto-tuning
-        self.flightLoop.allow_rabbit_autotune("next leg")
+        self.flightLoop.allowRabbitAutotune("next leg")
         self.status = FTG_STATUS.ACTIVE
 
         if self.move == MOVEMENT.DEPARTURE and self.segment == (self.lights.segments - 1):
@@ -478,6 +479,7 @@ VERSION = "{__VERSION__}"
             # Info 16.b
             logger.info("ready for take-off.")
             self.segment = 0  # reset
+            self.flightLoop.taxiEnd()
             return self.ui.bye()
 
         if self.move == MOVEMENT.ARRIVAL and self.segment == self.lights.segments:

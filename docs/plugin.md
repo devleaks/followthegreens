@@ -22,7 +22,7 @@ A red line across the taxiway indicates the aircraft has to hold and wait for th
 Very much like car traffic lights.
 
 Please have a look at the [following video](https://vimeo.com/101564135) and search for "airport Follow the greens" to get more information.
-There is nowaways a lot more information, manufacturers, and experimental project reports to learn from.
+There is today a lot more information, manufacturers, and experimental project reports to learn from.
 
 Follow the greens has numerous advantages discussed in the above documents, ranking to ease of use, to smoother taxi rides,
 shorter taxi times, to lower interaction with ground control.

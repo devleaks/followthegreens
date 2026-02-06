@@ -334,7 +334,7 @@ class UIUtil:
             intro
             + [
                 "Follow the greens until you encounter red stop lights across the taxiway.",
-                "At the stop lights, contact GROUND ATC for clearance. Press Clearance received when cleared.",
+                "At the stop lights, contact ATC for clearance. Press Clearance received when cleared.",
             ],
             btns,
         )
@@ -358,7 +358,7 @@ class UIUtil:
         return self.window(
             [
                 "Follow the greens until you encounter red stop lights across the taxiway before departure runway.",
-                "Contact TOWER ATC, press Clearance received when cleared for runway.",
+                "Contact ATC, press Clearance received when cleared for runway.",
             ],
             {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel},
         )
@@ -379,7 +379,7 @@ class UIUtil:
     def bye(self):
         msgs = ["You have reached your destination."]
         if self.ftg.move == MOVEMENT.DEPARTURE:
-            msgs += ["Contact TOWER ATC for takeoff clearance."]
+            msgs += ["Contact ATC for takeoff clearance."]
         msgs += [self.greetings("Enjoy your %s.")]
         return self.window(
             msgs,

@@ -7,11 +7,12 @@ import math
 import json
 from typing import Tuple
 
-from .geo import Point, Line, Polygon, destination, distance, pointInPolygon
+from .geo import FeatureCollection, Point, Line, Polygon, destination, distance, pointInPolygon
 from .graph import Graph, Edge, Vertex
 from .globals import (
     logger,
     get_global,
+    minsec,
     DISTANCE_TO_RAMPS,
     TAXIWAY_TYPE,
     RUNWAY_BUFFER_WIDTH,
@@ -25,10 +26,8 @@ from .globals import (
 
 SYSTEM_DIRECTORY = "."
 
-
-def minsec(t: float) -> str:
-    a = int(t)
-    return f"{int(a/60)}:{a%60:02d}"
+TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
+SMALL_TURN_LIMIT = 15.0  # °, above this angle, it is recommended to slow down for the turn
 
 
 class Runway(Line):
@@ -209,7 +208,7 @@ class Airport:
         self.rabbit_speed = get_global(RABBIT.SPEED.value, self.prefs)  # seconds
         # Info 4
         # Fine tune for specific airport(s)
-        self.set_preferences()
+        self.setPreferences()
         logger.debug(f"AIRPORT rabbit: btw greens={self.distance_between_green_lights}m, whole net={self.distance_between_taxiway_lights}m, speed={self.rabbit_speed}s")
 
     def prepare(self):
@@ -245,7 +244,7 @@ class Airport:
 
         return [True, "Airport ready"]
 
-    def set_preferences(self):
+    def setPreferences(self):
         # Local airport preferences override global preferences
         apt = self.prefs.get("Airports", {})
         prefs = apt.get(self.icao)
@@ -332,13 +331,13 @@ class Airport:
 
         return self.loaded
 
-    def dump(self, filename):
+    def dumpAptFile(self, filename):
         aptfile = open(filename, "w")
         for line in self.lines:
             aptfile.write(f"{line.linecode()} {line.content()}\n")
         aptfile.close()
 
-    def load_smooth(self):
+    def loadSmoothedTaxiwayNetwork(self):
         fn = os.path.join(os.path.dirname(__file__), "..", f"{self.icao}.geojson")
         data = {}
         if not os.path.exists(fn):
@@ -646,13 +645,13 @@ class Airport:
 
             route.mkEdges()  # compute segment distances
             route.mkTurns()  # compute turn angles at end of segment
-            route.mkTiming(speed=aircraft.taxi_speed())  # compute total time left to reach destination
+            route.mkTiming(speed=aircraft.avgTaxiSpeed())  # compute total time left to reach destination
             route.mkDistToBrake()  # distance before significant turn
             if logger.level < 10:
-                fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_route_{route.route[0]}-{route.route[-1]}.geojson")
-                with open(fn, "w") as fp:
-                    print(route.to_geojson(), file=fp)
-                logger.debug(f"taxiway network saved in {fn}")
+                fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_route.geojson")  # _{route.route[0]}-{route.route[-1]}
+                fc = FeatureCollection(features=route.features())
+                fc.save(fn)
+                logger.debug(f"taxi route saved in {os.path.abspath(fn)}")
             return (True, route)
 
         return (False, "We could not find a route to your destination.")
@@ -743,8 +742,7 @@ class Route:
             return "-".join(self.route)
         return ""
 
-    def to_geojson(self) -> str:
-        TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
+    def features(self) -> list:
         features = []
         for i in range(len(self.route) - 1):
             v = self.graph.get_vertex(self.route[i])
@@ -756,13 +754,13 @@ class Route:
             v.setProp("tobrake_index", self.dtb_at[i])
             f = v.feature()
             if abs(self.turns[i]) > TURN_LIMIT:
-                f["properties"]["marker-color"] = "#006600" # dark green
+                f["properties"]["marker-color"] = "#006600"  # dark green
             else:
-                f["properties"]["marker-color"] = "#00FF00" # green
+                f["properties"]["marker-color"] = "#00FF00"  # green
             features.append(f)
             e = self.graph.get_edge(self.route[i], self.route[i + 1])
             features.append(e.feature())
-        return json.dumps({"type": "FeatureCollection", "features": features})
+        return features
 
     def _find(self, src, dst) -> bool:
         # If requested to try AStar, try it first, if failed, try Dijkstra
@@ -830,8 +828,6 @@ class Route:
     def mkDistToBrake(self):
         # for each vertex, write the distance to the next vertex
         # where there is a reason to slow down at that vertex: Either a sharp turn (> SMALL_TURN_LIMIT), or a stop bar (later).
-        SMALL_TURN_LIMIT = 15.0  # °, above this angle, it is recommended to slow down for the turn
-
         if self.turns is None or len(self.turns) == 0:
             return
         self.dtb = []
