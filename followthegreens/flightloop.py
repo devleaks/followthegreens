@@ -374,6 +374,7 @@ class FlightLoop:
 
         try:
             if self.rabbitMode != mode:
+                logger.info(msg)
                 self.rabbitMode = mode
         except:
             logger.error("set rabbitMode", exc_info=True)
@@ -430,7 +431,7 @@ class FlightLoop:
         self.planned = self.actual_start + timedelta(seconds=round(s))
         self.total_dist = self.ftg.aircraft.moved()
         self.total_time = self.lastIter
-        logger.debug(f"taxi started at {self.actual_start.strftime("%H:%M")}Z, ride is {round(d, 1)}m in {minsec(s)}, planned takeoff hold at {self.planned.strftime("%H:%M")}Z")
+        logger.info(f"taxi started at {self.actual_start.strftime("%H:%M")}Z, ride is {round(d, 1)}m in {minsec(s)}, planned takeoff hold at {self.planned.strftime("%H:%M")}Z")
 
     def taxiEnd(self):
         # provides some stats
@@ -438,6 +439,7 @@ class FlightLoop:
         logger.debug(f"taxi ended at {now.strftime("%H:%M")}Z ride was {round(self.total_dist, 1)}m in t={round(self.total_time, 1)}s ({minsec(self.total_time)})")
         if self.planned is not None:
             diff = (self.planned - now).seconds
+            logger.info(f"taxi ended at {now.strftime("%H:%M")}Z ({minsec(diff)})")
             logger.debug(f"planned={self.planned.strftime("%H:%M")}Z, actual={now.strftime("%H:%M")}Z, {minsec(diff)} {'in advance' if diff > 0 else 'late'}")
             logger.debug(f"control total={round(self.total_time, 1)} vs diff={round(diff, 1)}")
 
