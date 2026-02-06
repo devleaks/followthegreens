@@ -12,7 +12,7 @@ try:
 except ImportError:
     print("X-Plane not loaded")
 
-from .geo import Point, distance, bearing, destination, convertAngleTo360, pointInPolygon
+from .geo import Point, FeatureCollection, distance, bearing, destination, convertAngleTo360, pointInPolygon
 from .globals import (
     logger,
     get_global,
@@ -388,10 +388,7 @@ class LightString:
         logger.debug(f"physical units: rabbit {aircraft.rabbit_length}m, {abs(round(self.rabbit_duration, 2))} secs., ahead {aircraft.lights_ahead}m")
         logger.info(f"rabbit: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}, greens={self.distance_between_lights}m")
 
-    def __str__(self):
-        return json.dumps({"type": "FeatureCollection", "features": self.features()})
-
-    def has_rabbit(self) -> bool:
+    def hasRabbit(self) -> bool:
         return (abs(self.rabbit_duration) > 0 and self.num_rabbit_lights > 0) or self.lights_ahead > 0
 
     def features(self):
@@ -436,14 +433,14 @@ class LightString:
         return new_rl, self.rabbit_speed * adjustment[1], new_la
 
     def changeRabbit(self, length: int, duration: float, ahead: int):
-        if not self.has_rabbit():
+        if not self.hasRabbit():
             return
         self.new_num_rabbit_lights = length
         self.new_num_lights_ahead = ahead
         self.new_rabbit_duration = duration
 
     def rabbitMode(self, mode: RABBIT_MODE):
-        if not self.has_rabbit():
+        if not self.hasRabbit():
             return
         self.rabbit_mode = mode
         length, speed, ahead = self.newRabbitParameters(mode)
@@ -634,8 +631,8 @@ class LightString:
         logger.debug(f"runway lead-off lights: {self.lead_off_lights} lights, {float(get_global('LEAD_OFF_RUNWAY_DISTANCE', preferences=self.prefs))} m")
         if logger.level < 10:
             fn = os.path.join(os.path.dirname(__file__), "..", "ftg_ls.geojson")
-            with open(fn, "w") as fp:
-                print(self, file=fp)
+            fc = FeatureCollection(features=self.features())
+            fc.save(filename=fn)
             logger.debug(f"LightString saved in {fn}")
 
     # We make a stopbar after the green light index lightIndex

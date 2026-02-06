@@ -151,6 +151,12 @@ MAINWINDOW_FROM_BOTTOM = 80  # Distance of the bottom of the main window from th
 MAINWINDOW_WIDTH = 500  # Normal main window width. May need adjustment if font size is changed
 MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from space and title bar
 
+# Reference point is top left corner of HUD.
+# First number is distance of reference point from left of screen,
+# Second number is distance of reference point is distance from bottom of screen.
+# Second number must be larger than 45 to leave room for 3 lines of text
+HUD_POSITION = [220, 50]
+
 
 # AIRPORT/AERONAUTICAL CONSTANTS
 #
@@ -467,6 +473,12 @@ def get_global(name: str, preferences: dict = {}) -> Any:
     # if name not in preferences:
     #     logger.debug(f"name {name} not in preferences, using global {globals().get(name)}")
     return preferences.get(name, globals().get(name))
+
+
+def minsec(t: float) -> str:
+    # format min:sec
+    a = int(t)
+    return f"{int(a/60)}:{a%60:02d}"
 
 
 # ################################

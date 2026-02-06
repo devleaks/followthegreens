@@ -561,12 +561,20 @@ class PythonInterface:
         pass
 
     def hud(self, phase, after, refCon):
-        if not self._hud or self.followTheGreens is None or not self.followTheGreens.flightLoop.rabbitRunning:
+        if not self._hud or self.followTheGreens is None:
             return
+
         fl = self.followTheGreens.flightLoop
+        hp = fl.hudPosition()
+        LINE = 15 if len(hp) < 3 else hp[2]
+        LEFT = max(hp[0], 1)
+        TOP = max(hp[1], 3 * LINE + 1)
+
         xp.setGraphicsState(0, 1, 0, 0, 0, 0, 0)
-        xp.drawString((0.0, 1.0, 0.0), 217, 50, "GREENS")  # Title/header
-        color = (1.0, 0.0, 0.0) if fl.is_late else (0.0, 1.0, 0.0)
-        xp.drawString(color, 220, 35, fl.remaining)  # 1234m, 12:45   indication
-        xp.drawString(color, 220, 20, f"{round(fl.dist_to_next_turn):4d}m")  # 1234m
-        # xp.drawString(color, 220, 5, 'last line')  #
+        xp.drawString((0.0, 1.0, 0.0), LEFT - 3, TOP, "GREENS")  # Title/header
+        if fl.rabbitRunning:
+            color = (1.0, 0.0, 0.0) if fl.is_late else (0.0, 1.0, 0.0)
+            xp.drawString(color, LEFT, TOP - LINE, fl.remaining)  # 1234m, 12:45   indication
+            xp.drawString(color, LEFT, TOP - 2 * LINE, f"! {round(fl.dist_to_next_turn):4d}m")  # 1234m
+        color = (1.0, 0.0, 0.0) if fl.rabbitRunning else (0.7, 0.7, 0.0)
+        xp.drawString((0.0, 1.0, 0.0), LEFT, TOP - 3 * LINE, self.followTheGreens.status.value)  # status

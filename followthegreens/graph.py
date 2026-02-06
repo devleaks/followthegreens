@@ -12,6 +12,7 @@ from .geo import (
     Point,
     Line,
     Polygon,
+    FeatureCollection,
     bearing,
     distance,
     nearestPointToLines,
@@ -201,9 +202,6 @@ class Graph:  # Graph(FeatureCollection)?
         self._oneways = False
         self._runways = False
 
-    def __str__(self):
-        return json.dumps({"type": "FeatureCollection", "features": self.features()})
-
     def __iter__(self):
         return iter(self.vert_dict.values())
 
@@ -248,8 +246,8 @@ class Graph:  # Graph(FeatureCollection)?
         logger.debug(f"{len(self.edges_arr)} edges: {s}, cost=[{round(mi, 2)}, {round(ma, 2)}]")
         if logger.level < 10:
             fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_tn_{self.name}.geojson")
-            with open(fn, "w") as fp:
-                print(self, file=fp)
+            fc = FeatureCollection(features=self.features())
+            fc.save(filename=fn)
             logger.debug(f"taxiway network saved in {fn}")
 
     def features(self):

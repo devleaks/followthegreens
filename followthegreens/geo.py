@@ -105,10 +105,8 @@ class FeatureCollection:
         return json.dumps(self.featureCollection())
 
     def save(self, filename):
-        f = open(filename, "w")
-        json.dump(self.featureCollection(), f, indent=2)
-        f.close()
-
+        with open(filename, "w") as fp:
+            json.dump(self.featureCollection(), fp, indent=2)
 
 class Point(Feature):
     def __init__(self, lat, lon, alt=0):
