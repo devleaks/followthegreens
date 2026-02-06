@@ -3,8 +3,8 @@ PI_FollowTheGreens.py|20988
 README.md|75
 followthegreens/__init__.py|693
 followthegreens/aircraft.py|13590
-followthegreens/airport.py|47114
-followthegreens/flightloop.py|22149
+followthegreens/airport.py|47116
+followthegreens/flightloop.py|22208
 followthegreens/followthegreens.py|22949
 followthegreens/geo.py|13711
 followthegreens/globals.py|14980
