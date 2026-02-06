@@ -633,7 +633,7 @@ class LightString:
             fn = os.path.join(os.path.dirname(__file__), "..", "ftg_ls.geojson")
             fc = FeatureCollection(features=self.features())
             fc.save(filename=fn)
-            logger.debug(f"LightString saved in {fn}")
+            logger.debug(f"greens saved in {os.path.abspath(fn)}")
 
     # We make a stopbar after the green light index lightIndex
     def mkStopbar(self, lightIndex, src, dst, extremity="end", size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.E, light: LIGHT_TYPE = LIGHT_TYPE.STOP):

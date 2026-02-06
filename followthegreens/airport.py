@@ -651,7 +651,7 @@ class Airport:
                 fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_route.geojson")  # _{route.route[0]}-{route.route[-1]}
                 fc = FeatureCollection(features=route.features())
                 fc.save(fn)
-                logger.debug(f"taxiway network saved in {fn}")
+                logger.debug(f"taxi route saved in {os.path.abspath(fn)}")
             return (True, route)
 
         return (False, "We could not find a route to your destination.")

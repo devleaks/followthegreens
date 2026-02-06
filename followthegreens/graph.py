@@ -248,7 +248,7 @@ class Graph:  # Graph(FeatureCollection)?
             fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_tn_{self.name}.geojson")
             fc = FeatureCollection(features=self.features())
             fc.save(filename=fn)
-            logger.debug(f"taxiway network saved in {fn}")
+            logger.debug(f"taxiway network saved in {os.path.abspath(fn)}")
 
     def features(self):
         def add(arr, v):
