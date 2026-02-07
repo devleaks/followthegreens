@@ -16,7 +16,7 @@ followthegreens/lights/off_light.obj|10640
 followthegreens/lights/on_light.obj|617
 followthegreens/lights/red.obj|1817
 followthegreens/lights/white.obj|1817
-followthegreens/lightstring.py|45086
+followthegreens/lightstring.py|45163
 followthegreens/nato.py|2898
 followthegreens/showtaxiways.py|4072
 followthegreens/ui.py|21300
