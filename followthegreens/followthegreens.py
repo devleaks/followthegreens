@@ -3,7 +3,6 @@
 #
 import os
 import re
-from time import timezone
 import tomllib
 from random import randint
 from datetime import datetime, timedelta, timezone
@@ -109,6 +108,8 @@ class FollowTheGreens:
         # Parameters in this file will overwrite (with constrain)
         # default values provided by FtG.
         loading = "reload" if reloading else "load"
+        # restart from empty
+        self.prefs = {}
         here = os.path.dirname(__file__)
         # I. "Developer" preferences PythonPlugins/followthegreens/followthegreens.prf
         filename = os.path.join(here, PREFERENCE_FILE_NAME)
@@ -121,6 +122,8 @@ class FollowTheGreens:
 
             logger.info(f"preferences file {filename} {loading}ed")
             logger.debug(f"preferences: {self.prefs}")
+        else:
+            logger.debug("no developer preference")
 
         # II. "User" preferences output/preferences/followthegreens.prf
         if not self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False):

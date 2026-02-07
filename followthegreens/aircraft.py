@@ -5,7 +5,7 @@ try:
 except ImportError:
     print("X-Plane not loaded")
 
-from .globals import logger, get_global, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT
+from .globals import logger, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT
 from .geo import distance, Point
 
 # fmt: off

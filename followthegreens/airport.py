@@ -4,7 +4,6 @@
 import os
 import re
 import math
-import json
 from typing import Tuple
 
 from .geo import FeatureCollection, Point, Line, Polygon, destination, distance, pointInPolygon
@@ -337,44 +336,44 @@ class Airport:
             aptfile.write(f"{line.linecode()} {line.content()}\n")
         aptfile.close()
 
-    def loadSmoothedTaxiwayNetwork(self):
-        fn = os.path.join(os.path.dirname(__file__), "..", f"{self.icao}.geojson")
-        data = {}
-        if not os.path.exists(fn):
-            return False
+    # def loadSmoothedTaxiwayNetwork(self):
+    #     fn = os.path.join(os.path.dirname(__file__), "..", f"{self.icao}.geojson")
+    #     data = {}
+    #     if not os.path.exists(fn):
+    #         return False
 
-        with open(fn, "r") as fp:
-            data = json.load(fp)
-        logger.debug(f"loaded {len(data['features'])} features")
+    #     with open(fn, "r") as fp:
+    #         data = json.load(fp)
+    #     logger.debug(f"loaded {len(data['features'])} features")
 
-        # Create vertices, list edges
-        cnt = 1
-        for f in data["features"]:
-            g = f["geometry"]
-            if g["type"] == "Point":  # there shouldn't be any
-                self.smoothGraph.add_vertex(cnt, point=Point(lat=g["coordinates"][1], lon=g["coordinates"][0]), usage="taxiway")
-                cnt = cnt + 1
-            elif g["type"] == "LineString":
-                last = None
-                for p in g["coordinates"]:
-                    self.smoothGraph.add_vertex(cnt, point=Point(lat=p[1], lon=p[0]), usage="taxiway")
-                    if last is not None:
-                        cost = distance(self.smoothGraph.vert_dict[cnt - 1], self.smoothGraph.vert_dict[cnt])
-                        self.smoothGraph.add_edge(
-                            edge=Edge(
-                                src=self.smoothGraph.vert_dict[cnt - 1],
-                                dst=self.smoothGraph.vert_dict[cnt],
-                                cost=cost,
-                                direction="both",
-                                usage="taxiway",
-                                name="",
-                            )
-                        )
-                    last = self.smoothGraph.vert_dict[cnt]
-                    cnt = cnt + 1
-        # logger.debug(f"added {len(self.smoothGraph.vert_dict)} vertices, {len(self.smoothGraph.edges_arr)} edges")
-        self.smoothGraph.stats()
-        return True
+    #     # Create vertices, list edges
+    #     cnt = 1
+    #     for f in data["features"]:
+    #         g = f["geometry"]
+    #         if g["type"] == "Point":  # there shouldn't be any
+    #             self.smoothGraph.add_vertex(cnt, point=Point(lat=g["coordinates"][1], lon=g["coordinates"][0]), usage="taxiway")
+    #             cnt = cnt + 1
+    #         elif g["type"] == "LineString":
+    #             last = None
+    #             for p in g["coordinates"]:
+    #                 self.smoothGraph.add_vertex(cnt, point=Point(lat=p[1], lon=p[0]), usage="taxiway")
+    #                 if last is not None:
+    #                     cost = distance(self.smoothGraph.vert_dict[cnt - 1], self.smoothGraph.vert_dict[cnt])
+    #                     self.smoothGraph.add_edge(
+    #                         edge=Edge(
+    #                             src=self.smoothGraph.vert_dict[cnt - 1],
+    #                             dst=self.smoothGraph.vert_dict[cnt],
+    #                             cost=cost,
+    #                             direction="both",
+    #                             usage="taxiway",
+    #                             name="",
+    #                         )
+    #                     )
+    #                 last = self.smoothGraph.vert_dict[cnt]
+    #                 cnt = cnt + 1
+    #     # logger.debug(f"added {len(self.smoothGraph.vert_dict)} vertices, {len(self.smoothGraph.edges_arr)} edges")
+    #     self.smoothGraph.stats()
+    #     return True
 
     def stats(self):
         s = {}

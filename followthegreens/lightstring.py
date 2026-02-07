@@ -2,10 +2,8 @@
 # Keep track of all lights set for FTG, their status, etc. Manipulate them as well.
 #
 import math
-import json
 import os.path
 from random import randint
-from datetime import datetime
 
 try:
     import xp

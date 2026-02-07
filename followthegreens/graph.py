@@ -5,7 +5,6 @@
 #
 import os
 import math
-import json
 from functools import reduce
 
 from .geo import (
