@@ -304,6 +304,12 @@ class Stopbar:
 
 
 class LightString:
+    # Note to self:
+    # We can safely assume that since distance between lights is fairly small (10-30 meters)
+    # when we are at light index 75, and there is a stop bat at light index 108,
+    # we can safely assume that the distance remaining before the stop is
+    #    (108-75)*distance_between_green_lights
+    # No need for sophisticated calculation. Error is at most distance_between_green_lights.
 
     def __init__(self, airport, aircraft, preferences: dict = {}):
         self.airport = airport  # get some lighting preference from there

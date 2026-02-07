@@ -110,6 +110,7 @@ class FollowTheGreens:
         # default values provided by FtG.
         loading = "reload" if reloading else "load"
         here = os.path.dirname(__file__)
+        # I. "Developer" preferences PythonPlugins/followthegreens/followthegreens.prf
         filename = os.path.join(here, PREFERENCE_FILE_NAME)
         if os.path.exists(filename):
             with open(filename, "rb") as fp:
@@ -121,27 +122,32 @@ class FollowTheGreens:
             logger.info(f"preferences file {filename} {loading}ed")
             logger.debug(f"preferences: {self.prefs}")
 
-        filename = os.path.join(".", "Output", "preferences", PREFERENCE_FILE_NAME)  # relative to X-Plane "rott/home" folder
-        if os.path.exists(filename):
-            with open(filename, "rb") as fp:
-                try:
-                    prefs = tomllib.load(fp)
-                    logger.info(f"preferences file {filename} {loading}ed")
-                    if VERSION not in prefs:
-                        logger.warning("preferences file contains no version information")
-                    else:
-                        logger.info(f"preferences file version {prefs.get(VERSION)}")
-                    if len(self.prefs) > 0:
-                        logger.warning("some preferences may be overwritten")
-                    if len(prefs) > 0:
-                        self.prefs = self.prefs | prefs
-                    self.check_update_version(filename=filename, change=False)
-                except:
-                    logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
-            # logger.debug(f"preferences: {self.prefs}")
+        # II. "User" preferences output/preferences/followthegreens.prf
+        if not self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False):
+            filename = os.path.join(".", "Output", "preferences", PREFERENCE_FILE_NAME)  # relative to X-Plane "rott/home" folder
+            if os.path.exists(filename):
+                with open(filename, "rb") as fp:
+                    try:
+                        prefs = tomllib.load(fp)
+                        logger.info(f"preferences file {filename} {loading}ed")
+                        if VERSION not in prefs:
+                            logger.warning("preferences file contains no version information")
+                        else:
+                            logger.info(f"preferences file version {prefs.get(VERSION)}")
+                        if len(self.prefs) > 0:
+                            logger.warning("some user preferences may be overwritten by developer preferences")
+                        if len(prefs) > 0:
+                            # Order is important: We overwrite user preferences with developer preferences.
+                            self.prefs = prefs | self.prefs
+                        self.check_update_version(filename=filename, change=False)
+                    except:
+                        logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
+                # logger.debug(f"preferences: {self.prefs}")
+            else:
+                logger.debug(f"no preferences file {filename}")
+                self.create_empty_prefs()
         else:
-            logger.debug(f"no preferences file {filename}")
-            self.create_empty_prefs()
+            logger.info("DEVELOPER_PREFERENCE_ONLY = true, user preference ignored")
 
         logger.info(f"preferences: {self.prefs}")
 
@@ -153,7 +159,7 @@ class FollowTheGreens:
                 logger.log(ll, f"internal: debug level set to {ll}")
         else:
             logger.warning(f"invalid logging level {ll} ({type(ll)})")
-        logger.info(f"log level: {logger.level}")
+        logger.info(f"LOGGING_LEVEL = {logger.level}")
         # logger.info("You can change the logging level in the preference file by setting a interger value like so: LOGGING_LEVEL = 10")
 
         try:
