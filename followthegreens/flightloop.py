@@ -323,7 +323,7 @@ class FlightLoop:
         TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
 
         idx = next_vertex
-        while abs(turn) < TURN_LIMIT and idx < len(route.route):
+        while abs(turn) < TURN_LIMIT and idx < len(route.turns):
             turn = route.turns[idx]
             # dist_before2 = dist2
             # dist2 = dist2 + route.edges[idx].cost

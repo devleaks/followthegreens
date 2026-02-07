@@ -647,8 +647,9 @@ class Airport:
             route.mkTurns()  # compute turn angles at end of segment
             route.mkTiming(speed=aircraft.avgTaxiSpeed())  # compute total time left to reach destination
             route.mkDistToBrake()  # distance before significant turn
+            logger.debug(f"control: v={len(route.route)}, e={len(route.edges)}, t={len(route.turns)}, b={len(route.dtb)}, a={len(route.dtb_at)}, d={len(route.dleft)}, l={len(route.tleft)}")
             if logger.level < 10:
-                fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_route.geojson")  # _{route.route[0]}-{route.route[-1]}
+                fn = os.path.join(os.path.dirname(__file__), "..", "ftg_route.geojson")  # _{route.route[0]}-{route.route[-1]}
                 fc = FeatureCollection(features=route.features())
                 fc.save(fn)
                 logger.debug(f"taxi route saved in {os.path.abspath(fn)}")

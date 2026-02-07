@@ -185,7 +185,9 @@ class FollowTheGreens:
 # For example, boolean values are true and false, lower case.
 # If True or False is used, an error will be issued and the preference file ignored.
 #
-# Do not touch the following line.
+# Do not touch the following lines.
+#
+# Initially created version {__VERSION__} on {datetime.now(tz=timezone.utc)}.
 #
 VERSION = "{__VERSION__}"
 #
