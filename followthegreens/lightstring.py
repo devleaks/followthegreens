@@ -523,7 +523,7 @@ class LightString:
                     logger.debug(f"departure: on runway #={i}, usage={thisEdge.usage}, active={thisEdge.mkActives()}")
                     if thisEdge.usage != "runway" and not thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):
                         # if consecutive active departure segments, do not stop for them
-                        logger.debug(f"departure: no longer on runway at edge {i}.")
+                        logger.debug(f"departure: no longer on runway at edge {i}")
                         onRwy = False
 
             # note: if move=arrival, we should not stop on the first taxiway segment, but we may have to cross another runway further on...
@@ -556,12 +556,12 @@ class LightString:
                     logger.debug(f"arrival: not on runway {i}, {thisEdge.usage}")
                     if thisEdge.usage != "runway" and not thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):
                         # if consecutive active departure segments, do not stop for them
-                        logger.debug(f"arrival: no longer on runway at edge {i}.")
+                        logger.debug(f"arrival: no longer on runway at edge {i}")
                         onRwy = False
 
             if onRwy and thisEdge.usage != "runway" and not thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):
                 # if consecutive active departure segments, do not stop for them
-                logger.debug(f"no longer on runway at edge {i}.")
+                logger.debug(f"no longer on runway at edge {i}")
                 onRwy = False
 
             if distToNextVertex < distanceBeforeNextLight:
@@ -606,7 +606,7 @@ class LightString:
         last = 0
         for i in range(len(self.stopbars)):
             sb = self.stopbars[i]
-            logger.debug(f"stopbar {i}: {last}-{sb.lightStringIndex}.")
+            logger.debug(f"stopbar {i}: {last}-{sb.lightStringIndex}")
             last = sb.lightStringIndex
 
         self.lights = thisLights
@@ -615,7 +615,7 @@ class LightString:
 
     def printSegments(self):
         # for debugging purpose
-        logger.info(f"added {len(self.lights)} lights, {self.segments + 1} segments, {len(self.stopbars)} stop bars.")
+        logger.info(f"added {len(self.lights)} lights, {self.segments + 1} segments, {len(self.stopbars)} stop bars")
         if len(self.stopbars) > 0:
             segs = []
             last = 0

@@ -458,7 +458,7 @@ class Graph:  # Graph(FeatureCollection)?
         baseR = destination(base, brng - 90, lateral)
         triangle = Polygon([point, baseL, baseR])
         vertices = self.findVertexInPolygon(triangle)
-        logger.debug(f"{ahead}, {lateral}, inside {len(vertices)}.")
+        logger.debug(f"{ahead}, {lateral}, inside {len(vertices)}")
 
         v = None
         d = math.inf
@@ -556,6 +556,7 @@ class Graph:  # Graph(FeatureCollection)?
             return None
         else:
             # Including the source in the path
+            logger.info("..found")
             route.insert(0, source)
             logger.debug(f"route: {'-'.join([str(r) for r in route])}")
             return route
@@ -617,7 +618,7 @@ class Graph:  # Graph(FeatureCollection)?
                     n = v
 
             if n is None:
-                logger.warning("AStar: route not found")
+                logger.warning(f"AStar: could not find route from {start_node} to {stop_node}")
                 return None
 
             # if the current node is the stop_node
@@ -629,7 +630,7 @@ class Graph:  # Graph(FeatureCollection)?
                     n = parents[n]
                 reconst_path.append(start_node)
                 reconst_path.reverse()
-
+                logger.info("..found")
                 return reconst_path
 
             # for all neighbors of the current node do
@@ -658,5 +659,5 @@ class Graph:  # Graph(FeatureCollection)?
             open_list.remove(n)
             closed_list.add(n)
 
-        logger.warning("AStar: route not found")
+        logger.warning(f"AStar: could not find route from {start_node} to {stop_node}")
         return None

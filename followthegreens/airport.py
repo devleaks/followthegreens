@@ -221,7 +221,7 @@ class Airport:
         #     return [False, f"We could not find smooth taxiway lines for airport named '{self.icao}'."]
 
         # Info 5
-        logger.debug(f"Has ATC {self.hasATC()}.")  # actually, we don't care.
+        # logger.debug(f"has ATC {self.hasATC()}")  # actually, we don't care.
 
         status = self.mkRoutingNetwork()
         if not status:
@@ -309,7 +309,7 @@ class Airport:
                         self.name = " ".join(newparam[5:])
                         self.altitude = newparam[1]
                         # Info 4.a
-                        logger.info(f"found airport {newparam[4]} '{self.name}' in '{filename}'.")
+                        logger.info(f"found airport {newparam[4]} '{self.name}' in '{filename}'")
                         self.scenery_pack = filename  # remember where we found it
                         self.lines.append(AptLine(line.strip()))  # keep first line
                         line = apt_dat.readline()  # next line in apt.dat
@@ -417,20 +417,20 @@ class Airport:
                     self.graph.add_edge(edge)
                     edgeCount += 1
                 else:
-                    logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}.")
+                    logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}")
             elif aptline.linecode() == 1204 and edge is not None:
                 args = aptline.content().split()
                 if len(args) >= 2:
                     edge.add_active(args[0], args[1])
                     edgeActiveCount += 1
                 else:
-                    logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}.")
+                    logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}")
             else:
                 edge = None
 
         # Info 6
         self.stats()
-        logger.info(f"added {len(vertexlines)} nodes, {edgeCount} edges ({edgeActiveCount} enhanced).")
+        logger.info(f"added {len(vertexlines)} nodes, {edgeCount} edges ({edgeActiveCount} enhanced)")
         self.graph.stats()
         return True
 
@@ -959,7 +959,7 @@ class Route:
                         return route
                     logger.debug("..failed..")
                 else:
-                    logger.debug("runway can be used while taxiing, probably because we are on a runway...")
+                    logger.debug("runway can be used while taxiing, probably because we are on a runway")
 
                 # use runway
                 subgraph = graph.clone(
@@ -1018,20 +1018,20 @@ class Route:
         else:  # arrival
             brng = aircraft.heading()
             speed = aircraft.speed()
-            logger.debug(f"arrival: trying vertex ahead {brng}, {speed}.")
+            logger.debug(f"arrival: trying vertex ahead {brng}, {speed}")
             src = self.graph.findClosestVertexAheadGuess(pos_pt, brng, speed)
             if src is None or src[0] is None:  # tries a less constraining search...
-                logger.debug("no vertex ahead.")
+                logger.debug("no vertex ahead")
                 src = self.graph.findClosestVertex(pos_pt)
             if arrival_runway is not None and dst_type == "stand":
                 if dst_pos is not None:
                     nextexit = arrival_runway.nextExit(graph=self.graph, position=pos_pt, destination=dst_pos)
                     if nextexit is not None:
                         src = nextexit
-                        logger.debug(f"Arrival: on runway {arrival_runway.name}, closest exit vertex in front is {nextexit[0]}.")
-                logger.debug(f"Arrival: on runway {arrival_runway.name}.")
+                        logger.debug(f"Arrival: on runway {arrival_runway.name}, closest exit vertex in front is {nextexit[0]}")
+                logger.debug(f"Arrival: on runway {arrival_runway.name}")
             else:
-                logger.debug("Arrival: not on runway.")
+                logger.debug("Arrival: not on runway")
 
         if src is None:
             logger.debug("no return from findClosestVertex")

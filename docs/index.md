@@ -34,7 +34,7 @@ Yeah, yeah, less CO~2~ produced.
 Yeah, yeah, follow the greens is realllly green.
 Can't be greener than that. No green bashing.
 
-I brought Follow the greens concept to X-Plane as ATC and "AI" struggle to guide you on the ground.
+We brought Follow the greens concept to X-Plane as ATC and "AI" struggle to guide you on the ground.
 X-Plane yellow painted coach arrows on taxiways are fine, useful, but look too artificial.
 
 Follow the greens is an existing system used at a handful airports.
@@ -47,7 +47,7 @@ But now, thanks to this plugin, even your local muni can get Follow the greens _
 ## 4D
 
 After reading [this paper](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
-I decided to incorporate their proposal into FtG.
+We decided to incorporate their proposal into FtG.
 
 In a nutshell, FtG will now monitor your taxi speed and invite you to adjust it.
 It will do so by adjusting the speed of the «rabbit» light in front of the aircraft,
@@ -61,9 +61,6 @@ Could it be simpler?
 Follow the greens.
 
 Try to catch the rabbit.
-
-
-![FtG Logo](images/ftg.png)
 
 # Installation
 
@@ -139,12 +136,11 @@ It will do so until you reach your destination.
 That is it. Nothing more. Nothing less.
 
 
-# What's New in Release 2
+# What's New in Release 2: The Fourth Dimension
 
-*Release 2 adds monitoring of your current taxi speed,
+Release 2 adds monitoring of your current taxi speed,
 and adjustments of the rabbit light speed and length to invite you to either expedite your taxi ride,
-or, on the opposite, to slow down before a sharp turn or stop.*
-
+or, on the opposite, to slow down before a sharp turn or stop.
 (The _«rabbit light»_ is the pulsating light in front of the aircraft.)
 
 This enhancement sets the path for A-SMGCS Level 4 compliance.
@@ -204,7 +200,7 @@ Parameters in the above file refer to the following items:
 
 Please note that the values you enter here may affect X-Plane performances (faster rabbit, numerous taxiway lights...)
 
-Preference file is each time a new FtG session is started.
+Preference file is (re-)loaded each time a new FtG session is started.
 
 Here is description of the parameters available for customization.
 
@@ -216,6 +212,10 @@ Its _length_ is the number of lights that are pulsating.
 
 If you set it to `0` (zero), there will be no rabbit.
 
+```
+RABBIT_LENGTH = 10
+```
+
 
 ### Rabbit Duration
 
@@ -226,6 +226,9 @@ then back on, and the next light will be switched off for 0.2 seconds.
 Until all lights in the rabbit have been switched off in turn,
 then the rabbit will switch off its first light.
 
+```
+RABBIT_DURATION = 0.2
+```
 
 ## Lights Ahead
 
@@ -238,6 +241,20 @@ If set to `0`, all lights are lit up to the next stop bar, or to the end of the 
 
 If you want no light ahead of the rabbit lights, set it to `1`.
 
+```
+LIGHTS_AHEAD = 10
+```
+to light 10 lights more (fixed) after the last rabbit light, or
+
+```
+LIGHTS_AHEAD = 0
+```
+to light the whole greens up to the next stop, or
+
+```
+LIGHTS_AHEAD = 1
+```
+to have just one light ahead after the rabbit.
 
 ## Use Threshold
 
@@ -281,8 +298,8 @@ standard X-Plane commands:
 The goal of Release 2 is to supply taxi speed information to the pilot in addition to the direction (follow the greens).
 The speed information is supplied with two _indicators_:
 
-- The *speed of the «rabbit»* light (the faster the rabbit, the faster you should run to catch it up, the slower the rabbit, the slower you should go.)
-- The *length of the rabbit run* (the longer the rabbit, the more you can keep up with that speed, do not expect speed change.)
+- The *«speed of the «rabbit»* light (the faster the rabbit, the faster you should run to catch it up, the slower the rabbit, the slower you should go.)
+- The *«length of the rabbit run* (the longer the rabbit, the more you can keep up with that speed, do not expect speed change.)
 
 
 The control of the speed works as follow:
@@ -312,11 +329,11 @@ just leaving the entire path or a few static lights ahead.
 
 You can manually adjust rabbit speed and length with the following FtG commands:
 
-- `XPPython3/followthegreens/speed_slowest` (length × 2, speed × 2)
+- `XPPython3/followthegreens/speed_slowest` (length ÷ 2, speed × 2, shorter, twice slower)
 - `XPPython3/followthegreens/speed_slower` (normal length, speed × 2, twice slower)
 - `XPPython3/followthegreens/speed_med` (normal length, normal speed)
-- `XPPython3/followthegreens/speed_faster` (normal length, speed / 2, twice faster)
-- `XPPython3/followthegreens/speed_fastest` (length × 2, speed / 2)
+- `XPPython3/followthegreens/speed_faster` (normal length, speed ÷ 2, twice faster)
+- `XPPython3/followthegreens/speed_fastest` (length × 2, speed ÷ 2, longer, twice faster)
 
 If you force the rabbit speed and length using one of the above command,
 rabbit auto-tuning will be disabled for this run of Follow the greeens.
@@ -358,6 +375,14 @@ RESPECT_CONSTRAINTS = true
 ```
 
 Note that boolean preferences need to be set to text value `true` or `false` in lowercase, no quote.
+
+Please recall that Follow the greens does not optimisation.
+It finds the shortest path, respecting constraints if possible.
+The shortest path is .. the shortest.
+It is not the path with the less turn, or the more logical path, it is the shortest.
+If the proposed path does not follow desired path, engage the path you desire,
+progress a little on that path and then, in the dialog box,
+select the «New greens» button to recompute a new path from your current position.
 
 
 # FtG Control and Monitoring
@@ -481,7 +506,9 @@ FtG produces a log file named `ftg_log.txt` located in python plugin folder, rig
 
 In case of trouble, please always provide that file, very much like X-Plane support will ask you to provide the `log.txt` file.
 
-To further explose an issue, it is possible to augment the level of logged information.
+If you can, please also provide the file XPPython3Log.txt in the main X-Plane 12 folder.
+
+To further explore an issue, it is possible to augment the level of logged information.
 
 To do so, please set the following variable in `followthegreens.prf` file:
 
@@ -490,6 +517,11 @@ LOGGING_LEVEL = 10
 ```
 
 The default value is `20`. Lower value produces more logging.
+
+As explained above, the preference file is reloaded before each new Follow the greens session.
+In case of misbehavior, it is therefore simple to edit the preference file, increase the level of logging
+to typical 10 value `LOGGING_LEVEL = 10`, and restart the misbehaving session.
+This way we will have a lot more information to understand the misbehavior.
 
 You can get support in the [forum thread dedicated to FtG](https://forums.x-plane.org/files/file/71124-follow-the-greens/).
 

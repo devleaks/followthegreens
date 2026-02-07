@@ -77,6 +77,7 @@ Release 2 called _Follow the greens 4D_ (FtG4D) adds the following improvements:
 - Improved routing algorithm attempt to respect taxiway network constraints (taxiway width, one ways...).
 - New commands to interact with FtG4D.
 - FtG4D specific log file created to help improve the plugin in case of misbehavior.
+- A few more goodies to be discovered inside FtG4D.
 
 
 # Installation

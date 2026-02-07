@@ -237,9 +237,9 @@ VERSION = "{__VERSION__}"
         # If it was simply closed for hiding, show it again as it was.
         # If it does not exist, creates it from start of process.
         # if self.status = ACTIVE:
-        logger.debug(f"status: {self.status}, {self.ui.mainWindowExists()}.")
+        logger.debug(f"status: {self.status}, ui={self.ui.mainWindowExists()}")
         if self.ui.mainWindowExists():
-            logger.debug(f"mainWindow exists, changing visibility {self.ui.isMainWindowVisible()}.")
+            logger.debug(f"mainWindow exists, changing visibility {self.ui.isMainWindowVisible()}")
             self.ui.toggleVisibilityMainWindow()
             return 1
 
@@ -344,12 +344,12 @@ VERSION = "{__VERSION__}"
         # If we find a route, we light it.
         if destination not in self.airport.getDestinations(self.move):
             logger.debug(f"destination not valid {destination} for {self.move}")
-            return self.ui.promptForDestination(f"Destination {destination} not valid for {self.move}.")
+            return self.ui.promptForDestination(f"Destination {destination} not valid for {self.move}")
 
         self.status = FTG_STATUS.DESTINATION
 
         # Info 11
-        logger.info(f"destination {destination}.")
+        logger.info(f"destination {destination}")
         rerr, self.route = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("RESPECT_CONSTRAINTS", preferences=self.prefs))
 
         if not rerr:
@@ -391,22 +391,22 @@ VERSION = "{__VERSION__}"
         self.lights.printSegments()
 
         self.segment = 0
-        logger.info(f"current segment {self.segment + 1}/{self.lights.segments + 1}.")
+        logger.info(f"current segment {self.segment + 1}/{self.lights.segments + 1}")
         ret = self.lights.illuminateSegment(self.segment)
         if not ret[0]:
             return self.ui.sorry(ret[1])
-        logger.debug(f"lights instanciated for segment {self.segment}.")
+        logger.debug(f"lights instanciated for segment {self.segment}")
 
         initbrgn, initdist, initdiff = self.lights.initial(pos, hdg)
-        logger.debug(f"init ({initbrgn}, {initdist}, {initdiff}).")
+        logger.debug(f"init ({initbrgn}, {initdist}, {initdiff})")
 
         self.status = FTG_STATUS.GREENS
 
-        logger.info(f"first light at {initdist} m, heading {initbrgn} DEG.")
+        logger.info(f"first light at {initdist} m, heading {initbrgn} DEG")
         self.flightLoop.startFlightLoop()
         self.status = FTG_STATUS.ACTIVE
         # Info 14
-        logger.info("flightloop started.")
+        logger.info("flightloop started")
 
         # Hint: distance and heading to first light
         intro = f"Follow the greens to {destination}"
@@ -451,13 +451,13 @@ VERSION = "{__VERSION__}"
         # Called when cleared by TOWER
         self.segment += 1
         # Info 15
-        logger.info(f"segment {self.segment + 1}/{self.lights.segments + 1}.")
+        logger.info(f"segment {self.segment + 1}/{self.lights.segments + 1}")
 
         if self.segment > self.lights.segments:
             self.flightLoop.stopFlightLoop()
             self.lights.destroy()
             # Info 16.a
-            logger.info("done.")
+            logger.info("done")
             self.segment = 0  # reset
             return self.ui.bye()
 
@@ -466,7 +466,7 @@ VERSION = "{__VERSION__}"
         if not ret[0]:
             self.terminate("issue with light segment illumination")
             return self.ui.sorry(ret[1])
-        logger.debug(f"lights instanciated ({self.segment}).")
+        logger.debug(f"lights instanciated (segment={self.segment})")
 
         # re-authorize rabbit auto-tuning
         self.flightLoop.allowRabbitAutotune("next leg")
@@ -477,7 +477,7 @@ VERSION = "{__VERSION__}"
 
         if self.move == MOVEMENT.DEPARTURE and self.segment == self.lights.segments:
             # Info 16.b
-            logger.info("ready for take-off.")
+            logger.info("ready for take-off")
             self.segment = 0  # reset
             self.flightLoop.taxiEnd()
             return self.ui.bye()
@@ -495,7 +495,7 @@ VERSION = "{__VERSION__}"
 
         if self.flightLoop:
             self.flightLoop.stopFlightLoop()
-            logger.info("flightloop stopped.")
+            logger.info("flightloop stopped")
 
         if self.lights:
             self.lights.destroy()

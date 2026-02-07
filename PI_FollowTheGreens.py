@@ -45,7 +45,7 @@ from followthegreens import (
 
 # Produces additional debugging information in XPPython3Log.txt file if set to True
 SHOW_TRACE = False
-USE_WIDGET = True
+USE_HUD = True
 
 
 class PythonInterface:
@@ -83,7 +83,6 @@ class PythonInterface:
                 FTG_CLEARANCE_COMMAND_DESC,
                 self.clearanceCmd,
             ],
-            FTG_HUD: [FTG_HUD_DESC, self.hudToggle],
             FTG_CANCEL_COMMAND: [FTG_CANCEL_COMMAND_DESC, self.cancelCmd],
             FTG_OK_COMMAND: [FTG_OK_COMMAND_DESC, self.okCmd],
             FTG_NEWGREENS_COMMAND: [FTG_NEWGREENS_COMMAND_DESC, self.newGreensCmd],
@@ -106,7 +105,11 @@ class PythonInterface:
                 self.rabbitModeAuto,
             ]
         }
-        self._hud = True
+        if USE_HUD:
+            self.commands = self.commands | {
+                FTG_HUD: [FTG_HUD_DESC, self.hudToggle],
+            }
+        self._hud = False  # now shown by default
 
     def debug(self, message, force: bool = False):
         if self.trace or force:
@@ -220,7 +223,7 @@ class PythonInterface:
     def XPluginEnable(self):
         self.debug("XPluginEnable: enabling..", force=True)
 
-        if USE_WIDGET:
+        if USE_HUD:
             xp.registerDrawCallback(self.hud)
 
         try:
@@ -287,7 +290,7 @@ class PythonInterface:
             self.enabled = False
             self.debug("XPluginDisable: ..disabled")
 
-            if USE_WIDGET:
+            if USE_HUD:
                 xp.unregisterDrawCallback(self.hud)
 
             return None
