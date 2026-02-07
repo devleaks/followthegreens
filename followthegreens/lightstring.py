@@ -209,27 +209,28 @@ class Light:
         pitch, roll, alt = (0, 0, 0)
         (x, y, z) = self.groundXYZ(self.position.lat, self.position.lon, alt)
         self.xyz = (x, y, z, pitch, self.heading, roll)
-        if lightTypeOff is not None and not self.instanceOff:
+        if lightTypeOff is not None and self.instanceOff is None:
             self.instanceOff = xp.createInstance(lightTypeOff.obj, self.drefs)
             xp.instanceSetPosition(self.instanceOff, self.xyz, self.params)
             # logger.debug("LightString::place: light off placed")
 
     def on(self):
-        if not self.xyz:
+        if self.xyz is None:
             logger.debug("light not placed")
             return
-        if self.lightObject and not self.instance:
+        if self.lightObject is not None and self.instance is None:
             self.instance = xp.createInstance(self.lightObject, self.drefs)
             xp.instanceSetPosition(self.instance, self.xyz, self.params)
 
     def off(self):
-        if self.instance:
+        if self.instance is not None:
             xp.destroyInstance(self.instance)
             self.instance = None
 
     def destroy(self):
+        # should use __del__
         self.off()
-        if self.instanceOff:
+        if self.instanceOff is not None:
             xp.destroyInstance(self.instanceOff)
             self.instanceOff = None
 
