@@ -51,6 +51,7 @@ class FlightLoop:
         self.reason = ""
         self.manual_mode = False
         self.runway_level_original = 1
+        self.show_clearance_popup = get_global("SHOW_CLEARANCE_POPUP", self.ftg.prefs)
         # ASMCMS Level 4 compliance stuff:
         self.target_time = None  # target takeoff hold time, ready to takeoff for ACDM compliance. (Filled/provided externally.)
         self.actual_start = None  # actual taxi start time
@@ -469,9 +470,11 @@ class FlightLoop:
                 self.rabbitMode = RABBIT_MODE.SLOWEST
                 # prevent rabbit auto-tuning, must remain slow until stop bar cleared
                 self.disallowRabbitAutotune("close to stop")
-            if not self.ftg.ui.isMainWindowVisible():
+            if not self.ftg.ui.isMainWindowVisible() and self.show_clearance_popup:
                 # logger.debug("showing UI")
                 self.ftg.ui.showMainWindow(False)
+            else:
+                logger.debug(f"show_clearance_popup = {self.show_clearance_popup}")
         else:
             if not self.may_rabbit_autotune:
                 self.allowRabbitAutotune("no longer close to stop")

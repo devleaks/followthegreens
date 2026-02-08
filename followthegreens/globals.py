@@ -156,6 +156,7 @@ MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from spac
 # Second number must be larger than 45 to leave room for 3 lines of text
 HUD_POSITION = [220, 50]
 
+SHOW_CLEARANCE_POPUP = True
 
 # AIRPORT/AERONAUTICAL CONSTANTS
 #
