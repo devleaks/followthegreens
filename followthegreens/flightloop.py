@@ -456,6 +456,7 @@ class FlightLoop:
                 return self.nextIter
 
         # should use elapsedSinceLastCall
+        logger.debug(f"control: last iter={self.lastIter}, elapsedSinceLastCall={elapsedSinceLastCall}, counter={counter}, elapsedTimeSinceLastFlightLoop={elapsedTimeSinceLastFlightLoop}")
         self.total_time = self.total_time + self.lastIter
         self.total_dist = self.total_dist + self.ftg.aircraft.speed() * self.lastIter
 
@@ -464,12 +465,12 @@ class FlightLoop:
         if nextStop and warn < self.ftg.aircraft.warningDistance():
             logger.debug("closing to stop")
             if self.hasRabbit():
-                self.allowRabbitAutotune("close to stop")
+                self.allowRabbitAutotune("close to stop, force update to SLOWEST")
                 self.rabbitMode = RABBIT_MODE.SLOWEST
                 # prevent rabbit auto-tuning, must remain slow until stop bar cleared
                 self.disallowRabbitAutotune("close to stop")
             if not self.ftg.ui.isMainWindowVisible():
-                logger.debug("showing UI")
+                # logger.debug("showing UI")
                 self.ftg.ui.showMainWindow(False)
         else:
             if not self.may_rabbit_autotune:

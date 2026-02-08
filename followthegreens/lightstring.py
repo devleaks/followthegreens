@@ -30,7 +30,7 @@ HARDCODED_MIN_TIME = 0.04  # secs
 HARDCODED_MIN_RABBIT_LENGTH = 6  # lights
 
 SPECIAL_DEBUG = False
-
+ADD_WIGWAG = False
 
 class LightType:
     # A light to follow, or a stopbar light
@@ -252,16 +252,17 @@ class Stopbar:
         self.lightStringIndex = index
         self.width = TAXIWAY_WIDTH[size.value].value
         self.distance_between_stoplights = distance_between_stoplights
-        self.light = light
+        self.light = LIGHT_TYPE.WARNING if ADD_WIGWAG else light
         self._on = False
         self._cleared = False
         self.make()
 
     def make(self):
         numlights = int(self.width / self.distance_between_stoplights)
+        side = 2
 
         if numlights < 4:
-            logger.warning(f"stopbar has not enough lights {numlights}")
+            logger.warning(f"stopbar has not enough lights {numlights}, setting to 4 minimum")
             numlights = 4
 
         # centerline
@@ -272,12 +273,20 @@ class Stopbar:
         for i in range(numlights):
             pos = destination(self.position, brng, i * self.distance_between_stoplights)
             self.lights.append(Light(self.light, pos, 0, i))
+        skip = 0
+        if ADD_WIGWAG:
+            pos = destination(self.position, brng, (numlights + side) * self.distance_between_stoplights)
+            self.lights.append(Light(LIGHT_TYPE.RUNWAY, pos, 180, numlights))
+            skip = 1
 
         # the other side of centerline
         brng = self.heading - 90
         for i in range(numlights):
             pos = destination(self.position, brng, i * self.distance_between_stoplights)
-            self.lights.append(Light(self.light, pos, 0, numlights + i))
+            self.lights.append(Light(self.light, pos, 0, numlights + i + skip))
+        if ADD_WIGWAG:
+            pos = destination(self.position, brng, (numlights + side) * self.distance_between_stoplights)
+            self.lights.append(Light(LIGHT_TYPE.RUNWAY, pos, 180, 2 * numlights + skip))
 
     def place(self, lightTypes):
         for light in self.lights:
