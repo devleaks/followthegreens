@@ -238,7 +238,7 @@ class FlightLoop:
             diff = (self.planned - now).seconds
             logger.info(f"taxi ended at {now.strftime("%H:%M")}Z ({minsec(diff)})")
             logger.debug(f"planned={self.planned.strftime("%H:%M")}Z, actual={now.strftime("%H:%M")}Z, {minsec(diff)} {'in advance' if diff > 0 else 'late'}")
-            logger.debug(f"control total={round(self.total_time, 1)} vs diff={round(diff, 1)}")
+            # logger.debug(f"control total={round(self.total_time, 1)} vs diff={round(diff, 1)}")
 
     def adjustedIter(self) -> float:
         # If aircraft move fast, we check/update FtG more often

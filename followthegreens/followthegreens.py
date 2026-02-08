@@ -120,7 +120,7 @@ class FollowTheGreens:
                 except:
                     logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
 
-            logger.info(f"preferences file {filename} {loading}ed")
+            logger.info(f"developer preferences file {filename} {loading}ed")
             logger.debug(f"preferences: {self.prefs}")
         else:
             logger.debug("no developer preference")
@@ -150,7 +150,7 @@ class FollowTheGreens:
                 logger.debug(f"no preferences file {filename}")
                 self.create_empty_prefs()
         else:
-            logger.info("DEVELOPER_PREFERENCE_ONLY = true, user preference ignored")
+            logger.info("DEVELOPER_PREFERENCE_ONLY = true, user preferences ignored")
 
         logger.info(f"preferences: {self.prefs}")
 

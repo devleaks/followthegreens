@@ -851,7 +851,7 @@ class LightString:
         d = distance(point, light.position)
         c, d2 = self.closest(position)
         d3 = abs(c - ns) * self.distance_between_lights
-        logger.debug(f"control: closest={c} (at {round(d2, 1)}m), next stop={ns}, d calc={round(d3, 1)}m, d mesure={round(d, 1)}m")
+        # logger.debug(f"control: closest={c} (at {round(d2, 1)}m), next stop={ns}, d calc={round(d3, 1)}m, d mesure={round(d, 1)}m")
         return [ns, d]
 
     def offToIndex(self, idx):
