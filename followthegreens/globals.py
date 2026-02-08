@@ -158,6 +158,7 @@ HUD_POSITION = [220, 50]
 
 SHOW_CLEARANCE_POPUP = True
 
+
 # AIRPORT/AERONAUTICAL CONSTANTS
 #
 # ICAO Annex 14 - Aerodrome Reference Code Element 2, Table 1-1
@@ -474,6 +475,11 @@ def get_global(name: str, preferences: dict = {}) -> Any:
     # if name not in preferences:
     #     logger.debug(f"name {name} not in preferences, using global {globals().get(name)}")
     return preferences.get(name, globals().get(name))
+
+
+def get_global_with_default(name: str, preferences: dict = {}, default: Any = None) -> Any:
+    # Returns default if no global found
+    return preferences.get(name, globals().get(name, default))
 
 
 def minsec(t: float) -> str:

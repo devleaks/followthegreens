@@ -32,6 +32,7 @@ HARDCODED_MIN_RABBIT_LENGTH = 6  # lights
 SPECIAL_DEBUG = False
 ADD_WIGWAG = False
 
+
 class LightType:
     # A light to follow, or a stopbar light
     # Holds a referece to its instance

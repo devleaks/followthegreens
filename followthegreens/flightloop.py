@@ -41,7 +41,7 @@ class FlightLoop:
         self.flplane = None
         self.planeRunning = False
         self.nextIter = PLANE_MONITOR_DURATION  # seconds
-        self.lastIter = PLANE_MONITOR_DURATION  # seconds
+        self.lastIter = PLANE_MONITOR_DURATION  # seconds, because it is dynamic
         self.lastLit = 0
         self.distance = EARTH
         self.diftingLimit = DRIFTING_LIMIT * DISTANCE_BETWEEN_GREEN_LIGHTS  # After that, we send a warning, and we may cancel FTG.
@@ -457,7 +457,9 @@ class FlightLoop:
                 return self.nextIter
 
         # should use elapsedSinceLastCall
-        logger.debug(f"control: last iter={self.lastIter}, elapsedSinceLastCall={elapsedSinceLastCall}, counter={counter}, elapsedTimeSinceLastFlightLoop={elapsedTimeSinceLastFlightLoop}")
+        logger.debug(
+            f"control: last iter={self.lastIter}, elapsedSinceLastCall={elapsedSinceLastCall}, counter={counter}, elapsedTimeSinceLastFlightLoop={elapsedTimeSinceLastFlightLoop}"
+        )
         self.total_time = self.total_time + self.lastIter
         self.total_dist = self.total_dist + self.ftg.aircraft.speed() * self.lastIter
 
