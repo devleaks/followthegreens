@@ -101,5 +101,5 @@ class ShowTaxiways(FollowTheGreens):
         self.save_stats()
 
         # Info 16
-        logger.info(f"terminated: reason {reason}.")
+        logger.info(f"terminated, reason: {reason}.")
         return [True, ""]

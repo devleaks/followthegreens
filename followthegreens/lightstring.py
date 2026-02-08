@@ -2,10 +2,8 @@
 # Keep track of all lights set for FTG, their status, etc. Manipulate them as well.
 #
 import math
-import json
 import os.path
 from random import randint
-from datetime import datetime
 
 try:
     import xp
@@ -209,27 +207,28 @@ class Light:
         pitch, roll, alt = (0, 0, 0)
         (x, y, z) = self.groundXYZ(self.position.lat, self.position.lon, alt)
         self.xyz = (x, y, z, pitch, self.heading, roll)
-        if lightTypeOff is not None and not self.instanceOff:
+        if lightTypeOff is not None and self.instanceOff is None:
             self.instanceOff = xp.createInstance(lightTypeOff.obj, self.drefs)
             xp.instanceSetPosition(self.instanceOff, self.xyz, self.params)
             # logger.debug("LightString::place: light off placed")
 
     def on(self):
-        if not self.xyz:
+        if self.xyz is None:
             logger.debug("light not placed")
             return
-        if self.lightObject and not self.instance:
+        if self.lightObject is not None and self.instance is None:
             self.instance = xp.createInstance(self.lightObject, self.drefs)
             xp.instanceSetPosition(self.instance, self.xyz, self.params)
 
     def off(self):
-        if self.instance:
+        if self.instance is not None:
             xp.destroyInstance(self.instance)
             self.instance = None
 
     def destroy(self):
+        # should use __del__
         self.off()
-        if self.instanceOff:
+        if self.instanceOff is not None:
             xp.destroyInstance(self.instanceOff)
             self.instanceOff = None
 
@@ -304,6 +303,12 @@ class Stopbar:
 
 
 class LightString:
+    # Note to self:
+    # We can safely assume that since distance between lights is fairly small (10-30 meters)
+    # when we are at light index 75, and there is a stop bat at light index 108,
+    # we can safely assume that the distance remaining before the stop is
+    #    (108-75)*distance_between_green_lights
+    # No need for sophisticated calculation. Error is at most distance_between_green_lights.
 
     def __init__(self, airport, aircraft, preferences: dict = {}):
         self.airport = airport  # get some lighting preference from there
@@ -523,7 +528,7 @@ class LightString:
                     logger.debug(f"departure: on runway #={i}, usage={thisEdge.usage}, active={thisEdge.mkActives()}")
                     if thisEdge.usage != "runway" and not thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):
                         # if consecutive active departure segments, do not stop for them
-                        logger.debug(f"departure: no longer on runway at edge {i}.")
+                        logger.debug(f"departure: no longer on runway at edge {i}")
                         onRwy = False
 
             # note: if move=arrival, we should not stop on the first taxiway segment, but we may have to cross another runway further on...
@@ -556,12 +561,12 @@ class LightString:
                     logger.debug(f"arrival: not on runway {i}, {thisEdge.usage}")
                     if thisEdge.usage != "runway" and not thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):
                         # if consecutive active departure segments, do not stop for them
-                        logger.debug(f"arrival: no longer on runway at edge {i}.")
+                        logger.debug(f"arrival: no longer on runway at edge {i}")
                         onRwy = False
 
             if onRwy and thisEdge.usage != "runway" and not thisEdge.has_active(TAXIWAY_ACTIVE.DEPARTURE):
                 # if consecutive active departure segments, do not stop for them
-                logger.debug(f"no longer on runway at edge {i}.")
+                logger.debug(f"no longer on runway at edge {i}")
                 onRwy = False
 
             if distToNextVertex < distanceBeforeNextLight:
@@ -606,7 +611,7 @@ class LightString:
         last = 0
         for i in range(len(self.stopbars)):
             sb = self.stopbars[i]
-            logger.debug(f"stopbar {i}: {last}-{sb.lightStringIndex}.")
+            logger.debug(f"stopbar {i}: {last}-{sb.lightStringIndex}")
             last = sb.lightStringIndex
 
         self.lights = thisLights
@@ -615,7 +620,7 @@ class LightString:
 
     def printSegments(self):
         # for debugging purpose
-        logger.info(f"added {len(self.lights)} lights, {self.segments + 1} segments, {len(self.stopbars)} stop bars.")
+        logger.info(f"added {len(self.lights)} lights, {self.segments + 1} segments, {len(self.stopbars)} stop bars")
         if len(self.stopbars) > 0:
             segs = []
             last = 0
@@ -844,6 +849,9 @@ class LightString:
         light = self.lights[ns]
         point = Point(position[0], position[1])
         d = distance(point, light.position)
+        c, d2 = self.closest(position)
+        d3 = abs(c - ns) * self.distance_between_lights
+        # logger.debug(f"control: closest={c} (at {round(d2, 1)}m), next stop={ns}, d calc={round(d3, 1)}m, d mesure={round(d, 1)}m")
         return [ns, d]
 
     def offToIndex(self, idx):

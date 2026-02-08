@@ -194,7 +194,7 @@ class UIUtil:
     def toggleVisibilityMainWindow(self):
         if self.mainWindowExists():
             if SPECIAL_DEBUG:
-                logger.debug(f"isMainWindowVisible(): {self.isMainWindowVisible()}.")
+                logger.debug(f"isMainWindowVisible: {self.isMainWindowVisible()}")
             if self.isMainWindowVisible():
                 self.hideMainWindow()
             else:
@@ -212,7 +212,6 @@ class UIUtil:
     #
     def greetings(self, text="Good %s."):
         h = self.ftg.hourOfDay()
-        logger.debug(f"bye: {h}.")
         ss = list(GOOD.keys())[-1]  # last one is good night, from 0-4 and 20-24.
         for k, v in GOOD.items():
             if h > v:

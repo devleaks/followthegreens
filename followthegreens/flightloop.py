@@ -71,33 +71,32 @@ class FlightLoop:
         self.old_msg2 = ""
 
     def startFlightLoop(self):
-        # @todo: make function to reset lastLit counter
         self.lastLit = 0
 
         if self.hasRabbit():
             if not self.rabbitRunning:
-                self.flrabbit = xp.createFlightLoop(callback=self.rabbitFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refrabbit)
+                self.flrabbit = xp.createFlightLoop(callback=self.rabbitFLCB, phase=xp.FlightLoop_Phase_BeforeFlightModel, refCon=self.refrabbit)
                 xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)
                 self.rabbitRunning = True
-                logger.debug(f"rabbit started ({self._rabbit_mode}).")
+                logger.debug(f"rabbit started ({self._rabbit_mode})")
             else:
-                logger.debug(f"rabbit running ({self._rabbit_mode}).")
+                logger.debug(f"rabbit running ({self._rabbit_mode})")
         else:
-            logger.debug("no rabbit requested.")
+            logger.debug("no rabbit requested")
 
         if not self.planeRunning:
             self.flplane = xp.createFlightLoop(callback=self.planeFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refplane)
             xp.scheduleFlightLoop(self.flplane, 10.0, 1)
             self.planeRunning = True
-            logger.debug(f"aircraft tracking started (iter={self.nextIter}).")
+            logger.debug(f"aircraft tracking started (iter={self.nextIter})")
             # if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
-            #     logger.debug(f"Checking menu {self.ftg.pi.menuIdx}..")
+            #     logger.debug(f"Checking menu {self.ftg.pi.menuIdx}")
             #     xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Checked)
             #     logger.debug(f"..checked")
             # else:
             #     logger.debug(f"menu not checked (index {self.ftg.pi.menuIdx})")
         else:
-            logger.debug("aircraft tracked.")
+            logger.debug("aircraft tracked")
 
         # Dim runway lights according to preferences
         ll = get_global("RUNWAY_LIGHT_LEVEL_WHILE_FTG", preferences=self.ftg.prefs)
@@ -114,22 +113,22 @@ class FlightLoop:
         if self.rabbitRunning:
             xp.destroyFlightLoop(self.flrabbit)
             self.rabbitRunning = False
-            logger.debug("rabbit stopped.")
+            logger.debug("rabbit stopped")
         else:
-            logger.debug("rabbit not running.")
+            logger.debug("rabbit not running")
 
         if self.planeRunning:
             xp.destroyFlightLoop(self.flplane)
             self.planeRunning = False
-            logger.debug("aircraft tracking stopped.")
+            logger.debug("aircraft tracking stopped")
             # if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
-            #     logger.debug(f"Unchecking menu {self.ftg.pi.menuIdx}..")
+            #     logger.debug(f"Unchecking menu {self.ftg.pi.menuIdx}")
             #     xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Unchecked)
             #     logger.debug(f"..unchecked")
             # else:
             #     logger.debug(f"menu not checked (index {self.ftg.pi.menuIdx})")
         else:
-            logger.debug("aircraft not tracked.")
+            logger.debug("aircraft not tracked")
 
         # Restore runway lights according to what it was
         if not self.planeRunning:
@@ -206,18 +205,75 @@ class FlightLoop:
         self.last_updated = now
         logger.debug(f"rabbit mode set to {mode}")
 
+    def late(self, t0: float = 0.0) -> bool:
+        # when taxi is started, we determine an ETA at destination
+        # compare now + time remaining vs ETA
+        if self.actual_start is None or self.planned is None:
+            logger.debug("no start time")
+            return False
+        eta = datetime.now(tz=timezone.utc) + timedelta(seconds=t0)
+        tdiff = self.planned - eta
+        # logger.debug(f"remaining: {round(t0, 1)}, delta time: {round(tdiff.seconds, 1)} secs {'in advance' if tdiff.seconds > 0 else 'late'}")
+        return tdiff.seconds < 0  # is late
+
+    def hudPosition(self):
+        return self._hud_position
+
+    def taxiStart(self):
+        # isolated a few markers taken when we detect taxi actually starts...
+        self.actual_start = datetime.now(tz=timezone.utc).replace(microsecond=0)
+        d, s = self.ftg.route.baseline()
+        self.planned = self.actual_start + timedelta(seconds=round(s))
+        # reset taxi distance and duration when start detected
+        # (might expect small difference)
+        self.total_dist = self.ftg.aircraft.moved()
+        self.total_time = self.lastIter
+        logger.info(f"taxi started at {self.actual_start.strftime("%H:%M")}Z, ride is {round(d, 1)}m in {minsec(s)}, planned takeoff hold at {self.planned.strftime("%H:%M")}Z")
+
+    def taxiEnd(self):
+        # provides some stats
+        now = datetime.now(tz=timezone.utc).replace(microsecond=0)
+        logger.debug(f"taxi ended at {now.strftime("%H:%M")}Z ride was {round(self.total_dist, 1)}m in t={round(self.total_time, 1)}s ({minsec(self.total_time)})")
+        if self.planned is not None:
+            diff = (self.planned - now).seconds
+            logger.info(f"taxi ended at {now.strftime("%H:%M")}Z ({minsec(diff)})")
+            logger.debug(f"planned={self.planned.strftime("%H:%M")}Z, actual={now.strftime("%H:%M")}Z, {minsec(diff)} {'in advance' if diff > 0 else 'late'}")
+            # logger.debug(f"control total={round(self.total_time, 1)} vs diff={round(diff, 1)}")
+
+    def adjustedIter(self) -> float:
+        # If aircraft move fast, we check/update FtG more often
+        try:
+            speed = self.ftg.aircraft.speed()
+            if speed is None or speed < STOPPED_SPEED:
+                return self.nextIter
+            SPEEDS = [  # [speed=m/s, iter=s]
+                [12, 0.8],
+                [10, 1],
+                [7, 1.2],
+            ]
+            i = 0
+            while i < len(SPEEDS):
+                if speed > SPEEDS[i][0]:
+                    j = SPEEDS[i][1]
+                    if j != self.lastIter:
+                        logger.debug(f"speed {round(speed, 1)}, iter set to {j}")
+                        self.lastIter = j
+                        return j
+                i = i + 1
+        except:
+            logger.error("adjustedIter", exc_info=True)
+        return self.nextIter
+
     def adjustRabbit(self, position, closestLight):
         # Important note:
         # In planeFLCB(), if we are closing to a STOP, the following is set:
         #   self.rabbitMode = RABBIT_MODE.SLOWEST
         # If we are not close to a stop, here we are to check for turns.
         #
-        # logger.debug("adjusting rabbit..")
+        # logger.debug("adjusting rabbit")
         if not self.hasRabbit():
             logger.debug("..no rabbit")
             return
-
-        self.total_time = self.total_time + self.lastIter
 
         # I. Collect information
         # 1. Distance to next vertex (= distance to next potential turn)
@@ -246,7 +302,6 @@ class FlightLoop:
         # 3. current speed
         speed = self.ftg.aircraft.speed()
         acf_move = speed * self.lastIter
-        self.total_dist = self.total_dist + acf_move
 
         # logger.debug(f"closest light: vertex index {light.index}, next vertex={nextvtx}, distance={round(dist, 1)}, turn={round(turn, 0)}, speed={round(speed, 1)}")
         # logger.debug(f"start turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
@@ -268,7 +323,7 @@ class FlightLoop:
         TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
 
         idx = next_vertex
-        while abs(turn) < TURN_LIMIT and idx < len(route.route):
+        while abs(turn) < TURN_LIMIT and idx < len(route.turns):
             turn = route.turns[idx]
             # dist_before2 = dist2
             # dist2 = dist2 + route.edges[idx].cost
@@ -379,70 +434,6 @@ class FlightLoop:
         except:
             logger.error("set rabbitMode", exc_info=True)
 
-    def adjustedIter(self) -> float:
-        # If aircraft move fast, we check/update FtG more often
-        try:
-            speed = self.ftg.aircraft.speed()
-            if speed is None or speed < STOPPED_SPEED:
-                return self.nextIter
-            SPEEDS = [  # [speed=m/s, iter=s]
-                [12, 0.8],
-                [10, 1],
-                [7, 1.2],
-            ]
-            i = 0
-            while i < len(SPEEDS):
-                if speed > SPEEDS[i][0]:
-                    j = SPEEDS[i][1]
-                    if j != self.lastIter:
-                        logger.debug(f"speed {round(speed, 1)}, iter set to {j}")
-                        self.lastIter = j
-                        return j
-                i = i + 1
-        except:
-            logger.error("adjustedIter", exc_info=True)
-        return self.nextIter
-
-    def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
-        # pylint: disable=unused-argument
-        # show rabbit in front of plane.
-        # plane is supposed to Follow the greens and it close to green light index self.lastLit.
-        # We cannot use XP's counter because it does not increment by 1 just for us.
-        return self.ftg.lights.rabbit(self.lastLit)
-
-    def late(self, t0: float = 0.0) -> bool:
-        # when taxi is started, we determine an ETA at destination
-        # compare now + time remaining vs ETA
-        if self.actual_start is None or self.planned is None:
-            logger.debug("no start time")
-            return False
-        eta = datetime.now(tz=timezone.utc) + timedelta(seconds=t0)
-        tdiff = self.planned - eta
-        # logger.debug(f"remaining: {round(t0, 1)}, delta time: {round(tdiff.seconds, 1)} secs {'in advance' if tdiff.seconds > 0 else 'late'}")
-        return tdiff.seconds < 0  # is late
-
-    def hudPosition(self):
-        return self._hud_position
-
-    def taxiStart(self):
-        # isolated a few markers taken when we detect taxi actually starts...
-        self.actual_start = datetime.now(tz=timezone.utc).replace(microsecond=0)
-        d, s = self.ftg.route.baseline()
-        self.planned = self.actual_start + timedelta(seconds=round(s))
-        self.total_dist = self.ftg.aircraft.moved()
-        self.total_time = self.lastIter
-        logger.info(f"taxi started at {self.actual_start.strftime("%H:%M")}Z, ride is {round(d, 1)}m in {minsec(s)}, planned takeoff hold at {self.planned.strftime("%H:%M")}Z")
-
-    def taxiEnd(self):
-        # provides some stats
-        now = datetime.now(tz=timezone.utc).replace(microsecond=0)
-        logger.debug(f"taxi ended at {now.strftime("%H:%M")}Z ride was {round(self.total_dist, 1)}m in t={round(self.total_time, 1)}s ({minsec(self.total_time)})")
-        if self.planned is not None:
-            diff = (self.planned - now).seconds
-            logger.info(f"taxi ended at {now.strftime("%H:%M")}Z ({minsec(diff)})")
-            logger.debug(f"planned={self.planned.strftime("%H:%M")}Z, actual={now.strftime("%H:%M")}Z, {minsec(diff)} {'in advance' if diff > 0 else 'late'}")
-            logger.debug(f"control total={round(self.total_time, 1)} vs diff={round(diff, 1)}")
-
     def planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
         # monitor progress of plane on the green. Turns lights off as it does no longer needs them.
@@ -451,7 +442,7 @@ class FlightLoop:
 
         pos = self.ftg.aircraft.position()
         if not pos or (pos[0] == 0 and pos[1] == 0):
-            logger.debug("no position.")
+            logger.debug("no position")
             return self.nextIter
 
         if self.actual_start is None:
@@ -464,17 +455,21 @@ class FlightLoop:
                     self.old_msg = msg
                 return self.nextIter
 
+        # should use elapsedSinceLastCall
+        self.total_time = self.total_time + self.lastIter
+        self.total_dist = self.total_dist + self.ftg.aircraft.speed() * self.lastIter
+
         # @todo: WARNING_DISTANCE should be computed from acf type (weigth, size) and speed
         nextStop, warn = self.ftg.lights.toNextStop(pos)
         if nextStop and warn < self.ftg.aircraft.warningDistance():
-            logger.debug("closing to stop.")
+            logger.debug("closing to stop")
             if self.hasRabbit():
                 self.allowRabbitAutotune("close to stop")
                 self.rabbitMode = RABBIT_MODE.SLOWEST
                 # prevent rabbit auto-tuning, must remain slow until stop bar cleared
                 self.disallowRabbitAutotune("close to stop")
             if not self.ftg.ui.isMainWindowVisible():
-                logger.debug("showing UI.")
+                logger.debug("showing UI")
                 self.ftg.ui.showMainWindow(False)
         else:
             if not self.may_rabbit_autotune:
@@ -483,7 +478,7 @@ class FlightLoop:
         closestLight, distance = self.ftg.lights.closest(pos)
         if closestLight is None:
             if self.closestLight_cnt % 20:
-                logger.debug("no close light.")
+                logger.debug("no close light")
             self.closestLight_cnt = self.closestLight_cnt + 1
             return self.adjustedIter()
 
@@ -512,3 +507,10 @@ class FlightLoop:
         self.distance = distance
 
         return self.adjustedIter()
+
+    def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
+        # pylint: disable=unused-argument
+        # show rabbit in front of plane.
+        # plane is supposed to Follow the greens and it close to green light index self.lastLit.
+        # We cannot use XP's counter because it does not increment by 1 just for us.
+        return self.ftg.lights.rabbit(self.lastLit)

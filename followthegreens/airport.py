@@ -4,7 +4,6 @@
 import os
 import re
 import math
-import json
 from typing import Tuple
 
 from .geo import FeatureCollection, Point, Line, Polygon, destination, distance, pointInPolygon
@@ -221,7 +220,7 @@ class Airport:
         #     return [False, f"We could not find smooth taxiway lines for airport named '{self.icao}'."]
 
         # Info 5
-        logger.debug(f"Has ATC {self.hasATC()}.")  # actually, we don't care.
+        # logger.debug(f"has ATC {self.hasATC()}")  # actually, we don't care.
 
         status = self.mkRoutingNetwork()
         if not status:
@@ -309,7 +308,7 @@ class Airport:
                         self.name = " ".join(newparam[5:])
                         self.altitude = newparam[1]
                         # Info 4.a
-                        logger.info(f"found airport {newparam[4]} '{self.name}' in '{filename}'.")
+                        logger.info(f"found airport {newparam[4]} '{self.name}' in '{filename}'")
                         self.scenery_pack = filename  # remember where we found it
                         self.lines.append(AptLine(line.strip()))  # keep first line
                         line = apt_dat.readline()  # next line in apt.dat
@@ -337,44 +336,44 @@ class Airport:
             aptfile.write(f"{line.linecode()} {line.content()}\n")
         aptfile.close()
 
-    def loadSmoothedTaxiwayNetwork(self):
-        fn = os.path.join(os.path.dirname(__file__), "..", f"{self.icao}.geojson")
-        data = {}
-        if not os.path.exists(fn):
-            return False
+    # def loadSmoothedTaxiwayNetwork(self):
+    #     fn = os.path.join(os.path.dirname(__file__), "..", f"{self.icao}.geojson")
+    #     data = {}
+    #     if not os.path.exists(fn):
+    #         return False
 
-        with open(fn, "r") as fp:
-            data = json.load(fp)
-        logger.debug(f"loaded {len(data['features'])} features")
+    #     with open(fn, "r") as fp:
+    #         data = json.load(fp)
+    #     logger.debug(f"loaded {len(data['features'])} features")
 
-        # Create vertices, list edges
-        cnt = 1
-        for f in data["features"]:
-            g = f["geometry"]
-            if g["type"] == "Point":  # there shouldn't be any
-                self.smoothGraph.add_vertex(cnt, point=Point(lat=g["coordinates"][1], lon=g["coordinates"][0]), usage="taxiway")
-                cnt = cnt + 1
-            elif g["type"] == "LineString":
-                last = None
-                for p in g["coordinates"]:
-                    self.smoothGraph.add_vertex(cnt, point=Point(lat=p[1], lon=p[0]), usage="taxiway")
-                    if last is not None:
-                        cost = distance(self.smoothGraph.vert_dict[cnt - 1], self.smoothGraph.vert_dict[cnt])
-                        self.smoothGraph.add_edge(
-                            edge=Edge(
-                                src=self.smoothGraph.vert_dict[cnt - 1],
-                                dst=self.smoothGraph.vert_dict[cnt],
-                                cost=cost,
-                                direction="both",
-                                usage="taxiway",
-                                name="",
-                            )
-                        )
-                    last = self.smoothGraph.vert_dict[cnt]
-                    cnt = cnt + 1
-        # logger.debug(f"added {len(self.smoothGraph.vert_dict)} vertices, {len(self.smoothGraph.edges_arr)} edges")
-        self.smoothGraph.stats()
-        return True
+    #     # Create vertices, list edges
+    #     cnt = 1
+    #     for f in data["features"]:
+    #         g = f["geometry"]
+    #         if g["type"] == "Point":  # there shouldn't be any
+    #             self.smoothGraph.add_vertex(cnt, point=Point(lat=g["coordinates"][1], lon=g["coordinates"][0]), usage="taxiway")
+    #             cnt = cnt + 1
+    #         elif g["type"] == "LineString":
+    #             last = None
+    #             for p in g["coordinates"]:
+    #                 self.smoothGraph.add_vertex(cnt, point=Point(lat=p[1], lon=p[0]), usage="taxiway")
+    #                 if last is not None:
+    #                     cost = distance(self.smoothGraph.vert_dict[cnt - 1], self.smoothGraph.vert_dict[cnt])
+    #                     self.smoothGraph.add_edge(
+    #                         edge=Edge(
+    #                             src=self.smoothGraph.vert_dict[cnt - 1],
+    #                             dst=self.smoothGraph.vert_dict[cnt],
+    #                             cost=cost,
+    #                             direction="both",
+    #                             usage="taxiway",
+    #                             name="",
+    #                         )
+    #                     )
+    #                 last = self.smoothGraph.vert_dict[cnt]
+    #                 cnt = cnt + 1
+    #     # logger.debug(f"added {len(self.smoothGraph.vert_dict)} vertices, {len(self.smoothGraph.edges_arr)} edges")
+    #     self.smoothGraph.stats()
+    #     return True
 
     def stats(self):
         s = {}
@@ -417,20 +416,20 @@ class Airport:
                     self.graph.add_edge(edge)
                     edgeCount += 1
                 else:
-                    logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}.")
+                    logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}")
             elif aptline.linecode() == 1204 and edge is not None:
                 args = aptline.content().split()
                 if len(args) >= 2:
                     edge.add_active(args[0], args[1])
                     edgeActiveCount += 1
                 else:
-                    logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}.")
+                    logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}")
             else:
                 edge = None
 
         # Info 6
         self.stats()
-        logger.info(f"added {len(vertexlines)} nodes, {edgeCount} edges ({edgeActiveCount} enhanced).")
+        logger.info(f"added {len(vertexlines)} nodes, {edgeCount} edges ({edgeActiveCount} enhanced)")
         self.graph.stats()
         return True
 
@@ -647,8 +646,11 @@ class Airport:
             route.mkTurns()  # compute turn angles at end of segment
             route.mkTiming(speed=aircraft.avgTaxiSpeed())  # compute total time left to reach destination
             route.mkDistToBrake()  # distance before significant turn
+            # logger.debug(
+            #     f"control: v={len(route.route)}, e={len(route.edges)}, t={len(route.turns)}, b={len(route.dtb)}, a={len(route.dtb_at)}, d={len(route.dleft)}, l={len(route.tleft)}"
+            # )
             if logger.level < 10:
-                fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_route.geojson")  # _{route.route[0]}-{route.route[-1]}
+                fn = os.path.join(os.path.dirname(__file__), "..", "ftg_route.geojson")  # _{route.route[0]}-{route.route[-1]}
                 fc = FeatureCollection(features=route.features())
                 fc.save(fn)
                 logger.debug(f"taxi route saved in {os.path.abspath(fn)}")
@@ -959,7 +961,7 @@ class Route:
                         return route
                     logger.debug("..failed..")
                 else:
-                    logger.debug("runway can be used while taxiing, probably because we are on a runway...")
+                    logger.debug("runway can be used while taxiing, probably because we are on a runway")
 
                 # use runway
                 subgraph = graph.clone(
@@ -1018,20 +1020,20 @@ class Route:
         else:  # arrival
             brng = aircraft.heading()
             speed = aircraft.speed()
-            logger.debug(f"arrival: trying vertex ahead {brng}, {speed}.")
+            logger.debug(f"arrival: trying vertex ahead {brng}, {speed}")
             src = self.graph.findClosestVertexAheadGuess(pos_pt, brng, speed)
             if src is None or src[0] is None:  # tries a less constraining search...
-                logger.debug("no vertex ahead.")
+                logger.debug("no vertex ahead")
                 src = self.graph.findClosestVertex(pos_pt)
             if arrival_runway is not None and dst_type == "stand":
                 if dst_pos is not None:
                     nextexit = arrival_runway.nextExit(graph=self.graph, position=pos_pt, destination=dst_pos)
                     if nextexit is not None:
                         src = nextexit
-                        logger.debug(f"Arrival: on runway {arrival_runway.name}, closest exit vertex in front is {nextexit[0]}.")
-                logger.debug(f"Arrival: on runway {arrival_runway.name}.")
+                        logger.debug(f"Arrival: on runway {arrival_runway.name}, closest exit vertex in front is {nextexit[0]}")
+                logger.debug(f"Arrival: on runway {arrival_runway.name}")
             else:
-                logger.debug("Arrival: not on runway.")
+                logger.debug("Arrival: not on runway")
 
         if src is None:
             logger.debug("no return from findClosestVertex")
