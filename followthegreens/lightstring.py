@@ -276,7 +276,7 @@ class Stopbar:
         skip = 0
         if ADD_WIGWAG:
             pos = destination(self.position, brng, (numlights + side) * self.distance_between_stoplights)
-            self.lights.append(Light(LIGHT_TYPE.RUNWAY, pos, 180, numlights))
+            self.lights.append(Light(LIGHT_TYPE.RUNWAY, pos, self.heading, numlights))
             skip = 1
 
         # the other side of centerline
@@ -286,7 +286,7 @@ class Stopbar:
             self.lights.append(Light(self.light, pos, 0, numlights + i + skip))
         if ADD_WIGWAG:
             pos = destination(self.position, brng, (numlights + side) * self.distance_between_stoplights)
-            self.lights.append(Light(LIGHT_TYPE.RUNWAY, pos, 180, 2 * numlights + skip))
+            self.lights.append(Light(LIGHT_TYPE.RUNWAY, pos, self.heading, 2 * numlights + skip))
 
     def place(self, lightTypes):
         for light in self.lights:
