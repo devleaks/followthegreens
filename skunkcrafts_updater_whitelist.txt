@@ -19,7 +19,7 @@ followthegreens/lights/runway.obj|3981475634
 followthegreens/lights/runway.png|2658360369
 followthegreens/lights/runway_NML.png|3092595040
 followthegreens/lights/white.obj|1415050574
-followthegreens/lightstring.py|2537229100
+followthegreens/lightstring.py|3081557563
 followthegreens/nato.py|2108547532
 followthegreens/showtaxiways.py|3074765434
 followthegreens/ui.py|1337766028
