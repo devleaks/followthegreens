@@ -163,7 +163,7 @@ class Light:
     # Holds a referece to its instance
     def __init__(self, lightType, position, heading, index):
         self.lightType = lightType
-        self.index = index
+        self.edgeIndex = index  # # of edge of route, starting from 0
         self.position = position
         self.heading = heading  # this should be the heading to the previous light
         self.params = []  # LIGHT_PARAM_DEF       full_custom_halo        9   R   G   B   A   S       X   Y   Z   F
@@ -266,7 +266,7 @@ class Stopbar:
 
     def make(self):
         numlights = int(self.width / self.distance_between_stoplights)
-        side = 2
+        side = 1
 
         if numlights < 4:
             logger.warning(f"stopbar has not enough lights {numlights}, setting to 4 minimum")
@@ -416,14 +416,22 @@ class LightString:
     def features(self):
         fc = []
         # Lights
+        i = 0
         for light in self.lights:
             light.position.setProp("marker-color", "#00ff00")
+            light.position.setProp("marker-size", "small")
+            light.position.setProp("edgeIndex", light.edgeIndex)
+            light.position.setProp("lightIndex", i)
+            i = i + 1
             fc.append(light.position.feature())
         # logger.debug(f"added {len(self.lights)} lights")
         # Stop lights
         for sb in self.stopbars:
             for light in sb.lights:
                 light.position.setProp("marker-color", "#ff0000")
+                light.position.setProp("marker-size", "small")
+                light.position.setProp("lightStringIndex", sb.lightStringIndex)
+                light.position.setProp("lightBarIndex", light.edgeIndex)
                 fc.append(light.position.feature())
         # logger.debug(f"added {len(self.stopbars)} stopbars")
         logger.debug(f"{len(fc)} features")
@@ -594,7 +602,7 @@ class LightString:
                 while distanceBeforeNextLight < distToNextVertex:
                     nextLightPos = destination(currPoint, brng, distanceBeforeNextLight)
                     brgn = bearing(lastLight, nextLightPos)
-                    thisLights.append(Light(self.nextTaxiwayLight(nextLightPos, thisEdge), nextLightPos, brgn, i))
+                    thisLights.append(Light(self.nextTaxiwayLight(nextLightPos, thisEdge), nextLightPos, brgn, i - 1))
                     lastLight = nextLightPos
                     distToNextVertex = distToNextVertex - distanceBeforeNextLight  # should be close to ftg_geoutil.distance(currPoint, nextVertex)
                     currPoint = nextLightPos
@@ -606,7 +614,7 @@ class LightString:
 
                 if self.add_light_at_vertex:  # may be we insert a last light at the vertex?
                     brgn = bearing(lastLight, nextVertex)
-                    thisLights.append(Light(self.nextTaxiwayLight(nextVertex, thisEdge), nextVertex, brgn, i))
+                    thisLights.append(Light(self.nextTaxiwayLight(nextVertex, thisEdge), nextVertex, brgn, i - 1))
                     lastLight = nextVertex
                     # logger.debug("added light at vertex %s", nextVertex.id)
 
@@ -618,13 +626,13 @@ class LightString:
             lastPoint = route.route[len(route.route) - 1]
             lastVertex = graph.get_vertex(route.route[len(route.route) - 1])
             brgn = bearing(lastLight, lastPoint)
-            thisLights.append(Light(LIGHT_TYPE.LAST, lastVertex, brgn, i))
+            thisLights.append(Light(LIGHT_TYPE.LAST, lastVertex, brgn, len(route.route) - 2))
             lastLight = lastPoint
-            logger.debug(f"added light at last vertex {route.route[len(route.route) - 1].id}")
+            logger.debug(f"added light at last vertex {route.route[len(route.route) - 1].id} on edge# {len(route.route) - 2}")
 
         if SPECIAL_DEBUG:
             lastVertex = graph.get_vertex(route.route[len(route.route) - 1])
-            thisLights.append(Light(LIGHT_TYPE.WARNING, lastVertex, brgn, i))
+            thisLights.append(Light(LIGHT_TYPE.WARNING, lastVertex, brgn, len(route.route) - 2))
 
         last = 0
         for i in range(len(self.stopbars)):
@@ -748,6 +756,8 @@ class LightString:
             return
         self.stopbars[segment].off()
         logger.debug(f"blackened stopbar at segment {segment}")
+        if segment == (len(self.stopbars) - 1):
+            self.curr_pos.off()
 
     def illuminateSegment(self, segment):
         # Lights up a segment of lights between 2 stop bars
@@ -758,6 +768,9 @@ class LightString:
         if not self.xyzPlaced:  # do it once and for all. Lights rarely move.
             if not self.placeLights():
                 return [False, "Could not place light objects."]
+
+        if segment == 0:
+            self.curr_pos.on()
 
         self.currentSegment = segment
         start = 0

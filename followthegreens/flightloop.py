@@ -29,6 +29,7 @@ MAX_UPDATE_FREQUENCY = 10  # seconds, rabbit cannot change again more that 8 sec
 STOPPED_SPEED = 0.01  # m/s, under that speed, things are considered stopped, not moving.
 MIN_DIST = 100  # meters, minimum distance to move to consider object is actually moving
 MIN_SPEED = 3  # m/sec., minimum speed to consider object is actually moving significantly
+PUSH_WHITE = False
 
 
 class FlightLoop:
@@ -70,6 +71,7 @@ class FlightLoop:
         self.closestLight_cnt = 0
         self.old_msg = ""
         self.old_msg2 = ""
+        self.first_pos = False
 
     def startFlightLoop(self):
         self.lastLit = 0
@@ -259,10 +261,11 @@ class FlightLoop:
                     if j != self.lastIter:
                         logger.debug(f"speed {round(speed, 1)}, iter set to {j}")
                         self.lastIter = j
-                        return j
+                        return self.lastIter
                 i = i + 1
         except:
             logger.error("adjustedIter", exc_info=True)
+        logger.debug(f"regular iter {self.nextIter}")
         return self.nextIter
 
     def adjustRabbit(self, position, closestLight):
@@ -280,7 +283,7 @@ class FlightLoop:
         # 1. Distance to next vertex (= distance to next potential turn)
         route = self.ftg.lights.route
         light = self.ftg.lights.lights[closestLight]
-        next_vertex = light.index + 1
+        next_vertex = light.edgeIndex + 1
         if next_vertex >= len(route.route):  # end of route
             next_vertex = len(route.route) - 1
             logger.info("reached end of route")
@@ -298,13 +301,13 @@ class FlightLoop:
             return
 
         self.last_dist_to_next_vertex = dist_to_next_vertex
-        turn = route.turns[light.index]
+        turn = route.turns[light.edgeIndex]
 
         # 3. current speed
         speed = self.ftg.aircraft.speed()
         acf_move = speed * self.lastIter
 
-        # logger.debug(f"closest light: vertex index {light.index}, next vertex={nextvtx}, distance={round(dist, 1)}, turn={round(turn, 0)}, speed={round(speed, 1)}")
+        # logger.debug(f"closest light: vertex index {light.edgeIndex}, next vertex={nextvtx}, distance={round(dist, 1)}, turn={round(turn, 0)}, speed={round(speed, 1)}")
         # logger.debug(f"start turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
 
         # From observation/experience:
@@ -333,11 +336,11 @@ class FlightLoop:
             idx = len(route.route) - 1
             logger.info("reached end of route")
 
-        # logger.debug(f"current vertex={light.index}, distance to next vertex {idx}: {round(dist_to_next_vertex, 1)}m")
+        # logger.debug(f"current vertex={light.edgeIndex}, distance to next vertex {idx}: {round(dist_to_next_vertex, 1)}m")
         # logger.debug(f"at vertext {idx}: turn={round(route.turns[idx], 1)} DEG")
         dist_to_next_turn = 0 if abs(route.turns[next_vertex]) > TURN_LIMIT else route.dtb[next_vertex]
-        next_turn_vertex_index = next_vertex if abs(route.turns[next_vertex]) > TURN_LIMIT else route.dtb_at[next_vertex]
-        # could also be route.dtb_at[light.index]
+        # next_turn_vertex_index = next_vertex if abs(route.turns[next_vertex]) > TURN_LIMIT else route.dtb_at[next_vertex]
+        # could also be route.dtb_at[light.edgeIndex]
         # logger.debug(f"at vertext {idx}: distance to add to next turn={round(dist_to_next_turn, 1)}m")
 
         dist_before = dist_to_next_turn + dist_to_next_vertex
@@ -346,7 +349,7 @@ class FlightLoop:
         time_to_next_vertex = dist_to_next_vertex / taxi_speed
         logger.debug(f"speed={round(speed, 1)}, acf moved {round(acf_move, 1)}m during last iteration ({self.lastIter} secs)")
 
-        logger.debug(f"at index {light.index}, next turn at index {idx-1}, {round(turn)}D at {round(dist_before, 1)}m")
+        logger.debug(f"at index {light.edgeIndex}, next turn at index {idx-1}, {round(turn)}D at {round(dist_before, 1)}m")
         # logger.debug(f"dist to next vertex {next_vertex}: {round(dist_to_next_vertex, 1)}m, dist from next_vertex to next turn: {round(dist_to_next_turn, 1)}m")
 
         # dist to next vertex + remaining at next vertex = total left
@@ -358,7 +361,7 @@ class FlightLoop:
         #     f"remaining time to {next_vertex}: nxt {round(time_to_next_vertex, 1)}sec + end {round(route.tleft[next_vertex], 1)}sec + mgn 30sec = {round(self.remaining_time, 1)}sec"
         # )
 
-        # logger.debug(f"next turn index control next_turn_vertex_index={next_turn_vertex_index}, dtb_at[light.index]={route.dtb_at[light.index]}, idx={idx-1} (computed)")
+        # logger.debug(f"next turn index control next_turn_vertex_index={next_turn_vertex_index}, dtb_at[light.edgeIndex]={route.dtb_at[light.edgeIndex]}, idx={idx-1} (computed)")
 
         # logical controls
         # 1. dist to next turn + remaining at turn = total left
@@ -446,7 +449,18 @@ class FlightLoop:
             logger.debug("no position")
             return self.nextIter
 
+        ahead = 200.0  #
         if self.actual_start is None:
+            if PUSH_WHITE:
+                if not self.first_pos:
+                    try:
+                        logger.debug(f"first position (id={self.ftg.route.vertices[0].id})..")
+                        car_pos, car_orient = self.ftg.route.progress(self.ftg.route.vertices[0], self.ftg.route.edges[0], ahead)
+                        self.ftg.lights.move_current_position(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient)
+                        logger.debug("..done")
+                        self.first_pos = True
+                    except:
+                        logger.debug("error", exc_info=True)
             if self.ftg.aircraft.moved() > MIN_DIST or self.ftg.aircraft.speed() > MIN_SPEED:
                 self.taxiStart()
             else:
@@ -489,6 +503,18 @@ class FlightLoop:
             return self.adjustedIter()
 
         self.closestLight_cnt = 0
+
+        if PUSH_WHITE:
+            # self.ftg.lights.move_current_position(lat=pos[0], lon=pos[1], hdg=0)
+            logger.debug(f"moving..")
+            try:
+                light = self.ftg.lights.lights[closestLight]
+                logger.debug(f"close light={closestLight}, edge index={light.edgeIndex}")
+                car_pos, car_orient = self.ftg.route.progress(position=Point(lat=pos[0], lon=pos[1]), edge=self.ftg.route.edges[light.edgeIndex], dist_to_travel=ahead)
+                self.ftg.lights.move_current_position(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient)
+                logger.debug("..moved")
+            except:
+                logger.debug("error", exc_info=True)
 
         if self.hasRabbit():
             self.adjustRabbit(position=pos, closestLight=closestLight)  # Here is the 4D!
