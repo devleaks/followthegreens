@@ -1162,7 +1162,7 @@ class Route:
 
         # 3. skipping whole edges
         i = i + 1  # next edge
-        while distance_left > self.edges[i].cost and i < len(self.edges):
+        while i < len(self.edges) and distance_left > self.edges[i].cost:
             distance_left = distance_left - self.edges[i].cost
             logger.debug(f"travelling entire edge {i} {round(self.edges[i].cost, 1)}m, left to travel={round(distance_left, 1)}m")
             i = i + 1
