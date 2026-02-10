@@ -74,7 +74,6 @@ class FlightLoop:
         self.closestLight_cnt = 0
         self.old_msg = ""
         self.old_msg2 = ""
-        self.first_pos = False
         self.cursor = None
 
     def startFlightLoop(self):
@@ -459,20 +458,17 @@ class FlightLoop:
 
         ahead = 200.0  #
         if self.actual_start is None:
-            if PUSH_WHITE:
-                if not self.first_pos:
-                    try:
-                        start = self.ftg.route.vertices[0]
-                        logger.debug(f"first position (id={start.id})..")
-                        now = datetime.now().timestamp()
-                        self.cursor = Cursor(lat=start.lat, lon=start.lon, hdg=self.ftg.route.edges[0].bearing(orig=start), speed=0, t=now)
-                        car_pos, car_orient, finished = self.ftg.route.progress(start, self.ftg.route.edges[0], ahead)
-                        self.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=now + 20)
-                        # self.ftg.lights.move_current_position(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient)
-                        self.first_pos = True
-                        logger.debug("..done")
-                    except:
-                        logger.debug("..error", exc_info=True)
+            if PUSH_WHITE and self.cursor is None:
+                try:
+                    start = self.ftg.route.vertices[0]
+                    logger.debug(f"first position (id={start.id})..")
+                    now = datetime.now().timestamp()
+                    self.cursor = Cursor(lat=start.lat, lon=start.lon, hdg=self.ftg.route.edges[0].bearing(orig=start), speed=0, t=now)
+                    car_pos, car_orient, finished = self.ftg.route.progress(start, self.ftg.route.edges[0], ahead)
+                    self.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=now + 20)
+                    logger.debug("..done")
+                except:
+                    logger.debug("..error", exc_info=True)
             if self.ftg.aircraft.moved() > MIN_DIST or self.ftg.aircraft.speed() > MIN_SPEED:
                 self.taxiStart()
             else:
@@ -516,15 +512,13 @@ class FlightLoop:
 
         self.closestLight_cnt = 0
 
-        if PUSH_WHITE:
-            # self.ftg.lights.move_current_position(lat=pos[0], lon=pos[1], hdg=0)
+        if PUSH_WHITE and self.cursor is not None:
             logger.debug("moving..")
             try:
                 light = self.ftg.lights.lights[closestLight]
                 logger.debug(f"close light={closestLight}, edge index={light.edgeIndex}")
                 car_pos, car_orient, finished = self.ftg.route.progress(position=Point(lat=pos[0], lon=pos[1]), edge=self.ftg.route.edges[light.edgeIndex], dist_to_travel=ahead)
                 self.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=datetime.now().timestamp() + self.lastIter)
-                self.ftg.lights.move_current_position(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient)
                 logger.debug("..moved")
             except:
                 logger.debug("..error", exc_info=True)
@@ -581,11 +575,12 @@ class Cursor:
     # Linear interpolator
 
     def __init__(self, lat: float, lon: float, hdg: float, speed: float, t: float = datetime.now().timestamp()) -> None:
+        # start and end values
         self.slat = 0
         self.slon = 0
         self.shdg = 0
         self.sspd = 0
-        self.st = datetime.now()
+        self.st = 0
 
         self.elat = lat
         self.elon = lon
@@ -593,13 +588,15 @@ class Cursor:
         self.espd = speed
         self.et = t
 
+        # working var for interpolation
         self._future = []
         self.segment: Line | None = None
-        self.last = t
+        self.last_tim = t
         self.last_pos = None
         self.last_hdg = None
-        self.delta = 0.0
+        self.delta_tim = 0.0
         self.delta_hdg = 0.0
+        self.delta_spd = 0.0
 
     # def future(self, lat: float, lon: float, hdg: float, speed: float, t: float = datetime.now().timestamp(), tick: bool = True):
     #     self._future.append((lat, lon, hdg, speed, t))
@@ -628,7 +625,7 @@ class Cursor:
         self.shdg = hdg
         self.sspd = speed
         self.st = t
-        self.last = t
+        self.last_tim = t
 
     def _set_end(self, lat: float, lon: float, hdg: float, speed: float, t: float = datetime.now().timestamp()):
         self.elat = lat
@@ -639,7 +636,7 @@ class Cursor:
 
     def _mkLine(self):
         self.segment = Line(start=Point(lat=self.slat, lon=self.slon), end=Point(lat=self.elat, lon=self.elon))
-        self.delta = self.et - self.st
+        self.delta_tim = self.et - self.st
         self.delta_hdg = self.ehdg - self.shdg
         self.delta_spd = self.espd - self.sspd
 
@@ -650,9 +647,9 @@ class Cursor:
         return self.sspd + ratio * self.delta_spd
 
     def now(self, t: float):
-        if self.last < self.et:
-            self.last = self.last + t
-            r = (self.last - self.st) / self.delta
+        if self.last_tim < self.et:
+            self.last_tim = self.last_tim + t
+            r = (self.last_tim - self.st) / self.delta_tim
             self.last_pos = self.segment.middle(ratio=r)
             self.last_hdg = self._bearing(ratio=r)
             return self.last_pos, self.last_hdg

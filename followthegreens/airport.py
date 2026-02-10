@@ -1176,9 +1176,10 @@ class Route:
         # 4. travel part of current edge
         edge_start = self.edges[i].start
         rev = ""
+        logger.debug(f"on edge {i} at vertice {self.vertices[i].id} edge={self.edges[i].start.id}-{self.edges[i].end.id}")
         # current edge orientation
         if self.vertices[i] == self.edges[i].end:
-            logger.debug("edge is reversed")
+            logger.debug(f"edge {i} is reversed")
             rev = "reversed, "
             edge_start = self.edges[i].end
         hdg = self.edges[i].bearing(orig=edge_start)

@@ -150,7 +150,7 @@ class Line(Feature):
         return distance(self.start, self.end)
 
     def bearing(self, orig: Point | None = None) -> float:
-        if type(orig) is Point and orig == self.end:
+        if isinstance(orig, Point) and orig == self.end:
             return bearing(self.end, self.start)
         return bearing(self.start, self.end)
 
@@ -163,6 +163,8 @@ class Line(Feature):
     def middle(self, ratio: float) -> float:
         return destination(self.start, self.bearing(), self.length() * ratio)
 
+    def distanceToPoint(self, point) -> float:
+        return distanceToLine(point, self.start, self.end)
 
 class LineString(Feature):
     def __init__(self, points):
@@ -313,7 +315,7 @@ def nearestPointToLines(p, lines):
                 dist = d
                 nearest = intersect
 
-    return [nearest, distance]
+    return [nearest, dist]
 
 
 def pointInPolygon(point, polygon):
@@ -485,3 +487,23 @@ def smoothTurns(ls, radius=60, steps=36):
     newls.append(ls[-1])  # last point
 
     return newls
+
+
+def dot(vector_1: list, vector_2: list) -> float:
+    return sum(x * y for x, y in zip(vector_1, vector_2))
+
+
+def distanceToLine(point: Point, segment_start: Point, segment_end: Point):
+    v = [segment_end.lon - segment_start.lon, segment_end.lat - segment_start.lat]
+    w = [point.lon - segment_start.lon, point.lat - segment_start.lat]
+    c1 = dot(w, v)
+    c2 = dot(v, v)
+    b2 = c1 / c2
+    point_2 = [segment_start.lon + (b2 * v[0]), segment_start.lat + (b2 * v[1])]
+    if c1 <= 0:
+        dist = distance(point, segment_start)
+    elif c2 <= c1:
+        dist = distance(point, segment_end)
+    else:
+        dist = distance(point, point_2)
+    return dist

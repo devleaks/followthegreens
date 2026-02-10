@@ -1,7 +1,7 @@
 # Adds X-Plane Plugins menu entries to control runway lights
 import xp
 
-__VERSION__ = "1.0.1"
+__VERSION__ = "1.0.2"
 __NAME__ = "Set Runway Light Intensity"
 __DESCRIPTION__ = "Wrapper around X-Plane runway light control commands"
 
@@ -32,9 +32,10 @@ class PythonInterface:
         return self.Name, self.Sig, self.Desc
 
     def XPluginStop(self) -> None:
-        for v in self.menuIdxs.values():
+        for v in self.menuIdxs.values(): # sorted(self.menuIdxs.values(), reverse=True)
             xp.removeMenuItem(menuID=self.menuIdx, index=v)
-        xp.removeMenuItem(menuID=xp.findPluginsMenu(), index=self.menuIdx)
+        # xp.clearAllMenuItems(menuID=self.menuIdx)
+        xp.clearAllMenuItems()
         return None
 
     def XPluginEnable(self) -> int:
