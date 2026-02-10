@@ -2,6 +2,7 @@
 # We currently have two loops, one for rabbit, one to monitor aircraft position.
 #
 from datetime import datetime, timedelta, timezone
+import numpy
 
 try:
     import xp
@@ -21,7 +22,7 @@ from .globals import (
     AMBIANT_RWY_LIGHT_CMDROOT,
     AMBIANT_RWY_LIGHT,
 )
-from .geo import EARTH, Point, distance
+from .geo import EARTH, Point, Line, distance
 
 
 # Hardcaded here, not preferences
@@ -40,6 +41,8 @@ class FlightLoop:
         self.rabbitRunning = False
         self.refplane = "FtG:aircraft"
         self.flplane = None
+        self.flcursor = None
+        self.refcursor = "FtG:cursor"
         self.planeRunning = False
         self.nextIter = PLANE_MONITOR_DURATION  # seconds
         self.lastIter = PLANE_MONITOR_DURATION  # seconds, because it is dynamic
@@ -72,6 +75,7 @@ class FlightLoop:
         self.old_msg = ""
         self.old_msg2 = ""
         self.first_pos = False
+        self.cursor = None
 
     def startFlightLoop(self):
         self.lastLit = 0
@@ -79,7 +83,7 @@ class FlightLoop:
         if self.hasRabbit():
             if not self.rabbitRunning:
                 self.flrabbit = xp.createFlightLoop(callback=self.rabbitFLCB, phase=xp.FlightLoop_Phase_BeforeFlightModel, refCon=self.refrabbit)
-                xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)
+                xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)  # starts in a second, arbitrary
                 self.rabbitRunning = True
                 logger.debug(f"rabbit started ({self._rabbit_mode})")
             else:
@@ -89,7 +93,10 @@ class FlightLoop:
 
         if not self.planeRunning:
             self.flplane = xp.createFlightLoop(callback=self.planeFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refplane)
-            xp.scheduleFlightLoop(self.flplane, 10.0, 1)
+            xp.scheduleFlightLoop(self.flplane, self.nextIter, 1)
+            if PUSH_WHITE:
+                self.flcursor = xp.createFlightLoop(callback=self.cursorFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refcursor)
+                xp.scheduleFlightLoop(self.flcursor, self.nextIter, 1)
             self.planeRunning = True
             logger.debug(f"aircraft tracking started (iter={self.nextIter})")
             # if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
@@ -122,6 +129,8 @@ class FlightLoop:
 
         if self.planeRunning:
             xp.destroyFlightLoop(self.flplane)
+            if PUSH_WHITE:
+                xp.destroyFlightLoop(self.flcursor)
             self.planeRunning = False
             logger.debug("aircraft tracking stopped")
             # if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
@@ -202,7 +211,6 @@ class FlightLoop:
         if delay < MAX_UPDATE_FREQUENCY:
             logger.debug(f"must wait {round(MAX_UPDATE_FREQUENCY - delay, 2)} seconds before changing rabbit")
             return
-
         self.ftg.lights.rabbitMode(mode)
         self._rabbit_mode = mode
         self.last_updated = now
@@ -454,13 +462,17 @@ class FlightLoop:
             if PUSH_WHITE:
                 if not self.first_pos:
                     try:
-                        logger.debug(f"first position (id={self.ftg.route.vertices[0].id})..")
-                        car_pos, car_orient = self.ftg.route.progress(self.ftg.route.vertices[0], self.ftg.route.edges[0], ahead)
-                        self.ftg.lights.move_current_position(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient)
-                        logger.debug("..done")
+                        start = self.ftg.route.vertices[0]
+                        logger.debug(f"first position (id={start.id})..")
+                        now = datetime.now().timestamp()
+                        self.cursor = Cursor(lat=start.lat, lon=start.lon, hdg=self.ftg.route.edges[0].bearing(orig=start), speed=0, t=now)
+                        car_pos, car_orient, finished = self.ftg.route.progress(start, self.ftg.route.edges[0], ahead)
+                        self.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=now + 20)
+                        # self.ftg.lights.move_current_position(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient)
                         self.first_pos = True
+                        logger.debug("..done")
                     except:
-                        logger.debug("error", exc_info=True)
+                        logger.debug("..error", exc_info=True)
             if self.ftg.aircraft.moved() > MIN_DIST or self.ftg.aircraft.speed() > MIN_SPEED:
                 self.taxiStart()
             else:
@@ -471,9 +483,9 @@ class FlightLoop:
                 return self.nextIter
 
         # should use elapsedSinceLastCall
-        logger.debug(
-            f"control: last iter={self.lastIter}, elapsedSinceLastCall={elapsedSinceLastCall}, counter={counter}, elapsedTimeSinceLastFlightLoop={elapsedTimeSinceLastFlightLoop}"
-        )
+        # logger.debug(
+        #     f"control: last iter={self.lastIter}, elapsedSinceLastCall={elapsedSinceLastCall}, counter={counter}, elapsedTimeSinceLastFlightLoop={elapsedTimeSinceLastFlightLoop}"
+        # )
         self.total_time = self.total_time + self.lastIter
         self.total_dist = self.total_dist + self.ftg.aircraft.speed() * self.lastIter
 
@@ -506,15 +518,16 @@ class FlightLoop:
 
         if PUSH_WHITE:
             # self.ftg.lights.move_current_position(lat=pos[0], lon=pos[1], hdg=0)
-            logger.debug(f"moving..")
+            logger.debug("moving..")
             try:
                 light = self.ftg.lights.lights[closestLight]
                 logger.debug(f"close light={closestLight}, edge index={light.edgeIndex}")
-                car_pos, car_orient = self.ftg.route.progress(position=Point(lat=pos[0], lon=pos[1]), edge=self.ftg.route.edges[light.edgeIndex], dist_to_travel=ahead)
+                car_pos, car_orient, finished = self.ftg.route.progress(position=Point(lat=pos[0], lon=pos[1]), edge=self.ftg.route.edges[light.edgeIndex], dist_to_travel=ahead)
+                self.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=datetime.now().timestamp() + self.lastIter)
                 self.ftg.lights.move_current_position(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient)
                 logger.debug("..moved")
             except:
-                logger.debug("error", exc_info=True)
+                logger.debug("..error", exc_info=True)
 
         if self.hasRabbit():
             self.adjustRabbit(position=pos, closestLight=closestLight)  # Here is the 4D!
@@ -545,4 +558,104 @@ class FlightLoop:
         # show rabbit in front of plane.
         # plane is supposed to Follow the greens and it close to green light index self.lastLit.
         # We cannot use XP's counter because it does not increment by 1 just for us.
-        return self.ftg.lights.rabbit(self.lastLit)
+        if self.ftg is not None and self.ftg.lights is not None:
+            try:
+                return self.ftg.lights.rabbit(self.lastLit)
+            except:
+                logger.debug("error", exc_info=True)
+        return 5.0
+
+    def cursorFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
+        if self.cursor is not None:
+            try:
+                car_pos, car_orient = self.cursor.now(t=elapsedSinceLastCall)
+                self.ftg.lights.move_current_position(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient)
+                return -1
+            except:
+                logger.debug("error", exc_info=True)
+            return 5.0
+        return 1.0
+
+
+class Cursor:
+    # Linear interpolator
+
+    def __init__(self, lat: float, lon: float, hdg: float, speed: float, t: float = datetime.now().timestamp()) -> None:
+        self.slat = 0
+        self.slon = 0
+        self.shdg = 0
+        self.sspd = 0
+        self.st = datetime.now()
+
+        self.elat = lat
+        self.elon = lon
+        self.ehdg = hdg
+        self.espd = speed
+        self.et = t
+
+        self._future = []
+        self.segment: Line | None = None
+        self.last = t
+        self.last_pos = None
+        self.last_hdg = None
+        self.delta = 0.0
+        self.delta_hdg = 0.0
+
+    # def future(self, lat: float, lon: float, hdg: float, speed: float, t: float = datetime.now().timestamp(), tick: bool = True):
+    #     self._future.append((lat, lon, hdg, speed, t))
+    #     if tick:
+    #         self._tick()
+    def future(self, lat: float, lon: float, hdg: float, speed: float, t: float = datetime.now().timestamp(), tick: bool = True):
+        if tick:
+            self._set_start(self.elat, self.elon, self.ehdg, self.espd, self.et)
+            self._set_end(lat, lon, hdg, speed, t)
+            self._mkLine()
+        else:
+            self._future.append((lat, lon, hdg, speed, t))
+
+    def _tick(self):
+        if len(self._future) > 0:
+            self._set_start(self.elat, self.elon, self.ehdg, self.espd, self.et)
+            self._set_end(*self._future[0])
+            del self._future[0]
+            self._mkLine()
+            return True
+        return False
+
+    def _set_start(self, lat: float, lon: float, hdg: float, speed: float, t: float = datetime.now().timestamp()):
+        self.slat = lat
+        self.slon = lon
+        self.shdg = hdg
+        self.sspd = speed
+        self.st = t
+        self.last = t
+
+    def _set_end(self, lat: float, lon: float, hdg: float, speed: float, t: float = datetime.now().timestamp()):
+        self.elat = lat
+        self.elon = lon
+        self.ehdg = hdg
+        self.espd = speed
+        self.et = t
+
+    def _mkLine(self):
+        self.segment = Line(start=Point(lat=self.slat, lon=self.slon), end=Point(lat=self.elat, lon=self.elon))
+        self.delta = self.et - self.st
+        self.delta_hdg = self.ehdg - self.shdg
+        self.delta_spd = self.espd - self.sspd
+
+    def _bearing(self, ratio):
+        return self.shdg + ratio * self.delta_hdg
+
+    def _speed(self, ratio):
+        return self.sspd + ratio * self.delta_spd
+
+    def now(self, t: float):
+        if self.last < self.et:
+            self.last = self.last + t
+            r = (self.last - self.st) / self.delta
+            self.last_pos = self.segment.middle(ratio=r)
+            self.last_hdg = self._bearing(ratio=r)
+            return self.last_pos, self.last_hdg
+        if self._tick():
+            return self.now(t)
+        return self.last_pos, self.last_hdg

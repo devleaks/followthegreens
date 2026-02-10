@@ -6,7 +6,7 @@ import re
 import math
 from typing import Tuple
 
-from .geo import FeatureCollection, Point, Line, Polygon, destination, distance, bearing, turn, pointInPolygon
+from .geo import FeatureCollection, Point, Line, Polygon, destination, distance, bearing, turn, pointInPolygon, nearestPointToLines
 from .graph import Graph, Edge, Vertex
 from .globals import (
     logger,
@@ -39,7 +39,7 @@ class Runway(Line):
         self.overrun = float(dbo)
         if pol is None:
             if width is not None and width > 0:
-                self.polygon = Polygon.mkPolygon(lat, lon, lat2, lon2, width)
+                self.polygon = Polygon.new(lat, lon, lat2, lon2, width)
         else:
             self.polygon = pol
         self.threshold = self.start
@@ -66,7 +66,7 @@ class Runway(Line):
         # Select vertices from segments that are not runway
         # Select vertices that are "inside" a buffer around the runway
         # Select the vertex closest to the start or threshold
-        buffer = Polygon.mkPolygon(self.start.lat, self.start.lon, self.end.lat, self.end.lon, RUNWAY_BUFFER_WIDTH)
+        buffer = Polygon.new(self.start.lat, self.start.lon, self.end.lat, self.end.lon, RUNWAY_BUFFER_WIDTH)
         candidates = set()
         for e in graph.edges_arr:
             if e.usage == TAXIWAY_TYPE.TAXIWAY:
@@ -441,7 +441,7 @@ class Airport:
         for aptline in self.lines:
             if aptline.linecode() == 100:  # runway
                 args = aptline.content().split()
-                runway = Polygon.mkPolygon(lat1=args[8], lon1=args[9], lat2=args[17], lon2=args[18], width=float(args[0]))
+                runway = Polygon.new(lat1=args[8], lon1=args[9], lat2=args[17], lon2=args[18], width=float(args[0]))
                 runways[args[7]] = Runway(name=args[7], width=args[0], lat=args[8], lon=args[9], dt=args[10], dbo=args[11], lat2=args[17], lon2=args[18], pol=runway)
                 runways[args[16]] = Runway(name=args[16], width=args[0], lat=args[17], lon=args[18], dt=args[19], dbo=args[20], lat2=args[8], lon2=args[9], pol=runway)
 
@@ -527,7 +527,7 @@ class Airport:
                 if width is None:
                     polygon = rwy.polygon
                 else:  # make a larger area around/along runway (larger than runway width)
-                    polygon = Polygon.mkPolygon(rwy.start.lat, rwy.start.lon, rwy.end.lat, rwy.end.lon, float(width))
+                    polygon = Polygon.new(rwy.start.lat, rwy.start.lon, rwy.end.lat, rwy.end.lon, float(width))
                 if polygon is not None:
                     if pointInPolygon(point, polygon):
                         d = abs(heading - rwy.bearing())
@@ -551,7 +551,7 @@ class Airport:
             if width is None:
                 polygon = rwy.polygon
             else:  # make a larger area around/along runway (larger than runway width)
-                polygon = Polygon.mkPolygon(rwy.start.lat, rwy.start.lon, rwy.end.lat, rwy.end.lon, float(width))
+                polygon = Polygon.new(rwy.start.lat, rwy.start.lon, rwy.end.lat, rwy.end.lon, float(width))
             if polygon is not None:
                 if pointInPolygon(point, polygon):
                     logger.debug(f"on {name}, no orientation (rwy width={rwy.width}m)")
@@ -835,7 +835,7 @@ class Route:
         # origin to first vertex
         b1 = bearing(self.precise_start, self.vertices[0])
         b2 = bearing(self.vertices[0], self.vertices[1])
-        self.turns =  [turn(b1, b2)]
+        self.turns = [turn(b1, b2)]
         v0 = self.graph.get_vertex(self.route[0])
         v1 = self.graph.get_vertex(self.route[1])
         for i in range(1, len(self.route) - 1):
@@ -1114,7 +1114,7 @@ class Route:
 
         return self._find(src[0], dst[0])
 
-    def progress(self, position, edge, dist_to_travel: float):
+    def progress(self, position, edge, dist_to_travel: float):  # -> Point, bearing, finished
         # position is on edge.
         # travels dist_to_travel on route from position
         # returns new position or end of route
@@ -1123,32 +1123,39 @@ class Route:
         # 1. Find route index of first edge and orientation of first edge
         i = 0
         start = -1
-        edge_bearing = 0
+        edge_bearing = edge.bearing()
+        edge_end = edge.end
+        stype = "s>e"
         while start == -1 and i < len(self.route):
             if self.route[i] == edge.start.id:
                 start = i
-                stype = "s>e"
-                edge_end = edge.end
-                edge_bearing = edge.bearing()
             if self.route[i] == edge.end.id:
                 logger.debug("first edge is reversed")
                 start = i
                 stype = "e>s"
                 edge_end = edge.start
-                edge_bearing = edge.bearing() + 180
+                edge_bearing = edge_bearing + 180
             i = i + 1
         i = i - 1
+        e = self.edges[i]  # e === edge! but we'll check that
         logger.debug(f"at route index {i}, direction {stype}")
-        e = self.edges[i]
-        d = distance(position, edge_end)  # distance remaning on edge
+
+        # must put/project position on edge
+        pos_on_edge, dist = nearestPointToLines(position, [edge])
+        if pos_on_edge is None:
+            logger.debug("could not position on edge")
+            pos_on_edge = position
+        else:
+            logger.debug(f"position on edge at {round(dist, 1)}m")
+        d = distance(pos_on_edge, edge_end)  # distance remaning on edge
         logger.debug(f"on route edge {i} {e.start.id}-{e.end.id} (control: edge={edge.start.id}-{edge.end.id}, length={round(edge.cost, 1)}m), at {round(d, 1)}m from edge end")
 
         # 2. travel on same edge..
         if distance_left < d:  # moving on edge only
             logger.debug(f"travelling {round(distance_left, 1)}m on same edge, remaining {round(d - distance_left, 1)} to end of edge")
-            newpos = destination(position, edge_bearing, distance_left)
+            newpos = destination(pos_on_edge, edge_bearing, distance_left)
             logger.debug(f"reached destination on edge at {newpos.coords()}, {round(edge_bearing)}")
-            return newpos, edge_bearing
+            return newpos, edge_bearing, False
 
         distance_left = distance_left - d
         logger.debug(f"travelling {round(d, 1)}m to end of edge {i}, left to travel={round(distance_left, 1)}m")
@@ -1162,21 +1169,23 @@ class Route:
 
         # 3a. if end reached, return end
         if i == len(self.edges):
-            logger.debug(f"reached end of route at {self.vertices[-1].coords()}, {round(self.edges[-1].bearing())}")
-            return self.vertices[-1], self.edges[-1].bearing()  # + self.turns[-1]
+            hdg = self.edges[-1].bearing(orig=self.vertices[-2])
+            logger.debug(f"reached end of route at {self.vertices[-1].coords()} (last vertex), {round(hdg)}")
+            return self.vertices[-1], hdg, True
 
         # 4. travel part of current edge
         edge_start = self.edges[i].start
-        hdg = self.edges[i].bearing()
         rev = ""
         # current edge orientation
         if self.vertices[i] == self.edges[i].end:
             logger.debug("edge is reversed")
             rev = "reversed, "
             edge_start = self.edges[i].end
-            hdg = hdg + 180
-        logger.debug(f"need to travel {round(distance_left, 1)}m on edge {i} ({rev}length={round(self.edges[i].cost, 1)}, bearing={round(hdg)}), remaining {round(self.edges[i].cost - distance_left, 1)}m to travel on edge")
+        hdg = self.edges[i].bearing(orig=edge_start)
+        logger.debug(
+            f"need to travel {round(distance_left, 1)}m on edge {i} ({rev}length={round(self.edges[i].cost, 1)}, bearing={round(hdg)}), remaining {round(self.edges[i].cost - distance_left, 1)}m to travel on edge"
+        )
         newpos = destination(edge_start, hdg, distance_left)
         logger.debug(f"reached destination at {newpos.coords()}, {round(hdg)}")
 
-        return newpos, hdg
+        return newpos, hdg, False

@@ -68,8 +68,12 @@ class Feature:
     def __init__(self):
         self.properties = {}
         self.featureType = "Feature"
+        self.geomType = ""
 
-    def props(self):
+    def coords(self, lonLat: bool = False) -> list:
+        return []
+
+    def props(self) -> dict:
         return self.properties
 
     def setProp(self, name, value):
@@ -80,14 +84,14 @@ class Feature:
             return self.properties[name]
         return None
 
-    def feature(self):
+    def feature(self) -> dict:
         return {
             "type": "Feature",
             "geometry": self.geom(True),
             "properties": self.props(),
         }
 
-    def geom(self, lonLat=False):
+    def geom(self, lonLat: bool = False) -> dict:
         return {"type": self.geomType, "coordinates": self.coords(lonLat)}
 
     def __str__(self):
@@ -98,7 +102,7 @@ class FeatureCollection:
     def __init__(self, features=[]):
         self.features = features
 
-    def featureCollection(self):
+    def featureCollection(self) -> dict:
         return {"type": "FeatureCollection", "features": self.features}
 
     def __str__(self):
@@ -120,17 +124,17 @@ class Point(Feature):
         self.properties["marker-color"] = "#aaaaaa"
         self.properties["marker-size"] = "medium"
 
-    def coords(self, lonLat=False):
+    def coords(self, lonLat: bool = False) -> list:
         if lonLat:
             return [self.lon, self.lat]
         return [self.lat, self.lon]  # should be lon, lat for pure geojson.
 
-    def isSame(self, point, maxdist: float = MAX_SAME_POINT):
+    def isSame(self, point, maxdist: float = MAX_SAME_POINT) -> bool:
         return distance(self, point) < maxdist
 
 
 class Line(Feature):
-    def __init__(self, start, end):
+    def __init__(self, start: Point, end: Point):
         Feature.__init__(self)
         self.geomType = "LineString"
         self.start = start
@@ -139,13 +143,15 @@ class Line(Feature):
         self.properties["strokeWidth"] = 1
         self.properties["strokeOpacity"] = 1
 
-    def coords(self, lonLat=False):
+    def coords(self, lonLat=False) -> list:
         return [self.start.coords(lonLat), self.end.coords(lonLat)]
 
-    def length(self):
+    def length(self) -> float:
         return distance(self.start, self.end)
 
-    def bearing(self):
+    def bearing(self, orig: Point | None = None) -> float:
+        if type(orig) is Point and orig == self.end:
+            return bearing(self.end, self.start)
         return bearing(self.start, self.end)
 
     def side(self, point) -> int:
@@ -153,6 +159,9 @@ class Line(Feature):
         # 1=start, 2=end, x=lat, y=lon
         r = (point.lat - self.start.lat) * (self.end.lon - self.start.lon) - (point.lon - self.start.lon) * (self.end.lat - self.start.lat)
         return 0 if r == 0 else (1 if r > 0 else -1)
+
+    def middle(self, ratio: float) -> float:
+        return destination(self.start, self.bearing(), self.length() * ratio)
 
 
 class LineString(Feature):
@@ -182,16 +191,16 @@ class Polygon(Feature):
     def __init__(self, p):
         Feature.__init__(self)
         self.geomType = "Polygon"
-        self.coordinates = p
+        self.coordinates = p  # List[Point]
         self.properties["stroke"] = "#aaaaaa"
         self.properties["strokeWidth"] = 1
         self.properties["strokeOpacity"] = 1
 
-    def coords(self, lonLat=False):
+    def coords(self, lonLat: bool = False) -> list:
         return list(map(lambda x: x.coords(lonLat), self.coordinates))
 
-    @staticmethod
-    def mkPolygon(lat1, lon1, lat2, lon2, width):
+    @classmethod
+    def new(cls, lat1, lon1, lat2, lon2, width):
         p1 = Point(lat1, lon1)
         p2 = Point(lat2, lon2)
         brng = bearing(p1, p2)
@@ -204,7 +213,7 @@ class Polygon(Feature):
         a1 = destination(p1, brng, width / 2)
         a3 = destination(p2, brng, width / 2)
         # join, added last point = first point to "close" polygon
-        return Polygon([a0, a1, a3, a2, a0])
+        return cls([a0, a1, a3, a2, a0])
 
 
 def haversine(lat1, lat2, long1, long2):  # in radians.
@@ -285,7 +294,11 @@ def nearestPointToLines(p, lines):
     dist = math.inf
     for line in lines:
         d1 = distance(p, line.start)
+        if d1 == 0:  # < 0.0001 ?
+            return [Point(lat=line.start.lat, lon=line.start.lon), 0.0]
         d2 = distance(p, line.end)
+        if d2 == 0:
+            return [Point(lat=line.end.lat, lon=line.end.lon), 0.0]
         dl = max(d1, d2)
         brng = bearing(line.start, line.end)
         brng += 90  # perpendicular

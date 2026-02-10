@@ -31,6 +31,7 @@ HARDCODED_MIN_RABBIT_LENGTH = 6  # lights
 
 SPECIAL_DEBUG = False
 ADD_WIGWAG = True
+PUSH_WHITE = False
 
 
 class LightType:
@@ -756,7 +757,7 @@ class LightString:
             return
         self.stopbars[segment].off()
         logger.debug(f"blackened stopbar at segment {segment}")
-        if segment == (len(self.stopbars) - 1):
+        if segment == (len(self.stopbars) - 1) and PUSH_WHITE:
             self.curr_pos.off()
 
     def illuminateSegment(self, segment):
@@ -769,7 +770,7 @@ class LightString:
             if not self.placeLights():
                 return [False, "Could not place light objects."]
 
-        if segment == 0:
+        if segment == 0 and PUSH_WHITE:
             self.curr_pos.on()
 
         self.currentSegment = segment
