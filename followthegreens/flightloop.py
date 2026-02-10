@@ -22,7 +22,7 @@ from .globals import (
     AMBIANT_RWY_LIGHT_CMDROOT,
     AMBIANT_RWY_LIGHT,
 )
-from .geo import EARTH, Point, Line, distance
+from .geo import EARTH, Point, Line, destination, distance
 
 
 # Hardcaded here, not preferences
@@ -31,6 +31,10 @@ STOPPED_SPEED = 0.01  # m/s, under that speed, things are considered stopped, no
 MIN_DIST = 100  # meters, minimum distance to move to consider object is actually moving
 MIN_SPEED = 3  # m/sec., minimum speed to consider object is actually moving significantly
 PUSH_WHITE = False
+
+
+def ts() -> float:
+    return datetime.now().timestamp()
 
 
 class FlightLoop:
@@ -462,7 +466,7 @@ class FlightLoop:
                 try:
                     start = self.ftg.route.vertices[0]
                     logger.debug(f"first position (id={start.id})..")
-                    now = datetime.now().timestamp()
+                    now = ts()
                     self.cursor = Cursor(lat=start.lat, lon=start.lon, hdg=self.ftg.route.edges[0].bearing(orig=start), speed=0, t=now)
                     car_pos, car_orient, finished = self.ftg.route.progress(start, self.ftg.route.edges[0], ahead)
                     self.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=now + 20)
@@ -518,7 +522,7 @@ class FlightLoop:
                 light = self.ftg.lights.lights[closestLight]
                 logger.debug(f"close light={closestLight}, edge index={light.edgeIndex}")
                 car_pos, car_orient, finished = self.ftg.route.progress(position=Point(lat=pos[0], lon=pos[1]), edge=self.ftg.route.edges[light.edgeIndex], dist_to_travel=ahead)
-                self.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=datetime.now().timestamp() + self.lastIter)
+                self.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=ts() + self.lastIter)
                 logger.debug("..moved")
             except:
                 logger.debug("..error", exc_info=True)
@@ -574,7 +578,7 @@ class FlightLoop:
 class Cursor:
     # Linear interpolator
 
-    def __init__(self, lat: float, lon: float, hdg: float, speed: float, t: float = datetime.now().timestamp()) -> None:
+    def __init__(self, lat: float, lon: float, hdg: float, speed: float, t: float = ts()) -> None:
         # start and end values
         self.slat = 0
         self.slon = 0
@@ -598,28 +602,28 @@ class Cursor:
         self.delta_hdg = 0.0
         self.delta_spd = 0.0
 
-    # def future(self, lat: float, lon: float, hdg: float, speed: float, t: float = datetime.now().timestamp(), tick: bool = True):
+    # def future(self, lat: float, lon: float, hdg: float, speed: float, t: float = ts(), tick: bool = True):
     #     self._future.append((lat, lon, hdg, speed, t))
     #     if tick:
     #         self._tick()
-    def future(self, lat: float, lon: float, hdg: float, speed: float, t: float = datetime.now().timestamp(), tick: bool = True):
-        if tick:
-            self._set_start(self.elat, self.elon, self.ehdg, self.espd, self.et)
-            self._set_end(lat, lon, hdg, speed, t)
-            self._mkLine()
-        else:
-            self._future.append((lat, lon, hdg, speed, t))
+    def future(self, lat: float, lon: float, hdg: float, speed: float, t: float = ts()):
+        self._set_start(self.elat, self.elon, self.ehdg, self.espd, self.et)
+        self._set_end(lat, lon, hdg, speed, t)
+        self._mkLine()
 
-    def _tick(self):
-        if len(self._future) > 0:
-            self._set_start(self.elat, self.elon, self.ehdg, self.espd, self.et)
-            self._set_end(*self._future[0])
-            del self._future[0]
-            self._mkLine()
-            return True
-        return False
+    # def _tick(self):
+    #     if len(self._future) > 0:
+    #         old = self.st
+    #         self._set_start(self.elat, self.elon, self.ehdg, self.espd, self.et)
+    #         f = self._future[0]
+    #         logger.debug(f"tick {round(old, 3)} -> {round(self.st, 3)} -> {round(f[-1], 3)}")
+    #         self._set_end(*f)
+    #         del self._future[0]
+    #         self._mkLine()
+    #         return True
+    #     return False
 
-    def _set_start(self, lat: float, lon: float, hdg: float, speed: float, t: float = datetime.now().timestamp()):
+    def _set_start(self, lat: float, lon: float, hdg: float, speed: float, t: float = ts()):
         self.slat = lat
         self.slon = lon
         self.shdg = hdg
@@ -627,7 +631,7 @@ class Cursor:
         self.st = t
         self.last_tim = t
 
-    def _set_end(self, lat: float, lon: float, hdg: float, speed: float, t: float = datetime.now().timestamp()):
+    def _set_end(self, lat: float, lon: float, hdg: float, speed: float, t: float = ts()):
         self.elat = lat
         self.elon = lon
         self.ehdg = hdg
@@ -647,12 +651,33 @@ class Cursor:
         return self.sspd + ratio * self.delta_spd
 
     def now(self, t: float):
+        # Currently: only linear interposition
+        # between start and end
+        # Future: d += speed * t with avg(speed) for acceleration
         if self.last_tim < self.et:
             self.last_tim = self.last_tim + t
             r = (self.last_tim - self.st) / self.delta_tim
             self.last_pos = self.segment.middle(ratio=r)
             self.last_hdg = self._bearing(ratio=r)
             return self.last_pos, self.last_hdg
-        if self._tick():
+        # if self._tick():
+        #     return self.now(t)
+        # continue with past values, no way to determine the future
+        return self.last_pos, self.last_hdg
+
+    def now2(self, t: float):
+        if self.sspd == 0 and self.espd == 0:
             return self.now(t)
+        # d += speed * t with avg(speed) for acceleration
+        if self.last_tim < self.et:
+            r = (self.last_tim - self.st) / self.delta_tim
+            s = self._speed(ratio=r)
+            d = s * t
+            self.last_hdg = self._bearing(ratio=r)
+            self.last_tim = self.last_tim + t
+            self.last_pos = destination(self.last_pos, self.last_hdg, d)
+            return self.last_pos, self.last_hdg
+        # if self._tick():
+        #     return self.now(t)
+        # continue with past values, no way to determine the future
         return self.last_pos, self.last_hdg

@@ -166,6 +166,7 @@ class Line(Feature):
     def distanceToPoint(self, point) -> float:
         return distanceToLine(point, self.start, self.end)
 
+
 class LineString(Feature):
     def __init__(self, points):
         Feature.__init__(self)

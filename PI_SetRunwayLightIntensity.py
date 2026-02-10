@@ -32,7 +32,7 @@ class PythonInterface:
         return self.Name, self.Sig, self.Desc
 
     def XPluginStop(self) -> None:
-        for v in self.menuIdxs.values(): # sorted(self.menuIdxs.values(), reverse=True)
+        for v in self.menuIdxs.values():  # sorted(self.menuIdxs.values(), reverse=True)
             xp.removeMenuItem(menuID=self.menuIdx, index=v)
         # xp.clearAllMenuItems(menuID=self.menuIdx)
         xp.clearAllMenuItems()
