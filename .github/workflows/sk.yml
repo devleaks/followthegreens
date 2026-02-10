@@ -22,6 +22,7 @@ jobs:
         with:
           key: ${{ github.ref }}
           path: .cache
+      - run: pip install numpy
       - run: python skunkcrafts_file_generator.py
       - uses: stefanzweifel/git-auto-commit-action@v7
         with:
