@@ -160,7 +160,7 @@ Follow the greens.
 
 ## Release 2
 
-- [2.2.0](https://github.com/devleaks/followthegreens/releases) - 09-FEB-2026 - Follow the greens monitors aircraft taxi speed and advise to speed up or slow down.
+- [2.2.0](https://github.com/devleaks/followthegreens/releases) - 10-FEB-2026 - Follow the greens monitors aircraft taxi speed and advise to speed up or slow down.
 - (...development releases...)
 - 2.0.0 - 29-DEC-2025 - Added hooks for FtG _4D_.
 
@@ -172,6 +172,10 @@ Follow the greens.
 - 1.0.0 - 01-APR-2021 - Initial release.
 
 [Detailed Changelog](https://devleaks.github.io/followthegreens/changelog/)
+
+## Downlaods
+
+- Total downloads release 1: 2743
 
 # License
 
