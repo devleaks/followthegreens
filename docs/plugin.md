@@ -1,13 +1,13 @@
 # X-Plane Follow the Greens 4D Plugin
 
 Follow the greens (FtG) is a (real-life) taxiway guidance system.
-It is part of the modern _Advanced Surface Movement Guidance and Control System_ (A-SMGCS).
+It is a modern realization of an _Advanced Surface Movement Guidance and Control System_ (A-SMGCS).
 It currently is implemented in at several large airports like London, Dubai, Munich, Seoul and Frankfurt soon.
 
 The system works by highlighting taxiway lights in front of the aircraft.
 The pilot only has to follow the green lights, and stop on red lights.
 
-But there is more now, there is a 4th dimension.
+In release 2, we brought a 4th dimension to Follow the greens.
 
 Space. The final frontier? _Time_. The ultimate frontier.
 
@@ -44,7 +44,7 @@ Yes 4D. Nowadays, you don’t sell anything if it isn’t 4D or AI-based.
 So FtG is 4D.
 
 After reading [this paper](https://www.sciencedirect.com/science/article/pii/S0968090X19311404),
-I implemented their idea into FtG.
+we implemented their idea into FtG.
 
 In a nutshell, FtG will now monitor your taxi speed and invite you to adjust it.
 It will do so by adjusting the speed of the «rabbit» light (the pulsating light) in front of the aircraft,
@@ -59,12 +59,20 @@ FtG 1 is 2D (lateral guidance on the ground...), FtG 2 adds time information to 
 FtG won’t ask you to fly to your holding position. Yet.
 (🤔 we may here have a definite path for improvement in a future release.)
 
-Follow the greens 4D is an A-SMGCS Level 4 compliant experimental system only used at X-Plane airports.
+Follow the greens 4D is an A-SMGCS Level 4 compliant experimental system only available at X-Plane airports.
 Your local muni included.
 
 Could it be simpler?
 Follow the greens.
 Try to catch the rabbit.
+And you'll never miss your priceless time slot.
+
+
+## Thank You
+
+Follow the greens 4D is no longer a single person effort.
+
+furrer41 and ShaneDD191 have actively contributed to Follow the greens 4D.
 
 
 ## What's New in Release 2
@@ -78,19 +86,21 @@ Release 2 called _Follow the greens 4D_ (FtG4D) adds the following improvements:
 - New commands to interact with FtG4D.
 - FtG4D specific log file created to help improve the plugin in case of misbehavior.
 - A few more goodies to be discovered inside FtG4D.
+- Skunkcrafts updatable. (Thank you Lionel for your help in setting this up.)
 
 
 # Installation
 
-FtG Release 2 will not work on X-Plane 11 because it uses newer X-Plane SDK features
+FtG Release 2 will not work on X-Plane 11 because it uses newer X-Plane SDK 4 features
 available through the latest releases of XPPython3 plugin.
 
 FtG plugin is a _Python_ plugin.
 Therefore, you first need to install the [XPPython3 plugin](https://xppython3.readthedocs.io/en/latest/).
-Release 4.5 or above of the XPPython3 plugin is requested.
+Release 4 or above of the XPPython3 plugin is requested.
 Newer version of XPPython3 contains all you need to run Python plugin,
 including a version of the python language interpreter.
 There is no need to install other software.
+(*There is no need to install a python distribution.*)
 
 Once the XPPython3 plugin is installed and working,
 download the [FtG plugin code](https://github.com/devleaks/followthegreens/releases) and unzip it.
@@ -124,7 +134,7 @@ To select your destination, *first click inside the input text box to set focus 
 If you hit a text key or a number key, selection jumps to the first matching destination.
 Only the *first key you type* is used to jump to the first matching destination.
 
-I apologize for the poor user interface.
+We apologize for the poor user interface.
 It is developed with standard X-Plane user interface elements,
 which do not include sophisticated widgets like menu boxes.
 
@@ -132,6 +142,24 @@ The (main and unique) user interface window of _Follow the greens_ is designed t
 Select Follow the greens in the plugin menu to display it again.
 
 You can assign Follow the greens actions to keys or buttons so that you never have to use the mouse to acknowledge a message.
+
+
+# Follow Me Car Alternative
+
+In release 12.4, Laminar has been strengthening plugin management.
+As a consequence, some older plugins no longer work leaving simmers without their favorite add-ons.
+Notably, Stairport Sceneries’ Scenery Animation Manager (SAM) has stopped working and as been blacklisted by Laminar.
+Replacement of some of SAM modules have already been developed (openSAM for jetway management for example).
+Other people were using SAM Follow Me car to get guidance on the ground, and have now lost that possibility.
+
+Follow the greens is a modern alternative to Follow Me car only available at large airports in real life,
+but available at most airports in X-Plane.
+
+Rather than being guided by a car in front of the aircraft, let’s get guided by a line of dynamic green lights
+that will lead you to your departing runway, or to your assigned parking stand.
+On time.
+
+Same goal, different method.
 
 
 # Help
@@ -173,9 +201,10 @@ Follow the greens.
 
 [Detailed Changelog](https://devleaks.github.io/followthegreens/changelog/)
 
-## Downlaods
+## Downloads
 
-- Total downloads release 1: 2743
+- Total downloads release 1: 2743 on 10-FEB-2026
+
 
 # License
 
@@ -196,3 +225,13 @@ The new *4D* release monitors aircraft taxi speed and invite the pilot to adapt 
 by adjusting the speed and the length of the run of the «rabbit» light (pulsating light) in front of the aircraft.
 If the rabbit runs fast and far, pilot can safely accelerate the taxi pace.
 If the rabbit is slow and short, pilot should slow down because nearing a sharp turn or a mandatory stop.
+
+In release 12.4, Laminar has been strengthening plugin management. As a consequence, some older plugins no longer work leaving simmers without their favorite add-ons. Notably, Stairport Sceneries’ Scenery Animation Manager (SAM) has stopped working and as been blacklisted by Laminar. Replacement of some of SAM modules have already been developed (openSAM for jetway management for example). Other people were using SAM Follow Me car to get guidance on the ground, and have now lost that possibility.
+
+Follow the greens is a modern alternative to Follow Me car only available at large airports in real life, but available at most airports in X-Plane.
+
+Rather than being guided by a car in front of the aircraft, let’s get guided by a line of dynamic green lights that will lead you to your departing runway, or to your assigned parking stand.
+
+Same goal, different method.
+
+Taxi safely.

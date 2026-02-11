@@ -1,19 +1,9 @@
 
 # Current, X-Plane 12 Only
 
-- [2.2.0](https://github.com/devleaks/followthegreens/releases) - XX-XXX-2026 - Follow the greens monitors aircraft taxi speed and advise to speed up or slow down.
-
+- [2.2.0](https://github.com/devleaks/followthegreens/releases) - 10-FEB-2026 - Follow the greens monitors aircraft taxi speed and advise to speed up or slow down.
 
 ## Releases 2.0.0 to 2.2.0 are internal development releases
-
-- [2.1.22](https://github.com/devleaks/followthegreens/releases) - 27-JAN-2026 - Monitoring aircraft speed, recommending target speed range from position to next turn.
-
-- ... (development intermediate commits)
-- 2.1.0 - 07-JAN-2026 - Estimate optimal speed range from distance to next significant turn.
-- ... (development intermediate commits)
-- 2.0.2 - 06-JAN-2026 - Added aircraft ground speed monitoring and comparison to static speed.
-- 2.0.1 - 02-JAN-2026 - Added 5 commands to speed up or slow down rabbit.
-- 2.0.0 - 29-DEC-2025 - Added hooks for 4D FtG, updated README.
 
 # Older releases, X-Plane 11, X-Plane 12
 
