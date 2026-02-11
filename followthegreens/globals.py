@@ -156,6 +156,8 @@ MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from spac
 # Second number must be larger than 45 to leave room for 3 lines of text
 HUD_POSITION = [220, 50]
 
+SHOW_CLEARANCE_POPUP = True
+
 
 # AIRPORT/AERONAUTICAL CONSTANTS
 #
@@ -325,7 +327,7 @@ class LIGHT_TYPE(StrEnum):  # DO NOT CHANGE
     VERTEX = "VERTEX"
     DEFAULT = "DEFAULT"
     ACTIVE = "ACTIVE"
-    # RUNWAY = "RUNWAY"  # on runway
+    RUNWAY = "RUNWAY"  # runway entry guard light
     # ACTIVE_DEP = "ACTIVE_DEP"  # current edge is active for departure
     # ACTIVE_ARR = "ACTIVE_ARR"
     # ACTIVE_ILS = "ACTIVE_ILS"
@@ -345,6 +347,7 @@ LIGHT_TYPE_OBJFILES = {
     LIGHT_TYPE.LAST: "green.obj",
     LIGHT_TYPE.DEFAULT: "white.obj",
     LIGHT_TYPE.ACTIVE: "green.obj",
+    LIGHT_TYPE.RUNWAY: "runway.obj",
     # LIGHT_TYPE.RUNWAY: "green.obj",
     # LIGHT_TYPE.ACTIVE_DEP: "green.obj",
     # LIGHT_TYPE.ACTIVE_ARR: "green.obj",
@@ -472,6 +475,11 @@ def get_global(name: str, preferences: dict = {}) -> Any:
     # if name not in preferences:
     #     logger.debug(f"name {name} not in preferences, using global {globals().get(name)}")
     return preferences.get(name, globals().get(name))
+
+
+def get_global_with_default(name: str, preferences: dict = {}, default: Any = None) -> Any:
+    # Returns default if no global found
+    return preferences.get(name, globals().get(name, default))
 
 
 def minsec(t: float) -> str:

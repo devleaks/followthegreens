@@ -6,7 +6,7 @@ import re
 import math
 from typing import Tuple
 
-from .geo import FeatureCollection, Point, Line, Polygon, destination, distance, pointInPolygon
+from .geo import FeatureCollection, Point, Line, Polygon, destination, distance, bearing, turn, pointInPolygon, nearestPointToLines
 from .graph import Graph, Edge, Vertex
 from .globals import (
     logger,
@@ -39,7 +39,7 @@ class Runway(Line):
         self.overrun = float(dbo)
         if pol is None:
             if width is not None and width > 0:
-                self.polygon = Polygon.mkPolygon(lat, lon, lat2, lon2, width)
+                self.polygon = Polygon.new(lat, lon, lat2, lon2, width)
         else:
             self.polygon = pol
         self.threshold = self.start
@@ -66,7 +66,7 @@ class Runway(Line):
         # Select vertices from segments that are not runway
         # Select vertices that are "inside" a buffer around the runway
         # Select the vertex closest to the start or threshold
-        buffer = Polygon.mkPolygon(self.start.lat, self.start.lon, self.end.lat, self.end.lon, RUNWAY_BUFFER_WIDTH)
+        buffer = Polygon.new(self.start.lat, self.start.lon, self.end.lat, self.end.lon, RUNWAY_BUFFER_WIDTH)
         candidates = set()
         for e in graph.edges_arr:
             if e.usage == TAXIWAY_TYPE.TAXIWAY:
@@ -441,7 +441,7 @@ class Airport:
         for aptline in self.lines:
             if aptline.linecode() == 100:  # runway
                 args = aptline.content().split()
-                runway = Polygon.mkPolygon(lat1=args[8], lon1=args[9], lat2=args[17], lon2=args[18], width=float(args[0]))
+                runway = Polygon.new(lat1=args[8], lon1=args[9], lat2=args[17], lon2=args[18], width=float(args[0]))
                 runways[args[7]] = Runway(name=args[7], width=args[0], lat=args[8], lon=args[9], dt=args[10], dbo=args[11], lat2=args[17], lon2=args[18], pol=runway)
                 runways[args[16]] = Runway(name=args[16], width=args[0], lat=args[17], lon=args[18], dt=args[19], dbo=args[20], lat2=args[8], lon2=args[9], pol=runway)
 
@@ -527,7 +527,7 @@ class Airport:
                 if width is None:
                     polygon = rwy.polygon
                 else:  # make a larger area around/along runway (larger than runway width)
-                    polygon = Polygon.mkPolygon(rwy.start.lat, rwy.start.lon, rwy.end.lat, rwy.end.lon, float(width))
+                    polygon = Polygon.new(rwy.start.lat, rwy.start.lon, rwy.end.lat, rwy.end.lon, float(width))
                 if polygon is not None:
                     if pointInPolygon(point, polygon):
                         d = abs(heading - rwy.bearing())
@@ -551,7 +551,7 @@ class Airport:
             if width is None:
                 polygon = rwy.polygon
             else:  # make a larger area around/along runway (larger than runway width)
-                polygon = Polygon.mkPolygon(rwy.start.lat, rwy.start.lon, rwy.end.lat, rwy.end.lon, float(width))
+                polygon = Polygon.new(rwy.start.lat, rwy.start.lon, rwy.end.lat, rwy.end.lon, float(width))
             if polygon is not None:
                 if pointInPolygon(point, polygon):
                     logger.debug(f"on {name}, no orientation (rwy width={rwy.width}m)")
@@ -642,13 +642,14 @@ class Airport:
             route.runway = arrival_runway
             logger.debug(f"route {route.text(destination=destination)}")
 
+            route.mkVertices()  # load vertex meta for route
             route.mkEdges()  # compute segment distances
             route.mkTurns()  # compute turn angles at end of segment
             route.mkTiming(speed=aircraft.avgTaxiSpeed())  # compute total time left to reach destination
             route.mkDistToBrake()  # distance before significant turn
-            # logger.debug(
-            #     f"control: v={len(route.route)}, e={len(route.edges)}, t={len(route.turns)}, b={len(route.dtb)}, a={len(route.dtb_at)}, d={len(route.dleft)}, l={len(route.tleft)}"
-            # )
+            logger.debug(
+                f"control: r={len(route.route)}, v={len(route.vertices)}, e={len(route.edges)}, turns={len(route.turns)}, brk={len(route.dtb)}, atbrk={len(route.dtb_at)}, d={len(route.dleft)}, t={len(route.tleft)}"
+            )
             if logger.level < 10:
                 fn = os.path.join(os.path.dirname(__file__), "..", "ftg_route.geojson")  # _{route.route[0]}-{route.route[-1]}
                 fc = FeatureCollection(features=route.features())
@@ -738,6 +739,8 @@ class Route:
         self.smoothed = None
         self.algorithm = ROUTING_ALGORITHM  # default, unused
         self.runway = None
+        self.precise_start = None
+        self.precise_end = None
 
     def __str__(self):
         if self.found():
@@ -755,12 +758,14 @@ class Route:
             v.setProp("tobrake", self.dtb[i])
             v.setProp("tobrake_index", self.dtb_at[i])
             f = v.feature()
+            f["properties"]["marker-size"] = "medium"
             if abs(self.turns[i]) > TURN_LIMIT:
                 f["properties"]["marker-color"] = "#006600"  # dark green
             else:
                 f["properties"]["marker-color"] = "#00FF00"  # green
             features.append(f)
             e = self.graph.get_edge(self.route[i], self.route[i + 1])
+            e.setProp("index", i)
             features.append(e.feature())
         return features
 
@@ -783,9 +788,18 @@ class Route:
             return self.dleft[idx], self.tleft[idx]
         return 0, 0
 
+    def before_route(self):
+        # Original point to first vertex
+        return Line(start=self.precise_start, end=self.vertices[0])
+
+    def after_route(self):
+        # Last vertex to destination
+        return Line(start=self.vertices[-1], end=self.precise_end)
+
     def mkEdges(self):
         # From liste of vertices, build list of edges
         # but also set the size of the taxiway in the vertex
+        # note: edges[k] starts at vertices[k]
         self.edges = []
         for i in range(len(self.route) - 1):
             e = self.graph.get_edge(self.route[i], self.route[i + 1])
@@ -817,7 +831,11 @@ class Route:
         # Idea: while walking the lights, determine how far is next turn (position to vertex) and how much it will turn.
         #       when closing to edge, invide to slow down if turn is important
         #       if turn is unimportant, anticipate to next vertex
-        self.turns = [0]
+        # note: at vertices[k], there is a turn from vertices[k-1] to vertices[k+1]
+        # origin to first vertex
+        b1 = bearing(self.precise_start, self.vertices[0])
+        b2 = bearing(self.vertices[0], self.vertices[1])
+        self.turns = [turn(b1, b2)]
         v0 = self.graph.get_vertex(self.route[0])
         v1 = self.graph.get_vertex(self.route[1])
         for i in range(1, len(self.route) - 1):
@@ -825,19 +843,33 @@ class Route:
             self.turns.append(v1.turn(v0, v2))
             v0 = v1
             v1 = v2
+        # last vertex to destination
+        b1 = bearing(self.vertices[-2], self.vertices[-1])
+        b2 = bearing(self.vertices[-1], self.precise_end)
+        self.turns.append(turn(b1, b2))
         logger.debug(f"turns at vertex: {[round(t, 0) for t in self.turns]}")
 
     def mkDistToBrake(self):
         # for each vertex, write the distance to the next vertex
         # where there is a reason to slow down at that vertex: Either a sharp turn (> SMALL_TURN_LIMIT), or a stop bar (later).
+        # note: at vertices[k], there is self.dtb[k] distance left to turn at self.dtb_at[k]
+        #       (there may be a turn at vertices[k] itself, in turns[k])
         if self.turns is None or len(self.turns) == 0:
             return
         self.dtb = []
         self.dtb_at = []
         total = 0
-        next_at = 0
+        next_at = len(self.route) - 1
         self.dtb.append(total)  # at last vertex, no distance to next turn
-        for i in range(len(self.route) - 1, 0, -1):
+        self.dtb_at.append(next_at)  # at last vertex, next turn is at last vertex
+        # for i in range(len(self.route) - 1, 0, -1):
+        #     total = total + self.edges[i - 1].cost
+        #     self.dtb.append(total)
+        #     self.dtb_at.append(next_at)
+        #     if abs(self.turns[i - 1]) > SMALL_TURN_LIMIT:
+        #         next_at = i - 1
+        #         total = 0
+        for i in range(len(self.edges), 0, -1):
             total = total + self.edges[i - 1].cost
             self.dtb.append(total)
             self.dtb_at.append(next_at)
@@ -845,7 +877,6 @@ class Route:
                 next_at = i - 1
                 total = 0
         self.dtb.reverse()
-        # self.dtb_at.append(self.dtb_at[-1])
         self.dtb_at.reverse()
         logger.debug(f"distance before turn brake at vertex: {[round(e, 1) for e in self.dtb]}")
         logger.debug(f"next turn brake at vertex: {[e for e in self.dtb_at]}")
@@ -859,10 +890,10 @@ class Route:
         self.tleft = []
         total = 0
         penalty = 0
-        for i in range(len(self.edges) - 1, 0, -1):
+        for i in range(len(self.edges), 0, -1):
             self.tleft.append(total)
-            total = total + self.edges[i].cost / speed
-            if abs(self.turns[i]) > TURN_ANGLE:
+            total = total + self.edges[i - 1].cost / speed
+            if abs(self.turns[i - 1]) > TURN_ANGLE:
                 total = total + TURN_PENALTY
                 penalty = penalty + 1
         self.tleft.append(total)
@@ -1012,6 +1043,7 @@ class Route:
             logger.debug("plane could not be located")
             return self.found()
         pos_pt = Point(pos[0], pos[1])
+        self.precise_start = pos_pt
         logger.debug(f"..got starting position {pos}..")
 
         src = None
@@ -1053,17 +1085,21 @@ class Route:
                 if use_threshold:
                     logger.debug("departure destination: using runway threshold")
                     dst = self.graph.findClosestVertex(dst_pos.threshold)
+                    self.precise_end = dst_pos.threshold
                 else:
                     logger.debug("departure destination: using end of runway")
                     dst = self.graph.findClosestVertex(dst_pos.start)
+                    self.precise_end = dst_pos.start
             elif dst_type == "hold":
                 dst = self.graph.findClosestVertex(dst_pos)
+                self.precise_end = dst_pos
             else:
                 logger.warning("departure destination is not a runway or a hold position")
         else:  # arrival, dst_type == "stand"
             if dst_type != "stand":
                 logger.warning("arrival destination is not a stand")
             dst = self.graph.findClosestVertex(dst_pos)
+            self.precise_end = dst_pos
 
         if dst is None:
             logger.debug("no return from findClosestVertex")
@@ -1077,3 +1113,80 @@ class Route:
         logger.debug("..got destination vertex..")
 
         return self._find(src[0], dst[0])
+
+    def progress(self, position, edge, dist_to_travel: float):  # -> Point, bearing, finished
+        # position is on edge.
+        # travels dist_to_travel on route from position
+        # returns new position or end of route
+        logger.log(9, f"enter position={position.coords()}, edge={edge.start.id}-{edge.end.id}, distance={dist_to_travel}")
+        distance_left = dist_to_travel
+        # 1. Find route index of first edge and orientation of first edge
+        i = 0
+        start = -1
+        edge_bearing = edge.bearing()
+        edge_end = edge.end
+        rev = ""
+        while start == -1 and i < len(self.route):
+            if self.route[i] == edge.start.id:
+                start = i
+            if self.route[i] == edge.end.id:
+                logger.log(9, "first edge is reversed")
+                start = i
+                edge_end = edge.start
+                edge_bearing = edge_bearing + 180
+                rev = " reversed"
+            i = i + 1
+        i = i - 1
+        logger.log(9, f"at route index {i}")
+
+        # must project position on edge
+        pos_on_edge, dist = nearestPointToLines(position, [edge])
+        if pos_on_edge is None:
+            logger.log(9, "could not position on edge")
+            pos_on_edge = position
+        else:
+            logger.log(9, f"position on edge at {round(dist, 1)}m")
+        d = distance(pos_on_edge, edge_end)  # distance remaning on edge
+        logger.log(9, f"on route edge {i} {edge.start.id}-{edge.end.id}{rev},length={round(edge.cost, 1)}m), at {round(d, 1)}m from edge end")
+
+        # 2. travel on same edge..
+        if distance_left < d:  # moving on edge only
+            logger.log(9, f"travelling {round(distance_left, 1)}m on same edge, remaining {round(d - distance_left, 1)} to end of edge")
+            newpos = destination(pos_on_edge, edge_bearing, distance_left)
+            logger.log(9, f"reached destination on edge at {newpos.coords()}, {round(edge_bearing)}")
+            return newpos, edge_bearing, False
+
+        distance_left = distance_left - d
+        logger.log(9, f"travelling {round(d, 1)}m to end of edge {i}, left to travel={round(distance_left, 1)}m")
+
+        # 3. skipping whole edges
+        i = i + 1  # next edge
+        while i < len(self.edges) and distance_left > self.edges[i].cost:
+            distance_left = distance_left - self.edges[i].cost
+            logger.log(9, f"travelling entire edge {i} {round(self.edges[i].cost, 1)}m, left to travel={round(distance_left, 1)}m")
+            i = i + 1
+
+        # 3a. if end reached, return end
+        if i == len(self.edges):
+            hdg = self.edges[-1].bearing(orig=self.vertices[-2])
+            logger.log(9, f"reached end of route at {self.vertices[-1].coords()} (last vertex), {round(hdg)}")
+            return self.vertices[-1], hdg, True
+
+        # 4. travel part of current edge
+        edge_start = self.edges[i].start
+        rev = ""
+        logger.log(9, f"on edge {i} at vertice {self.vertices[i].id} edge={self.edges[i].start.id}-{self.edges[i].end.id}")
+        # current edge orientation
+        if self.vertices[i] == self.edges[i].end:
+            logger.log(9, f"edge {i} is reversed")
+            rev = "reversed, "
+            edge_start = self.edges[i].end
+        hdg = self.edges[i].bearing(orig=edge_start)
+        logger.log(
+            9,
+            f"need to travel {round(distance_left, 1)}m on edge {i} ({rev}length={round(self.edges[i].cost, 1)}, bearing={round(hdg)}), remaining {round(self.edges[i].cost - distance_left, 1)}m to travel on edge",
+        )
+        newpos = destination(edge_start, hdg, distance_left)
+        logger.log(9, f"reached destination at {newpos.coords()}, {round(hdg)}")
+
+        return newpos, hdg, False
