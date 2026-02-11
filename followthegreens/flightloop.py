@@ -2,7 +2,6 @@
 # We currently have two loops, one for rabbit, one to monitor aircraft position.
 #
 from datetime import datetime, timedelta, timezone
-import numpy
 
 try:
     import xp
@@ -22,7 +21,7 @@ from .globals import (
     AMBIANT_RWY_LIGHT_CMDROOT,
     AMBIANT_RWY_LIGHT,
 )
-from .geo import EARTH, Point, Line, destination, distance
+from .geo import EARTH, Point, distance
 
 
 # Hardcaded here, not preferences
@@ -30,11 +29,6 @@ MAX_UPDATE_FREQUENCY = 10  # seconds, rabbit cannot change again more that 8 sec
 STOPPED_SPEED = 0.01  # m/s, under that speed, things are considered stopped, not moving.
 MIN_DIST = 100  # meters, minimum distance to move to consider object is actually moving
 MIN_SPEED = 3  # m/sec., minimum speed to consider object is actually moving significantly
-PUSH_WHITE = False
-
-
-def ts() -> float:
-    return datetime.now().timestamp()
 
 
 class FlightLoop:
@@ -97,9 +91,6 @@ class FlightLoop:
         if not self.planeRunning:
             self.flplane = xp.createFlightLoop(callback=self.planeFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refplane)
             xp.scheduleFlightLoop(self.flplane, self.nextIter, 1)
-            if PUSH_WHITE:
-                self.flcursor = xp.createFlightLoop(callback=self.cursorFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refcursor)
-                xp.scheduleFlightLoop(self.flcursor, self.nextIter, 1)
             self.planeRunning = True
             logger.debug(f"aircraft tracking started (iter={self.nextIter})")
             # if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
@@ -132,8 +123,6 @@ class FlightLoop:
 
         if self.planeRunning:
             xp.destroyFlightLoop(self.flplane)
-            if PUSH_WHITE:
-                xp.destroyFlightLoop(self.flcursor)
             self.planeRunning = False
             logger.debug("aircraft tracking stopped")
             # if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
@@ -462,17 +451,6 @@ class FlightLoop:
 
         ahead = 200.0  #
         if self.actual_start is None:
-            if PUSH_WHITE and self.cursor is None:
-                try:
-                    start = self.ftg.route.vertices[0]
-                    logger.debug(f"first position (id={start.id})..")
-                    now = ts()
-                    self.cursor = Cursor(lat=start.lat, lon=start.lon, hdg=self.ftg.route.edges[0].bearing(orig=start), speed=0, t=now)
-                    car_pos, car_orient, finished = self.ftg.route.progress(start, self.ftg.route.edges[0], ahead)
-                    self.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=now + 20)
-                    logger.debug("..done")
-                except:
-                    logger.debug("..error", exc_info=True)
             if self.ftg.aircraft.moved() > MIN_DIST or self.ftg.aircraft.speed() > MIN_SPEED:
                 self.taxiStart()
             else:
@@ -515,17 +493,6 @@ class FlightLoop:
             return self.adjustedIter()
 
         self.closestLight_cnt = 0
-
-        if PUSH_WHITE and self.cursor is not None:
-            logger.debug("moving..")
-            try:
-                light = self.ftg.lights.lights[closestLight]
-                logger.debug(f"close light={closestLight}, edge index={light.edgeIndex}")
-                car_pos, car_orient, finished = self.ftg.route.progress(position=Point(lat=pos[0], lon=pos[1]), edge=self.ftg.route.edges[light.edgeIndex], dist_to_travel=ahead)
-                self.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=ts() + self.lastIter)
-                logger.debug("..moved")
-            except:
-                logger.debug("..error", exc_info=True)
 
         if self.hasRabbit():
             self.adjustRabbit(position=pos, closestLight=closestLight)  # Here is the 4D!
@@ -573,111 +540,3 @@ class FlightLoop:
                 logger.debug("error", exc_info=True)
             return 5.0
         return 1.0
-
-
-class Cursor:
-    # Linear interpolator
-
-    def __init__(self, lat: float, lon: float, hdg: float, speed: float, t: float = ts()) -> None:
-        # start and end values
-        self.slat = 0
-        self.slon = 0
-        self.shdg = 0
-        self.sspd = 0
-        self.st = 0
-
-        self.elat = lat
-        self.elon = lon
-        self.ehdg = hdg
-        self.espd = speed
-        self.et = t
-
-        # working var for interpolation
-        self._future = []
-        self.segment: Line | None = None
-        self.last_tim = t
-        self.last_pos = None
-        self.last_hdg = None
-        self.delta_tim = 0.0
-        self.delta_hdg = 0.0
-        self.delta_spd = 0.0
-
-    # def future(self, lat: float, lon: float, hdg: float, speed: float, t: float = ts(), tick: bool = True):
-    #     self._future.append((lat, lon, hdg, speed, t))
-    #     if tick:
-    #         self._tick()
-    def future(self, lat: float, lon: float, hdg: float, speed: float, t: float = ts()):
-        self._set_start(self.elat, self.elon, self.ehdg, self.espd, self.et)
-        self._set_end(lat, lon, hdg, speed, t)
-        self._mkLine()
-
-    # def _tick(self):
-    #     if len(self._future) > 0:
-    #         old = self.st
-    #         self._set_start(self.elat, self.elon, self.ehdg, self.espd, self.et)
-    #         f = self._future[0]
-    #         logger.debug(f"tick {round(old, 3)} -> {round(self.st, 3)} -> {round(f[-1], 3)}")
-    #         self._set_end(*f)
-    #         del self._future[0]
-    #         self._mkLine()
-    #         return True
-    #     return False
-
-    def _set_start(self, lat: float, lon: float, hdg: float, speed: float, t: float = ts()):
-        self.slat = lat
-        self.slon = lon
-        self.shdg = hdg
-        self.sspd = speed
-        self.st = t
-        self.last_tim = t
-
-    def _set_end(self, lat: float, lon: float, hdg: float, speed: float, t: float = ts()):
-        self.elat = lat
-        self.elon = lon
-        self.ehdg = hdg
-        self.espd = speed
-        self.et = t
-
-    def _mkLine(self):
-        self.segment = Line(start=Point(lat=self.slat, lon=self.slon), end=Point(lat=self.elat, lon=self.elon))
-        self.delta_tim = self.et - self.st
-        self.delta_hdg = self.ehdg - self.shdg
-        self.delta_spd = self.espd - self.sspd
-
-    def _bearing(self, ratio):
-        return self.shdg + ratio * self.delta_hdg
-
-    def _speed(self, ratio):
-        return self.sspd + ratio * self.delta_spd
-
-    def now(self, t: float):
-        # Currently: only linear interposition
-        # between start and end
-        # Future: d += speed * t with avg(speed) for acceleration
-        if self.last_tim < self.et:
-            self.last_tim = self.last_tim + t
-            r = (self.last_tim - self.st) / self.delta_tim
-            self.last_pos = self.segment.middle(ratio=r)
-            self.last_hdg = self._bearing(ratio=r)
-            return self.last_pos, self.last_hdg
-        # if self._tick():
-        #     return self.now(t)
-        # continue with past values, no way to determine the future
-        return self.last_pos, self.last_hdg
-
-    def now2(self, t: float):
-        if self.sspd == 0 and self.espd == 0:
-            return self.now(t)
-        # d += speed * t with avg(speed) for acceleration
-        if self.last_tim < self.et:
-            r = (self.last_tim - self.st) / self.delta_tim
-            s = self._speed(ratio=r)
-            d = s * t
-            self.last_hdg = self._bearing(ratio=r)
-            self.last_tim = self.last_tim + t
-            self.last_pos = destination(self.last_pos, self.last_hdg, d)
-            return self.last_pos, self.last_hdg
-        # if self._tick():
-        #     return self.now(t)
-        # continue with past values, no way to determine the future
-        return self.last_pos, self.last_hdg
