@@ -382,7 +382,10 @@ The shortest path is .. the shortest.
 It is not the path with the less turn, or the more logical path, it is the shortest.
 If the proposed path does not follow desired path, engage the path you desire,
 progress a little on that path and then, in the dialog box,
-select the «New greens» button to recompute a new path from your current position.
+select the _«New greens»_ button to recompute a new path from your current position.
+This is specially true on landing where FtG4D often have you leave the runway
+with a sharp 135° turn. Just run a bit further one and ask for a new green.
+It will eventually pick up the next runway exit.
 
 
 # FtG Control and Monitoring

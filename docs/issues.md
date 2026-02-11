@@ -15,6 +15,6 @@ First exit is more than 500m away.
 
 Workaround:
 
-Let aricraft moving forward until it is less that 500m away from taxiway vertex.
+Let the aircraft moving forward until it is less that 500m away from taxiway vertex.
 
 
