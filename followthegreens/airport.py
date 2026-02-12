@@ -1114,7 +1114,7 @@ class Route:
 
         return self._find(src[0], dst[0])
 
-    def progress(self, position, edge, dist_to_travel: float, lights = None):  # -> Point, bearing, finished
+    def progress(self, position, edge, dist_to_travel: float, lights=None):  # -> Point, bearing, finished
         # project position on edge,
         # travels dist_to_travel on route from position
         # returns new position or end of route
@@ -1167,7 +1167,10 @@ class Route:
                 maxlights = len(lights.lights) - 1
                 lightidx = min(closestLight + idxshift, maxlights)
                 light = lights.lights[lightidx]
-                logger.log(9, f"approximation: light {closestLight} -> {lightidx} ({lightidx-closestLight+1} x {round(lights.distance_between_lights, 1)}m), {round(dist_to_travel % lights.distance_between_lights, 1)}")
+                logger.log(
+                    9,
+                    f"approximation: light {closestLight} -> {lightidx} ({lightidx-closestLight+1} x {round(lights.distance_between_lights, 1)}m), {round(dist_to_travel % lights.distance_between_lights, 1)}",
+                )
                 return light.position, light.heading, lightidx == maxlights
 
         # 2. travel on same edge..

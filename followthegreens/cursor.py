@@ -204,7 +204,6 @@ class Cursor:
         hdg = self._bearing(ratio=r)
         self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=hdg)
 
-
     def move_current_position(self, lat: float, lon: float, hdg: float):
         if self.curr_pos is None:
             return

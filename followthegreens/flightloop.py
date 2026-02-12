@@ -535,7 +535,9 @@ class FlightLoop:
                 light = self.ftg.lights.lights[closestLight]
                 logger.debug(f"close light={closestLight}, edge index={light.edgeIndex}")
                 ahead = self.dynamic_ahead()  # will tune later on, based on speed, turn/stop ahead
-                car_pos, car_orient, finished = self.ftg.route.progress(position=Point(lat=pos[0], lon=pos[1]), edge=self.ftg.route.edges[light.edgeIndex], dist_to_travel=ahead, lights=self.ftg.lights)
+                car_pos, car_orient, finished = self.ftg.route.progress(
+                    position=Point(lat=pos[0], lon=pos[1]), edge=self.ftg.route.edges[light.edgeIndex], dist_to_travel=ahead, lights=self.ftg.lights
+                )
                 later = datetime.now().timestamp() + nextIter
                 self.ftg.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=later)
                 logger.debug("..moved")
