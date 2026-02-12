@@ -447,8 +447,13 @@ class FlightLoop:
             logger.error("set rabbitMode", exc_info=True)
 
     def dynamic_ahead(self) -> float:
-        s = self.ftg.aircraft.speed()  # m/s, [~3, ~20]
-        return 70 + s * 15.0
+        # Aircraft length (because position is center of aircraft)
+        # + 1.5 aircraft length in front ogf aircrafy
+        # + 15m per m/s of speed
+        #
+        acfspd = self.ftg.aircraft.speed()  # m/s, [~3, ~20]
+        acflen = self.ftg.aircraft.acflength if self.ftg.aircraft.acflength is not None else 50
+        return acflen * 2.5 + acfspd * 15.0
 
     def planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
@@ -497,8 +502,10 @@ class FlightLoop:
         # logger.debug(
         #     f"control: last iter={self.lastIter}, elapsedSinceLastCall={elapsedSinceLastCall}, counter={counter}, elapsedTimeSinceLastFlightLoop={elapsedTimeSinceLastFlightLoop}"
         # )
+        acf_speed = self.ftg.aircraft.speed()
+        acf_move = acf_speed * self.lastIter
         self.total_time = self.total_time + self.lastIter
-        self.total_dist = self.total_dist + self.ftg.aircraft.speed() * self.lastIter
+        self.total_dist = self.total_dist + acf_speed * self.lastIter
 
         # @todo: WARNING_DISTANCE should be computed from acf type (weigth, size) and speed
         nextStop, warn = self.ftg.lights.toNextStop(pos)
@@ -533,13 +540,16 @@ class FlightLoop:
             logger.debug("moving..")
             try:
                 light = self.ftg.lights.lights[closestLight]
-                logger.debug(f"close light={closestLight}, edge index={light.edgeIndex}")
-                ahead = self.dynamic_ahead()  # will tune later on, based on speed, turn/stop ahead
+                ahead = self.dynamic_ahead()
+                total_ahead = acf_move + ahead
+                logger.debug(f"close light={closestLight}, edge index={light.edgeIndex}, ahead={round(ahead, 1)}m + acf move={round(acf_move, 1)}m")
+                # At next iteration, acf will move acf_move, and cursor need to be ahead
+                # So at next iteration (t=now + iterTime), car need to be (acf_move+ahead) in front
                 car_pos, car_orient, finished = self.ftg.route.progress(
-                    position=Point(lat=pos[0], lon=pos[1]), edge=self.ftg.route.edges[light.edgeIndex], dist_to_travel=ahead, lights=self.ftg.lights
+                    position=Point(lat=pos[0], lon=pos[1]), edge=self.ftg.route.edges[light.edgeIndex], dist_to_travel=total_ahead, lights=self.ftg.lights
                 )
                 later = datetime.now().timestamp() + nextIter
-                self.ftg.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=later)
+                self.ftg.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=acf_speed, t=later)
                 logger.debug("..moved")
             except:
                 logger.debug("..error", exc_info=True)

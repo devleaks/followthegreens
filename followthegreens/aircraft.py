@@ -188,11 +188,11 @@ class Aircraft:
         # These preferences are specific for an aircraft
         a = self.aircaftPreferences()
         r = self.rabbitPreferences()
-        acflength = a.get(AIRCRAFT.AVG_LENGTH, 50)  # meters
+        self.acflength = a.get(AIRCRAFT.AVG_LENGTH, 50)  # meters
         self.lights_ahead = r.get(RABBIT.LIGHTS_AHEAD, 120)  # meters
         # self.lights_ahead = self.lights_ahead + acflength  # meters
         self.rabbit_length = r.get(RABBIT.LENGTH, 100)  # meters
-        self.rabbit_length = self.rabbit_length + acflength  # meters
+        self.rabbit_length = self.rabbit_length + self.acflength  # meters
         self.rabbit_speed = r.get(RABBIT.SPEED, 0.2)  # seconds
         # If modified in preference file
         self.setPreferences()
@@ -212,7 +212,7 @@ class Aircraft:
 
     def setPreferences(self):
         a = self.aircaftPreferences()
-        acflength = a.get(AIRCRAFT.AVG_LENGTH, 50)  # meters
+        self.acflength = a.get(AIRCRAFT.AVG_LENGTH, 50)  # meters
         # note: light count starts at the center of the aircraft.
         #       if the aircraft is 40m in length, 16m between lights,
         #       2 or more lights are not visible since under the aircraft.
@@ -255,10 +255,10 @@ class Aircraft:
                 self.rabbit_speed = prefs[RABBIT.SPEED.value]
 
         if self.rabbit_length > 0:  # == 0 = no rabbit
-            self.rabbit_length = self.rabbit_length + acflength  # meters
+            self.rabbit_length = self.rabbit_length + self.acflength  # meters
         if self.lights_ahead > 0:  # == 0 = whole path
-            self.lights_ahead = self.lights_ahead + acflength  # meters
-        logger.debug(f"AIRCRAFT rabbit (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={acflength}m)")
+            self.lights_ahead = self.lights_ahead + self.acflength  # meters
+        logger.debug(f"AIRCRAFT rabbit (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={self.acflength}m)")
 
     def position(self) -> list:
         return [xp.getDataf(self.lat), xp.getDataf(self.lon)]

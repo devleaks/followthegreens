@@ -1118,7 +1118,7 @@ class Route:
         # project position on edge,
         # travels dist_to_travel on route from position
         # returns new position or end of route
-        logger.log(9, f"enter position={position.coords()}, edge={edge.start.id}-{edge.end.id}, distance={dist_to_travel}")
+        logger.log(9, f"enter edge={edge.start.id}-{edge.end.id}, to travel={round(dist_to_travel, 1)}m, position={position.coords()}")
         distance_left = dist_to_travel
         # 1. Find route index of first edge and orientation of first edge
         i = 0
