@@ -5,7 +5,7 @@ followthegreens/__init__.py|571708981
 followthegreens/aircraft.py|1779741375
 followthegreens/airport.py|1080465598
 followthegreens/cursor.py|2979466792
-followthegreens/flightloop.py|3051128342
+followthegreens/flightloop.py|850354493
 followthegreens/followthegreens.py|1899931550
 followthegreens/geo.py|1754534338
 followthegreens/globals.py|2236895581
