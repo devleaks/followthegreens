@@ -435,6 +435,7 @@ class LightString:
             light.position.setProp("marker-color", "#00ff00")
             light.position.setProp("marker-size", "small")
             light.position.setProp("edgeIndex", light.edgeIndex)
+            light.position.setProp("distFromEdgeStart", round(light.distFromEdgeStart, 2))
             light.position.setProp("lightIndex", i)
             i = i + 1
             fc.append(light.position.feature())

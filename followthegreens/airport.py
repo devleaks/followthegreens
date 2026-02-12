@@ -6,8 +6,6 @@ import re
 import math
 from typing import Tuple
 
-from .geo import FeatureCollection, Point, Line, Polygon, destination, distance, bearing, turn, pointInPolygon, nearestPointToLines
-from .graph import Graph, Edge, Vertex
 from .globals import (
     logger,
     get_global,
@@ -22,6 +20,8 @@ from .globals import (
     ROUTING_ALGORITHM,
     ROUTING_ALGORITHMS,
 )
+from .geo import FeatureCollection, Point, Line, Polygon, destination, distance, bearing, turn, pointInPolygon, nearestPointToLines
+from .graph import Graph, Edge, Vertex
 
 SYSTEM_DIRECTORY = "."
 
@@ -1114,7 +1114,7 @@ class Route:
 
         return self._find(src[0], dst[0])
 
-    def progress(self, position, edge, dist_to_travel: float):  # -> Point, bearing, finished
+    def progress(self, position, edge, dist_to_travel: float, lights = None):  # -> Point, bearing, finished
         # project position on edge,
         # travels dist_to_travel on route from position
         # returns new position or end of route
@@ -1146,8 +1146,8 @@ class Route:
         d = 0
         if pos_on_edge is None:  # if cannot project, use closest of start/end of edge
             logger.log(9, "could not position on edge")
-            d1 = distance(pos_on_edge, edge_start)
-            d2 = distance(pos_on_edge, edge_end)
+            d1 = distance(position, edge_start)
+            d2 = distance(position, edge_end)
             pos_on_edge = edge_end
             if d1 < d2:
                 pos_on_edge = edge_start
@@ -1157,6 +1157,18 @@ class Route:
             logger.log(9, f"position on edge at {round(dist, 1)}m")
             d = distance(pos_on_edge, edge_end)  # distance remaning on edge
         logger.log(9, f"on route edge {i} {edge.start.id}-{edge.end.id}{rev},length={round(edge.cost, 1)}m), at {round(d, 1)}m from edge end")
+
+        # shortcut: Compute distance with distance_between_lights, faster, simpler
+        if lights is not None:
+            closestLight, dist = lights.closest(pos_on_edge.coords())
+            logger.log(9, f"shortcut with lights ({closestLight})")
+            if closestLight is not None:
+                idxshift = int(dist_to_travel / lights.distance_between_lights)
+                maxlights = len(lights.lights) - 1
+                lightidx = min(closestLight + idxshift, maxlights)
+                light = lights.lights[lightidx]
+                logger.log(9, f"approximation: light {closestLight} -> {lightidx} ({lightidx-closestLight+1} x {round(lights.distance_between_lights, 1)}m), {round(dist_to_travel % lights.distance_between_lights, 1)}")
+                return light.position, light.heading, lightidx == maxlights
 
         # 2. travel on same edge..
         if distance_left < d:  # moving on edge only

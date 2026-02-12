@@ -2,7 +2,6 @@
 # We currently have two loops, one for rabbit, one to monitor aircraft position.
 #
 from datetime import datetime, timedelta, timezone
-import numpy
 
 try:
     import xp
@@ -447,6 +446,10 @@ class FlightLoop:
         except:
             logger.error("set rabbitMode", exc_info=True)
 
+    def dynamic_ahead(self) -> float:
+        s = self.ftg.aircraft.speed()  # m/s, [~3, ~20]
+        return 70 + s * 15.0
+
     def planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
         # monitor progress of plane on the green. Turns lights off as it does no longer needs them.
@@ -461,20 +464,23 @@ class FlightLoop:
         if self.actual_start is None:
             if self.ftg.cursor is not None and self.ftg.cursor.curr_pos is None:
                 try:
+                    now = datetime.now().timestamp()
                     fs = self.ftg.route.before_route()
-                    cp = destination(fs.start, fs.bearing() + (1 if ts()%2 == 0 else -1) * 90, 40)
+                    cp = destination(fs.start, fs.bearing() + (1 if (int(now) % 2) == 0 else -1) * 90, 40)
                     cpl = Line(start=cp, end=fs.end)
-                    dt = ts() + cpl.length() / 7.0  # m/s, 25km/h
+                    dt = now + cpl.length() / 7.0  # m/s, 25km/h
                     logger.debug("first position (precise start)..")
                     self.ftg.cursor.init(lat=cpl.start.lat, lon=cpl.start.lon, hdg=cpl.bearing(), speed=0)
                     logger.debug("..move to begining of route..")
-                    self.ftg.cursor.future(lat=cpl.end.lat, lon=cpl.end.lon, hdg=cpl.bearing(), speed=0, t=dt, tick=True)
+                    target_heading = self.ftg.route.edges[0].bearing(orig=self.ftg.route.vertices[0])
+                    self.ftg.cursor.future(lat=cpl.end.lat, lon=cpl.end.lon, hdg=target_heading, speed=0, t=dt, tick=True)
                     # start = self.ftg.route.vertices[0]
                     # logger.debug(f"first position (id={fs.start.id})..")
-                    ahead = 200.0  # m
-                    logger.debug(f"..move on route {ahead}m ahead..")
-                    car_pos, car_orient, finished = self.ftg.route.progress(self.ftg.route.vertices[0], self.ftg.route.edges[0], ahead)
-                    self.ftg.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=dt + 20)
+                    ahead = self.dynamic_ahead()  # m
+                    tahead = 20  # secs.
+                    logger.debug(f"..move on route {ahead}m ahead in {tahead}secs...")
+                    car_pos, car_orient, finished = self.ftg.route.progress(self.ftg.route.vertices[0], self.ftg.route.edges[0], ahead, lights=self.ftg.lights)
+                    self.ftg.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=dt + tahead)
                     logger.debug("..done")
                 except:
                     logger.debug("..error", exc_info=True)
@@ -522,16 +528,19 @@ class FlightLoop:
         self.closestLight_cnt = 0
 
         # MOVE
-        # if self.ftg.cursor is not None:
-        #     logger.debug("moving..")
-        #     try:
-        #         light = self.ftg.lights.lights[closestLight]
-        #         logger.debug(f"close light={closestLight}, edge index={light.edgeIndex}")
-        #         car_pos, car_orient, finished = self.ftg.route.progress(position=Point(lat=pos[0], lon=pos[1]), edge=self.ftg.route.edges[light.edgeIndex], dist_to_travel=ahead)
-        #         self.ftg.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=ts() + self.lastIter)
-        #         logger.debug("..moved")
-        #     except:
-        #         logger.debug("..error", exc_info=True)
+        nextIter = self.adjustedIter()
+        if self.ftg.cursor is not None:
+            logger.debug("moving..")
+            try:
+                light = self.ftg.lights.lights[closestLight]
+                logger.debug(f"close light={closestLight}, edge index={light.edgeIndex}")
+                ahead = self.dynamic_ahead()  # will tune later on, based on speed, turn/stop ahead
+                car_pos, car_orient, finished = self.ftg.route.progress(position=Point(lat=pos[0], lon=pos[1]), edge=self.ftg.route.edges[light.edgeIndex], dist_to_travel=ahead, lights=self.ftg.lights)
+                later = datetime.now().timestamp() + nextIter
+                self.ftg.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=later)
+                logger.debug("..moved")
+            except:
+                logger.debug("..error", exc_info=True)
 
         if self.hasRabbit():
             self.adjustRabbit(position=pos, closestLight=closestLight)  # Here is the 4D!
