@@ -21,7 +21,7 @@ from .globals import (
     AMBIANT_RWY_LIGHT_CMDROOT,
     AMBIANT_RWY_LIGHT,
 )
-from .geo import EARTH, Point, Line, destination, distance
+from .geo import EARTH, Point, Line, destination, distance, distanceToLine
 
 
 # Hardcaded here, not preferences
