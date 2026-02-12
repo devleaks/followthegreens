@@ -1,7 +1,6 @@
 import os
 import math
 from datetime import datetime
-import re
 
 try:
     import xp
