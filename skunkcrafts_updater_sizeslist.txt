@@ -2,10 +2,10 @@ LICENSE|1078
 PI_FollowTheGreens.py|21414
 README.md|75
 followthegreens/__init__.py|693
-followthegreens/aircraft.py|13675
-followthegreens/airport.py|54192
+followthegreens/aircraft.py|13705
+followthegreens/airport.py|54204
 followthegreens/cursor.py|7538
-followthegreens/flightloop.py|28430
+followthegreens/flightloop.py|29039
 followthegreens/followthegreens.py|23951
 followthegreens/geo.py|15536
 followthegreens/globals.py|15628
