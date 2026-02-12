@@ -21,6 +21,7 @@ from .flightloop import FlightLoop
 from .lightstring import LightString
 from .ui import UIUtil
 from .nato import phonetic, toml_dumps
+from .cursor import Cursor
 
 PREFERENCE_FILE_NAME = "followthegreens.prf"  # followthegreens.prf
 STATS_FILE_NAME = "ftgstats.txt"
@@ -35,6 +36,7 @@ class FollowTheGreens:
         self.airport: Airport | None = None
         self.aircraft: Aircraft | None = None
         self.lights: LightString | None = None
+        self.cursor: Cursor | None = None
         self.segment = 0  # counter for green segments currently lit -0-----|-1-----|-2---------|-3---
         self.move: MOVEMENT | None = None  # departure or arrival, guessed first, can be changed by pilot.
         self.destination = None  # Handy
@@ -413,6 +415,10 @@ VERSION = "{__VERSION__}"
 
         self.status = FTG_STATUS.GREENS
 
+        cursor = get_global("CURSOR", self.prefs)
+        if type(cursor) is str and len(cursor) > 1:
+            self.cursor = Cursor(cursor)
+
         logger.info(f"first light at {initdist} m, heading {initbrgn} DEG")
         self.flightLoop.startFlightLoop()
         self.status = FTG_STATUS.ACTIVE
@@ -525,6 +531,9 @@ VERSION = "{__VERSION__}"
         if reason == "new green requested":
             logger.info(f"FtG session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session}) for greener greens")
         else:
+            if self.cursor is not None:
+                self.cursor.destroy()
+                self.cursor = None
             logger.info(f"FtG session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session})")
             logger.info("-=" * 50)
             logger.info("\n\n")

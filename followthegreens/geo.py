@@ -139,6 +139,8 @@ class Line(Feature):
         self.geomType = "LineString"
         self.start = start
         self.end = end
+        self._bearing = bearing(self.start, self.end)
+        self._length = distance(self.start, self.end)
         self.properties["stroke"] = "#aaaaaa"
         self.properties["strokeWidth"] = 1
         self.properties["strokeOpacity"] = 1
@@ -147,20 +149,24 @@ class Line(Feature):
         return [self.start.coords(lonLat), self.end.coords(lonLat)]
 
     def length(self) -> float:
-        return distance(self.start, self.end)
+        return self._length
 
     def bearing(self, orig: Point | None = None) -> float:
         if isinstance(orig, Point) and orig == self.end:
-            return bearing(self.end, self.start)
-        return bearing(self.start, self.end)
+            return self._bearing + 180 if self._bearing < 180 else self._bearing - 180
+        return self._bearing
 
     def side(self, point) -> int:
+        # return left or right side of line, arbitrary, relative to line
+        # used to compare if 2 points are on "same side"
         # "formula" is 𝑑=(𝑥−𝑥1)(𝑦2−𝑦1)−(𝑦−𝑦1)(𝑥2−𝑥1), check d <,> or = 0.
         # 1=start, 2=end, x=lat, y=lon
         r = (point.lat - self.start.lat) * (self.end.lon - self.start.lon) - (point.lon - self.start.lon) * (self.end.lat - self.start.lat)
         return 0 if r == 0 else (1 if r > 0 else -1)
 
-    def middle(self, ratio: float) -> float:
+    def middle(self, ratio: float, from_end: bool = False) -> float:
+        if from_end:
+            return destination(self.end, self.bearing(orig=self.end), self.length() * ratio)
         return destination(self.start, self.bearing(), self.length() * ratio)
 
     def distanceToPoint(self, point) -> float:

@@ -1,7 +1,7 @@
 # Advanced Preference Set up
 
 A number of FtG parameters are exposed as _Preferences_.
-It means that chaing the value of a preference will modify the behavior and aspect of FtG.
+It means that changing the value of a preference will modify the behavior and aspect of FtG.
 
 Please recall that setting inappropriate values may cause FtG to malfunction,
 degrade X-Plane overall performances, even make X-Plane crash in some instances.
@@ -21,6 +21,21 @@ FtG will create an empty file at that location for later use.
 If a preference file is found, loaded preferences are logged in the ftg_log.txt file.
 
 
+## Preference Raffinements
+
+Some preferences only exists at the global level and cannot be further adjusted.
+They are mainly application level preferences.
+Example of such preference is the `ADD_LIGHT_AT_VERTEX` (true or false) to add a green light
+at each taxiway vertex.
+
+Some other preferences can be set at the global level, but also at either the airport level,
+or the aircraft model level.
+Example of such preference is the length of the rabbit light (pulsating light)
+in front of the aircraft: `RABBIT_LENGTH`.
+The pilot of a smaller aircraft may necessit less lights in front of her/him,
+than the pilot of a B747 or A380.
+
+
 # Preference Hierarchy
 
 Some preferences can be set at different level.
@@ -30,13 +45,36 @@ For example, the length of the rabbit can be set
 1. At the level of a given airport,
 1. At the level of an aircraft model.
 
-In the above example, the value of the preference is the value found at the highest level,
-global first, particular last.
+If a value is defined at the highest, global level, particular values are not taken into account.
+
+If you want to modify a value at an airport level, you have to leave global value to its default value,
+and the particular airport value will be taken into account.
+Same for specific aircraft values.
+
+There is some sensible logic to allow particular airports and/or aircrafts
+to adjust some values.
+
+Some airport may say we have greens, but no rabbit.
+Some other airport may say, we only have a short rabbit and no light ahead, too confusing.
+
+For aircraft, the value provided may be inappropriate.
+Pilots of large aircraft may appreciate a longer rabbit run, and more light ahead
+than the number provided by default.
+That can be adjusted through preferences.
 
 
 # Global Preferences
 
 Global preferences are set at the highest level and apply to the entire FtG system.
+
+1. RABBIT_LENGTH
+1. LIGHTS_AHEAD
+
+However, a particular airport or aircraft may adjust them also.
+
+
+These global preferences can be adjusted at the global level
+but cannot be adjusted at a particular level:
 
 1. ADD_LIGHT_AT_VERTEX (true/false)
 1. ADD_LIGHT_AT_LAST_VERTEX (true/false)

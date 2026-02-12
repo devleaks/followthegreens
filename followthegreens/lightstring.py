@@ -29,9 +29,7 @@ HARDCODED_MIN_DISTANCE = 50  # meters
 HARDCODED_MIN_TIME = 0.04  # secs
 HARDCODED_MIN_RABBIT_LENGTH = 6  # lights
 
-SPECIAL_DEBUG = False
 ADD_WIGWAG = True
-PUSH_WHITE = False
 
 
 class LightType:
@@ -94,6 +92,9 @@ class LightType:
         returns:
             str: file name of ligght object
         """
+        if name in LIGHT_TYPE_OBJFILES.values():
+            logger.warning("cannot overwrite Follow the greens standard object files")
+            return name
         curr_dir = os.path.dirname(os.path.realpath(__file__))
         fn = os.path.join(curr_dir, "lights", name)
         fsize = round(size / 100, 2)
@@ -135,6 +136,9 @@ POINT_COUNTS    0 0 0 0
         returns:
             str: file name of ligght object
         """
+        if name in LIGHT_TYPE_OBJFILES.values():
+            logger.warning("cannot overwrite Follow the greens standard object files")
+            return name
         curr_dir = os.path.dirname(os.path.realpath(__file__))
         fn = os.path.join(curr_dir, "lights", name)
         with open(fn, "w") as fp:
@@ -159,12 +163,11 @@ POINT_COUNTS    0 0 0 0
         return name
 
 
-class Light:
-    # A light to follow, or a stopbar light
-    # Holds a referece to its instance
-    def __init__(self, lightType, position, heading, index):
-        self.lightType = lightType
+class XPObject:
+
+    def __init__(self, position, heading, index, dist: float = 0):
         self.edgeIndex = index  # # of edge of route, starting from 0
+        self.distFromEdgeStart = dist
         self.position = position
         self.heading = heading  # this should be the heading to the previous light
         self.params = []  # LIGHT_PARAM_DEF       full_custom_halo        9   R   G   B   A   S       X   Y   Z   F
@@ -239,6 +242,17 @@ class Light:
         if self.instanceOff is not None:
             xp.destroyInstance(self.instanceOff)
             self.instanceOff = None
+
+    def ahead(self, dist: float) -> Point:
+        return destination(self.position, self.heading, dist)
+
+
+class Light(XPObject):
+    # A light to follow, or a stopbar light
+    # Holds a referece to its instance
+    def __init__(self, lightType, position, heading, index, dist: float = 0):
+        self.lightType = lightType
+        XPObject.__init__(self, position, heading, index, dist)
 
 
 class Stopbar:
@@ -351,7 +365,6 @@ class LightString:
         self.lastLit = 0
         self.lightTypes = None
         self.taxiway_alt = 0
-        self.curr_pos = None
 
         # Preferences are first set from Airport preferences, which are global or airport specific
         self.distance_between_lights = airport.distance_between_green_lights  # float(get_global("DISTANCE_BETWEEN_GREEN_LIGHTS", preferences=self.prefs))
@@ -495,11 +508,7 @@ class LightString:
         currVertex = graph.get_vertex(route.route[0])
         currPoint = currVertex
         thisLights.append(Light(LIGHT_TYPE.FIRST, currPoint, 0, 0))
-        self.curr_pos = Light(LIGHT_TYPE.DEFAULT, currPoint, 0, 0)
         logger.debug(f"added first light at {currVertex.id}")
-
-        if SPECIAL_DEBUG:
-            thisLights.append(Light(LIGHT_TYPE.WARNING, currPoint, 0, 0))
 
         lastLight = currPoint
         # logger.debug("placed first light")
@@ -603,7 +612,8 @@ class LightString:
                 while distanceBeforeNextLight < distToNextVertex:
                     nextLightPos = destination(currPoint, brng, distanceBeforeNextLight)
                     brgn = bearing(lastLight, nextLightPos)
-                    thisLights.append(Light(self.nextTaxiwayLight(nextLightPos, thisEdge), nextLightPos, brgn, i - 1))
+                    distFromEdgeStart = thisEdge.cost - distToNextVertex
+                    thisLights.append(Light(self.nextTaxiwayLight(nextLightPos, thisEdge), nextLightPos, brgn, i - 1, distFromEdgeStart))
                     lastLight = nextLightPos
                     distToNextVertex = distToNextVertex - distanceBeforeNextLight  # should be close to ftg_geoutil.distance(currPoint, nextVertex)
                     currPoint = nextLightPos
@@ -615,7 +625,8 @@ class LightString:
 
                 if self.add_light_at_vertex:  # may be we insert a last light at the vertex?
                     brgn = bearing(lastLight, nextVertex)
-                    thisLights.append(Light(self.nextTaxiwayLight(nextVertex, thisEdge), nextVertex, brgn, i - 1))
+                    distFromEdgeStart = thisEdge.cost - distToNextVertex
+                    thisLights.append(Light(self.nextTaxiwayLight(nextVertex, thisEdge), nextVertex, brgn, i - 1, distFromEdgeStart))
                     lastLight = nextVertex
                     # logger.debug("added light at vertex %s", nextVertex.id)
 
@@ -630,10 +641,6 @@ class LightString:
             thisLights.append(Light(LIGHT_TYPE.LAST, lastVertex, brgn, len(route.route) - 2))
             lastLight = lastPoint
             logger.debug(f"added light at last vertex {route.route[len(route.route) - 1].id} on edge# {len(route.route) - 2}")
-
-        if SPECIAL_DEBUG:
-            lastVertex = graph.get_vertex(route.route[len(route.route) - 1])
-            thisLights.append(Light(LIGHT_TYPE.WARNING, lastVertex, brgn, len(route.route) - 2))
 
         last = 0
         for i in range(len(self.stopbars)):
@@ -733,15 +740,7 @@ class LightString:
         logger.debug("light objects loaded")
         return True
 
-    def move_current_position(self, lat: float, lon: float, hdg: float):
-        if self.curr_pos is None:
-            return
-        self.curr_pos.move(lat, lon, hdg)
-
     def placeLights(self):
-        if self.curr_pos is not None:
-            self.curr_pos.place(self.lightTypes[self.curr_pos.lightType])
-
         for light in self.lights:
             light.place(self.lightTypes[light.lightType], self.lightTypes[LIGHT_TYPE.OFF])
 
@@ -757,8 +756,6 @@ class LightString:
             return
         self.stopbars[segment].off()
         logger.debug(f"blackened stopbar at segment {segment}")
-        if segment == (len(self.stopbars) - 1) and PUSH_WHITE:
-            self.curr_pos.off()
 
     def illuminateSegment(self, segment):
         # Lights up a segment of lights between 2 stop bars
@@ -769,9 +766,6 @@ class LightString:
         if not self.xyzPlaced:  # do it once and for all. Lights rarely move.
             if not self.placeLights():
                 return [False, "Could not place light objects."]
-
-        if segment == 0 and PUSH_WHITE:
-            self.curr_pos.on()
 
         self.currentSegment = segment
         start = 0

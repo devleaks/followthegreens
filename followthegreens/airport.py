@@ -1115,7 +1115,7 @@ class Route:
         return self._find(src[0], dst[0])
 
     def progress(self, position, edge, dist_to_travel: float):  # -> Point, bearing, finished
-        # position is on edge.
+        # project position on edge,
         # travels dist_to_travel on route from position
         # returns new position or end of route
         logger.log(9, f"enter position={position.coords()}, edge={edge.start.id}-{edge.end.id}, distance={dist_to_travel}")
@@ -1124,6 +1124,7 @@ class Route:
         i = 0
         start = -1
         edge_bearing = edge.bearing()
+        edge_start = edge.start
         edge_end = edge.end
         rev = ""
         while start == -1 and i < len(self.route):
@@ -1132,8 +1133,9 @@ class Route:
             if self.route[i] == edge.end.id:
                 logger.log(9, "first edge is reversed")
                 start = i
+                edge_start = edge.end
                 edge_end = edge.start
-                edge_bearing = edge_bearing + 180
+                edge_bearing = edge_bearing + 180 if edge_bearing < 180 else edge_bearing - 180
                 rev = " reversed"
             i = i + 1
         i = i - 1
@@ -1141,12 +1143,19 @@ class Route:
 
         # must project position on edge
         pos_on_edge, dist = nearestPointToLines(position, [edge])
-        if pos_on_edge is None:
+        d = 0
+        if pos_on_edge is None:  # if cannot project, use closest of start/end of edge
             logger.log(9, "could not position on edge")
-            pos_on_edge = position
+            d1 = distance(pos_on_edge, edge_start)
+            d2 = distance(pos_on_edge, edge_end)
+            pos_on_edge = edge_end
+            if d1 < d2:
+                pos_on_edge = edge_start
+                d = edge.cost  # must run the entire edge
+                logger.log(9, "start of edge is closer")
         else:
             logger.log(9, f"position on edge at {round(dist, 1)}m")
-        d = distance(pos_on_edge, edge_end)  # distance remaning on edge
+            d = distance(pos_on_edge, edge_end)  # distance remaning on edge
         logger.log(9, f"on route edge {i} {edge.start.id}-{edge.end.id}{rev},length={round(edge.cost, 1)}m), at {round(d, 1)}m from edge end")
 
         # 2. travel on same edge..
