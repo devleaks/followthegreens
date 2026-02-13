@@ -1,4 +1,4 @@
-# Advanced Preference Set up
+# Follow the Greens Advanced Preference Set up
 
 A number of FtG parameters are exposed as _Preferences_.
 It means that changing the value of a preference will modify the behavior and aspect of FtG.
@@ -7,43 +7,56 @@ It means that changing the value of a preference will modify the behavior and as
 degrade X-Plane overall performances, even make X-Plane crash in some circumstances.*
 
 Fortunately, most of these preference settings are reversible.
-Just suppress misbehaving preferences and FtG will fall back on its 4 legs.
+Just suppress misbehaving preferences and FtG will fall back on its green lights.
 
 
-# How Preferece Works
+# How Preference Works
 
 Preferences are loaded each time a new FtG guidance session is started.
 
-FtG opens the following preference file:
+The preference file is located in:
 
 `<X-Plane 12 Folder> / Output / preferences / followthegreens.prf`
 
-If not found, there simply won't be any preference set up.
+If the file is not found, there won't be any preference set up.
 FtG will create an empty file at that location for later use.
 
 If a preference file is found, loaded preferences are logged in the ftg_log.txt file.
+It is then easy to control which values are being used in the application.
 
 
 ## Preference Raffinements
 
-Some preferences only exists at the global level and cannot be further adjusted.
-They are mainly application level preferences.
-Example of such preference is the `ADD_LIGHT_AT_VERTEX` (true or false) to add a green light
-at each taxiway vertex. (This is mainly used for development purpose.)
+FtG provides a value for each preference.
+If the value of a preference is not found in the file,
+FtG will use its _default_ value.
 
-Some other preferences can be set at the global level, but also at either the airport level,
+Preference can be specified at several "levels":
+
+- Global level, for the entire application,
+- Airport level, only applicable at a specific airport,
+- Aircraft level, only application to a class of aircraft, or at an aircraft type level.
+
+Some preferences only exists at the _global level_ and cannot be further adjusted.
+They are application level preferences.
+Example of such preference is the `ADD_LIGHT_AT_VERTEX` (true or false) to add a green light
+at each taxiway vertex.
+(This preference is used for development purpose.)
+
+Some other preferences can be set at the global level, but also at the airport level,
 or the aircraft type level.
+
 Example of such preference is the length of the rabbit light (pulsating light)
 in front of the aircraft: `RABBIT_LENGTH`.
 
-THe idea for airport-level values adjustment is realism.
+THe idea for _airport-level_ values adjustment is realism.
 There are different realization of Follow the greens.
 Some airport may have green light paths, but no rabbit.
 Some other airport may only have a short rabbit and no light ahead.
 (Both exists.)
 
-The idea for aircraft-level values is practical.
-For some aircraft types, the generic value be inappropriate.
+The idea for _aircraft-level_ values is practical.
+For some aircraft types, the generic value is inappropriate.
 Pilots of large aircraft may appreciate a longer rabbit run, and more light ahead
 than the number provided by default to anticipate route and turns.
 A pilot of a general aviation aircraft will not see the rabbit light 300 meter ahead.
