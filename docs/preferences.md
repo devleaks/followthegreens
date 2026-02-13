@@ -4,12 +4,15 @@ A number of FtG parameters are exposed as _Preferences_.
 It means that changing the value of a preference will modify the behavior and aspect of FtG.
 
 *Please recall that setting inappropriate values may cause FtG to malfunction,
-degrade X-Plane overall performances, even make X-Plane crash in some instances.*
+degrade X-Plane overall performances, even make X-Plane crash in some circumstances.*
+
+Fortunately, most of these preference settings are reversible.
+Just suppress misbehaving preferences and FtG will fall back on its 4 legs.
 
 
 # How Preferece Works
 
-Preferences are read each time a new FtG guidance session is started.
+Preferences are loaded each time a new FtG guidance session is started.
 
 FtG opens the following preference file:
 
@@ -26,25 +29,14 @@ If a preference file is found, loaded preferences are logged in the ftg_log.txt 
 Some preferences only exists at the global level and cannot be further adjusted.
 They are mainly application level preferences.
 Example of such preference is the `ADD_LIGHT_AT_VERTEX` (true or false) to add a green light
-at each taxiway vertex.
+at each taxiway vertex. (This is mainly used for development purpose.)
 
 Some other preferences can be set at the global level, but also at either the airport level,
 or the aircraft type level.
 Example of such preference is the length of the rabbit light (pulsating light)
 in front of the aircraft: `RABBIT_LENGTH`.
-The pilot of a smaller aircraft may necessit less lights in front of her/him,
-than the pilot of a B747 or A380.
 
-
-# Preference Hierarchy
-
-If a value is defined at the highest, global level, particular values are not taken into account.
-
-If you want to modify a value at an airport level, you have to leave global value to its default value,
-and the particular airport value will be taken into account.
-Same applies for aircraft specific values.
-
-THe idea for airport-level values is realism.
+THe idea for airport-level values adjustment is realism.
 There are different realization of Follow the greens.
 Some airport may have green light paths, but no rabbit.
 Some other airport may only have a short rabbit and no light ahead.
@@ -57,18 +49,14 @@ than the number provided by default to anticipate route and turns.
 A pilot of a general aviation aircraft will not see the rabbit light 300 meter ahead.
 This is why FtG allows for aircraft type specific value set, for the confort of the pilot.
 
+A preference set at a specific level (airport, aircraft) has precedence
+over a preference set at the global, application-level.
+
 
 # Global Preferences
 
 Global preferences are set at the highest level and apply to the entire FtG system.
-
-1. RABBIT_LENGTH
-1. LIGHTS_AHEAD
-
-However, a particular airport or aircraft may adjust them also.
-
-
-These global preferences can be adjusted at the global level
+These following preferences can be adjusted at the global level
 but cannot be adjusted at a particular level:
 
 1. ADD_LIGHT_AT_VERTEX (true/false)
@@ -81,13 +69,13 @@ but cannot be adjusted at a particular level:
 Airports may have particular setup for FtG.
 The following preferences can be set at an individual airport level:
 
-1. Distance between taxiway center lights (expressed in meters.)
-1. Rabbit speed, including completely disabled by setting the speed to `0`. (Expressed in fraction of a second; would be the same for all aicrafts.)
-1. Rabbit length (would be the same for all aicrafts.)
-1. Distance between lights when illuminating the whole taxiway network (Show taxiway, expressed in meters.).
+1. `DISTANCE_BETWEEN_GREEN_LIGHTS`: Distance between taxiway center lights (expressed in meters.)
+1. `RABBIT_SPEED`: Rabbit speed, including completely disabled by setting the speed to `0`. (Expressed in fraction of a second; would be the same for all aicrafts.)
+1. `RABBIT_LENGTH`: Rabbit length (would be the same for all aicrafts.)
+1. `DISTANCE_BETWEEN_LIGHTS`: Distance between lights when illuminating the whole taxiway network (Show taxiway, expressed in meters.).
 
 To adjust preferences for a precise airport, use the following snippet.
-Please notice the use of the airport ICAO code in the preference section part.
+Please notice the use of the airport ICAO code in the preference section part (called a TOML table section).
 
 ```
 [Airports.EBBR]
@@ -108,8 +96,6 @@ The following preferences are set depending on the detected aircraft type:
 1. Rabbit speed
 1. Rabbit length
 1. (Static) lights ahead of the rabbit
-
-These preferences are always applied, unless a global preference has been imposed.
 
 To adjust aircraft preferences, length must be expressed "physically", with metric units:
 
@@ -155,9 +141,12 @@ and units used for the preference.
 | ADD_LIGHT_AT_LAST_VERTEX        | true/false      | NA             | NA                | NA                 |
 
 
+See above code snippets for examples.
+
+
 # Lights
 
-FtG lights different _types of lights_ at precise location.
+FtG lights different _types of lights_ at precise locations.
 You can adjust some of the light parameters to change the size, color, and intensity of each _type of light_.
 
 The different types of lights are:
@@ -185,6 +174,49 @@ This would change the `TAXIWAY_ALT` light type to a bright yellow light.
 (The above preference will effectively _create_ a new light with a random name with the supplied paramters and load it.)
 
 
+## Light Appearance
+
+FtG uses two types of light.
+
+The *default light* is a simple, spheric, omni directional light.
+It can be configured using the parameters:
+
+- Color
+- Size
+- Intensity
+
+To create a normal, default light with specific color, size and intensity,
+you can use the code snippet above.
+
+
+The *realistic light* is a more complex light that has the appearance and behavior of common taxiway lights.
+Light is directional, aligned with the taxiway, and can only be seen when facing it.
+It is more realistic, at the expense of being more difficult to see if not properly aligned.
+The standard realistic light has twice the brightness of a regular taxiway light
+and stand out in both daylight and night lights.
+
+Realistic lights only have two parameters:
+
+- Color, which must by a code g (green), r (red), y (yellow/amber), no other color possible.
+- Intensity, an integer number that replicate the same light at the same position making it brighter.
+
+The intensity is therefore a integer number that tells how many copies of the light must be placed.
+
+To create a realistic light, you can use the following snippet:
+
+```
+[Lights.TAXIWAY_ALT]
+taxiway = "r:2"
+```
+
+would create a realistic taxiway RED light with double light intensity.
+
+
+Finally, note that FtG lights, standard or realistic,
+are NOT affected by the `sim/graphics/scenery/airport_light_level` dataref
+that sets the overall intensity of runway lights.
+
+
 ## Alternate Light Object File
 
 To use another object light, you must use the following syntax:
@@ -206,13 +238,25 @@ as explained above.
 
 Path objects are relative to the `followthegreens` folder.
 
-## Visible Taxiway Light
 
-To be complete, there is an extra light type
+## Taxiway Light Objects
+
+The above light "objects" are in fact just lights.
+They have no object representing them on the screen on a rendering.
+They are just LIGHTS.
+
+So, to be complete, there is an extra light type
 
 - OFF: Physical taxiway light object with no light (light off).
 
-If yo wish to replace it with an alternate light object:
+This is an object that represents a physical taxiway light.
+That object emits no light at all, it is just decorative.
 
+If you wish to replace it with an alternate light object:
+
+```
 Lights.OFF = "path/to/favourite-taxiway-light.obj"
+```
 
+
+Taxi safely

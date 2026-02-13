@@ -185,7 +185,8 @@ class Cursor:
         return self.curr_speed + ratio * self.delta_spd
 
     def go(self, max_speed: float):
-        # Go between 2 points, start from rest, end to rest, with smooth constant acceleration and deceleration
+        # Go between 2 points, start from rest, end to rest,
+        # with smooth constant acceleration and deceleration
         #
         if self.curr_speed != 0 or self.target_speed != 0:
             logger.debug(f"has speed {round(self.curr_speed, 1)}, cannot go")
