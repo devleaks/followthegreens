@@ -3,8 +3,8 @@
 A number of FtG parameters are exposed as _Preferences_.
 It means that changing the value of a preference will modify the behavior and aspect of FtG.
 
-Please recall that setting inappropriate values may cause FtG to malfunction,
-degrade X-Plane overall performances, even make X-Plane crash in some instances.
+*Please recall that setting inappropriate values may cause FtG to malfunction,
+degrade X-Plane overall performances, even make X-Plane crash in some instances.*
 
 
 # How Preferece Works
@@ -29,7 +29,7 @@ Example of such preference is the `ADD_LIGHT_AT_VERTEX` (true or false) to add a
 at each taxiway vertex.
 
 Some other preferences can be set at the global level, but also at either the airport level,
-or the aircraft model level.
+or the aircraft type level.
 Example of such preference is the length of the rabbit light (pulsating light)
 in front of the aircraft: `RABBIT_LENGTH`.
 The pilot of a smaller aircraft may necessit less lights in front of her/him,
@@ -38,29 +38,24 @@ than the pilot of a B747 or A380.
 
 # Preference Hierarchy
 
-Some preferences can be set at different level.
-For example, the length of the rabbit can be set
-
-1. At the global, FtG level,
-1. At the level of a given airport,
-1. At the level of an aircraft model.
-
 If a value is defined at the highest, global level, particular values are not taken into account.
 
 If you want to modify a value at an airport level, you have to leave global value to its default value,
 and the particular airport value will be taken into account.
-Same for specific aircraft values.
+Same applies for aircraft specific values.
 
-There is some sensible logic to allow particular airports and/or aircrafts
-to adjust some values.
+THe idea for airport-level values is realism.
+There are different realization of Follow the greens.
+Some airport may have green light paths, but no rabbit.
+Some other airport may only have a short rabbit and no light ahead.
+(Both exists.)
 
-Some airport may say we have greens, but no rabbit.
-Some other airport may say, we only have a short rabbit and no light ahead, too confusing.
-
-For aircraft, the value provided may be inappropriate.
+The idea for aircraft-level values is practical.
+For some aircraft types, the generic value be inappropriate.
 Pilots of large aircraft may appreciate a longer rabbit run, and more light ahead
-than the number provided by default.
-That can be adjusted through preferences.
+than the number provided by default to anticipate route and turns.
+A pilot of a general aviation aircraft will not see the rabbit light 300 meter ahead.
+This is why FtG allows for aircraft type specific value set, for the confort of the pilot.
 
 
 # Global Preferences
@@ -140,6 +135,25 @@ RABBIT_LENGTH = 200  # meters
 RABBIT_SPEED = 0.20  # seconds
 ```
 
+# Summary
+
+Table summary with preference, where the preference is supplied,
+and units used for the preference.
+
+| Preference                      | Global          | Airport        | Aircraft Class    | Aircraft Type      | 
+|---------------------------------|-----------------|----------------|-------------------|--------------------|
+| TOML «TABLE»                    |                 | [Airport.ICAO] | [Aircraft.C]      | [Aircraft.ICAO]    |
+| ------------------------------- | --------------- | ----------     | ----------------- | ------------------ |
+| LIGHTS_AHEAD                    | # lights        | # lights       | distance(meters)  | distance(meters)   |
+| RABBIT_LENGTH                   | # lights        | # lights       | distance(meters)  | distance(meters)   |
+| RABBIT_SPEED                    | seconds         | seconds        | seconds           | seconds            |
+| RUNWAY_LIGHT_LEVEL_WHILE_FTG    | lo,med,hi,off   | lo,med,hi,off  | NA                | NA                 |
+| DISTANCE_BETWEEN_GREEN_LIGHTS   | meters          | meters         | NA                | NA                 |
+| DISTANCE_BETWEEN_LIGHTS         | meters          | meters         | NA                | NA                 |
+| DISTANCE_BETWEEN_STOPLIGHTS     | meters          | meters         | NA                | NA                 |
+| ADD_LIGHT_AT_VERTEX             | true/false      | NA             | NA                | NA                 |
+| ADD_LIGHT_AT_LAST_VERTEX        | true/false      | NA             | NA                | NA                 |
+
 
 # Lights
 
@@ -150,13 +164,13 @@ The different types of lights are:
 
 - FIRST: First light of follow the greens.
 - TAXIWAY: Regular "green" taxiway light used for the path and the "rabbit".
-- TAXIWAY_ALT: On runway lead-on and lead-off, this is the actual 
-- STOP: Lights used to build the stop bar across the taxiway when clearance is requested.
+- TAXIWAY_ALT: On runway lead-on and lead-off, same as TAXIWAY light but yellow/amber.
+- STOP: Lights used to build the stop bar across the taxiway when clearance is requested (same as TAXIWAY light but red.).
 - VERTEX: Additional light added at taxiway network vertex, as published in the airport data file. Used for development mainly.
-- WARNING: Additional light, no longer used.
+- WARNING: Additional light, no longer used, a yellow taxiway light.
 - LAST: Last light of follow the greens.
 - ACTIVE: Light on a departure, arrival or ILS active segment.
-- DEFAULT: Light used by Show Taxiway to illuminate all taxiways.
+- DEFAULT: Light used by Show Taxiway to illuminate all taxiways, default to a bright white light.
 
 To change lights parameters for a type of light, insert the following preference:
 
@@ -168,3 +182,37 @@ size = 20  # default value
 ```
 
 This would change the `TAXIWAY_ALT` light type to a bright yellow light.
+(The above preference will effectively _create_ a new light with a random name with the supplied paramters and load it.)
+
+
+## Alternate Light Object File
+
+To use another object light, you must use the following syntax:
+
+```
+Lights.TAXIWAY_ALT = "path/to/personal-object-light.obj"
+```
+
+It is not the same as
+
+```
+[Lights.TAXIWAY_ALT]
+name = "path/to/personal-object-light.obj"
+```
+
+which would _create_ a file named `path/to/personal-object-light.obj`
+with default custom light values (color=white, intensity=20, size=20)
+as explained above.
+
+Path objects are relative to the `followthegreens` folder.
+
+## Visible Taxiway Light
+
+To be complete, there is an extra light type
+
+- OFF: Physical taxiway light object with no light (light off).
+
+If yo wish to replace it with an alternate light object:
+
+Lights.OFF = "path/to/favourite-taxiway-light.obj"
+

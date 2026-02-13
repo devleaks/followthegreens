@@ -117,6 +117,29 @@ Feel free to experiment to your liking.
 In a future release, if this does not take too much a toll on X-Plane fps,
 I like to illuminate light _progressively_, not instanteneous on/off light.
 
+# Logged Info
+
+In source code, comments `# Info 12` refer to the following procedures:
+
+1. FTG started, (re)loaded preferences
+1. Plane position
+1. Airport name
+1. Loading loading airport data
+1. Airport has ATC ground
+1. Airport has routing network (# nodes, # edges)
+1. Airport runways
+1. Airport ramps/stands
+1. Airport loaded
+1. Departure or arrival (guess, changeable)
+1. Selected destination.
+1. Route found.
+1. Lights, segments, stop bars placed; first segment lit.
+1. Started.
+1. Next segment.
+1. Terminated successfully. (One more happy pilot.)
+1. Cancelled by pilot.
+
+
 ## Wish
 
 Dear Laminar,

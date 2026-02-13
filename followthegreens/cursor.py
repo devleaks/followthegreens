@@ -144,9 +144,32 @@ class Cursor:
         logger.debug(f"heading {round(self.curr_hdg, 1)} -> {round(self.target_hdg, 1)}s (delta={round(self.delta_hdg, 1)})")
         logger.debug(f"speed {round(self.curr_speed, 1)} -> {round(self.target_speed, 1)}s (delta={round(self.delta_spd, 1)}, acc={acc})")
 
-    def _turn_direction(self, hin: float, hout: float) -> tuple:
-        s = -1 if hin > hout else 1
-        d = abs(hout - hin)
+    def _turn_direction(self, b_in: float, b_out: float) -> tuple:
+        def turn(bi, bo) -> float:
+            # [-180, 180]
+            t = bi - bo
+            if t < 0:
+                t += 360
+            if t > 180:
+                t -= 360
+            return t
+
+        s = -1 if b_in > b_out else 1
+        d = abs(b_out - b_in)
+        logger.debug(f"turn {round(b_in, 0)}->{round(b_out, 0)}: {round(d, 0)}DEG dir={s}")
+
+        # ALTERNATIVE
+        turnAngle = turn(b_in, b_out)
+        arc0 = b_out + 90 if turnAngle > 0 else b_in - 90
+        arc1 = b_in + 90 if turnAngle > 0 else b_out - 90
+        # if turnAngle > 0:  # reverse coordinates order
+        #     arc.reverse()
+        # or:
+        #    t = arc0
+        #    arc0 = arc1
+        #    arc1 = t
+        logger.debug(f"turn {round(arc0, 0)}->{round(arc1, 0)}: {round(turnAngle, 0)}DEG reverse={turnAngle > 0}")
+
         return s, 10 if d < 90 else 15
 
     def _bearing(self, ratio):
@@ -196,11 +219,11 @@ class Cursor:
                 logger.debug(s)
 
         self.cnt += 1
+
         if self.curr_pos is None or self.target_pos is None:  # not initialized yet, no target
-            if self.cnt % 100 == 0:
-                slow_debug(f"not moving curr={self.curr_pos}, target={self.target_pos}")
+            slow_debug(f"not moving curr={self.curr_pos}, target={self.target_pos}")
             return
-        slow_debug(f"curr_time={round(self.curr_time, 3)}, now={round(ts(), 3)}")
+        slow_debug(f"curr_time={round(self.curr_time, 3)}, now={round(ts(), 3)}, target={round(self.target_time, 3)}")
         slow_debug(f"segment={round(self.segment.length(), 1)}m, {round(self.segment.bearing(), 0)}DEG")
         # if self.curr_speed == 0 and self.target_speed == 0:
         #     return self._go(t=t)
