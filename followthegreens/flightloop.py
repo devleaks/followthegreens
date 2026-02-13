@@ -94,7 +94,7 @@ class FlightLoop:
         if not self.planeRunning:
             self.flplane = xp.createFlightLoop(callback=self.planeFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refplane)
             xp.scheduleFlightLoop(self.flplane, self.nextIter, 1)
-            if self.ftg.cursor is not None:
+            if self.ftg.cursor is not None and self.ftg.cursor.usable:
                 self.flcursor = xp.createFlightLoop(callback=self.cursorFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refcursor)
                 xp.scheduleFlightLoop(self.flcursor, self.nextIter, 1)
             self.planeRunning = True
@@ -468,6 +468,11 @@ class FlightLoop:
 
         if self.actual_start is None:
             if self.ftg.cursor is not None and self.ftg.cursor.curr_pos is None:
+                # this is ok if aircraft at rest
+                # need more dynamic reaction if aircraft moving (like "new green requested")
+                # To be tested on arrival medium speed on runway or low speed on taxuway
+                # may be make MIN_DIST/MIN_SPEED dynamic.
+                #
                 try:
                     now = datetime.now().timestamp()
                     fs = self.ftg.route.before_route()

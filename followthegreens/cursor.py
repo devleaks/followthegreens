@@ -66,11 +66,21 @@ class Cursor:
         self.delta_tim = 0.0
         self.delta_hdg = 0.0
         self.delta_spd = 0.0
+        self.half_heading = False
 
+        self._future_cnt = 0
+        self._tick_cnt = 0
+        self._total_distance = 0
         self.cnt = -1
 
+    def usable(self) -> bool:
+        return self.cursor_type.has_obj
+
+    def inited(self) -> bool:
+        return self.curr_pos is not None
+
     def init(self, lat: float, lon: float, hdg: float, speed: float = 0.0):
-        if self.curr_pos is not None:  # only init once
+        if not self.inited:  # only init once
             return
         self.curr_pos = Point(lat=lat, lon=lon)
         self.curr_hdg = hdg
@@ -93,7 +103,8 @@ class Cursor:
 
     def future(self, lat: float, lon: float, hdg: float, speed: float, t: float, tick: bool = False):
         self._future.append((lat, lon, hdg, speed, t))
-        logger.debug(f"added future: {(lat, lon, hdg, speed, t)}")
+        self._future_cnt += 1
+        logger.debug(f"added future ({len(self._future)}): {(lat, lon, hdg, speed, t)}")
         if tick:
             ignore = self._tick()
 
@@ -105,6 +116,7 @@ class Cursor:
     def _tick(self):
         if len(self._future) == 0:
             return False
+        self._tick_cnt += 1
         f = self._future[0]
         self._set_target(*f)
         del self._future[0]
@@ -150,17 +162,18 @@ class Cursor:
         return self.curr_speed + ratio * self.delta_spd
 
     def go(self, max_speed: float):
+        # Go between 2 points, start from rest, end to rest, with smooth constant acceleration and deceleration
+        #
         if self.curr_speed != 0 or self.target_speed != 0:
             logger.debug(f"has speed {round(self.curr_speed, 1)}, cannot go")
             return
         self.acceleration = 1.0  # m/s^2, reasonable
-        dist_to_cover = self.segment.length()
         time_to_maxspd = max_speed / self.acceleration
         dist_to_accell = self.acceleration * time_to_maxspd * time_to_maxspd  # m
         if 2 * dist_to_accell < self.segment.length():  # time to reach max_speed
-            pass
             # Accel
             # Cruise
+            dist_to_cruise = self.segment.length() - 2 * dist_to_accell
             # Decel
         else:
             maxdist = self.segment.length() / 2
@@ -183,11 +196,12 @@ class Cursor:
                 logger.debug(s)
 
         self.cnt += 1
-        if self.curr_pos is None or self.target_pos is None:  # not initialized yet
+        if self.curr_pos is None or self.target_pos is None:  # not initialized yet, no target
             if self.cnt % 100 == 0:
-                slow_debug(f"not moving {self.curr_pos}/{self.target_pos}")
+                slow_debug(f"not moving curr={self.curr_pos}, target={self.target_pos}")
             return
-        slow_debug(f"moving {round(self.segment.length(), 1)}")
+        slow_debug(f"curr_time={round(self.curr_time, 3)}, now={round(ts(), 3)}")
+        slow_debug(f"segment={round(self.segment.length(), 1)}m, {round(self.segment.bearing(), 0)}DEG")
         # if self.curr_speed == 0 and self.target_speed == 0:
         #     return self._go(t=t)
 
