@@ -559,7 +559,6 @@ class LightString:
                         dst=nextVertex,
                         extremity="start",
                         size=thisEdge.width_code,
-                        use_wigwag=self.use_wigwag,
                     )
                     self.segments += 1
                     onRwy = True  # We assume that we a setting a stopbar before a runway crossing. (26/1/2026: Ouch is that correct?)
@@ -593,7 +592,6 @@ class LightString:
                         dst=nextVertex,
                         extremity="start",
                         size=thisEdge.width_code,
-                        use_wigwag=self.use_wigwag,
                     )
                     self.segments += 1
                     onRwy = True  # We assume that we a setting a stopbar before a runway crossing.
