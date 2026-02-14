@@ -265,7 +265,7 @@ class Stopbar:
         size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.F,
         distance_between_stoplights: int = DISTANCE_BETWEEN_STOPLIGHTS,
         light: LIGHT_TYPE = LIGHT_TYPE.STOP,
-        use_wigwag: bool = True
+        use_wigwag: bool = True,
     ):
         self.lights = []
         self.position = position
@@ -366,7 +366,6 @@ class LightString:
         self.lightTypes = None
         self.taxiway_alt = 0
         self.use_wigwag = get_global("ADD_WIGWAG", preferences=self.prefs)
-
 
         # Preferences are first set from Airport preferences, which are global or airport specific
         self.distance_between_lights = airport.distance_between_green_lights  # float(get_global("DISTANCE_BETWEEN_GREEN_LIGHTS", preferences=self.prefs))

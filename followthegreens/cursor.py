@@ -152,7 +152,7 @@ class Cursor:
         before_turn = distance(self.curr_pos, self.target_pos)
         if before_turn > self.turn_limit:
             return self.curr_hdg
-        turn_dir = - self.delta_hdg if self.curr_hdg > self.target_hdg else abs(self.delta_hdg)
+        turn_dir = -self.delta_hdg if self.curr_hdg > self.target_hdg else abs(self.delta_hdg)
         # logger.debug(f"d={round(before_turn, 1)}, ratio={round(ratio, 1)}, rot={round(rot, 2)} (s={s}, l={limit}) => {round(ret, 1)}")
         return self.curr_hdg + (1 - before_turn / self.turn_limit) * turn_dir
 

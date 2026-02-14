@@ -470,7 +470,7 @@ class FlightLoop:
             return self.nextIter
 
         if self.actual_start is None:
-            if self.ftg.cursor is not None and not self.ftg.cursor.inited
+            if self.ftg.cursor is not None and not self.ftg.cursor.inited:
                 # this is ok if aircraft at rest
                 # need more dynamic reaction if aircraft moving (like "new green requested")
                 # To be tested on arrival medium speed on runway or low speed on taxuway
@@ -487,7 +487,7 @@ class FlightLoop:
                     cp = destination(fs.start, fs.bearing() + (1 if (int(now) % 2) == 0 else -1) * 90, 40)
                     cpl = Line(start=cp, end=fs.end)
                     # Speed at which we'll do that move is speed of aircraft + more
-                    initial_speed = max(7.0, acf_speed + 5.0) # m/s, 7.0 m/s = 25km/h is aircraft is stopped
+                    initial_speed = max(7.0, acf_speed + 5.0)  # m/s, 7.0 m/s = 25km/h is aircraft is stopped
                     dt = now + cpl.length() / initial_speed
                     self.ftg.cursor.init(lat=cpl.start.lat, lon=cpl.start.lon, hdg=cpl.bearing(), speed=0)  # @todo always spawned at rest??
 
