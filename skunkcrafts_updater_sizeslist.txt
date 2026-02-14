@@ -17,6 +17,9 @@ followthegreens/lights/off_light.obj|10640
 followthegreens/lights/on_light.obj|617
 followthegreens/lights/red.obj|1817
 followthegreens/lights/runway.obj|147
+followthegreens/lights/taxiway.obj|0
+followthegreens/lights/taxiway_alt.obj|0
+followthegreens/lights/taxiway_red.obj|0
 followthegreens/lights/white.obj|1817
 followthegreens/lightstring.py|47144
 followthegreens/nato.py|2898

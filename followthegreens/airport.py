@@ -6,7 +6,10 @@ import re
 import math
 from typing import Tuple
 
-import xp
+try:
+    import xp
+except ImportError:
+    print("X-Plane not loaded")
 
 from .globals import (
     logger,
