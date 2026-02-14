@@ -21,7 +21,7 @@ followthegreens/lights/taxiway.obj|489
 followthegreens/lights/taxiway_alt.obj|489
 followthegreens/lights/taxiway_red.obj|363
 followthegreens/lights/white.obj|1817
-followthegreens/lightstring.py|47412
+followthegreens/lightstring.py|47308
 followthegreens/nato.py|2898
 followthegreens/showtaxiways.py|4072
 followthegreens/ui.py|21300
