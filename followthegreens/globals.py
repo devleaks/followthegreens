@@ -36,6 +36,7 @@ class FTG_STATUS(StrEnum):
     DESTINATION = "DESTINATION"  # has destination, destination is valid
     ROUTE = "ROUTE"  # has route from aircraft to destination
     GREENS = "GREENS"  # greens read
+    FINISHED = "FINISHED"  # guidance terminated (all segements lit), but FtG still runs rabbit and shows lights
 
     ACTIVE = "ACTIVE"  # greens displayed, rabbit active if any
     INACTIVE = "INACTIVE"  # rabbit terminated

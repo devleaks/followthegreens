@@ -75,6 +75,7 @@ but cannot be adjusted at a particular level:
 1. ADD_LIGHT_AT_VERTEX (true/false)
 1. ADD_LIGHT_AT_LAST_VERTEX (true/false)
 1. DISTANCE_BETWEEN_STOPLIGHTS (in meters, a small distance like 1 (dense) to 3 (loose) meters.)
+1. ADD_WIGWAG: Adds a «wigwag» light on the side of stop bar if the stop bar is guarding a runway.
 
 
 # Airport Preferences
@@ -134,25 +135,25 @@ RABBIT_LENGTH = 200  # meters
 RABBIT_SPEED = 0.20  # seconds
 ```
 
+
 # Summary
 
 Table summary with preference, where the preference is supplied,
 and units used for the preference.
 
-| Preference                      | Global          | Airport        | Aircraft Class    | Aircraft Type      | 
-|---------------------------------|-----------------|----------------|-------------------|--------------------|
-| TOML «TABLE»                    |                 | [Airport.ICAO] | [Aircraft.C]      | [Aircraft.ICAO]    |
-| ------------------------------- | --------------- | ----------     | ----------------- | ------------------ |
-| LIGHTS_AHEAD                    | # lights        | # lights       | distance(meters)  | distance(meters)   |
-| RABBIT_LENGTH                   | # lights        | # lights       | distance(meters)  | distance(meters)   |
-| RABBIT_SPEED                    | seconds         | seconds        | seconds           | seconds            |
-| RUNWAY_LIGHT_LEVEL_WHILE_FTG    | lo,med,hi,off   | lo,med,hi,off  | NA                | NA                 |
-| DISTANCE_BETWEEN_GREEN_LIGHTS   | meters          | meters         | NA                | NA                 |
-| DISTANCE_BETWEEN_LIGHTS         | meters          | meters         | NA                | NA                 |
-| DISTANCE_BETWEEN_STOPLIGHTS     | meters          | meters         | NA                | NA                 |
-| ADD_LIGHT_AT_VERTEX             | true/false      | NA             | NA                | NA                 |
-| ADD_LIGHT_AT_LAST_VERTEX        | true/false      | NA             | NA                | NA                 |
-
+| Preference                    | Global        | Airport          | Aircraft Class   | Aircraft Type    |
+| ----------------------------- | ------------- | ---------------- | ---------------- | ---------------- |
+| TOML «TABLE»                  |               | [Airport.ICAO]   | [Aircraft.C]     | [Aircraft.ICAO]  |
+| ----------------------------- | ------------- | ---------------- | ---------------- | ---------------- |
+| LIGHTS_AHEAD                  | # lights      | distance(meters) | distance(meters) | distance(meters) |
+| RABBIT_LENGTH                 | # lights      | distance(meters) | distance(meters) | distance(meters) |
+| RABBIT_SPEED                  | seconds       | seconds          | seconds          | seconds          |
+| RUNWAY_LIGHT_LEVEL_WHILE_FTG  | lo,med,hi,off | lo,med,hi,off    | NA               | NA               |
+| DISTANCE_BETWEEN_GREEN_LIGHTS | meters        | meters           | NA               | NA               |
+| DISTANCE_BETWEEN_LIGHTS       | meters        | meters           | NA               | NA               |
+| DISTANCE_BETWEEN_STOPLIGHTS   | meters        | meters           | NA               | NA               |
+| ADD_LIGHT_AT_VERTEX           | true/false    | NA               | NA               | NA               |
+| ADD_LIGHT_AT_LAST_VERTEX      | true/false    | NA               | NA               | NA               |
 
 See above code snippets for examples.
 

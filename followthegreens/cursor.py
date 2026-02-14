@@ -8,7 +8,7 @@ except ImportError:
     print("X-Plane not loaded")
 
 from .globals import logger
-from .geo import Point, Line, distance, destination
+from .geo import Point, Line, distance, destination, turn
 from .lightstring import XPObject
 
 
@@ -72,6 +72,8 @@ class Cursor:
         self._tick_cnt = 0
         self._total_distance = 0
         self.cnt = -1
+        self.turn_limit = 1
+        self.msg = ""
 
     def usable(self) -> bool:
         return self.cursor_type.has_obj
@@ -135,7 +137,8 @@ class Cursor:
     def _mkLine(self):
         self.segment = Line(start=self.curr_pos, end=self.target_pos)
         self.delta_tim = self.target_time - self.last_time
-        self.delta_hdg = self.curr_hdg - self.target_hdg
+        self.delta_hdg = turn(self.curr_hdg, self.target_hdg)  # self.curr_hdg - self.target_hdg
+        self.turn_limit = 10 if abs(self.delta_hdg) < 90 else 15
         self.delta_spd = self.curr_speed - self.target_speed
         acc = 0
         if self.delta_tim != 0:
@@ -144,49 +147,20 @@ class Cursor:
         logger.debug(f"heading {round(self.curr_hdg, 1)} -> {round(self.target_hdg, 1)}s (delta={round(self.delta_hdg, 1)})")
         logger.debug(f"speed {round(self.curr_speed, 1)} -> {round(self.target_speed, 1)}s (delta={round(self.delta_spd, 1)}, acc={acc})")
 
-    def _turn_direction(self, b_in: float, b_out: float) -> tuple:
-        def turn(bi, bo) -> float:
-            # [-180, 180]
-            t = bi - bo
-            if t < 0:
-                t += 360
-            if t > 180:
-                t -= 360
-            return t
-
-        s = -1 if b_in > b_out else 1
-        d = abs(b_out - b_in)
-        logger.debug(f"turn {round(b_in, 0)}->{round(b_out, 0)}: {round(d, 0)}DEG dir={s}")
-
-        # ALTERNATIVE
-        turnAngle = turn(b_in, b_out)
-        arc0 = b_out + 90 if turnAngle > 0 else b_in - 90
-        arc1 = b_in + 90 if turnAngle > 0 else b_out - 90
-        # if turnAngle > 0:  # reverse coordinates order
-        #     arc.reverse()
-        # or:
-        #    t = arc0
-        #    arc0 = arc1
-        #    arc1 = t
-        logger.debug(f"turn {round(arc0, 0)}->{round(arc1, 0)}: {round(turnAngle, 0)}DEG reverse={turnAngle > 0}")
-
-        return s, 10 if d < 90 else 15
-
     def _bearing(self, ratio):
-        # only turns towards the end
+        # only turns towards the end or edge
         before_turn = distance(self.curr_pos, self.target_pos)
-        s, limit = self._turn_direction(self.curr_hdg, self.target_hdg)
-        rot = 1 - before_turn / limit
-        ret = self.curr_hdg if before_turn > limit else (self.curr_hdg + rot * s * abs(self.delta_hdg))
+        if before_turn > self.turn_limit:
+            return self.curr_hdg
+        turn_dir = - self.delta_hdg if self.curr_hdg > self.target_hdg else abs(self.delta_hdg)
         # logger.debug(f"d={round(before_turn, 1)}, ratio={round(ratio, 1)}, rot={round(rot, 2)} (s={s}, l={limit}) => {round(ret, 1)}")
-        return ret
+        return self.curr_hdg + (1 - before_turn / self.turn_limit) * turn_dir
 
     def _speed(self, ratio):
         return self.curr_speed + ratio * self.delta_spd
 
     def go(self, max_speed: float):
-        # Go between 2 points, start from rest, end to rest,
-        # with smooth constant acceleration and deceleration
+        # Go between 2 points, start from rest, end to rest, with smooth constant acceleration and deceleration
         #
         if self.curr_speed != 0 or self.target_speed != 0:
             logger.debug(f"has speed {round(self.curr_speed, 1)}, cannot go")
@@ -233,14 +207,14 @@ class Cursor:
             self.curr_hdg = self.target_hdg
             self.curr_speed = self.target_speed
             if not self._tick():
-                self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=self.curr_hdg)
+                self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=self.curr_hdg, elev=0.25)
                 return
 
         self.curr_time = self.curr_time + t
         r = (self.curr_time - self.last_time) / self.delta_tim
         self.curr_pos = self.segment.middle(ratio=r)
         hdg = self._bearing(ratio=r)
-        self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=hdg)
+        self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=hdg, elev=0.25)
 
     def move_current_position(self, lat: float, lon: float, hdg: float):
         if self.curr_pos is None:

@@ -72,6 +72,7 @@ class FlightLoop:
         self.total_dist = 0  # total taxi distance
         self.total_time = 0  # total taxi distance
         self.last_dist_to_next_vertex = -1
+        self.light_progress = 0
         # less verbose debug
         self.closestLight_cnt = 0
         self.old_msg = ""
@@ -251,11 +252,10 @@ class FlightLoop:
             logger.debug(f"planned={self.planned.strftime("%H:%M")}Z, actual={now.strftime("%H:%M")}Z, {minsec(diff)} {'in advance' if diff > 0 else 'late'}")
             # logger.debug(f"control total={round(self.total_time, 1)} vs diff={round(diff, 1)}")
 
-    def adjustedIter(self) -> float:
+    def adjustedIter(self, acf_speed) -> float:
         # If aircraft move fast, we check/update FtG more often
         try:
-            speed = self.ftg.aircraft.speed()
-            if speed is None or speed < STOPPED_SPEED:
+            if acf_speed is None or acf_speed < STOPPED_SPEED:
                 return self.nextIter
             SPEEDS = [  # [speed=m/s, iter=s]
                 [12, 0.8],
@@ -264,10 +264,10 @@ class FlightLoop:
             ]
             i = 0
             while i < len(SPEEDS):
-                if speed > SPEEDS[i][0]:
+                if acf_speed > SPEEDS[i][0]:
                     j = SPEEDS[i][1]
                     if j != self.lastIter:
-                        logger.debug(f"speed {round(speed, 1)}, iter set to {j}")
+                        logger.debug(f"speed {round(acf_speed, 1)}, iter set to {j}")
                         self.lastIter = j
                         return self.lastIter
                 i = i + 1
@@ -276,7 +276,7 @@ class FlightLoop:
         logger.debug(f"regular iter {self.nextIter}")
         return self.nextIter
 
-    def adjustRabbit(self, position, closestLight):
+    def adjustRabbit(self, position, closestLight, acf_speed):
         # Important note:
         # In planeFLCB(), if we are closing to a STOP, the following is set:
         #   self.rabbitMode = RABBIT_MODE.SLOWEST
@@ -312,8 +312,7 @@ class FlightLoop:
         turn = route.turns[light.edgeIndex]
 
         # 3. current speed
-        speed = self.ftg.aircraft.speed()
-        acf_move = speed * self.lastIter
+        acf_move = acf_speed * self.lastIter
 
         # logger.debug(f"closest light: vertex index {light.edgeIndex}, next vertex={nextvtx}, distance={round(dist, 1)}, turn={round(turn, 0)}, speed={round(speed, 1)}")
         # logger.debug(f"start turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
@@ -446,14 +445,13 @@ class FlightLoop:
         except:
             logger.error("set rabbitMode", exc_info=True)
 
-    def dynamic_ahead(self) -> float:
+    def dynamic_ahead(self, acf_speed) -> float:
         # Aircraft length (because position is center of aircraft)
         # + 1.5 aircraft length in front ogf aircrafy
         # + 15m per m/s of speed
         #
-        acfspd = self.ftg.aircraft.speed()  # m/s, [~3, ~20]
         acflen = self.ftg.aircraft.acflength if self.ftg.aircraft.acflength is not None else 50
-        return acflen * 2.5 + acfspd * 15.0
+        return acflen * 2.5 + acf_speed * 15.0
 
     def planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
@@ -462,52 +460,71 @@ class FlightLoop:
         self.ftg.ui.hideMainWindowIfOk(elapsedSinceLastCall)
 
         pos = self.ftg.aircraft.position()
-        if not pos or (pos[0] == 0 and pos[1] == 0):
+        if pos is None or (pos[0] == 0 and pos[1] == 0):
             logger.debug("no position")
             return self.nextIter
 
+        acf_speed = self.ftg.aircraft.speed()
+        if acf_speed is None:
+            logger.debug("no speed")
+            return self.nextIter
+
         if self.actual_start is None:
-            if self.ftg.cursor is not None and self.ftg.cursor.curr_pos is None:
+            if self.ftg.cursor is not None and not self.ftg.cursor.inited
                 # this is ok if aircraft at rest
                 # need more dynamic reaction if aircraft moving (like "new green requested")
                 # To be tested on arrival medium speed on runway or low speed on taxuway
                 # may be make MIN_DIST/MIN_SPEED dynamic.
                 #
                 try:
+                    # we haven't started our taxi indication, but aircraft might already be moving (fast)
+                    # for example if we requested a new green
+                    #
+                    # 1. Spawn the car next to (random) side of aircraft
+                    logger.debug("first position (at side of precise start position)..")
                     now = datetime.now().timestamp()
                     fs = self.ftg.route.before_route()
                     cp = destination(fs.start, fs.bearing() + (1 if (int(now) % 2) == 0 else -1) * 90, 40)
                     cpl = Line(start=cp, end=fs.end)
-                    dt = now + cpl.length() / 7.0  # m/s, 25km/h
-                    logger.debug("first position (precise start)..")
-                    self.ftg.cursor.init(lat=cpl.start.lat, lon=cpl.start.lon, hdg=cpl.bearing(), speed=0)
+                    # Speed at which we'll do that move is speed of aircraft + more
+                    initial_speed = max(7.0, acf_speed + 5.0) # m/s, 7.0 m/s = 25km/h is aircraft is stopped
+                    dt = now + cpl.length() / initial_speed
+                    self.ftg.cursor.init(lat=cpl.start.lat, lon=cpl.start.lon, hdg=cpl.bearing(), speed=0)  # @todo always spawned at rest??
+
+                    # 2. Movement from where the car is spawned to first vertex of route, car joint the route and will stay on it
+                    #    @todo: first vertex of route might not be the closest vertex in front.
                     logger.debug("..move to begining of route..")
+                    target_speed = acf_speed if acf_speed > MIN_SPEED else 0
                     target_heading = self.ftg.route.edges[0].bearing(orig=self.ftg.route.vertices[0])
-                    self.ftg.cursor.future(lat=cpl.end.lat, lon=cpl.end.lon, hdg=target_heading, speed=0, t=dt, tick=True)
+                    self.ftg.cursor.future(lat=cpl.end.lat, lon=cpl.end.lon, hdg=target_heading, speed=target_speed, t=dt, tick=True)
                     # start = self.ftg.route.vertices[0]
                     # logger.debug(f"first position (id={fs.start.id})..")
-                    ahead = self.dynamic_ahead()  # m
+
+                    # 3. Movement (on route) from above vertex of route to ahead of aircraft
+                    #
+                    ahead = self.dynamic_ahead(acf_speed=acf_speed)  # m
                     tahead = 20  # secs.
                     logger.debug(f"..move on route {ahead}m ahead in {tahead}secs...")
                     car_pos, car_orient, finished = self.ftg.route.progress(self.ftg.route.vertices[0], self.ftg.route.edges[0], ahead, lights=self.ftg.lights)
-                    self.ftg.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=0, t=dt + tahead)
+                    self.ftg.cursor.future(lat=car_pos.lat, lon=car_pos.lon, hdg=car_orient, speed=target_speed, t=dt + tahead)
                     logger.debug("..done")
                 except:
                     logger.debug("..error", exc_info=True)
-            if self.ftg.aircraft.moved() > MIN_DIST or self.ftg.aircraft.speed() > MIN_SPEED:
+            if self.ftg.aircraft.moved() > MIN_DIST or acf_speed > MIN_SPEED:
                 self.taxiStart()
             else:
-                msg = f"not started taxiing yet, {round(self.ftg.aircraft.moved(), 1)} < {MIN_DIST}, {round(self.ftg.aircraft.speed(), 1)} < {MIN_SPEED}"
+                msg = f"not started taxiing yet, {round(self.ftg.aircraft.moved(), 1)} < {MIN_DIST}, {round(acf_speed, 1)} < {MIN_SPEED}"
                 if msg != self.old_msg:
                     logger.debug(msg)
                     self.old_msg = msg
-                return self.nextIter
+                return self.adjustedIter(acf_speed=acf_speed)
+
+        # @todo: If FtG is finished, car need to disappear nicely
 
         # should use elapsedSinceLastCall
         # logger.debug(
         #     f"control: last iter={self.lastIter}, elapsedSinceLastCall={elapsedSinceLastCall}, counter={counter}, elapsedTimeSinceLastFlightLoop={elapsedTimeSinceLastFlightLoop}"
         # )
-        acf_speed = self.ftg.aircraft.speed()
         acf_move = acf_speed * self.lastIter
         self.total_time = self.total_time + self.lastIter
         self.total_dist = self.total_dist + acf_speed * self.lastIter
@@ -535,17 +552,21 @@ class FlightLoop:
             if self.closestLight_cnt % 20:
                 logger.debug("no close light")
             self.closestLight_cnt = self.closestLight_cnt + 1
-            return self.adjustedIter()
+            return self.adjustedIter(acf_speed=acf_speed)
 
         self.closestLight_cnt = 0
 
+        if closestLight < self.light_progress:
+            logger.debug("backup detected, ignoring light closestLight={closestLight}, using {self.light_progress}")
+            closestLight = max(closestLight, self.light_progress)
+
         # MOVE
-        nextIter = self.adjustedIter()
+        nextIter = self.adjustedIter(acf_speed=acf_speed)
         if self.ftg.cursor is not None:
             logger.debug("moving..")
             try:
                 light = self.ftg.lights.lights[closestLight]
-                ahead = self.dynamic_ahead()
+                ahead = self.dynamic_ahead(acf_speed=acf_speed)
                 total_ahead = acf_move + ahead
                 logger.debug(f"close light={closestLight}, edge index={light.edgeIndex}, ahead={round(ahead, 1)}m + acf move={round(acf_move, 1)}m")
                 # At next iteration, acf will move acf_move, and cursor need to be ahead
@@ -560,18 +581,18 @@ class FlightLoop:
                 logger.debug("..error", exc_info=True)
 
         if self.hasRabbit():
-            self.adjustRabbit(position=pos, closestLight=closestLight)  # Here is the 4D!
+            self.adjustRabbit(position=pos, closestLight=closestLight, acf_speed=acf_speed)  # Here is the 4D!
 
         # logger.debug("closest %d %f", closestLight, distance)
         if closestLight > self.lastLit and distance < self.diftingLimit:  # Progress OK
             # logger.debug("moving %d %d", closestLight, self.lastLit)
             self.lastLit = closestLight
             self.distance = distance
-            return self.adjustedIter()
+            return self.adjustedIter(acf_speed=acf_speed)
 
         if self.lastLit == closestLight and (abs(self.distance - distance) < DISTANCE_BETWEEN_GREEN_LIGHTS):  # not moved enought, may even be stopped
             # logger.debug("aircraft did not move")
-            return self.adjustedIter()
+            return self.adjustedIter(acf_speed=acf_speed)
 
         # @todo
         # Need to send warning when pilot moves away from the green.
@@ -581,7 +602,7 @@ class FlightLoop:
 
         self.distance = distance
 
-        return self.adjustedIter()
+        return self.adjustedIter(acf_speed=acf_speed)
 
     def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument

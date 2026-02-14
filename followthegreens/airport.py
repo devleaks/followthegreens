@@ -6,6 +6,8 @@ import re
 import math
 from typing import Tuple
 
+import xp
+
 from .globals import (
     logger,
     get_global,
@@ -197,6 +199,8 @@ class Airport:
         self.smoothGraph = Graph(name="Smoothed taxiways")
         self.tempSmoothCurve = []
 
+        self.visibility_dref = xp.findDataRef("sim/weather/visibility_reported_m")
+
         # PREFERENCES - Fetched by LightString
         # Set sensible default value from global preferences
         self.use_threshold = get_global("USE_THRESHOLD", self.prefs)
@@ -256,6 +260,9 @@ class Airport:
         logger.debug(f"Airport preferences: {apt}")
         if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in apt:
             self.distance_between_green_lights = apt[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
+
+    def visibility(self) -> float:
+        return xp.getDataf(self.visibility_dref)
 
     def load(self):
         APT_FILES = {}

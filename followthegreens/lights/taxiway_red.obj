@@ -4,7 +4,7 @@ OBJ
 
 POINT_COUNTS    0 0 0 0
 
-@ "double" light in front of aircraft
+# "double" light in front of aircraft
 # Left and right of object (+/- 0.05), a bit up (+0.01), a bit forward (+0.07)
 LIGHT_NAMED taxi_r -0.05 0.01 0.07
 LIGHT_NAMED taxi_r +0.05 0.01 0.07

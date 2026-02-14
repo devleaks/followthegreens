@@ -121,6 +121,8 @@ class FollowTheGreens:
                     self.prefs = tomllib.load(fp)
                 except:
                     logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
+                    with open(filename, "rb") as ferr:
+                        logger.warning(f"file:\n{ferr.readlines()}\n")
 
             logger.info(f"developer preferences file {filename} {loading}ed")
             logger.debug(f"preferences: {self.prefs}")
@@ -147,7 +149,8 @@ class FollowTheGreens:
                         self.check_update_version(filename=filename, change=False)
                     except:
                         logger.warning(f"preferences file {filename} not {loading}ed", exc_info=True)
-                # logger.debug(f"preferences: {self.prefs}")
+                        with open(filename, "rb") as ferr:
+                            logger.warning(f"file:\n{ferr.readlines()}\n")
             else:
                 logger.debug(f"no preferences file {filename}")
                 self.create_empty_prefs()
@@ -168,7 +171,7 @@ class FollowTheGreens:
         # logger.info("You can change the logging level in the preference file by setting a interger value like so: LOGGING_LEVEL = 10")
 
         try:
-            logger.debug(f"internal:\n{ '\n'.join([f'{g}: {get_global(g, preferences=self.prefs)}' for g in INTERNAL_CONSTANTS]) }'\n=====")
+            logger.debug(f"internal:\n{ '\n'.join([f'{g}: {get_global(g, preferences=self.prefs)}' for g in INTERNAL_CONSTANTS]) }\n=====")
         except:  # in case str(value) fails
             logger.debug("internal: some internals preference values don't print", exc_info=True)
 
@@ -471,11 +474,11 @@ VERSION = "{__VERSION__}"
         logger.info(f"segment {self.segment + 1}/{self.lights.segments + 1}")
 
         if self.segment > self.lights.segments:
-            self.flightLoop.stopFlightLoop()
-            self.lights.destroy()
             # Info 16.a
+            self.status = FTG_STATUS.FINISHED
             logger.info("done")
             self.segment = 0  # reset
+            self.flightLoop.taxiEnd()
             return self.ui.bye()
 
         self.status = FTG_STATUS.GREENS
@@ -494,6 +497,7 @@ VERSION = "{__VERSION__}"
 
         if self.move == MOVEMENT.DEPARTURE and self.segment == self.lights.segments:
             # Info 16.b
+            self.status = FTG_STATUS.FINISHED
             logger.info("ready for take-off")
             self.segment = 0  # reset
             self.flightLoop.taxiEnd()

@@ -29,8 +29,6 @@ HARDCODED_MIN_DISTANCE = 50  # meters
 HARDCODED_MIN_TIME = 0.04  # secs
 HARDCODED_MIN_RABBIT_LENGTH = 6  # lights
 
-ADD_WIGWAG = True
-
 
 class LightType:
     # A light to follow, or a stopbar light
@@ -267,6 +265,7 @@ class Stopbar:
         size: TAXIWAY_WIDTH_CODE = TAXIWAY_WIDTH_CODE.F,
         distance_between_stoplights: int = DISTANCE_BETWEEN_STOPLIGHTS,
         light: LIGHT_TYPE = LIGHT_TYPE.STOP,
+        use_wigwag: bool = True
     ):
         self.lights = []
         self.position = position
@@ -274,6 +273,7 @@ class Stopbar:
         self.lightStringIndex = index
         self.width = TAXIWAY_WIDTH[size.value].value
         self.distance_between_stoplights = distance_between_stoplights
+        self.use_wigwag = use_wigwag
         self.light = light  # LIGHT_TYPE.WARNING if ADD_WIGWAG else light
         self._on = False
         self._cleared = False
@@ -296,7 +296,7 @@ class Stopbar:
             pos = destination(self.position, brng, i * self.distance_between_stoplights)
             self.lights.append(Light(self.light, pos, 0, i))
         skip = 0
-        if ADD_WIGWAG:
+        if self.use_wigwag:
             pos = destination(self.position, brng, (numlights + side) * self.distance_between_stoplights)
             self.lights.append(Light(LIGHT_TYPE.RUNWAY, pos, self.heading, numlights))
             skip = 1
@@ -306,7 +306,7 @@ class Stopbar:
         for i in range(numlights):
             pos = destination(self.position, brng, i * self.distance_between_stoplights)
             self.lights.append(Light(self.light, pos, 0, numlights + i + skip))
-        if ADD_WIGWAG:
+        if self.use_wigwag:
             pos = destination(self.position, brng, (numlights + side) * self.distance_between_stoplights)
             self.lights.append(Light(LIGHT_TYPE.RUNWAY, pos, self.heading, 2 * numlights + skip))
 
@@ -365,6 +365,8 @@ class LightString:
         self.lastLit = 0
         self.lightTypes = None
         self.taxiway_alt = 0
+        self.use_wigwag = get_global("ADD_WIGWAG", preferences=self.prefs)
+
 
         # Preferences are first set from Airport preferences, which are global or airport specific
         self.distance_between_lights = airport.distance_between_green_lights  # float(get_global("DISTANCE_BETWEEN_GREEN_LIGHTS", preferences=self.prefs))
@@ -558,6 +560,7 @@ class LightString:
                         dst=nextVertex,
                         extremity="start",
                         size=thisEdge.width_code,
+                        use_wigwag=self.use_wigwag,
                     )
                     self.segments += 1
                     onRwy = True  # We assume that we a setting a stopbar before a runway crossing. (26/1/2026: Ouch is that correct?)
@@ -591,6 +594,7 @@ class LightString:
                         dst=nextVertex,
                         extremity="start",
                         size=thisEdge.width_code,
+                        use_wigwag=self.use_wigwag,
                     )
                     self.segments += 1
                     onRwy = True  # We assume that we a setting a stopbar before a runway crossing.
@@ -685,7 +689,7 @@ class LightString:
             start = dst
         else:
             start = src
-        stopbar = Stopbar(position=start, heading=brng, index=lightIndex, size=size, light=light)
+        stopbar = Stopbar(position=start, heading=brng, index=lightIndex, size=size, light=light, use_wigwag=self.use_wigwag)
         self.stopbars.append(stopbar)
         logger.debug(f"added stopbar at light index {lightIndex}")
 

@@ -46,9 +46,9 @@ def convertAngleTo360(alfa):
 def turn(bi, bo):
     # turn in [-180, 180]
     t = bi - bo
-    if t < 0:
+    while t < -180:
         t += 360
-    if t > 180:
+    while t > 180:
         t -= 360
     return t
 

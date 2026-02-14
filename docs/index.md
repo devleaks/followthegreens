@@ -96,6 +96,19 @@ It should now contain a _Follow the greens..._ menu item.
 ![Plugin Menu](images/menu.png)
 
 
+After installation, the structure of X-Plane folders should ressemble something like this:
+
+```
+<X-Plane 12>
+    /Resources
+        /plugins
+            /PythonPlugins
+                PI_FollowTheGreens.py
+                /followthegreens
+                    /lights (light objects library)
+```
+
+
 # Usage
 
 To use Follow the greens at an airport facility, there is a little constrain on the airport:
@@ -171,7 +184,12 @@ There is absolutely not AI, just HFAB (human fun and bugs, Claude did not even h
 Follow the greens exposes a few limited set of preference parameters.
 Parameters are specified in a preference file that can be found at
 
-`<X-Plane 12 Folder> / Output / preferences / followthegreens.prf`
+```
+<X-Plane 12>
+    /Output
+        /preferences
+            followthegreens.prf
+```
 
 (Recommanded preference file location for X-Plane 12.)
 
@@ -503,6 +521,21 @@ I hope FtG will make your taxi rides more enjoyable.
 FtG may sometimes not find a route, or show undesired behavior.
 
 FtG produces a log file named `ftg_log.txt` located in python plugin folder, right next to `PI_FollowTheGreens.py` file.
+
+```
+<X-Plane 12>
+    log.txt   (X-Plane log file)
+    XPPython3Log.txt   (XPPython3 plugin log file)
+    /Resources
+        /plugins
+            /PythonPlugins/
+                PI_FollowTheGreens.py
+                /followthegreens/
+                ftg_log.txt  (Follow the greens log file)
+    /Output
+        /preferences
+            followthegreens.prf  (Preference file)
+```
 
 In case of trouble, please always provide that file, very much like X-Plane support will ask you to provide the `log.txt` file.
 
