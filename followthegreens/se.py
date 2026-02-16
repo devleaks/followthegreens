@@ -1,4 +1,5 @@
 # from https://en.wikipedia.org/wiki/Sunrise_equation
+# (pure python, no additional package)
 #
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from math import acos, asin, ceil, cos, degrees, fmod, radians, sin, sqrt
