@@ -481,19 +481,20 @@ class FlightLoop:
                     # for example if we requested a new green
                     #
                     # 1. Spawn the car next to (random) side of aircraft
-                    logger.debug("first position (at side of precise start position)..")
                     now = datetime.now().timestamp()
+                    rnd = 1 if (int(now) % 2) == 0 else -1
+                    logger.debug(f"first position (at {rnd} side of precise start position)..")
                     fs = self.ftg.route.before_route()
                     # spawn at spot randomly left or right of current aircraft position
-                    cp = destination(fs.start, fs.bearing() + (1 if (int(now) % 2) == 0 else -1) * 90, 40)
+                    cp = destination(fs.start, fs.bearing() + rnd * 90, 40)
                     # from spot to begining of route
                     cpl = Line(start=cp, end=fs.end)
-                    logger.debug(f"lines: before route={fs}, route to start={cpl}")
+                    # logger.debug(f"lines: before route={fs}, route to start={cpl}")
                     # Speed at which we'll do that move is speed of aircraft + more
                     initial_speed = max(7.0, acf_speed + 5.0)  # m/s, 7.0 m/s = 25km/h is aircraft is stopped
                     dt = now + cpl.length() / initial_speed
                     self.ftg.cursor.init(lat=cpl.start.lat, lon=cpl.start.lon, hdg=cpl.bearing(), speed=0)  # @todo always spawned at rest??
-
+                    #
                     # 2. Movement from where the car is spawned to first vertex of route, car joint the route and will stay on it
                     #    @todo: first vertex of route might not be the closest vertex in front.
                     logger.debug("..move to begining of route..")
@@ -502,7 +503,7 @@ class FlightLoop:
                     self.ftg.cursor.future(lat=cpl.end.lat, lon=cpl.end.lon, hdg=target_heading, speed=target_speed, t=dt, tick=True)
                     # start = self.ftg.route.vertices[0]
                     # logger.debug(f"first position (id={fs.start.id})..")
-
+                    #
                     # 3. Movement (on route) from above vertex of route to ahead of aircraft
                     #
                     ahead = self.dynamic_ahead(acf_speed=acf_speed)  # m

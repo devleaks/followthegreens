@@ -25,6 +25,7 @@ theme:
 
 nav:
 - Welcome: index.md
+- Preferences: preferences.md
 - Changelog: changelog.md
 - Developer Notes: devnotes.md
 

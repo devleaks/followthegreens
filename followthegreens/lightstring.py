@@ -226,10 +226,10 @@ class XPObject:
             xp.destroyInstance(self.instance)
             self.instance = None
 
-    def move(self, lat: float, lon: float, hdg: float):
+    def move(self, lat: float, lon: float, hdg: float, elev: float = 0.0):
         if self.instance is None:
             return
-        pitch, roll, alt = (0, 0, 0)
+        pitch, roll, alt = (0, 0, elev)
         (x, y, z) = self.groundXYZ(lat, lon, alt)
         xyz = (x, y, z, pitch, hdg, roll)
         xp.instanceSetPosition(self.instance, xyz, self.params)

@@ -8,7 +8,7 @@ except ImportError:
     print("X-Plane not loaded")
 
 from .globals import logger
-from .geo import Point, Line, distance, destination, turn
+from .geo import Point, Line, distance, destination
 from .lightstring import XPObject
 
 
@@ -84,7 +84,7 @@ class Cursor:
         return self.curr_pos is not None
 
     def init(self, lat: float, lon: float, hdg: float, speed: float = 0.0):
-        if not self.inited:  # only init once
+        if self.inited:  # only init once
             return
         self.curr_pos = Point(lat=lat, lon=lon)
         self.curr_hdg = hdg
@@ -95,7 +95,7 @@ class Cursor:
         self.cursor.heading = self.curr_hdg
         self.cursor.place(lightType=self.cursor_type)
         self.cursor.on()
-        logger.debug(f"initialized at {round(self.curr_time, 2)}")
+        logger.debug(f"initialized at {round(self.curr_time, 2)}, pos={self.curr_pos}")
 
     def destroy(self):
         self.cursor.destroy()  # calls off()
@@ -136,10 +136,17 @@ class Cursor:
         self.target_time = t
         logger.debug(f"target time is {round(self.target_time, 2)} ({round(self.target_time-self.last_time, 2)} ahead)")
 
+    def turn(self, b_in, b_out):
+        d = b_out - b_in
+        if abs(d) > 180:
+            d = -1 * (abs(d) - 180)
+        logger.debug(f"TURN {round(b_in, 1)} -> {round(b_out, 1)}s (turn={round(d, 1)})")
+        return d
+
     def _mkLine(self):
         self.segment = Line(start=self.curr_pos, end=self.target_pos)
         self.delta_tim = self.target_time - self.last_time
-        self.delta_hdg = turn(self.curr_hdg, self.target_hdg)  # self.curr_hdg - self.target_hdg
+        self.delta_hdg = self.turn(self.curr_hdg, self.target_hdg)  # self.curr_hdg - self.target_hdg
         self.turn_limit = 10 if abs(self.delta_hdg) < 90 else 15
         self.delta_spd = self.curr_speed - self.target_speed
         acc = 0
@@ -154,9 +161,7 @@ class Cursor:
         before_turn = distance(self.curr_pos, self.target_pos)
         if before_turn > self.turn_limit:
             return self.curr_hdg
-        turn_dir = -self.delta_hdg if self.curr_hdg > self.target_hdg else abs(self.delta_hdg)
-        # logger.debug(f"d={round(before_turn, 1)}, ratio={round(ratio, 1)}, rot={round(rot, 2)} (s={s}, l={limit}) => {round(ret, 1)}")
-        return self.curr_hdg + (1 - before_turn / self.turn_limit) * turn_dir
+        return self.curr_hdg + (1 - before_turn / self.turn_limit) * self.delta_hdg
 
     def _speed(self, ratio):
         return self.curr_speed + ratio * self.delta_spd
@@ -196,12 +201,17 @@ class Cursor:
                 logger.debug(s)
 
         self.cnt += 1
+        old_time = self.curr_time
+        self.curr_time = self.curr_time + t
 
         if self.curr_pos is None or self.target_pos is None:  # not initialized yet, no target
             slow_debug(f"not moving curr={self.curr_pos}, target={self.target_pos}")
             return
-        slow_debug(f"curr_time={round(self.curr_time, 3)}, now={round(ts(), 3)}, target={round(self.target_time, 3)}")
+        now = ts()
+        slow_debug(f"curr_time={round(self.curr_time, 3)}, now={round(now, 3)} (diff={round(self.curr_time - now, 3)}), target={round(self.target_time, 3)}")
         slow_debug(f"segment={round(self.segment.length(), 1)}m, {round(self.segment.bearing(), 0)}DEG")
+
+        # no speed, but some movement to complete, so accelerate
         # if self.curr_speed == 0 and self.target_speed == 0:
         #     return self._go(t=t)
 
@@ -212,13 +222,7 @@ class Cursor:
                 self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=self.curr_hdg, elev=0.25)
                 return
 
-        self.curr_time = self.curr_time + t
         r = (self.curr_time - self.last_time) / self.delta_tim
         self.curr_pos = self.segment.middle(ratio=r)
         hdg = self._bearing(ratio=r)
         self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=hdg, elev=0.25)
-
-    def move_current_position(self, lat: float, lon: float, hdg: float):
-        if self.curr_pos is None:
-            return
-        self.curr_pos.move(lat, lon, hdg)

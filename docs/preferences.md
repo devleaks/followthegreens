@@ -158,6 +158,33 @@ and units used for the preference.
 See above code snippets for examples.
 
 
+# Strict Route Search Mode
+
+The goal of FtG is to provide a route from where the aircraft is located to a destination,
+either a runway entry, or a parking stand.
+It does this by finding a route on a network of taxiways.
+
+However, taxiways may have contraints:
+
+1. Aircraft size/width/weight constraints. A narrow taxiway is not suitable for an airliner.
+2. Local constrainst like one-way taxiways, taxiways used for inner/outer traffic.
+3. Runways may sometime be used as taxiways, usually with a U-turn surface at its ends.
+
+The algorithm first tries to find a route respecting all constraints.
+If no route is found, the algorith will relax some constraints, one by one until a route is found.
+
+If you do not want to respect taxiway constraints, please set the following preference parameter:
+
+```
+RESPECT_CONSTRAINTS = false
+```
+
+Recall that Follow the greens does not optimisation.
+It finds the shortest path, respecting constraints if possible.
+The shortest path is .. the shortest.
+It is not the path with the less turn, or the more logical path, it is the shortest.
+
+
 # Lights
 
 FtG lights different _types of lights_ at precise locations.

@@ -403,6 +403,11 @@ progress a little on that path and then, in the dialog box,
 select the «New greens» button to recompute a new path from your current position.
 
 
+## See Also
+
+[Advanced preference setting](https://devleaks.github.io/followthegreens/preferences/)
+
+
 # FtG Control and Monitoring
 
 ## FtG Commands
