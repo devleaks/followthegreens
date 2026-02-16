@@ -3,12 +3,12 @@ PI_FollowTheGreens.py|465585396
 README.md|3816865703
 followthegreens/__init__.py|571708981
 followthegreens/aircraft.py|3226578971
-followthegreens/airport.py|2188505464
+followthegreens/airport.py|1583740963
 followthegreens/cars/xcsl/ZZZC2.obj|2541818725
 followthegreens/cars/xcsl/ZZZC2.png|284014550
 followthegreens/cars/xcsl/ZZZC2_LIT.png|3994798813
-followthegreens/cursor.py|2906679544
-followthegreens/flightloop.py|335251525
+followthegreens/cursor.py|1744990089
+followthegreens/flightloop.py|3021441318
 followthegreens/followthegreens.py|1127696297
 followthegreens/geo.py|2651842678
 followthegreens/globals.py|3527940083
@@ -24,7 +24,7 @@ followthegreens/lights/taxiway.obj|663299673
 followthegreens/lights/taxiway_alt.obj|2453200326
 followthegreens/lights/taxiway_red.obj|2795754834
 followthegreens/lights/white.obj|1415050574
-followthegreens/lightstring.py|446442743
+followthegreens/lightstring.py|580564831
 followthegreens/nato.py|2108547532
 followthegreens/se.py|3112550266
 followthegreens/showtaxiways.py|3074765434
