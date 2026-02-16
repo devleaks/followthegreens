@@ -814,12 +814,14 @@ class Route:
         # but also set the size of the taxiway in the vertex
         # note: edges[k] starts at vertices[k]
         self.edges = []
+        self.edges_orient = []  # True: start->end, False: end->start
         for i in range(len(self.route) - 1):
             e = self.graph.get_edge(self.route[i], self.route[i + 1])
             v = self.graph.get_vertex(self.route[i])
             v.setProp("taxiway-width", e.width_code.value if e.width_code is not None else "-")
             v.setProp("ls", i)
             self.edges.append(e)
+            self.edges_orient.append(e.bearing(orig=v))
         logger.debug(f"route (vtx): {self}.")
         logger.debug("route (edg): " + "-".join([e.name for e in self.edges]))
         logger.debug("route: " + self.text())
@@ -1127,35 +1129,31 @@ class Route:
 
         return self._find(src[0], dst[0])
 
-    def progress(self, position, edge, dist_to_travel: float, lights=None):  # -> Point, bearing, finished
-        # project position on edge,
-        # travels dist_to_travel on route from position
-        # returns new position or end of route
-        logger.log(9, f"enter edge={edge.start.id}-{edge.end.id}, to travel={round(dist_to_travel, 1)}m, position={position.coords()}")
+    def progress(self, position, edge: int, dist_to_travel: float):  # -> route index, dist from index, finished
+        # position is position of aircraft,
+        # project position of aircraft on edge,
+        # travels dist_to_travel on route from projected position on edge
+        # returns new position or last posotion and end of route
+        e = self.edges[edge]
+        logger.log(9, f"enter edge={e.start.id}-{e.end.id}, to travel={round(dist_to_travel, 1)}m, position={position.coords()}")
         distance_left = dist_to_travel
         # 1. Find route index of first edge and orientation of first edge
-        i = 0
-        start = -1
-        edge_bearing = edge.bearing()
-        edge_start = edge.start
-        edge_end = edge.end
-        rev = ""
-        while start == -1 and i < len(self.route):
-            if self.route[i] == edge.start.id:
-                start = i
-            if self.route[i] == edge.end.id:
-                logger.log(9, "first edge is reversed")
-                start = i
-                edge_start = edge.end
-                edge_end = edge.start
-                edge_bearing = edge_bearing + 180 if edge_bearing < 180 else edge_bearing - 180
-                rev = " reversed"
-            i = i + 1
-        i = i - 1
+        i = edge
         logger.log(9, f"at route index {i}")
 
+        edge_bearing = e.bearing()
+        edge_start = e.start
+        edge_end = e.end
+        rev = ""
+        if edge_bearing != self.edges_orient[i]:
+            rev = " reversed"
+            edge_bearing = self.edges_orient[i]
+            edge_start = e.end
+            edge_end = e.start
+
         # must project position on edge
-        pos_on_edge, dist = nearestPointToLines(position, [edge])
+        # @todo: in prod: suppress computation of distance d, unnecessary
+        pos_on_edge, dist = nearestPointToLines(position, [e])
         d = 0
         if pos_on_edge is None:  # if cannot project, use closest of start/end of edge
             logger.log(9, "could not position on edge")
@@ -1164,34 +1162,19 @@ class Route:
             pos_on_edge = edge_end
             if d1 < d2:
                 pos_on_edge = edge_start
-                d = edge.cost  # must run the entire edge
+                d = e.cost  # must travel the entire edge
                 logger.log(9, "start of edge is closer")
         else:
             logger.log(9, f"position on edge at {round(dist, 1)}m")
             d = distance(pos_on_edge, edge_end)  # distance remaning on edge
-        logger.log(9, f"on route edge {i} {edge.start.id}-{edge.end.id}{rev},length={round(edge.cost, 1)}m), at {round(d, 1)}m from edge end")
-
-        # shortcut: Compute distance with distance_between_lights, faster, simpler
-        if lights is not None:
-            closestLight, dist = lights.closest(pos_on_edge.coords())
-            logger.log(9, f"shortcut with lights ({closestLight})")
-            if closestLight is not None:
-                idxshift = int(dist_to_travel / lights.distance_between_lights)
-                maxlights = len(lights.lights) - 1
-                lightidx = min(closestLight + idxshift, maxlights)
-                light = lights.lights[lightidx]
-                logger.log(
-                    9,
-                    f"approximation: light {closestLight} -> {lightidx} ({lightidx-closestLight+1} x {round(lights.distance_between_lights, 1)}m), {round(dist_to_travel % lights.distance_between_lights, 1)}",
-                )
-                return light.position, light.heading, lightidx == maxlights
+        logger.log(9, f"on route edge {i} {e.start.id}-{e.end.id}{rev},length={round(e.cost, 1)}m), at {round(d, 1)}m from edge end")
 
         # 2. travel on same edge..
         if distance_left < d:  # moving on edge only
             logger.log(9, f"travelling {round(distance_left, 1)}m on same edge, remaining {round(d - distance_left, 1)} to end of edge")
-            newpos = destination(pos_on_edge, edge_bearing, distance_left)
-            logger.log(9, f"reached destination on edge at {newpos.coords()}, {round(edge_bearing)}")
-            return newpos, edge_bearing, False
+            # newpos = destination(pos_on_edge, edge_bearing, distance_left)
+            # logger.log(9, f"reached destination on edge at {newpos.coords()}, {round(edge_bearing)}")
+            return i, distance_left, False
 
         distance_left = distance_left - d
         logger.log(9, f"travelling {round(d, 1)}m to end of edge {i}, left to travel={round(distance_left, 1)}m")
@@ -1205,25 +1188,10 @@ class Route:
 
         # 3a. if end reached, return end
         if i == len(self.edges):
-            hdg = self.edges[-1].bearing(orig=self.vertices[-2])
-            logger.log(9, f"reached end of route at {self.vertices[-1].coords()} (last vertex), {round(hdg)}")
-            return self.vertices[-1], hdg, True
+            # hdg = self.edges[-1].bearing(orig=self.vertices[-2])
+            logger.log(9, "reached end of route")
+            return self.vertices[-1], 0, True
 
         # 4. travel part of current edge
-        edge_start = self.edges[i].start
-        rev = ""
-        logger.log(9, f"on edge {i} at vertice {self.vertices[i].id} edge={self.edges[i].start.id}-{self.edges[i].end.id}")
-        # current edge orientation
-        if self.vertices[i] == self.edges[i].end:
-            logger.log(9, f"edge {i} is reversed")
-            rev = "reversed, "
-            edge_start = self.edges[i].end
-        hdg = self.edges[i].bearing(orig=edge_start)
-        logger.log(
-            9,
-            f"need to travel {round(distance_left, 1)}m on edge {i} ({rev}length={round(self.edges[i].cost, 1)}, bearing={round(hdg)}), remaining {round(self.edges[i].cost - distance_left, 1)}m to travel on edge",
-        )
-        newpos = destination(edge_start, hdg, distance_left)
-        logger.log(9, f"reached destination at {newpos.coords()}, {round(hdg)}")
-
-        return newpos, hdg, False
+        logger.log(9, f"travelling on edge {i} {round(distance_left, 1)}m")
+        return i, distance_left, False

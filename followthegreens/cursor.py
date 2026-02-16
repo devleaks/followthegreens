@@ -45,9 +45,10 @@ class Cursor:
         self.cursor_type = CarType(filename)
         self.cursor = XPObject(None, 0, 0, 0)
 
-        self.acceleration = 1.0  # m/s^2
-
+        self.route = None
         self._future = []
+        self.curr_index = 0
+        self.curr_dist = 0
 
         self.last_time = 0
         self.curr_pos = None
@@ -59,6 +60,8 @@ class Cursor:
         self.target_hdg = 0
         self.target_speed = 0
         self.target_time = 0
+
+        self.acceleration = 1.0  # m/s^2
 
         # working var for interpolation
         self.segment: Line | None = None
@@ -83,11 +86,11 @@ class Cursor:
     def inited(self) -> bool:
         return self.curr_pos is not None
 
-    def init(self, lat: float, lon: float, hdg: float, speed: float = 0.0):
+    def init(self, position: Point, heading: float, speed: float = 0.0):
         if self.inited:  # only init once
             return
-        self.curr_pos = Point(lat=lat, lon=lon)
-        self.curr_hdg = hdg
+        self.curr_pos = Point(lat=position.lat, lon=position.lon)
+        self.curr_hdg = heading
         self.curr_speed = speed
         self.curr_time = ts()
 
@@ -105,17 +108,60 @@ class Cursor:
     def set_route(self, route):
         self.route = route
 
-    def future(self, lat: float, lon: float, hdg: float, speed: float, t: float, tick: bool = False):
-        self._future.append((lat, lon, hdg, speed, t))
+    def future(self, position: Point, hdg: float, speed: float, t: float, tick: bool = False):
+        self._future.append((position.lat, position.lon, hdg, speed, t))
         self._future_cnt += 1
-        logger.debug(f"added future ({len(self._future)}): {(lat, lon, hdg, speed, t)}")
+        logger.debug(f"added future ({len(self._future)}): {(position.lat, position.lon, hdg, speed, t)}")
         if tick:
             ignore = self._tick()
 
-    # def future(self, lat: float, lon: float, hdg: float, speed: float, t: float = ts()):
-    #     self._set_start(self.elat, self.elon, self.ehdg, self.espd, self.et)
-    #     self._set_end(lat, lon, hdg, speed, t)
-    #     self._mkLine()
+    def on_edge(self, i, dist):
+        return destination(self.route.vertices[i], self.route.edges_orient[i], dist)
+
+    def future_index(self, edge: int, dist: float, speed: float, t: float):
+        # convert trip on the route into "future()" segements:
+        if speed == 0:
+            speed = 7.0  # m/s, 7.0 m/s = 25km/h if aircraft is stopped
+            logger.warning(f"cannot progress on route with no speed, setting speed = {speed}")
+        if edge < self.curr_index:
+            logger.debug(f"cannot backup edges ({edge} < {self.curr_index})")
+            return
+        if edge == self.curr_index:  # remains on same edge
+            if dist > self.curr_dist:
+                dest = destination(self.route.vertices[i], self.route.edges_orient[i], dist)
+                hdg = self.route.edges_orient[i]
+                self.future(position=dest, hdg=hdg, speed=speed, t=t)
+                self.curr_dist = dist
+                logger.debug(f"progress on edge {edge} to {round(self.curr_dist, 1)}m)")
+            else:
+                logger.debug(f"no progress on edge {edge}, ({round(dist, 1)}m <= {round(self.curr_dist, 1)}m)")
+            return
+
+        vertices = self.route.vertices
+        # travel to end of current edge
+        tt = 0  # total time
+        e = self.route.edges[self.curr_index]
+        d = e.cost - self.curr_dist
+        tt = d / speed
+        self.future(position=vertices[self.curr_index + 1], hdg=self.route.edges_orient[self.curr_index], speed=speed, t=tt)
+        logger.debug(f"progress on edge {self.curr_index} to end at {round(d, 1)}m)")
+
+        # travel entire next edges
+        while self.curr_index < edge and self.curr_index < (len(vertices) - 1):
+            e = self.route.edges[self.curr_index]
+            tt = tt + e.cost / speed
+            # route to edge
+            self.future(position=vertices[self.curr_index + 1], hdg=self.route.edges_orient[self.curr_index], speed=speed, t=tt)
+            logger.debug(f"progress on edge {self.curr_index} (whole length {round(e.cost, 1)}m)")
+            self.curr_index = self.curr_index + 1
+
+        # travel on new current edge
+        logger.debug(f"progress on edge: control curr_index={self.curr_index} vs edge={edge}")
+        newpos = self.on_edge(edge, dist)
+        self.future(position=newpos, hdg=self.route.edges_orient[edge], speed=speed, t=t)
+        self.curr_index = edge
+        self.curr_dist = dist
+        logger.debug(f"progress on edge {edge} (length {round(dist, 1)}m)")
 
     def _tick(self):
         if len(self._future) == 0:
@@ -140,7 +186,7 @@ class Cursor:
         d = b_out - b_in
         if abs(d) > 180:
             d = -1 * (abs(d) - 180)
-        logger.debug(f"TURN {round(b_in, 1)} -> {round(b_out, 1)}s (turn={round(d, 1)})")
+        logger.debug(f"TURN {round(b_in, 1)} -> {round(b_out, 1)}s (turn={round(d, 1)}, {'left' if d < 0 else 'right'})")
         return d
 
     def _mkLine(self):

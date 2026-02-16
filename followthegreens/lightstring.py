@@ -27,7 +27,7 @@ from .globals import (
 
 HARDCODED_MIN_DISTANCE = 50  # meters
 HARDCODED_MIN_TIME = 0.04  # secs
-HARDCODED_MIN_RABBIT_LENGTH = 6  # lights
+HARDCODED_MIN_RABBIT_LENGTH = 4  # lights
 
 
 class LightType:
@@ -279,6 +279,13 @@ class Stopbar:
         self._cleared = False
         self.make()
 
+    @property
+    def cleared(self) -> bool:
+        return self._cleared
+
+    def clear(self):
+        self._cleared = True
+
     def make(self):
         numlights = int(self.width / self.distance_between_stoplights)
         side = 1
@@ -406,6 +413,8 @@ class LightString:
                 self.rabbit_length = 1
             logger.debug(f"rabbit_length defined from aircraft preferences {self.rabbit_length}")
         self.num_rabbit_lights = self.rabbit_length  # can be 0, this adjusts with acf speed
+        if self.num_rabbit_lights > 0:
+            self.num_rabbit_lights = max(HARDCODED_MIN_RABBIT_LENGTH, self.num_rabbit_lights)
 
         self.rabbit_speed = get_global("RABBIT_SPEED", self.prefs)  # this never changes
         logger.debug(f"rabbit_speed global preferences {self.rabbit_speed}")
@@ -481,7 +490,7 @@ class LightString:
     def changeRabbit(self, length: int, duration: float, ahead: int):
         if not self.hasRabbit():
             return
-        self.new_num_rabbit_lights = length
+        self.new_num_rabbit_lights = max(HARDCODED_MIN_RABBIT_LENGTH, length) if length > 0 else 0
         self.new_num_lights_ahead = ahead
         self.new_rabbit_duration = duration
 
@@ -861,8 +870,16 @@ class LightString:
 
     def nextStop(self):
         # index of light where should stop next
-        if self.currentSegment < len(self.stopbars):
-            return self.stopbars[self.currentSegment].lightStringIndex
+        # skipping stopbar that are cleared
+        i = self.currentSegment
+        while i < len(self.stopbars):
+            sb = self.stopbars[i]
+            if not sb.cleared:
+                # logger.debug(f"stopbar {i} not cleared ({sb.lightStringIndex})")
+                return sb.lightStringIndex
+            logger.debug(f"stopbar {i} already cleared")
+            i = i + 1
+        # no more stop bar? return last light
         return len(self.lights) - 1
 
     def closest(self, position, after: int = 0):
