@@ -2,11 +2,14 @@ LICENSE|3164972148
 PI_FollowTheGreens.py|465585396
 README.md|3816865703
 followthegreens/__init__.py|571708981
-followthegreens/aircraft.py|4038899448
-followthegreens/airport.py|643153082
-followthegreens/cursor.py|3511973608
-followthegreens/flightloop.py|74239205
-followthegreens/followthegreens.py|3058715335
+followthegreens/aircraft.py|3226578971
+followthegreens/airport.py|2188505464
+followthegreens/cars/xcsl/ZZZC2.obj|2541818725
+followthegreens/cars/xcsl/ZZZC2.png|284014550
+followthegreens/cars/xcsl/ZZZC2_LIT.png|3994798813
+followthegreens/cursor.py|3967667681
+followthegreens/flightloop.py|2711202261
+followthegreens/followthegreens.py|1127696297
 followthegreens/geo.py|2651842678
 followthegreens/globals.py|3527940083
 followthegreens/graph.py|1641790101
@@ -24,5 +27,5 @@ followthegreens/lights/white.obj|1415050574
 followthegreens/lightstring.py|4250919996
 followthegreens/nato.py|2108547532
 followthegreens/showtaxiways.py|3074765434
-followthegreens/ui.py|1337766028
+followthegreens/ui.py|2862374320
 followthegreens/version.py|3654396983
