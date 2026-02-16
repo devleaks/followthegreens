@@ -1152,7 +1152,6 @@ class Route:
             edge_end = e.start
 
         # must project position on edge
-        # @todo: in prod: suppress computation of distance d, unnecessary
         pos_on_edge, dist = nearestPointToLines(position, [e])
         d = 0
         if pos_on_edge is None:  # if cannot project, use closest of start/end of edge

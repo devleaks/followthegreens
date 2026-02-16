@@ -471,6 +471,7 @@ class FlightLoop:
 
         if self.actual_start is None:
             if self.ftg.cursor is not None and not self.ftg.cursor.inited:
+                SPAWN_DIST = 20  # m, 40 ideal
                 # this is ok if aircraft at rest
                 # need more dynamic reaction if aircraft moving (like "new green requested")
                 # To be tested on arrival medium speed on runway or low speed on taxuway
@@ -486,7 +487,7 @@ class FlightLoop:
                     logger.debug(f"first position (at {rnd} side of precise start position)..")
                     fs = self.ftg.route.before_route()
                     # spawn at spot randomly left or right of current aircraft position
-                    spawn = destination(fs.start, fs.bearing() + rnd * 90, 40)
+                    spawn = destination(fs.start, fs.bearing() + rnd * 90, SPAWN_DIST)
                     # from spot to begining of route
                     join_route = Line(start=spawn, end=self.ftg.route.vertices[0])
                     # logger.debug(f"lines: before route={fs}, route to start={join_route}")
@@ -501,7 +502,7 @@ class FlightLoop:
                     logger.debug("..move to begining of route..")
                     target_speed = acf_speed if acf_speed > MIN_SPEED else 0
                     target_heading = self.ftg.route.edges[0].bearing(orig=self.ftg.route.vertices[0])
-                    self.ftg.cursor.future(position=join_route.end, hdg=target_heading, speed=target_speed, t=dt, tick=True)
+                    self.ftg.cursor.future(position=join_route.end, hdg=target_heading, speed=target_speed, t=dt, tick=True, text="go to begining of route")
                     # start = self.ftg.route.vertices[0]
                     # logger.debug(f"first position (id={fs.start.id})..")
                     #
