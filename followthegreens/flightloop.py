@@ -352,9 +352,9 @@ class FlightLoop:
 
         dist_before = dist_to_next_turn + dist_to_next_vertex
         self.dist_to_next_turn = dist_before  # for hud, temporarily
-        taxi_speed = max(speed, self.ftg.aircraft.avgTaxiSpeed())  # m/s
+        taxi_speed = max(acf_speed, self.ftg.aircraft.avgTaxiSpeed())  # m/s
         time_to_next_vertex = dist_to_next_vertex / taxi_speed
-        logger.debug(f"speed={round(speed, 1)}, acf moved {round(acf_move, 1)}m during last iteration ({self.lastIter} secs)")
+        logger.debug(f"acf speed={round(acf_speed, 1)}, moved {round(acf_move, 1)}m during last iteration ({self.lastIter} secs)")
 
         logger.debug(f"at index {light.edgeIndex}, next turn at index {idx-1}, {round(turn)}D at {round(dist_before, 1)}m")
         # logger.debug(f"dist to next vertex {next_vertex}: {round(dist_to_next_vertex, 1)}m, dist from next_vertex to next turn: {round(dist_to_next_turn, 1)}m")
@@ -414,18 +414,18 @@ class FlightLoop:
         mode = RABBIT_MODE.MED
 
         srange = target
-        if speed < STOPPED_SPEED:  # m/s
-            advise = f"probably stopped ({round(speed, 1)}m/s < {STOPPED_SPEED})"
-        elif speed < srange[0]:
-            delta = srange[0] - speed
+        if acf_speed < STOPPED_SPEED:  # m/s
+            advise = f"probably stopped ({round(acf_speed, 1)}m/s < {STOPPED_SPEED})"
+        elif acf_speed < srange[0]:
+            delta = srange[0] - acf_speed
             if delta > SPEED_DELTA:
                 mode = RABBIT_MODE.FASTEST
                 advise = "really too slow, accelerate"
             else:
                 mode = RABBIT_MODE.FASTER
                 advise = "too slow, accelerate"
-        elif speed > srange[1]:
-            delta = speed - srange[1]
+        elif acf_speed > srange[1]:
+            delta = acf_speed - srange[1]
             if delta > SPEED_DELTA:
                 mode = RABBIT_MODE.SLOWEST
                 advise = "really too fast, brake"
@@ -433,7 +433,7 @@ class FlightLoop:
                 mode = RABBIT_MODE.SLOWER
                 advise = "too fast, brake"
 
-        msg = f"speed={round(speed, 1)}, target={target}; rabbit mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})"
+        msg = f"acf speed={round(acf_speed, 1)}, target={target}; rabbit mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})"
         if msg != self.old_msg2:
             logger.debug(msg)
             self.old_msg2 = msg
@@ -484,8 +484,11 @@ class FlightLoop:
                     logger.debug("first position (at side of precise start position)..")
                     now = datetime.now().timestamp()
                     fs = self.ftg.route.before_route()
+                    # spawn at spot randomly left or right of current aircraft position
                     cp = destination(fs.start, fs.bearing() + (1 if (int(now) % 2) == 0 else -1) * 90, 40)
+                    # from spot to begining of route
                     cpl = Line(start=cp, end=fs.end)
+                    logger.debug(f"lines: before route={fs}, route to start={cpl}")
                     # Speed at which we'll do that move is speed of aircraft + more
                     initial_speed = max(7.0, acf_speed + 5.0)  # m/s, 7.0 m/s = 25km/h is aircraft is stopped
                     dt = now + cpl.length() / initial_speed
@@ -510,6 +513,7 @@ class FlightLoop:
                     logger.debug("..done")
                 except:
                     logger.debug("..error", exc_info=True)
+
             if self.ftg.aircraft.moved() > MIN_DIST or acf_speed > MIN_SPEED:
                 self.taxiStart()
             else:

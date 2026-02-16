@@ -44,6 +44,8 @@ class FollowTheGreens:
         self.airport_light_level = xp.findDataRef(AMBIANT_RWY_LIGHT_VALUE)  # [off, lo, med, hi] = [0, 0.25, 0.5, 0.75, 1]
         self.zuluTime = xp.findDataRef("sim/time/zulu_time_sec")
         self.localTime = xp.findDataRef("sim/time/local_time_sec")
+        self.zuluHours = xp.findDataRef("sim/time/zulu_time_hours")
+        self.localHours = xp.findDataRef("sim/time/local_time_hours")
         self.localDay = xp.findDataRef("sim/time/local_date_days")
         self.session = randint(1000, 9999)
         self.route = None
@@ -362,25 +364,19 @@ VERSION = "{__VERSION__}"
             logger.debug(f"destination not valid {destination} for {self.move}")
             return self.ui.promptForDestination(f"Destination {destination} not valid for {self.move}")
 
-        self.status = FTG_STATUS.DESTINATION
-
         # Info 11
-        logger.info(f"destination {destination}")
+        logger.info(f"trying route to destination {destination}..")
         rerr, self.route = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("RESPECT_CONSTRAINTS", preferences=self.prefs))
 
         if not rerr:
-            logger.info(f"no route to destination {destination} (route  {self.route})")
+            logger.info(f"..no route to destination {destination} (route {self.route})")
             return self.ui.tryAgain(self.route)
 
         # Info 12
-        logger.info(f"route to {destination}: {self.route}")
-
-        pos = self.aircraft.position()
-        hdg = self.aircraft.heading()
-        gsp = self.aircraft.speed()
-        if pos is None or (pos[0] == 0 and pos[1] == 0):
-            logger.debug("no aircraft position")
-            return self.ui.sorry("We could not locate your aircraft.")
+        logger.info(f"..route to {destination}: {self.route}")
+        self.destination = destination
+        logger.info(f"destination {destination}")
+        self.status = FTG_STATUS.DESTINATION
 
         if newGreen:  # We had a green, and we found a new one.
             # turn off previous lights
@@ -388,13 +384,17 @@ VERSION = "{__VERSION__}"
             self.session = randint(1000, 9999)
             logger.info(f"Starting new FtG session for greener greens (session id = {self.session})")
 
-        # logger.debug(f"got route: {route}.")
-        self.destination = destination
+        pos = self.aircraft.position()
+        hdg = self.aircraft.heading()
+        # gsp = self.aircraft.speed()
+        now = self.getSimulatorDatetime()
+        day = self.aircraft.daylight(now=now)
+        viz = self.airport.visibility()
+        brt = self.aircraft.brightness(visibility=viz)
+        logger.info(f"environmental at {now}: day={day}, visibility={round(viz, 0)}m, brt={brt}")
         onRwy = False
         if self.move == MOVEMENT.ARRIVAL:
             onRwy, runway = self.airport.onRunway(pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg)  # RUNWAY_BUFFER_WIDTH either side of runway, return [True,Runway()] or [False, None]
-
-        self.status = FTG_STATUS.ROUTE
 
         self.lights = LightString(airport=self.airport, aircraft=self.aircraft, preferences=self.prefs)
         self.lights.populate(self.route, move=self.move, onRunway=onRwy)
@@ -405,6 +405,7 @@ VERSION = "{__VERSION__}"
 
         # Info 13
         self.lights.printSegments()
+        self.status = FTG_STATUS.ROUTE
 
         self.segment = 0
         logger.info(f"current segment {self.segment + 1}/{self.lights.segments + 1}")
@@ -546,15 +547,26 @@ VERSION = "{__VERSION__}"
     def hourOfDay(self):
         return int(xp.getDataf(self.localTime) / 3600)  # seconds since midnight??
 
+    def getSimulatorDatetime(self, zulu: bool = True) -> datetime:
+        s = 0
+        t = timezone.utc
+        if zulu:
+            s = xp.getDataf(self.zuluTime)  # seconds in day
+        else:
+            s = xp.getDataf(self.localTime)
+            zh = xp.getDatai(self.zuluHours)
+            lh = xp.getDatai(self.localHours)
+            dh = lh - zh
+            t = timezone(timedelta(hours=dh), "xp-zone")
+        d = xp.getDatai(self.localDay)  # day in year
+        u = datetime.utcnow()  # year
+        return datetime(year=u.year, month=1, day=1, tzinfo=t) + timedelta(days=d, seconds=s)
+
     def bookmark(self, message: str = ""):
         # @todo: fetch simulator date/time too
-        zs = xp.getDataf(self.zuluTime)
-        ls = xp.getDataf(self.localTime)
-        d = xp.getDatai(self.localDay)
-        u = datetime.utcnow()
-        z = datetime(year=u.year, month=1, day=1) + timedelta(days=d, seconds=zs)
-        l = datetime(year=u.year, month=1, day=1) + timedelta(days=d, seconds=ls)
-        logger.info(f"BOOKMARK {u.isoformat()} {message}")
+        z = self.getSimulatorDatetime()
+        l = self.getSimulatorDatetime(zulu=False)
+        logger.info(f"BOOKMARK {datetime.utcnow().isoformat()} {message}")
         logger.info(f"simulator zulu time is {z.isoformat()}, local time is {l.isoformat()}")
         self.inc("bookmark")
 

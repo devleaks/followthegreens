@@ -221,6 +221,7 @@ class UIUtil:
 
     def promptForAirport(self):
         # Create a window to prompt for airport ICAO code
+        logger.debug("prompt for airport")
         prompt = "Please enter this airport ICAO code"
         widgetWindow = self.window(
             ["Welcome. We could not find the airport where you are located.", prompt],
@@ -247,6 +248,7 @@ class UIUtil:
         return widgetWindow
 
     def promptForDestination(self, status=""):
+        logger.debug("prompt for destination")
         # Create a window to prompt for a local airport destination, either a runway or a parking position
         move = self.ftg.move
         welcome = "Welcome. We could not guess where you want to taxi."
@@ -312,6 +314,7 @@ class UIUtil:
         return widgetWindow
 
     def followTheGreen(self):
+        logger.debug("show follow the greens")
         btns = {CANCEL_TEXT: self.cbCancel}
         if self.dest:
             btns[IAMLOST_TEXT] = self.cbNewGreen
@@ -324,6 +327,7 @@ class UIUtil:
         )
 
     def promptForClearance(self, intro: list = []):
+        logger.debug("prompt for clearance")
         # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
         btns = {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel}
         if self.dest:
@@ -339,6 +343,7 @@ class UIUtil:
         )
 
     def tryAgain(self, text):
+        logger.debug("prompt to try again")
         # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
         btns = {NEWDEST_TEXT: self.cbNewDestination, CANCEL_TEXT: self.cbCancel}
         if self.dest:
@@ -352,6 +357,7 @@ class UIUtil:
         )
 
     def promptForDeparture(self):
+        logger.debug("prompt for departure")
         # In front of the last stopbar, ask to ask for clearance for departure and press continue when clearance obtained.
         self.waiting_for_clearance = True
         return self.window(
@@ -363,6 +369,7 @@ class UIUtil:
         )
 
     def promptForParked(self):
+        logger.debug("invite to ftg to parking")
         btns = {CONTINUE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel}
         if self.dest:
             btns[IAMLOST_TEXT] = self.cbNewGreen
@@ -376,6 +383,7 @@ class UIUtil:
         )
 
     def bye(self):
+        logger.debug("showing goodbye")
         msgs = ["You have reached your destination."]
         if self.ftg.move == MOVEMENT.DEPARTURE:
             msgs += ["Contact ATC for takeoff clearance."]
@@ -386,6 +394,7 @@ class UIUtil:
         )
 
     def enjoy(self):
+        logger.debug("showing turn off all taxiway lights")
         return self.window(
             [
                 "All taxiways in the network are lit. Press " + FINISH_TEXT + " to hide them.",
@@ -396,6 +405,7 @@ class UIUtil:
 
     def sorry(self, message):
         # Open a window with explanation.
+        logger.info(f"showing sorry ({message})")
         return self.window(
             [
                 "We are sorry. We cannot provide Follow the greens service at this airport.",
@@ -421,7 +431,7 @@ class UIUtil:
         if inMessage == xp.Msg_PushButtonPressed:
             if "icao" in self.mainWindow["widgets"].keys():
                 self.icao = xp.getWidgetDescriptor(self.mainWindow["widgets"]["icao"])
-                logger.debug(f"airport: {self.icao}")
+                logger.debug(f"airport: {self.icao}")  # logger.info in followthegreens.py
                 xp.hideWidget(self.mainWindow["widgetID"])
                 nextWindow = self.ftg.getDestination(self.icao)
                 xp.showWidget(nextWindow)
@@ -460,7 +470,7 @@ class UIUtil:
         if inMessage == xp.Msg_PushButtonPressed:
             if "dest" in self.mainWindow["widgets"].keys():
                 self.dest = xp.getWidgetDescriptor(self.mainWindow["widgets"]["dest"])
-                logger.debug(f"destination: {self.dest}")
+                logger.debug(f"destination: {self.dest}")  # logger.info in followthegreens.py
                 xp.hideWidget(self.mainWindow["widgetID"])
                 nextWindow = self.ftg.followTheGreen(self.dest)
                 xp.showWidget(nextWindow)
@@ -472,6 +482,7 @@ class UIUtil:
         if inMessage == xp.Msg_PushButtonPressed:
             xp.hideWidget(self.mainWindow["widgetID"])
             nextWindow = self.promptForDestination()
+            logger.info("new destination requested")
             xp.showWidget(nextWindow)
             return 1
         return 0
@@ -483,6 +494,7 @@ class UIUtil:
                 return 0
             xp.hideWidget(self.mainWindow["widgetID"])
             nextWindow = self.ftg.newGreen(self.dest)
+            logger.info("new greens requested")
             xp.showWidget(nextWindow)
             return 1
         return 0
@@ -495,6 +507,7 @@ class UIUtil:
                 self.ftg.move = MOVEMENT.ARRIVAL
             else:
                 self.ftg.move = MOVEMENT.DEPARTURE
+            logger.info(f"movement changed to {self.ftg.move}")
             nextWindow = self.promptForDestination()
             xp.showWidget(nextWindow)
             return 1
@@ -505,25 +518,17 @@ class UIUtil:
         if inMessage == xp.Msg_PushButtonPressed:
             xp.hideWidget(self.mainWindow["widgetID"])
             self.waiting_for_clearance = False
+            logger.info("clearance received")
             nextWindow = self.ftg.nextLeg()
             xp.showWidget(nextWindow)
             return 1
         return 0
 
-    def clearanceReceived(self):
-        logger.info("clearance command received")
-        if self.waiting_for_clearance:
-            xp.hideWidget(self.mainWindow["widgetID"])
-            self.waiting_for_clearance = False
-            nextWindow = self.ftg.nextLeg()
-            xp.showWidget(nextWindow)
-        else:
-            logger.info("not waiting for clearance, ignoring command")
-
     def cbClose(self, inMessage, inWidget, inParam1, inParam2):
         # pylint: disable=unused-argument
         # Just closes the window. Do no alter any other process.
         if inMessage == xp.Msg_PushButtonPressed:
+            logger.info("closing window")
             xp.hideWidget(self.mainWindow["widgetID"])
             return 1
         return 0
@@ -533,9 +538,34 @@ class UIUtil:
         # Cancels FollowTheGreen
         if inMessage == xp.Msg_PushButtonPressed:
             xp.hideWidget(self.mainWindow["widgetID"])
+            logger.info("cancelled")
             self.ftg.terminate("user cancelled")
             return 1
         return 0
+
+    def cbBye(self, inMessage, inWidget, inParam1, inParam2):
+        # pylint: disable=unused-argument
+        # Cancels FollowTheGreen
+        if inMessage == xp.Msg_PushButtonPressed:
+            xp.hideWidget(self.mainWindow["widgetID"])
+            logger.info("terminate")
+            self.ftg.terminate("terminated normally")
+            return 1
+        return 0
+
+    #
+    #
+    # COMMANDS triggered through X-Plane
+    #
+    def clearanceReceived(self):
+        logger.info("clearance command received")
+        if self.waiting_for_clearance:
+            xp.hideWidget(self.mainWindow["widgetID"])
+            self.waiting_for_clearance = False
+            nextWindow = self.ftg.nextLeg()
+            xp.showWidget(nextWindow)
+        else:
+            logger.info("not waiting for clearance, ignoring command")
 
     def newGreensReceived(self):
         logger.info("new greens command received")
@@ -554,12 +584,3 @@ class UIUtil:
         logger.info("cancel command received")
         xp.hideWidget(self.mainWindow["widgetID"])
         self.ftg.terminate(comment)
-
-    def cbBye(self, inMessage, inWidget, inParam1, inParam2):
-        # pylint: disable=unused-argument
-        # Cancels FollowTheGreen
-        if inMessage == xp.Msg_PushButtonPressed:
-            xp.hideWidget(self.mainWindow["widgetID"])
-            self.ftg.terminate("terminated normally")
-            return 1
-        return 0

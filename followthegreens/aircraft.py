@@ -1,12 +1,15 @@
 # Aircraft data encapsulator
 #
+from datetime import datetime, timezone
+
 try:
     import xp
 except ImportError:
     print("X-Plane not loaded")
 
-from .globals import logger, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT
+from .globals import logger, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT, AMBIANT_RWY_LIGHT
 from .geo import distance, Point
+from .se import daylight
 
 # fmt: off
 ICAO_AND_IATA_AIRLINERS_CODES = [
@@ -210,6 +213,9 @@ class Aircraft:
                 return
         logger.info(f"aircraft type {self.icao} not found in lists, using default category {self.width_code}")
 
+    def hasPreferences(self) -> bool:
+        return "Aircrafts" in self.prefs or "Aircrafts." + self.icao in self.prefs
+
     def setPreferences(self):
         a = self.aircaftPreferences()
         self.acflength = a.get(AIRCRAFT.AVG_LENGTH, 50)  # meters
@@ -262,6 +268,17 @@ class Aircraft:
 
     def position(self) -> list:
         return [xp.getDataf(self.lat), xp.getDataf(self.lon)]
+
+    def daylight(self, now: datetime = datetime.now(tz=timezone.utc)) -> bool:
+        # report if it is daylight at aircraft position on ground at supplied datetime
+        lat, lon = self.position()
+        return daylight(now, lat, lon)
+
+    def brightness(self, visibility: float) -> AMBIANT_RWY_LIGHT:
+        # @todo:
+        # compute ideal light brightness from environmental constraints (visibility, rain?)
+        # aircraft speed, type, daylight...
+        return AMBIANT_RWY_LIGHT.HIGH
 
     def heading(self) -> float:
         return xp.getDataf(self.psi)

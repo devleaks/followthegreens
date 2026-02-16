@@ -75,9 +75,11 @@ class Cursor:
         self.turn_limit = 1
         self.msg = ""
 
+    @property
     def usable(self) -> bool:
         return self.cursor_type.has_obj
 
+    @property
     def inited(self) -> bool:
         return self.curr_pos is not None
 

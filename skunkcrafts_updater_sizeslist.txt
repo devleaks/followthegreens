@@ -10,6 +10,9 @@ followthegreens/followthegreens.py|24200
 followthegreens/geo.py|15545
 followthegreens/globals.py|15741
 followthegreens/graph.py|26133
+followthegreens/cars/xcsl/ZZZC2.obj|0
+followthegreens/cars/xcsl/ZZZC2.png|0
+followthegreens/cars/xcsl/ZZZC2_LIT.png|0
 followthegreens/lights/amber.obj|1877
 followthegreens/lights/green.obj|1817
 followthegreens/lights/lights.png|11640

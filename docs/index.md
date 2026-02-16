@@ -386,10 +386,10 @@ Follow the greens has to cope with what is available in airport definition files
 To do this, the algorithm first tries to find a route respecting all constraints.
 If no route is found, the algorith will relax some constraints, one by one until a route is found.
 
-If you want to respect taxiway constraints, please set the following preference parameter:
+If you do not want to respect taxiway constraints, please set the following preference parameter:
 
 ```
-RESPECT_CONSTRAINTS = true
+RESPECT_CONSTRAINTS = false
 ```
 
 Note that boolean preferences need to be set to text value `true` or `false` in lowercase, no quote.

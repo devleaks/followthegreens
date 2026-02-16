@@ -250,6 +250,9 @@ class Airport:
 
         return [True, "Airport ready"]
 
+    def hasPreferences(self) -> bool:
+        return "Airports" in self.prefs or "Airports." + self.icao in self.prefs
+
     def setPreferences(self):
         # Local airport preferences override global preferences
         apt = self.prefs.get("Airports", {})
@@ -622,7 +625,7 @@ class Airport:
             pos = aircraft.position()
             if not pos:
                 logger.debug("plane could not be located")
-                return (False, "We could not locate your plane.")
+                return (False, "We could not locate your aircraft.")
             hdg = aircraft.heading()
             onRwy, arrival_runway = self.onRunway(pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg)
 
