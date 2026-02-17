@@ -775,7 +775,7 @@ class Route:
             if abs(self.turns[i]) > TURN_LIMIT:
                 f["properties"]["marker-color"] = "#006600"  # dark green
             else:
-                f["properties"]["marker-color"] = "#00FF00"  # green
+                f["properties"]["marker-color"] = "#00AA00"  # green
             features.append(f)
             e = self.graph.get_edge(self.route[i], self.route[i + 1])
             e.setProp("index", i)

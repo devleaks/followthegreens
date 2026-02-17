@@ -115,7 +115,7 @@ class Cursor:
     def future(self, position: Point, hdg: float, speed: float, t: float, tick: bool = False, text: str = ""):
         self._future.append((position.lat, position.lon, hdg, speed, t, text))
         self._future_cnt += 1
-        logger.debug(f"added future ({len(self._future)}): {text} (h={hdg}, s={speed}, t={t})")
+        logger.debug(f"added future ({self._future_cnt}, q={len(self._future)}): {text} (h={hdg}, s={speed}, t={t})")
         if tick:
             ignore = self._tick()
 
@@ -130,50 +130,79 @@ class Cursor:
         if edge < self.curr_index:
             logger.debug(f"cannot backup edges ({edge} < {self.curr_index})")
             return
-        logger.debug(f"currently on edge {self.curr_index} at {round(self.curr_dist, 1)}m)")
+        logger.debug(f"currently on edge {self.curr_index} at {round(self.curr_dist, 1)}m, need to go on edge {edge} at {round(dist, 1)}m")
         if edge == self.curr_index:  # remains on same edge
             if dist > self.curr_dist:
                 dest = self.on_edge(edge, dist) # destination(self.route.vertices[edge], self.route.edges_orient[edge], dist)
                 hdg = self.route.edges_orient[edge]
                 self.future(position=dest, hdg=hdg, speed=speed, t=t, text="go further on edge")
+                logger.debug(f"progress on edge {edge} from {round(self.curr_dist, 1)}m to {round(dist, 1)}m")
                 self.curr_dist = dist
-                logger.debug(f"progress on edge {edge} to {round(self.curr_dist, 1)}m)")
             else:
                 logger.debug(f"no progress on edge {edge}, ({round(dist, 1)}m <= {round(self.curr_dist, 1)}m)")
             return
 
         vertices = self.route.vertices
+
+        # first quick precompute
+        e = self.route.edges[self.curr_index]
+        total_dist = e.cost - self.curr_dist
+        temp = self.curr_index + 1
+        # travel entire next edges
+        while temp < edge and temp < (len(vertices) - 1):
+            e = self.route.edges[temp]
+            total_dist += e.cost
+            temp = temp + 1
+        total_dist += dist
+        total_time = total_dist / speed
+        logger.debug(f"total distance to travel {round(total_dist, 1)}m at {round(speed, 1)}m/s -> total travel time ={round(total_time, 1)}s")
+
+        start_time = t - total_time
+
         # travel to end of current edge
-        tt = 0  # total time
+        control_dist = 0
+        control_time = 0
         e = self.route.edges[self.curr_index]
         d = e.cost - self.curr_dist
+        control_dist += d
+        logger.debug(f"edge {self.curr_index} length={round(e.cost, 1)}m, heading={round(e.bearing(), 0)}, start_time={start_time}, end_time={t}")
         tt = d / speed
-        self.future(position=vertices[self.curr_index + 1], hdg=self.route.edges_orient[self.curr_index], speed=speed, t=tt, text=f"to end of edge {self.curr_index}")
-        logger.debug(f"progress on edge {self.curr_index} to end at {round(d, 1)}m)")
+        control_time += tt
+        start_time += tt
+        self.future(position=vertices[self.curr_index + 1], hdg=self.route.edges_orient[self.curr_index], speed=speed, t=start_time, text=f"to end of current edge {self.curr_index}")
+        logger.debug(f"progress {round(d, 1)}m on edge {self.curr_index} to end of edge in {round(tt, 1)}s")
+        self.curr_index = self.curr_index + 1
 
         # travel entire next edges
         while self.curr_index < edge and self.curr_index < (len(vertices) - 1):
             e = self.route.edges[self.curr_index]
-            tt = tt + e.cost / speed
+            control_dist += e.cost
+            tt = e.cost / speed
+            control_time += tt
+            start_time += tt
             # route to edge
-            self.future(position=vertices[self.curr_index + 1], hdg=self.route.edges_orient[self.curr_index], speed=speed, t=tt, text=f"to end of edge {self.curr_index}")
-            logger.debug(f"progress on edge {self.curr_index} (whole length {round(e.cost, 1)}m)")
+            self.future(position=vertices[self.curr_index + 1], hdg=self.route.edges_orient[self.curr_index], speed=speed, t=start_time, text=f"to end of edge {self.curr_index}")
+            logger.debug(f"progress on edge {self.curr_index} (whole length {round(e.cost, 1)}m, in {round(tt, 1)}s)")
             self.curr_index = self.curr_index + 1
 
         # travel on new current edge
-        logger.debug(f"progress on edge: control curr_index={self.curr_index} vs edge={edge}")
         newpos = self.on_edge(edge, dist)
         self.future(position=newpos, hdg=self.route.edges_orient[edge], speed=speed, t=t, text=f"on edge {self.curr_index}")
         self.curr_index = edge
         self.curr_dist = dist
-        logger.debug(f"progress on edge {edge} (length {round(dist, 1)}m)")
+        control_dist += dist
+        tt = dist / speed
+        control_time += tt
+        start_time += tt
+        logger.debug(f"progress on edge {edge} (length {round(dist, 1)}m, in {round(tt, 1)}s)")
+        logger.debug(f"control distance travelled {round(control_dist, 1)}m, in {round(control_time, 1)}s")
 
     def _tick(self):
         if len(self._future) == 0:
             return False
         self._tick_cnt += 1
         f = self._future[0]
-        logger.debug(f"tick {self._tick_cnt} at {round(self.curr_time, 3)}: {f[-1]} (h={f[-4]}, s={f[-3]}, t={f[-2]})")
+        logger.debug(f"tick future ({self._tick_cnt}, q={len(self._future)}) at {round(self.curr_time, 3)}: {f[-1]} (h={f[-4]}, s={f[-3]}, t={f[-2]})")
         self._set_target(*f)
         del self._future[0]
         self._mkLine()
@@ -205,7 +234,7 @@ class Cursor:
         acc = 0
         if self.delta_tim != 0:
             acc = self.delta_spd / self.delta_tim
-        logger.debug(f"tick {round(self.segment.length(), 1)}m in {round(self.delta_tim, 2)}s")
+        logger.debug(f"segment {round(self.segment.length(), 1)}m in {round(self.delta_tim, 2)}s")
         logger.debug(f"heading {round(self.curr_hdg, 1)} -> {round(self.target_hdg, 1)} (delta={round(self.delta_hdg, 1)})")
         logger.debug(f"speed {round(self.curr_speed, 1)} -> {round(self.target_speed, 1)}m/s (delta={round(self.delta_spd, 1)}, acc={acc})")
 

@@ -492,7 +492,7 @@ class FlightLoop:
                     tj = join_route.length() / initial_speed
                     dt = ts_now + tj
                     logger.debug("\n\n")
-                    logger.debug(f"spawning at position (at {rnd} {SPAWN_DIST}m side of precise start position)..")
+                    logger.debug(f"spawning at {SPAWN_DIST}m on side {rnd} of precise start position..")
                     self.ftg.cursor.init(position=join_route.start, heading=join_route.bearing(), speed=0)  # @todo always spawned at rest?
                     self.ftg.cursor.set_route(route=self.ftg.route)
                     #
@@ -501,7 +501,7 @@ class FlightLoop:
                     # logger.debug("..move to begining of route..")
                     target_speed = acf_speed if acf_speed > MIN_SPEED else 0
                     target_heading = self.ftg.route.edges[0].bearing(orig=self.ftg.route.vertices[0])
-                    logger.debug(f"..move to begining of route: distance={round(join_route.length(), 1)}, heading={round(join_route.bearing(), 0)}, in {round(tj, 1)}s..")
+                    logger.debug(f"..moving to begining of route: distance={round(join_route.length(), 1)}, heading={round(join_route.bearing(), 0)}, in {round(tj, 1)}s..")
                     self.ftg.cursor.future(position=join_route.end, hdg=target_heading, speed=target_speed, t=dt, tick=True, text="go to begining of route")
                     #
                     # 3. Movement (on route) from above vertex of route to ahead of aircraft
@@ -509,7 +509,7 @@ class FlightLoop:
                     ahead = self.dynamic_ahead(acf_speed=acf_speed)  # m
                     tahead = 20  # secs.
                     light_ahead, light_index, dist_left  = self.ftg.lights.lightAhead(index_from=0, ahead=ahead)
-                    logger.debug(f"..move on route {round(ahead, 1)}m ahead in {tahead}secs... (on light {light_index}, {round(dist_left, 1)}m neglected)..")
+                    logger.debug(f"..moving on route {round(ahead, 1)}m ahead in {tahead}secs... (to light {light_index}, {round(dist_left, 1)}m neglected)..")
                     self.ftg.cursor.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=target_speed, t=dt + tahead)
                     logger.debug("..ready to taxi")
                 except:

@@ -163,9 +163,10 @@ POINT_COUNTS    0 0 0 0
 
 class XPObject:
 
-    def __init__(self, position, heading, index, dist: float = 0):
+    def __init__(self, position, heading, index, dist: float = 0.0, dist2: float = 0.0):
         self.edgeIndex = index  # # of edge of route, starting from 0
         self.distFromEdgeStart = dist
+        self.distToEdgeEnd = dist2
         self.position = position
         self.heading = heading  # this should be the heading to the previous light
         self.params = []  # LIGHT_PARAM_DEF       full_custom_halo        9   R   G   B   A   S       X   Y   Z   F
@@ -248,9 +249,9 @@ class XPObject:
 class Light(XPObject):
     # A light to follow, or a stopbar light
     # Holds a referece to its instance
-    def __init__(self, lightType, position, heading, index, dist: float = 0):
+    def __init__(self, lightType, position, heading, index, dist: float = 0, dist2: float = 0.0):
         self.lightType = lightType
-        XPObject.__init__(self, position, heading, index, dist)
+        XPObject.__init__(self, position, heading, index, dist, dist2)
 
 
 class Stopbar:
@@ -447,6 +448,7 @@ class LightString:
             light.position.setProp("marker-size", "small")
             light.position.setProp("edgeIndex", light.edgeIndex)
             light.position.setProp("distFromEdgeStart", round(light.distFromEdgeStart, 2))
+            light.position.setProp("distToEdgeEnd", round(light.distToEdgeEnd, 2))
             light.position.setProp("lightIndex", i)
             i = i + 1
             fc.append(light.position.feature())
@@ -624,10 +626,10 @@ class LightString:
                 while distanceBeforeNextLight < distToNextVertex:
                     nextLightPos = destination(currPoint, brng, distanceBeforeNextLight)
                     brgn = bearing(lastLight, nextLightPos)
-                    distFromEdgeStart = thisEdge.cost - distToNextVertex
-                    thisLights.append(Light(self.nextTaxiwayLight(nextLightPos, thisEdge), nextLightPos, brgn, i - 1, distFromEdgeStart))
-                    lastLight = nextLightPos
                     distToNextVertex = distToNextVertex - distanceBeforeNextLight  # should be close to ftg_geoutil.distance(currPoint, nextVertex)
+                    distFromEdgeStart = thisEdge.cost - distToNextVertex
+                    thisLights.append(Light(self.nextTaxiwayLight(nextLightPos, thisEdge), nextLightPos, brgn, i - 1, distFromEdgeStart, distToNextVertex))
+                    lastLight = nextLightPos
                     currPoint = nextLightPos
                     distanceBeforeNextLight = self.distance_between_lights
                     # logger.debug("added light %f, %f", distanceBeforeNextLight, distToNextVertex)
@@ -638,7 +640,7 @@ class LightString:
                 if self.add_light_at_vertex:  # may be we insert a last light at the vertex?
                     brgn = bearing(lastLight, nextVertex)
                     distFromEdgeStart = thisEdge.cost - distToNextVertex
-                    thisLights.append(Light(self.nextTaxiwayLight(nextVertex, thisEdge), nextVertex, brgn, i - 1, distFromEdgeStart))
+                    thisLights.append(Light(self.nextTaxiwayLight(nextVertex, thisEdge), nextVertex, brgn, i - 1, distFromEdgeStart, distToNextVertex))
                     lastLight = nextVertex
                     # logger.debug("added light at vertex %s", nextVertex.id)
 
