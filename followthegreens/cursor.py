@@ -89,6 +89,7 @@ class Cursor:
         return self.curr_pos is not None
 
     def init(self, position: Point, heading: float, speed: float = 0.0):
+        # spawn cursor
         if self.inited:  # only init once
             return
         self.curr_pos = Point(lat=position.lat, lon=position.lon)
@@ -114,7 +115,7 @@ class Cursor:
     def future(self, position: Point, hdg: float, speed: float, t: float, tick: bool = False, text: str = ""):
         self._future.append((position.lat, position.lon, hdg, speed, t, text))
         self._future_cnt += 1
-        logger.debug(f"added future ({len(self._future)}): {text}")
+        logger.debug(f"added future ({len(self._future)}): {text} (h={hdg}, s={speed}, t={t})")
         if tick:
             ignore = self._tick()
 
@@ -132,8 +133,8 @@ class Cursor:
         logger.debug(f"currently on edge {self.curr_index} at {round(self.curr_dist, 1)}m)")
         if edge == self.curr_index:  # remains on same edge
             if dist > self.curr_dist:
-                dest = destination(self.route.vertices[i], self.route.edges_orient[i], dist)
-                hdg = self.route.edges_orient[i]
+                dest = self.on_edge(edge, dist) # destination(self.route.vertices[edge], self.route.edges_orient[edge], dist)
+                hdg = self.route.edges_orient[edge]
                 self.future(position=dest, hdg=hdg, speed=speed, t=t, text="go further on edge")
                 self.curr_dist = dist
                 logger.debug(f"progress on edge {edge} to {round(self.curr_dist, 1)}m)")
@@ -172,7 +173,7 @@ class Cursor:
             return False
         self._tick_cnt += 1
         f = self._future[0]
-        logger.debug(f"tick {self._tick_cnt} at {round(self.curr_time, 3)}: {f[-1]}")
+        logger.debug(f"tick {self._tick_cnt} at {round(self.curr_time, 3)}: {f[-1]} (h={f[-4]}, s={f[-3]}, t={f[-2]})")
         self._set_target(*f)
         del self._future[0]
         self._mkLine()
@@ -205,8 +206,8 @@ class Cursor:
         if self.delta_tim != 0:
             acc = self.delta_spd / self.delta_tim
         logger.debug(f"tick {round(self.segment.length(), 1)}m in {round(self.delta_tim, 2)}s")
-        logger.debug(f"heading {round(self.curr_hdg, 1)} -> {round(self.target_hdg, 1)}s (delta={round(self.delta_hdg, 1)})")
-        logger.debug(f"speed {round(self.curr_speed, 1)} -> {round(self.target_speed, 1)}s (delta={round(self.delta_spd, 1)}, acc={acc})")
+        logger.debug(f"heading {round(self.curr_hdg, 1)} -> {round(self.target_hdg, 1)} (delta={round(self.delta_hdg, 1)})")
+        logger.debug(f"speed {round(self.curr_speed, 1)} -> {round(self.target_speed, 1)}m/s (delta={round(self.delta_spd, 1)}, acc={acc})")
 
     def _bearing(self, ratio):
         # only turns towards the end or edge
@@ -261,7 +262,7 @@ class Cursor:
             return
         now = ts()
         slow_debug(f"curr_time={round(self.curr_time, 3)}, now={round(now, 3)} (diff={round(self.curr_time - now, 3)}), target={round(self.target_time, 3)}")
-        slow_debug(f"segment={round(self.segment.length(), 1)}m, {round(self.segment.bearing(), 0)}DEG")
+        slow_debug(f"segment={round(self.segment.length(), 1)}m, {round(self.segment.bearing(), 0)}D")
 
         # no speed, but some movement to complete, so accelerate
         # if self.curr_speed == 0 and self.target_speed == 0:

@@ -39,9 +39,7 @@ Preference can be specified at several "levels":
 
 Some preferences only exists at the _global level_ and cannot be further adjusted.
 They are application level preferences.
-Example of such preference is the `ADD_LIGHT_AT_VERTEX` (true or false) to add a green light
-at each taxiway vertex.
-(This preference is used for development purpose.)
+Example of such preference is the `DISTANCE_BETWEEN_STOPLIGHTS`.
 
 Some other preferences can be set at the global level, but also at the airport level,
 or the aircraft type level.
@@ -72,8 +70,6 @@ Global preferences are set at the highest level and apply to the entire FtG syst
 These following preferences can be adjusted at the global level
 but cannot be adjusted at a particular level:
 
-1. ADD_LIGHT_AT_VERTEX (true/false)
-1. ADD_LIGHT_AT_LAST_VERTEX (true/false)
 1. DISTANCE_BETWEEN_STOPLIGHTS (in meters, a small distance like 1 (dense) to 3 (loose) meters.)
 1. ADD_WIGWAG: Adds a «wigwag» light on the side of stop bar if the stop bar is guarding a runway.
 
@@ -152,8 +148,6 @@ and units used for the preference.
 | DISTANCE_BETWEEN_GREEN_LIGHTS | meters        | meters           | NA               | NA               |
 | DISTANCE_BETWEEN_LIGHTS       | meters        | meters           | NA               | NA               |
 | DISTANCE_BETWEEN_STOPLIGHTS   | meters        | meters           | NA               | NA               |
-| ADD_LIGHT_AT_VERTEX           | true/false    | NA               | NA               | NA               |
-| ADD_LIGHT_AT_LAST_VERTEX      | true/false    | NA               | NA               | NA               |
 
 See above code snippets for examples.
 

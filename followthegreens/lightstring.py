@@ -361,6 +361,7 @@ class LightString:
         self.rabbitCanRun = False
 
         self.route = None  # route as returned by graph.find(), i.e. a list of vertex indices.
+        self._days = 0
 
         # g_ and r_ are for graphic objects (lights, green and red)
         self.drefs = []
@@ -720,14 +721,11 @@ class LightString:
             "intensity": 20,
             "texture": LightType.DEFAULT_TEXTURE_CODE,
         }
-        PINK = self.prefs.get("VALENTINE", False)
-        pinkfn = ""
-        if PINK:
-            pinkfn = LightType.create(name="egg.obj", color=(0.9, 0.1, 0.9), size=18, intensity=10, texture=LightType.DEFAULT_TEXTURE_CODE)
         self.lightTypes = {}
+        eggfn = LightType.create(name="egg.obj", color=(0.9, 0.1, 0.9), size=18, intensity=10, texture=LightType.DEFAULT_TEXTURE_CODE)
         for k, f in LIGHT_TYPE_OBJFILES.items():
-            if PINK and k != LIGHT_TYPE.STOP:
-                self.lightTypes[k] = LightType(k, pinkfn)
+            if self._days == 44 and k != LIGHT_TYPE.STOP:
+                self.lightTypes[k] = LightType(k, eggfn)
             elif type(f) is str:
                 self.lightTypes[k] = LightType(k, f)
             elif type(f) in [tuple, list]:
@@ -736,6 +734,17 @@ class LightString:
             if k in lightsConfig:
                 cfg = lightsConfig.get(k)
                 if type(cfg) is dict:
+                    if "taxiway" in cfg:
+                        l = cfg.get("taxiway", "g:2")
+                        a = l.split(":")
+                        if len(a) == 2:
+                            name = f"ftglight{randint(1000,9999)}.obj"
+                            fn = LightType.create_taxiway_light(name=name, color=a[0], intensity=int(a[1]))
+                            self.lightTypes[k] = LightType(k, fn)
+                            logger.debug(f"created preferred taxiway light {a} ({name})")
+                            continue
+                        else:
+                            logger.debug(f"invalid preferred taxiway light {l}")
                     thisLightConfig = DEFAULT_LIGHT_VALUES | cfg
                     if not thisLightConfig["name"].endswith(".obj"):
                         thisLightConfig["name"] = thisLightConfig["name"] + ".obj"
@@ -921,6 +930,12 @@ class LightString:
             self.lights[i].on()
         # warning, verbose, since called at each rabbit flightloop
         logger.debug("turned on lights %d -> %d.", self.lastLit, last)
+
+    def lightAhead(self, index_from: int, ahead: float) -> tuple:
+        move = int(ahead / self.distance_between_lights)
+        left = ahead - move * self.distance_between_lights
+        idx = min(index_from + move, len(self.lights) - 1)
+        return self.lights[idx], idx, left
 
     def rabbit(self, start: int):
         if not self.rabbitCanRun:

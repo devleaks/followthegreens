@@ -47,22 +47,12 @@ class FollowTheGreens:
         self.zuluHours = xp.findDataRef("sim/time/zulu_time_hours")
         self.localHours = xp.findDataRef("sim/time/local_time_hours")
         self.localDay = xp.findDataRef("sim/time/local_date_days")
-        self.session = randint(1000, 9999)
+        self.session = None
         self.route = None
 
         logger.info("\n\n")
-        logger.info("-=" * 50)
-        logger.info(
-            " ".join(
-                [
-                    "When sending session for debugging purpose,",
-                    "you can cut the file above the 'Starting new FtG session'",
-                    "and after 'FtG session ended' with matching session identifier",
-                    f"(session id = {self.session})",
-                ]
-            )
-        )
-        logger.info(f"Starting new FtG session {__VERSION__} at {datetime.now().astimezone().isoformat()} (session id = {self.session})")
+        logger.info(">=" * 50)
+        logger.info(f"Create new {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
         logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}\n")
 
         self.stats = {}
@@ -75,6 +65,18 @@ class FollowTheGreens:
 
         self.status = FTG_STATUS.INITIALIZED
 
+    def __del__(self):
+        # alias to cancel
+        self.inc("delete")
+        ret = self.terminate("delete")
+        self.status = FTG_STATUS.DELETED
+        logger.info(f"Deleted {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
+        logger.info("<=" * 50)
+        logger.info("\n\n")
+
+    def enable(self):
+        self.status = FTG_STATUS.ENABLED
+
     @property
     def is_holding(self) -> bool:
         return self.ui.waiting_for_clearance
@@ -86,7 +88,7 @@ class FollowTheGreens:
     @status.setter
     def status(self, status):
         self._status = status
-        logger.debug(f"FtG is now {status}")
+        logger.debug(f"{type(self).__name__} is now {status}")
 
     def inc(self, name: str, qty: int = 1):
         self.stats[name] = qty if name not in self.stats else self.stats[name] + qty
@@ -255,14 +257,31 @@ VERSION = "{__VERSION__}"
         # If it was simply closed for hiding, show it again as it was.
         # If it does not exist, creates it from start of process.
         # if self.status = ACTIVE:
-        logger.debug(f"status: {self.status}, ui={self.ui.mainWindowExists()}")
+        logger.debug(f"current status: {self.status}, ui={self.ui.mainWindowExists()}")
         if self.ui.mainWindowExists():
             logger.debug(f"mainWindow exists, changing visibility {self.ui.isMainWindowVisible()}")
             self.ui.toggleVisibilityMainWindow()
             return 1
 
+        # there is no existing window, we create a new session
+        if self.session is None:
+            self.session = randint(1000, 9999)
+        logger.info("\n\n")
+        logger.info("-=" * 50)
+        logger.info(
+            " ".join(
+                [
+                    "When sending session for debugging purpose,",
+                    "you can cut the file above the 'starting new green session'",
+                    "and after 'green session ended' with matching session identifier",
+                    f"(session id = {self.session})",
+                ]
+            )
+        )
+        logger.info(f"starting new green session at {datetime.now().astimezone().isoformat()} (session id = {self.session})..")
+
         # Info 1
-        logger.info("starting..")
+        # logger.info("starting..")
         self.inc("start")
         # BEGIN TEST : reloading preferences
         logger.debug("..reloading preferences..")
@@ -296,7 +315,6 @@ VERSION = "{__VERSION__}"
         self.aircraft = Aircraft(prefs=self.prefs)
 
         pos = self.aircraft.position()
-        hdg = self.aircraft.heading()
         if pos is None:
             logger.debug("no aircraft position")
             return self.ui.sorry("We could not locate your aircraft.")
@@ -305,11 +323,12 @@ VERSION = "{__VERSION__}"
             logger.debug("no aircraft position")
             return self.ui.sorry("We could not locate your aircraft.")
 
+        hdg = self.aircraft.heading()
+        logger.info(f"aircraft position ok: {pos}, heading {round(hdg, 1)}")
         self.status = FTG_STATUS.AIRCRAFT
         self.inc(self.aircraft.icao)
 
         # Info 2
-        logger.info(f"aircraft position ok: {pos}, heading {round(hdg, 1)}")
         airport = self.aircraft.airport(pos)
         if airport is None:
             logger.debug("no airport")
@@ -397,6 +416,7 @@ VERSION = "{__VERSION__}"
             onRwy, runway = self.airport.onRunway(pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg)  # RUNWAY_BUFFER_WIDTH either side of runway, return [True,Runway()] or [False, None]
 
         self.lights = LightString(airport=self.airport, aircraft=self.aircraft, preferences=self.prefs)
+        self.lights._days = self.dayOfYear()
         self.lights.populate(self.route, move=self.move, onRunway=onRwy)
         if len(self.lights.lights) == 0:
             logger.debug("no lights")
@@ -534,18 +554,22 @@ VERSION = "{__VERSION__}"
         # Info 16
         logger.info(f"terminated: {reason}")
         if reason == "new green requested":
-            logger.info(f"FtG session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session}) for greener greens")
+            logger.info(f"green session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session}) for greener greens")
         else:
             if self.cursor is not None:
                 self.cursor.destroy()
                 self.cursor = None
-            logger.info(f"FtG session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session})")
+            logger.info(f"green session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session})")
             logger.info("-=" * 50)
             logger.info("\n\n")
+        self.session = None
         return [True, ""]
 
-    def hourOfDay(self):
+    def hourOfDay(self) -> float:
         return int(xp.getDataf(self.localTime) / 3600)  # seconds since midnight??
+
+    def dayOfYear(self) -> int:
+        return int(xp.getDatai(self.localDay))
 
     def getSimulatorDatetime(self, zulu: bool = True) -> datetime:
         s = 0
@@ -573,6 +597,7 @@ VERSION = "{__VERSION__}"
     def disable(self):
         # alias to cancel
         self.inc("disabled")
+        self.status = FTG_STATUS.DISABLED
         return self.terminate("disabled")
 
     def stop(self):

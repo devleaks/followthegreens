@@ -29,10 +29,7 @@ MAX_UPDATE_FREQUENCY = 10  # seconds, rabbit cannot change again more that 8 sec
 STOPPED_SPEED = 0.01  # m/s, under that speed, things are considered stopped, not moving.
 MIN_DIST = 100  # meters, minimum distance to move to consider object is actually moving
 MIN_SPEED = 3  # m/sec., minimum speed to consider object is actually moving significantly
-
-
-def ts() -> float:
-    return datetime.now().timestamp()
+SPAWN_DIST = 20  # m, 40 ideal
 
 
 class FlightLoop:
@@ -240,7 +237,7 @@ class FlightLoop:
         # (might expect small difference)
         self.total_dist = self.ftg.aircraft.moved()
         self.total_time = self.lastIter
-        logger.info(f"taxi started at {self.actual_start.strftime("%H:%M")}Z, ride is {round(d, 1)}m in {minsec(s)}, planned takeoff hold at {self.planned.strftime("%H:%M")}Z")
+        logger.info(f"taxi started at {self.actual_start.strftime('%H:%M')}Z, ride is {round(d, 1)}m in {minsec(s)}, planned takeoff hold at {self.planned.strftime('%H:%M')}Z")
 
     def taxiEnd(self):
         # provides some stats
@@ -267,13 +264,13 @@ class FlightLoop:
                 if acf_speed > SPEEDS[i][0]:
                     j = SPEEDS[i][1]
                     if j != self.lastIter:
-                        logger.debug(f"speed {round(acf_speed, 1)}, iter set to {j}")
+                        logger.debug(f"speed {round(acf_speed, 1)}, faster iter set to {j}s")
                         self.lastIter = j
                         return self.lastIter
                 i = i + 1
         except:
             logger.error("adjustedIter", exc_info=True)
-        logger.debug(f"regular iter {self.nextIter}")
+        logger.debug(f"regular iter {self.nextIter}s")
         return self.nextIter
 
     def adjustRabbit(self, position, closestLight, acf_speed):
@@ -469,12 +466,13 @@ class FlightLoop:
             logger.debug("no speed")
             return self.nextIter
 
+        ts_now = datetime.now().timestamp()
+
         if self.actual_start is None:
             if self.ftg.cursor is not None and not self.ftg.cursor.inited:
-                SPAWN_DIST = 20  # m, 40 ideal
                 # this is ok if aircraft at rest
                 # need more dynamic reaction if aircraft moving (like "new green requested")
-                # To be tested on arrival medium speed on runway or low speed on taxuway
+                # To be tested on arrival medium speed on runway or low speed on taxiway
                 # may be make MIN_DIST/MIN_SPEED dynamic.
                 #
                 try:
@@ -482,9 +480,7 @@ class FlightLoop:
                     # for example if we requested a new green
                     #
                     # 1. Spawn the car next to (random) side of aircraft
-                    now = datetime.now().timestamp()
-                    rnd = 1 if (int(now) % 2) == 0 else -1
-                    logger.debug(f"first position (at {rnd} side of precise start position)..")
+                    rnd = 1 if (int(ts_now) % 2) == 0 else -1
                     fs = self.ftg.route.before_route()
                     # spawn at spot randomly left or right of current aircraft position
                     spawn = destination(fs.start, fs.bearing() + rnd * 90, SPAWN_DIST)
@@ -493,30 +489,29 @@ class FlightLoop:
                     # logger.debug(f"lines: before route={fs}, route to start={join_route}")
                     # Speed at which we'll do that move is speed of aircraft + more
                     initial_speed = max(7.0, acf_speed + 5.0)  # m/s, 7.0 m/s = 25km/h is aircraft is stopped
-                    dt = now + join_route.length() / initial_speed
+                    tj = join_route.length() / initial_speed
+                    dt = ts_now + tj
+                    logger.debug("\n\n")
+                    logger.debug(f"spawning at position (at {rnd} {SPAWN_DIST}m side of precise start position)..")
                     self.ftg.cursor.init(position=join_route.start, heading=join_route.bearing(), speed=0)  # @todo always spawned at rest?
                     self.ftg.cursor.set_route(route=self.ftg.route)
                     #
                     # 2. Movement from where the car is spawned to first vertex of route, car joint the route and will stay on it
                     #    @todo: first vertex of route might not be the closest vertex in front.
-                    logger.debug("..move to begining of route..")
+                    # logger.debug("..move to begining of route..")
                     target_speed = acf_speed if acf_speed > MIN_SPEED else 0
                     target_heading = self.ftg.route.edges[0].bearing(orig=self.ftg.route.vertices[0])
+                    logger.debug(f"..move to begining of route: distance={round(join_route.length(), 1)}, heading={round(join_route.bearing(), 0)}, in {round(tj, 1)}s..")
                     self.ftg.cursor.future(position=join_route.end, hdg=target_heading, speed=target_speed, t=dt, tick=True, text="go to begining of route")
-                    # start = self.ftg.route.vertices[0]
-                    # logger.debug(f"first position (id={fs.start.id})..")
                     #
                     # 3. Movement (on route) from above vertex of route to ahead of aircraft
                     #
                     ahead = self.dynamic_ahead(acf_speed=acf_speed)  # m
                     tahead = 20  # secs.
-                    logger.debug(f"..move on route {ahead}m ahead in {tahead}secs...")
-                    idx, dist, finished = self.ftg.route.progress(position=self.ftg.route.vertices[0], edge=0, dist_to_travel=ahead)
-                    if not finished:
-                        self.ftg.cursor.future_index(edge=idx, dist=dist, speed=target_speed, t=dt + tahead)
-                    else:
-                        logger.warning("code not finished yet, must handle finish gracefully")
-                    logger.debug("..done")
+                    light_ahead, light_index, dist_left  = self.ftg.lights.lightAhead(index_from=0, ahead=ahead)
+                    logger.debug(f"..move on route {round(ahead, 1)}m ahead in {tahead}secs... (on light {light_index}, {round(dist_left, 1)}m neglected)..")
+                    self.ftg.cursor.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=target_speed, t=dt + tahead)
+                    logger.debug("..ready to taxi")
                 except:
                     logger.debug("..error", exc_info=True)
 
@@ -567,7 +562,7 @@ class FlightLoop:
         self.closestLight_cnt = 0
 
         if closestLight < self.light_progress:
-            logger.debug("backup detected, ignoring light closestLight={closestLight}, using {self.light_progress}")
+            logger.debug(f"backup detected, ignoring light closestLight={closestLight}, using {self.light_progress}")
             closestLight = max(closestLight, self.light_progress)
 
         # MOVE
@@ -578,13 +573,14 @@ class FlightLoop:
                 light = self.ftg.lights.lights[closestLight]
                 ahead = self.dynamic_ahead(acf_speed=acf_speed)
                 total_ahead = acf_move + ahead
-                logger.debug(f"close light={closestLight}, edge index={light.edgeIndex}, ahead={round(ahead, 1)}m + acf move={round(acf_move, 1)}m")
+                later = ts_now + nextIter
+                logger.debug(f"close light={closestLight} on edge index={light.edgeIndex}, distance from edge={round(light.distFromEdgeStart, 1)}m")
+                logger.debug(f"ahead={round(total_ahead, 1)}m = {round(ahead, 1)}m + acf move={round(acf_move, 1)}m")
                 # At next iteration, acf will move acf_move, and cursor need to be ahead
                 # So at next iteration (t=now + iterTime), car need to be (acf_move+ahead) in front
-                idx, dist, finished = self.ftg.route.progress(position=Point(lat=pos[0], lon=pos[1]), edge=light.edgeIndex, dist_to_travel=total_ahead)
-                later = datetime.now().timestamp() + nextIter
-                if not finished:
-                    self.ftg.cursor.future_index(edge=idx, dist=dist, speed=acf_speed, t=later)
+                light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=0, ahead=total_ahead)
+                logger.debug(f"light ahead={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
+                self.ftg.cursor.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=acf_speed, t=later)
                 logger.debug("..moved")
             except:
                 logger.debug("..error", exc_info=True)
@@ -609,7 +605,7 @@ class FlightLoop:
         if distance > DRIFTING_DISTANCE:
             logger.debug(f"aircraft drifting away from track? (d={round(distance, 1)} > {DRIFTING_DISTANCE})")
 
-        # if distance > (2*DRIFTING_DISTANCE) and AUTO_REROUTING:
+        # if distance > (2*DRIFTING_DISTANCE) and AUTO_REROUTE:
         #     logger.debug(f"aircraft drifting away from track? (d={round(distance, 1)} > {DRIFTING_DISTANCE}), starting new greens")
         #     self.ftg.newGreen(destination=self.ftg.destination)
 

@@ -384,7 +384,7 @@ class UIUtil:
 
     def bye(self):
         logger.debug("showing goodbye")
-        msgs = ["You have reached your destination."]
+        msgs = ["You are approaching your destination."]
         if self.ftg.move == MOVEMENT.DEPARTURE:
             msgs += ["Contact ATC for takeoff clearance."]
         msgs += [self.greetings("Enjoy your %s.")]

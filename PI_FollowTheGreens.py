@@ -228,7 +228,10 @@ class PythonInterface:
 
         try:
             self.followTheGreens = FollowTheGreens(self)
-
+            self.debug("XPluginEnable: FollowTheGreens created")
+            # if self.followTheGreens is not None:
+            #     self.followTheGreens.enable()
+            #     self.debug("XPluginEnable: FollowTheGreens enabled")
             if self.isRunningRef is not None:
                 for sig in (
                     "com.leecbaker.datareftool",
@@ -252,6 +255,9 @@ class PythonInterface:
             try:
                 self.showTaxiways = ShowTaxiways(self)
                 self.debug("XPluginEnable: ShowTaxiways created")
+                # if self.showTaxiways is not None:
+                #     self.showTaxiways.enable()
+                #     self.debug("XPluginEnable: ShowTaxiways enabled")
                 self.enabled = True
                 self.debug("XPluginEnable: ..enabled", force=True)
                 return 1
@@ -270,32 +276,32 @@ class PythonInterface:
     def XPluginDisable(self):
         self.debug("XPluginDisable: disabling..")
 
-        # 1. Follow The Greens
-        try:
-            if self.enabled and self.followTheGreens:
-                self.followTheGreens.disable()
-                self.followTheGreens = None
-            self.debug("XPluginDisable: FollowTheGreens disabled")
-        except:
-            self.debug("XPluginDisable: exception", force=True)
-            print_exc()
-
-        # 2. Show Taxiways
+        # 1. Show Taxiways
         try:
             if self.enabled and self.showTaxiways:
-                self.showTaxiways.disable()
+                # self.showTaxiways.disable()
+                del self.showTaxiways
                 self.showTaxiways = None
+                self.debug("XPluginDisable: ShowTaxiways disabled")
+                return None
+        except:
+            self.debug("XPluginDisable: exception")
+            print_exc()
 
-            self.debug("XPluginDisable: ShowTaxiways disabled")
-            self.enabled = False
-            self.debug("XPluginDisable: ..disabled")
-
+        # 2. Follow The Greens
+        try:
             if USE_HUD:
                 xp.unregisterDrawCallback(self.hud)
 
-            return None
+            if self.enabled and self.followTheGreens:
+                # self.followTheGreens.disable()
+                del self.followTheGreens
+                self.followTheGreens = None
+            self.debug("XPluginDisable: FollowTheGreens disabled")
+            self.enabled = False
+            self.debug("XPluginDisable: ..disabled")
         except:
-            self.debug("XPluginDisable: exception")
+            self.debug("XPluginDisable: exception", force=True)
             print_exc()
 
         self.enabled = False
