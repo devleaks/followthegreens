@@ -169,19 +169,21 @@ class Cursor:
         tt = d / speed
         control_time += tt
         start_time += tt
-        self.future(position=vertices[self.curr_index + 1], hdg=self.route.edges_orient[self.curr_index], speed=speed, t=start_time, text=f"to end of current edge {self.curr_index}")
+        hdg = self.route.edges_orient[min(self.curr_index + 1, len(self.route.edges) - 1)]
+        self.future(position=vertices[self.curr_index + 1], hdg=hdg, speed=speed, t=start_time, text=f"to end of current edge {self.curr_index}")
         logger.debug(f"progress {round(d, 1)}m on edge {self.curr_index} to end of edge in {round(tt, 1)}s")
         self.curr_index = self.curr_index + 1
 
         # travel entire next edges
-        while self.curr_index < edge and self.curr_index < (len(vertices) - 1):
+        while self.curr_index < edge and self.curr_index < (len(self.route.edges)):
             e = self.route.edges[self.curr_index]
             control_dist += e.cost
             tt = e.cost / speed
             control_time += tt
             start_time += tt
             # route to edge
-            self.future(position=vertices[self.curr_index + 1], hdg=self.route.edges_orient[self.curr_index], speed=speed, t=start_time, text=f"to end of edge {self.curr_index}")
+            hdg = self.route.edges_orient[min(self.curr_index + 1, len(self.route.edges) - 1)]
+            self.future(position=vertices[self.curr_index + 1], hdg=hdg, speed=speed, t=start_time, text=f"to end of edge {self.curr_index}")
             logger.debug(f"progress on edge {self.curr_index} (whole length {round(e.cost, 1)}m, in {round(tt, 1)}s)")
             self.curr_index = self.curr_index + 1
 
@@ -219,10 +221,9 @@ class Cursor:
         logger.debug(f"target time is {round(self.target_time, 2)} ({round(self.target_time-self.last_time, 2)} ahead)")
 
     def turn(self, b_in, b_out):
-        d = b_out - b_in
-        if abs(d) > 180:
-            d = -1 * (abs(d) - 180)
-        logger.debug(f"TURN {round(b_in, 1)} -> {round(b_out, 1)}s (turn={round(d, 1)}, {'left' if d < 0 else 'right'})")
+        # https://stackoverflow.com/questions/16180595/find-the-angle-between-two-bearings
+        d = ((((b_out - b_in) % 360) + 540) % 360) - 180
+        logger.debug(f"TURN {round(b_in, 1)} -> {round(b_out, 1)}s (turn={round(d, 1)}, {'right' if d < 0 else 'left'})")
         return d
 
     def _mkLine(self):

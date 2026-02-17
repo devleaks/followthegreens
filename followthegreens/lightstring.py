@@ -26,6 +26,7 @@ from .globals import (
 )
 
 HARDCODED_MIN_DISTANCE = 50  # meters
+HARDCODED_MAX_DISTANCE = int(6 * 7) # m
 HARDCODED_MIN_TIME = 0.04  # secs
 HARDCODED_MIN_RABBIT_LENGTH = 4  # lights
 
@@ -809,7 +810,7 @@ class LightString:
             end = sbend.lightStringIndex
             logger.debug(f"illuminated segment {segment} between {start} and {end}")
 
-        if self.num_lights_ahead is None or self.num_lights_ahead == 0:
+        if (self.num_lights_ahead is None or self.num_lights_ahead == 0) and self.num_lights_ahead != HARDCODED_MAX_DISTANCE:
             # Instanciate for each green light in segment and stop bar
             for i in range(start, end):
                 self.lights[i].on()
@@ -968,7 +969,7 @@ class LightString:
             if start > 0:  # can't be.
                 self.offToIndex(start - 1)
 
-            if self.num_lights_ahead > 0:
+            if self.num_lights_ahead > 0 and self.num_lights_ahead != HARDCODED_MAX_DISTANCE:
                 # we need to turn lights on ahead of rabbit
                 wishidx = start + self.num_rabbit_lights + self.num_lights_ahead
                 if wishidx < rabbitNose:

@@ -25,9 +25,9 @@ from .geo import EARTH, Point, Line, destination, distance
 
 
 # Hardcaded here, not preferences
-MAX_UPDATE_FREQUENCY = 10  # seconds, rabbit cannot change again more that 8 seconds it changed
+MAX_UPDATE_FREQUENCY = 10  # seconds, rabbit cannot change again more that 10 seconds it changed
 STOPPED_SPEED = 0.01  # m/s, under that speed, things are considered stopped, not moving.
-MIN_DIST = 100  # meters, minimum distance to move to consider object is actually moving
+MIN_DIST = 40  # 100 meters, minimum distance to move to consider object is actually moving
 MIN_SPEED = 3  # m/sec., minimum speed to consider object is actually moving significantly
 SPAWN_DIST = 20  # m, 40 ideal
 
@@ -75,8 +75,17 @@ class FlightLoop:
         self.old_msg = ""
         self.old_msg2 = ""
 
+        self.ahead_range = (70, 150)
+
     def startFlightLoop(self):
         self.lastLit = 0
+
+        try:
+            viz = self.ftg.airport.visibility()
+            self.ahead_range = self.ftg.aircraft.aheadRange(visibility=viz)
+            logger.debug(f"visual range {self.ahead_range}m")
+        except:
+            logger.debug("error computing visual range", exc_info=True)
 
         if self.hasRabbit():
             if not self.rabbitRunning:
@@ -442,13 +451,18 @@ class FlightLoop:
         except:
             logger.error("set rabbitMode", exc_info=True)
 
-    def dynamic_ahead(self, acf_speed) -> float:
+    def dynamicAhead(self, acf_speed: float, ahead_range: tuple) -> float:
         # Aircraft length (because position is center of aircraft)
         # + 1.5 aircraft length in front ogf aircrafy
         # + 15m per m/s of speed
         #
         acflen = self.ftg.aircraft.acflength if self.ftg.aircraft.acflength is not None else 50
-        return acflen * 2.5 + acf_speed * 15.0
+        est_range = acflen * 2.5 + acf_speed * 15.0
+        if est_range < ahead_range[0]:
+            est_range = ahead_range[0]
+        if est_range > ahead_range[1]:
+            est_range = ahead_range[1]
+        return est_range
 
     def planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
@@ -506,7 +520,7 @@ class FlightLoop:
                     #
                     # 3. Movement (on route) from above vertex of route to ahead of aircraft
                     #
-                    ahead = self.dynamic_ahead(acf_speed=acf_speed)  # m
+                    ahead = self.dynamicAhead(acf_speed=acf_speed, ahead_range=self.ahead_range)  # m
                     tahead = 20  # secs.
                     light_ahead, light_index, dist_left  = self.ftg.lights.lightAhead(index_from=0, ahead=ahead)
                     logger.debug(f"..moving on route {round(ahead, 1)}m ahead in {tahead}secs... (to light {light_index}, {round(dist_left, 1)}m neglected)..")
@@ -571,14 +585,14 @@ class FlightLoop:
             logger.debug("moving..")
             try:
                 light = self.ftg.lights.lights[closestLight]
-                ahead = self.dynamic_ahead(acf_speed=acf_speed)
+                ahead = self.dynamicAhead(acf_speed=acf_speed, ahead_range=self.ahead_range)
                 total_ahead = acf_move + ahead
                 later = ts_now + nextIter
                 logger.debug(f"close light={closestLight} on edge index={light.edgeIndex}, distance from edge={round(light.distFromEdgeStart, 1)}m")
                 logger.debug(f"ahead={round(total_ahead, 1)}m = {round(ahead, 1)}m + acf move={round(acf_move, 1)}m")
                 # At next iteration, acf will move acf_move, and cursor need to be ahead
                 # So at next iteration (t=now + iterTime), car need to be (acf_move+ahead) in front
-                light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=0, ahead=total_ahead)
+                light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=closestLight, ahead=total_ahead)
                 logger.debug(f"light ahead={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
                 self.ftg.cursor.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=acf_speed, t=later)
                 logger.debug("..moved")

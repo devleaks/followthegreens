@@ -275,10 +275,19 @@ class Aircraft:
         return daylight(now, lat, lon)
 
     def brightness(self, visibility: float) -> AMBIANT_RWY_LIGHT:
-        # @todo:
-        # compute ideal light brightness from environmental constraints (visibility, rain?)
-        # aircraft speed, type, daylight...
+        if self.daylight():
+            return AMBIANT_RWY_LIGHT.HIGH
+        if visibility > 5000:
+            return AMBIANT_RWY_LIGHT.LOW
+        if visibility > 1000:
+            return AMBIANT_RWY_LIGHT.MED
         return AMBIANT_RWY_LIGHT.HIGH
+
+    def aheadRange(self, visibility: float = 0.0) -> tuple:
+        # @todo:
+        # compute ideal ahead range
+        # aircraft speed, type, daylight...
+        return (70, 150)  # meters
 
     def heading(self) -> float:
         return xp.getDataf(self.psi)
