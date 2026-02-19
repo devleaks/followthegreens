@@ -18,3 +18,17 @@ Workaround:
 Let aricraft moving forward until it is less that 500m away from taxiway vertex.
 
 
+# Pause
+
+Follow the Greens plugin does not handle pause.
+It keeps runnign while the simulator is pause.
+There should not be any issue with that.
+If the aircraft does not move, greens don't change.
+
+
+# Aircraft Relocation
+
+Follow the Greens takes a «picture» of the situation when a new session is started.
+If the aircraft is changed or relocated after the session is started,
+pilot should cancel the previous session and restart a new one to take
+into account all changes.
