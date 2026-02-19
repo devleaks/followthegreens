@@ -170,12 +170,15 @@ AIRCRAFT_TYPES = {
     },
 }
 
+ACF_MIN_SPEED = 3  # m/s
+
 
 class Aircraft:
 
     def __init__(self, prefs: dict = {}):
         self.prefs = prefs
         self.icao = None
+
         self.icaomodel = xp.findDataRef("sim/aircraft/view/acf_ICAO")
         self.tailsign = xp.findDataRef("sim/aircraft/view/acf_tailnum")
         self.lat = xp.findDataRef("sim/flightmodel/position/latitude")
@@ -183,6 +186,8 @@ class Aircraft:
         self.psi = xp.findDataRef("sim/flightmodel/position/psi")
         self.groundspeed = xp.findDataRef("sim/flightmodel/position/groundspeed")
         self.tiller = xp.findDataRef("ckpt/tiller")
+        self.visibility_dref = xp.findDataRef("sim/weather/visibility_reported_m")
+
         self.width_code = TAXIWAY_WIDTH_CODE.C  # init to default
         self.init()
         logger.info(f"aircraft type {self.icao}, category {self.width_code}")
@@ -274,16 +279,20 @@ class Aircraft:
         lat, lon = self.position()
         return daylight(now, lat, lon)
 
-    def brightness(self, visibility: float) -> AMBIANT_RWY_LIGHT:
+    def brightness(self) -> AMBIANT_RWY_LIGHT:
         if self.daylight():
             return AMBIANT_RWY_LIGHT.HIGH
+        visibility = self.visibility()
         if visibility > 5000:
             return AMBIANT_RWY_LIGHT.LOW
         if visibility > 1000:
             return AMBIANT_RWY_LIGHT.MED
         return AMBIANT_RWY_LIGHT.HIGH
 
-    def aheadRange(self, visibility: float = 0.0) -> tuple:
+    def visibility(self) -> float:
+        return xp.getDataf(self.visibility_dref)
+
+    def aheadRange(self) -> tuple:
         # @todo:
         # compute ideal ahead range
         # aircraft speed, type, daylight...
@@ -299,6 +308,9 @@ class Aircraft:
         self.positions.append(self.position())
         self.speeds.append(self.speed())
         return len(self.positions)
+
+    def moving(self) -> float:
+        return xp.getDataf(self.groundspeed) > ACF_MIN_SPEED
 
     def moved(self, orig: int = 0) -> float:
         pos = self.position()

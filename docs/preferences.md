@@ -186,15 +186,15 @@ You can adjust some of the light parameters to change the size, color, and inten
 
 The different types of lights are:
 
-- FIRST: First light of follow the greens.
-- TAXIWAY: Regular "green" taxiway light used for the path and the "rabbit".
-- TAXIWAY_ALT: On runway lead-on and lead-off, same as TAXIWAY light but yellow/amber.
-- STOP: Lights used to build the stop bar across the taxiway when clearance is requested (same as TAXIWAY light but red.).
-- VERTEX: Additional light added at taxiway network vertex, as published in the airport data file. Used for development mainly.
-- WARNING: Additional light, no longer used, a yellow taxiway light.
-- LAST: Last light of follow the greens.
-- ACTIVE: Light on a departure, arrival or ILS active segment.
-- DEFAULT: Light used by Show Taxiway to illuminate all taxiways, default to a bright white light.
+- `FIRST`: First light of follow the greens.
+- `TAXIWAY`: Regular "green" taxiway light used for the path and the "rabbit".
+- `TAXIWAY_ALT`: On runway lead-on and lead-off, same as TAXIWAY light but yellow/amber.
+- `STOP`: Lights used to build the stop bar across the taxiway when clearance is requested (same as TAXIWAY light but red.).
+- `VERTEX`: Additional light added at taxiway network vertex, as published in the airport data file. Used for development mainly.
+- `WARNING`: Additional light, no longer used, a yellow taxiway light.
+- `LAST`: Last light of follow the greens.
+- `ACTIVE`: Light on a departure, arrival or ILS active segment.
+- `DEFAULT`: Light used by Show Taxiway to illuminate all taxiways, default to a bright white light.
 
 To change lights parameters for a type of light, insert the following preference:
 
@@ -282,7 +282,7 @@ They are just LIGHTS.
 
 So, to be complete, there is an extra light type
 
-- OFF: Physical taxiway light object with no light (light off).
+- `OFF`: Physical taxiway light object with no light (light off).
 
 This is an object that represents a physical taxiway light.
 That object emits no light at all, it is just decorative.

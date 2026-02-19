@@ -520,7 +520,7 @@ Follow the Greens 4D is [experimental](https://www.sciencedirect.com/science/art
 [SMGCS Level 4 compliant](https://tm3airports.com/follow-the-greens/),
 and only exist and run here in X-Plane 12+!
 
-If you have comments, or suggestions, or enhancement requests, please let us discuss on [discord](https://discord.gg/AQjP2tWV).
+If you have comments, or suggestions, or enhancement requests, please let us discuss on [discord](https://discord.gg/s8mRAbFysx).
 
 I hope FtG will make your taxi rides more enjoyable.
 
@@ -567,7 +567,7 @@ This way we will have a lot more information to understand the misbehavior.
 
 You can get support in the [forum thread dedicated to FtG](https://forums.x-plane.org/files/file/71124-follow-the-greens/).
 
-You can also get support on the [following discord server](https://discord.gg/AQjP2tWV).
+You can also get support on the [following discord server](https://discord.gg/s8mRAbFysx).
 
 
 # See Also

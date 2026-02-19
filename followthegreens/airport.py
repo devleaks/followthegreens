@@ -27,11 +27,13 @@ from .globals import (
 )
 from .geo import FeatureCollection, Point, Line, Polygon, destination, distance, bearing, turn, pointInPolygon, nearestPointToLines
 from .graph import Graph, Edge, Vertex
+from .cursor import Cursor
 
 SYSTEM_DIRECTORY = "."
 
 TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
 SMALL_TURN_LIMIT = 15.0  # °, above this angle, it is recommended to slow down for the turn
+HARDCODED_MAX_DISTANCE = int(6 * 7)  # m
 
 
 class Runway(Line):
@@ -202,16 +204,18 @@ class Airport:
         self.smoothGraph = Graph(name="Smoothed taxiways")
         self.tempSmoothCurve = []
 
-        self.visibility_dref = xp.findDataRef("sim/weather/visibility_reported_m")
-
         # PREFERENCES - Fetched by LightString
         # Set sensible default value from global preferences
         self.use_threshold = get_global("USE_THRESHOLD", self.prefs)
         if self.use_threshold is None:
             self.use_threshold = True
+
         self.distance_between_taxiway_lights = get_global(AIRPORT.DISTANCE_BETWEEN_LIGHTS.value, self.prefs)  # meters, for show_taxiways()
         self.distance_between_green_lights = get_global(AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value, self.prefs)  # meters for follow_the_greens()
-        self.rabbit_speed = get_global(RABBIT.SPEED.value, self.prefs)  # seconds
+
+        self.lights_ahead = get_global(RABBIT.LIGHTS_AHEAD.value, self.prefs)
+        self.rabbit_length = get_global(RABBIT.LENGTH.value, self.prefs)
+        self.rabbit_speed = get_global(RABBIT.SPEED.value, self.prefs)
         # Info 4
         # Fine tune for specific airport(s)
         self.setPreferences()
@@ -261,14 +265,27 @@ class Airport:
         if prefs is not None:
             if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in prefs:
                 self.distance_between_green_lights = prefs[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
+            if AIRPORT.DISTANCE_BETWEEN_LIGHTS.value in prefs:
+                self.distance_between_taxiway_lights = prefs[AIRPORT.DISTANCE_BETWEEN_LIGHTS.value]
+            if RABBIT.LIGHTS_AHEAD.value in prefs:
+                self.lights_ahead = prefs[RABBIT.LIGHTS_AHEAD.value]
+            if RABBIT.LENGTH.value in prefs:
+                self.rabbit_length = prefs[RABBIT.LENGTH.value]
+            if RABBIT.SPEED.value in prefs:
+                self.rabbit_speed = prefs[RABBIT.SPEED.value]
             return
         # Generic
         logger.debug(f"Airport preferences: {apt}")
         if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in apt:
             self.distance_between_green_lights = apt[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
 
-    def visibility(self) -> float:
-        return xp.getDataf(self.visibility_dref)
+    def cursor(self, route) -> Cursor | None:
+        cursor = get_global("CURSOR", self.prefs)
+        if type(cursor) is str and len(cursor) > 1:  #  and self.lights_ahead == HARDCODED_MAX_DISTANCE and self.rabbit_length == 0:
+            c = Cursor(cursor)
+            c.set_route(route)
+            return c
+        return None
 
     def load(self):
         APT_FILES = {}
@@ -589,6 +606,7 @@ class Airport:
                 closest = f" close to stand {ret[0]}"
             logger.info(f"aircraft appears to be on apron{closest}, assuming departure")
             return MOVEMENT.DEPARTURE
+        logger.info("aircraft is far from known ramps, assuming arrival")
         return MOVEMENT.ARRIVAL
 
     def getRunways(self):
@@ -1065,22 +1083,21 @@ class Route:
         if move == MOVEMENT.DEPARTURE:
             src = self.graph.findClosestVertex(pos_pt)
         else:  # arrival
-            brng = aircraft.heading()
-            speed = aircraft.speed()
-            logger.debug(f"arrival: trying vertex ahead {brng}, {speed}")
-            src = self.graph.findClosestVertexAheadGuess(pos_pt, brng, speed)
-            if src is None or src[0] is None:  # tries a less constraining search...
-                logger.debug("no vertex ahead")
-                src = self.graph.findClosestVertex(pos_pt)
             if arrival_runway is not None and dst_type == "stand":
                 if dst_pos is not None:
                     nextexit = arrival_runway.nextExit(graph=self.graph, position=pos_pt, destination=dst_pos)
                     if nextexit is not None:
                         src = nextexit
-                        logger.debug(f"Arrival: on runway {arrival_runway.name}, closest exit vertex in front is {nextexit[0]}")
-                logger.debug(f"Arrival: on runway {arrival_runway.name}")
+                        logger.debug(f"arrival: on runway {arrival_runway.name}, closest exit vertex in front is {nextexit[0]}")
+                logger.debug(f"arrival: on runway {arrival_runway.name}")
             else:
-                logger.debug("Arrival: not on runway")
+                brng = aircraft.heading()
+                speed = aircraft.speed()
+                logger.debug(f"arrival: not on runway, trying vertex ahead {brng}, {speed}")
+                src = self.graph.findClosestVertexAheadGuess(pos_pt, brng, speed)
+                if src is None or src[0] is None:  # tries a less constraining search...
+                    logger.debug("no vertex ahead, fallback on closest vertex, not necessarily ahead")
+                    src = self.graph.findClosestVertex(pos_pt)
 
         if src is None:
             logger.debug("no return from findClosestVertex")

@@ -247,13 +247,15 @@ class UIUtil:
 
         return widgetWindow
 
-    def promptForDestination(self, status=""):
-        logger.debug("prompt for destination")
+    def promptForDestination(self, status: str = "", location: str = None):
         # Create a window to prompt for a local airport destination, either a runway or a parking position
         move = self.ftg.move
         welcome = "Welcome. We could not guess where you want to taxi."
+        if location != None and len(location) > 1:
+            welcome = f"We are at {location}." + welcome
         if status != "":
             welcome = status + " Try again. Where do you want to taxi?"
+        logger.debug(f"prompt for destination ({self.ftg.move}, {welcome})")
 
         button = None
         prompt = None

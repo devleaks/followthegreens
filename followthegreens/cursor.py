@@ -1,6 +1,9 @@
 import os
 import math
 from datetime import datetime
+from queue import Queue
+from threading import Timer
+from enum import StrEnum
 
 try:
     import xp
@@ -10,6 +13,14 @@ except ImportError:
 from .globals import logger
 from .geo import Point, Line, distance, destination
 from .lightstring import XPObject
+
+
+class CURSOR_STATUS(StrEnum):
+    NEW = "NEW"  # ftg just created
+    INITIALIZED = "INITIALIZED"  # ftg initialized (preferences, etc.)
+    ACTIVE = "ACTIVE"  # ready to be used
+    FINISHING = "FINISHING"  # ready to be used
+    DESTROYED = "DESTROYED"  #
 
 
 def ts() -> float:
@@ -45,8 +56,10 @@ class Cursor:
         self.cursor_type = CarType(filename)
         self.cursor = XPObject(None, 0, 0, 0)
 
+        self.status = CURSOR_STATUS.NEW
+        self.active = False
         self.route = None
-        self._future = []
+        self._future = Queue()
         self.curr_index = 0
         self.curr_dist = 0
 
@@ -73,10 +86,14 @@ class Cursor:
         self.delta_spd = 0.0
         self.half_heading = False
 
-        self._future_cnt = 0
-        self._tick_cnt = 0
-        self._total_distance = 0
+        self.refcursor = "FtG:cursor"
+        self.flightLoop = None
+        self.nextIter = 1
+        self._qin = 0
+        self._qout = 0
         self.cnt = -1
+        self._total_distance = 0
+        self._timer = None
         self.turn_limit = 1
         self.msg = ""
 
@@ -86,7 +103,7 @@ class Cursor:
 
     @property
     def inited(self) -> bool:
-        return self.curr_pos is not None
+        return self.curr_pos is not None and self.route is not None
 
     def init(self, position: Point, heading: float, speed: float = 0.0):
         # spawn cursor
@@ -102,20 +119,60 @@ class Cursor:
         self.cursor.heading = self.curr_hdg
         self.cursor.place(lightType=self.cursor_type)
         self.cursor.on()
+
+        self.active = True
+        self.status = CURSOR_STATUS.INITIALIZED
         logger.debug(f"initialized at {round(self.curr_time, 2)}, pos={self.curr_pos}")
 
     def destroy(self):
-        self.cursor.destroy()  # calls off()
-        del self.cursor_type  # unloads object
+        if self.cursor is not None:
+            self.cursor.destroy()  # calls off()
+            self.cursor = None
+        if self.cursor_type is not None:
+            del self.cursor_type  # unloads object
+            self.cursor_type = None
+        self.status = CURSOR_STATUS.DESTROYED
         logger.debug("destroyed")
 
     def set_route(self, route):
+        if self.route is not None:
+            self.reset_route()
         self.route = route
 
+    def reset_route(self):
+        # They won't be any valid route anymore.
+        # We have to stop the future
+        logger.debug("cursor reseting route")
+        while not self._future.empty():
+            wasted = self._future.get()
+        # the car can continue on current segment, that's ok
+
+    def startFlightLoop(self):
+        if self.cursor is not None and self.usable:
+            self.flcursor = xp.createFlightLoop(callback=self.cursorFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refcursor)
+            xp.scheduleFlightLoop(self.flcursor, self.nextIter, 1)
+            logger.debug("cursor tracking started")
+
+    def stopFlightLoop(self):
+        if self.ftg.cursor is not None:
+            xp.destroyFlightLoop(self.flcursor)
+        logger.debug("cursor tracking stopped")
+
+    def cursorFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
+        try:
+            self.move(t=elapsedSinceLastCall)
+            return -1
+        except:
+            logger.debug("error", exc_info=True)
+        return 5.0
+
     def future(self, position: Point, hdg: float, speed: float, t: float, tick: bool = False, text: str = ""):
-        self._future.append((position.lat, position.lon, hdg, speed, t, text))
-        self._future_cnt += 1
-        logger.debug(f"added future ({self._future_cnt}, q={len(self._future)}): {text} (h={hdg}, s={speed}, t={t})")
+        if not self.active:
+            logger.debug("cursor not active")
+            return
+        self._future.put((position.lat, position.lon, hdg, speed, t, text))
+        self._qin += 1
+        logger.debug(f"added future ({self._qin}, q={self._future.qsize()}): {text} (h={hdg}, s={speed}, t={t})")
         if tick:
             ignore = self._tick()
 
@@ -123,6 +180,9 @@ class Cursor:
         return destination(self.route.vertices[i], self.route.edges_orient[i], dist)
 
     def future_index(self, edge: int, dist: float, speed: float, t: float):
+        if not self.active:
+            logger.debug("cursor not active")
+            return
         # convert trip on the route into "future()" segements:
         if speed == 0:
             speed = 7.0  # m/s, 7.0 m/s = 25km/h if aircraft is stopped
@@ -133,13 +193,13 @@ class Cursor:
         logger.debug(f"currently on edge {self.curr_index} at {round(self.curr_dist, 1)}m, need to go on edge {edge} at {round(dist, 1)}m")
         if edge == self.curr_index:  # remains on same edge
             if dist > self.curr_dist:
-                dest = self.on_edge(edge, dist) # destination(self.route.vertices[edge], self.route.edges_orient[edge], dist)
+                dest = self.on_edge(edge, dist)  # destination(self.route.vertices[edge], self.route.edges_orient[edge], dist)
                 hdg = self.route.edges_orient[edge]
                 self.future(position=dest, hdg=hdg, speed=speed, t=t, text="go further on edge")
                 logger.debug(f"progress on edge {edge} from {round(self.curr_dist, 1)}m to {round(dist, 1)}m")
                 self.curr_dist = dist
             else:
-                logger.debug(f"no progress on edge {edge}, ({round(dist, 1)}m <= {round(self.curr_dist, 1)}m)")
+                logger.log(8, f"no progress on edge {edge}, ({round(dist, 1)}m <= {round(self.curr_dist, 1)}m)")
             return
 
         vertices = self.route.vertices
@@ -165,13 +225,13 @@ class Cursor:
         e = self.route.edges[self.curr_index]
         d = e.cost - self.curr_dist
         control_dist += d
-        logger.debug(f"edge {self.curr_index} length={round(e.cost, 1)}m, heading={round(e.bearing(), 0)}, start_time={start_time}, end_time={t}")
+        logger.log(8, f"edge {self.curr_index} length={round(e.cost, 1)}m, heading={round(e.bearing(), 0)}, start_time={start_time}, end_time={t}")
         tt = d / speed
         control_time += tt
         start_time += tt
         hdg = self.route.edges_orient[min(self.curr_index + 1, len(self.route.edges) - 1)]
         self.future(position=vertices[self.curr_index + 1], hdg=hdg, speed=speed, t=start_time, text=f"to end of current edge {self.curr_index}")
-        logger.debug(f"progress {round(d, 1)}m on edge {self.curr_index} to end of edge in {round(tt, 1)}s")
+        logger.log(8, f"progress {round(d, 1)}m on edge {self.curr_index} to end of edge in {round(tt, 1)}s")
         self.curr_index = self.curr_index + 1
 
         # travel entire next edges
@@ -184,7 +244,7 @@ class Cursor:
             # route to edge
             hdg = self.route.edges_orient[min(self.curr_index + 1, len(self.route.edges) - 1)]
             self.future(position=vertices[self.curr_index + 1], hdg=hdg, speed=speed, t=start_time, text=f"to end of edge {self.curr_index}")
-            logger.debug(f"progress on edge {self.curr_index} (whole length {round(e.cost, 1)}m, in {round(tt, 1)}s)")
+            logger.log(8, f"progress on edge {self.curr_index} (whole length {round(e.cost, 1)}m, in {round(tt, 1)}s)")
             self.curr_index = self.curr_index + 1
 
         # travel on new current edge
@@ -196,34 +256,35 @@ class Cursor:
         tt = dist / speed
         control_time += tt
         start_time += tt
-        logger.debug(f"progress on edge {edge} (length {round(dist, 1)}m, in {round(tt, 1)}s)")
-        logger.debug(f"control distance travelled {round(control_dist, 1)}m, in {round(control_time, 1)}s")
+        logger.log(8, f"progress on edge {edge} (length {round(dist, 1)}m, in {round(tt, 1)}s)")
+        logger.log(8, f"control distance travelled {round(control_dist, 1)}m, in {round(control_time, 1)}s")
 
-    def _tick(self):
-        if len(self._future) == 0:
+    def _tick(self) -> bool:
+        # returns whether it ticked
+        if self._future.empty():
             return False
-        self._tick_cnt += 1
-        f = self._future[0]
-        logger.debug(f"tick future ({self._tick_cnt}, q={len(self._future)}) at {round(self.curr_time, 3)}: {f[-1]} (h={f[-4]}, s={f[-3]}, t={f[-2]})")
+        self._qout += 1
+        f = self._future.get()
+        logger.debug(f"tick future ({self._qout}, q={self._future.qsize()}) at {round(self.curr_time, 3)}: {f[-1]} (h={f[-4]}, s={f[-3]}, t={f[-2]})")
         self._set_target(*f)
-        del self._future[0]
         self._mkLine()
+        self.status = CURSOR_STATUS.ACTIVE
         return True
 
     def _set_target(self, lat: float, lon: float, hdg: float, speed: float, t: float, text: str):
         self.last_time = self.curr_time
-        logger.debug(f"last time is {round(self.last_time, 2)}")
+        logger.log(8, f"last time is {round(self.last_time, 2)}")
         self.target_pos = Point(lat=lat, lon=lon)
         self.target_hdg = hdg
         self.target_speed = speed
         self.target_time = t
         self.target_text = text
-        logger.debug(f"target time is {round(self.target_time, 2)} ({round(self.target_time-self.last_time, 2)} ahead)")
+        logger.log(8, f"target time is {round(self.target_time, 2)} ({round(self.target_time-self.last_time, 2)} ahead)")
 
     def turn(self, b_in, b_out):
         # https://stackoverflow.com/questions/16180595/find-the-angle-between-two-bearings
         d = ((((b_out - b_in) % 360) + 540) % 360) - 180
-        logger.debug(f"TURN {round(b_in, 1)} -> {round(b_out, 1)}s (turn={round(d, 1)}, {'right' if d < 0 else 'left'})")
+        logger.log(8, f"TURN {round(b_in, 1)} -> {round(b_out, 1)}s (turn={round(d, 1)}, {'right' if d < 0 else 'left'})")
         return d
 
     def _mkLine(self):
@@ -235,9 +296,9 @@ class Cursor:
         acc = 0
         if self.delta_tim != 0:
             acc = self.delta_spd / self.delta_tim
-        logger.debug(f"segment {round(self.segment.length(), 1)}m in {round(self.delta_tim, 2)}s")
-        logger.debug(f"heading {round(self.curr_hdg, 1)} -> {round(self.target_hdg, 1)} (delta={round(self.delta_hdg, 1)})")
-        logger.debug(f"speed {round(self.curr_speed, 1)} -> {round(self.target_speed, 1)}m/s (delta={round(self.delta_spd, 1)}, acc={acc})")
+        logger.log(8, f"segment {round(self.segment.length(), 1)}m in {round(self.delta_tim, 2)}s")
+        logger.log(8, f"heading {round(self.curr_hdg, 1)} -> {round(self.target_hdg, 1)} (delta={round(self.delta_hdg, 1)})")
+        logger.log(8, f"speed {round(self.curr_speed, 1)} -> {round(self.target_speed, 1)}m/s (delta={round(self.delta_spd, 1)}, acc={acc})")
 
     def _bearing(self, ratio):
         # only turns towards the end or edge
@@ -287,9 +348,13 @@ class Cursor:
         old_time = self.curr_time
         self.curr_time = self.curr_time + t
 
+        if self.cursor is None:
+            slow_debug("no cursor to move")
+            return
         if self.curr_pos is None or self.target_pos is None:  # not initialized yet, no target
             slow_debug(f"not moving curr={self.curr_pos}, target={self.target_pos}")
             return
+
         now = ts()
         slow_debug(f"curr_time={round(self.curr_time, 3)}, now={round(now, 3)} (diff={round(self.curr_time - now, 3)}), target={round(self.target_time, 3)}")
         slow_debug(f"segment={round(self.segment.length(), 1)}m, {round(self.segment.bearing(), 0)}D")
@@ -309,3 +374,32 @@ class Cursor:
         self.curr_pos = self.segment.middle(ratio=r)
         hdg = self._bearing(ratio=r)
         self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=hdg, elev=0.25)
+
+    def finish(self, message: str = ""):
+        # @todo: Do better move, especially on runways
+        # Add a last move, ahead and sideway, wait a few seconds and vanishes
+        if not self.active:
+            logger.debug("cursor not active")
+            return
+        LEAVE_DIST_AHEAD = 100  # m
+        LEAVE_DIST_SIDE = 50  # m
+        LEAVE_TIME = 10  # 60 secs
+        hdg = self.route.edges_orient[-1]
+        end = self.route.vertices[-1]
+        d1 = destination(src=end, brngDeg=hdg, d=LEAVE_DIST_AHEAD)
+        rnd = 1 if (int(ts()) % 2) == 0 else -1
+        hdg = hdg + 90 * rnd
+        dest = destination(src=d1, brngDeg=hdg, d=LEAVE_DIST_SIDE)
+        line = Line(end, dest)
+        spd = 7.0
+        tt = line.length() / spd
+        t = ts() + tt
+        # move away (front and random side)
+        self.status = CURSOR_STATUS.FINISHING
+        self.future(position=dest, hdg=hdg, speed=spd, t=t, text=f"leaving on the side ({message})")
+        self.active = False
+        logger.debug(f"cursor finished ({message})")
+        # wait a bit after move
+        self._timer = Timer(tt + LEAVE_TIME, self.destroy())
+        self._timer.start()
+        logger.debug(f"cursor will be destroyed in {round(tt + LEAVE_TIME, 1)}s")

@@ -185,7 +185,7 @@ class PythonInterface:
 
             if self.showTaxiways:
                 try:
-                    self.showTaxiways.stop()
+                    del self.showTaxiways
                     self.showTaxiways = None
                     self.debug("XPluginStop: ShowTaxiways stopped")
                 except:
@@ -210,7 +210,7 @@ class PythonInterface:
 
         if self.followTheGreens:
             try:
-                self.followTheGreens.stop()
+                del self.followTheGreens
                 self.followTheGreens = None
                 self.debug("XPluginStop: FollowTheGreens stopped")
             except:
@@ -229,9 +229,9 @@ class PythonInterface:
         try:
             self.followTheGreens = FollowTheGreens(self)
             self.debug("XPluginEnable: FollowTheGreens created")
-            # if self.followTheGreens is not None:
-            #     self.followTheGreens.enable()
-            #     self.debug("XPluginEnable: FollowTheGreens enabled")
+            if self.followTheGreens is not None:
+                self.followTheGreens.enable()
+                self.debug("XPluginEnable: FollowTheGreens enabled")
             if self.isRunningRef is not None:
                 for sig in (
                     "com.leecbaker.datareftool",
@@ -255,9 +255,9 @@ class PythonInterface:
             try:
                 self.showTaxiways = ShowTaxiways(self)
                 self.debug("XPluginEnable: ShowTaxiways created")
-                # if self.showTaxiways is not None:
-                #     self.showTaxiways.enable()
-                #     self.debug("XPluginEnable: ShowTaxiways enabled")
+                if self.showTaxiways is not None:
+                    self.showTaxiways.enable()
+                    self.debug("XPluginEnable: ShowTaxiways enabled")
                 self.enabled = True
                 self.debug("XPluginEnable: ..enabled", force=True)
                 return 1
@@ -279,9 +279,7 @@ class PythonInterface:
         # 1. Show Taxiways
         try:
             if self.enabled and self.showTaxiways:
-                # self.showTaxiways.disable()
-                del self.showTaxiways
-                self.showTaxiways = None
+                self.showTaxiways.disable()
                 self.debug("XPluginDisable: ShowTaxiways disabled")
                 return None
         except:
@@ -294,9 +292,7 @@ class PythonInterface:
                 xp.unregisterDrawCallback(self.hud)
 
             if self.enabled and self.followTheGreens:
-                # self.followTheGreens.disable()
-                del self.followTheGreens
-                self.followTheGreens = None
+                self.followTheGreens.disable()
             self.debug("XPluginDisable: FollowTheGreens disabled")
             self.enabled = False
             self.debug("XPluginDisable: ..disabled")

@@ -26,7 +26,7 @@ from .globals import (
 )
 
 HARDCODED_MIN_DISTANCE = 50  # meters
-HARDCODED_MAX_DISTANCE = int(6 * 7) # m
+HARDCODED_MAX_DISTANCE = int(6 * 7)  # m
 HARDCODED_MIN_TIME = 0.04  # secs
 HARDCODED_MIN_RABBIT_LENGTH = 4  # lights
 
@@ -55,7 +55,7 @@ class LightType:
                 LightType.LightObjects[self.filename] = xp.loadObject(self.filename)
                 logger.debug(f"loadObject {self.name} object {self.filename} loaded")
             else:
-                logger.debug(f"loadObject {self.name} object {self.filename} already loaded ({LightType.LightObjects.get(self.filename)})")
+                logger.debug(f"loadObject {self.name} object {self.filename} already loaded")
             self.obj = LightType.LightObjects.get(self.filename)
         else:
             logger.debug(f"loadObject {self.name} file {self.filename} not found")
@@ -319,9 +319,9 @@ class Stopbar:
             pos = destination(self.position, brng, (numlights + side) * self.distance_between_stoplights)
             self.lights.append(Light(LIGHT_TYPE.RUNWAY, pos, self.heading, 2 * numlights + skip))
 
-    def place(self, lightTypes):
+    def place(self, lightTypes, lightTypeOff=None):
         for light in self.lights:
-            light.place(lightTypes[light.lightType], lightTypes[LIGHT_TYPE.OFF])
+            light.place(lightTypes[light.lightType], lightTypeOff)
         logger.debug(f"stop bar at {self.lightStringIndex} placed")
 
     def on(self):
@@ -436,6 +436,10 @@ class LightString:
 
         logger.debug(f"physical units: rabbit {aircraft.rabbit_length}m, {abs(round(self.rabbit_duration, 2))} secs., ahead {aircraft.lights_ahead}m")
         logger.info(f"rabbit: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}, greens={self.distance_between_lights}m")
+
+    @property
+    def hasLight(self) -> bool:
+        return self.rabbit_length > 0 and self.num_lights_ahead != HARDCODED_MAX_DISTANCE
 
     def hasRabbit(self) -> bool:
         return (abs(self.rabbit_duration) > 0 and self.num_rabbit_lights > 0) or self.lights_ahead > 0
@@ -764,11 +768,12 @@ class LightString:
         return True
 
     def placeLights(self):
+        loff = self.lightTypes[LIGHT_TYPE.OFF] if self.hasLight else None
         for light in self.lights:
-            light.place(self.lightTypes[light.lightType], self.lightTypes[LIGHT_TYPE.OFF])
+            light.place(self.lightTypes[light.lightType], loff)
 
         for sb in self.stopbars:
-            sb.place(self.lightTypes)
+            sb.place(self.lightTypes, loff)
 
         self.xyzPlaced = True
         logger.debug("lights placed")
@@ -810,7 +815,7 @@ class LightString:
             end = sbend.lightStringIndex
             logger.debug(f"illuminated segment {segment} between {start} and {end}")
 
-        if (self.num_lights_ahead is None or self.num_lights_ahead == 0) and self.num_lights_ahead != HARDCODED_MAX_DISTANCE:
+        if (self.num_lights_ahead is None or self.num_lights_ahead == 0) and self.hasLight:
             # Instanciate for each green light in segment and stop bar
             for i in range(start, end):
                 self.lights[i].on()
@@ -969,7 +974,7 @@ class LightString:
             if start > 0:  # can't be.
                 self.offToIndex(start - 1)
 
-            if self.num_lights_ahead > 0 and self.num_lights_ahead != HARDCODED_MAX_DISTANCE:
+            if self.num_lights_ahead > 0 and self.hasLight:
                 # we need to turn lights on ahead of rabbit
                 wishidx = start + self.num_rabbit_lights + self.num_lights_ahead
                 if wishidx < rabbitNose:

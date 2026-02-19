@@ -21,7 +21,6 @@ from .flightloop import FlightLoop
 from .lightstring import LightString
 from .ui import UIUtil
 from .nato import phonetic, toml_dumps
-from .cursor import Cursor
 
 PREFERENCE_FILE_NAME = "followthegreens.prf"  # followthegreens.prf
 STATS_FILE_NAME = "ftgstats.txt"
@@ -36,7 +35,7 @@ class FollowTheGreens:
         self.airport: Airport | None = None
         self.aircraft: Aircraft | None = None
         self.lights: LightString | None = None
-        self.cursor: Cursor | None = None
+        self.cursor = None
         self.segment = 0  # counter for green segments currently lit -0-----|-1-----|-2---------|-3---
         self.move: MOVEMENT | None = None  # departure or arrival, guessed first, can be changed by pilot.
         self.destination = None  # Handy
@@ -73,9 +72,6 @@ class FollowTheGreens:
         logger.info(f"Deleted {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
         logger.info("<=" * 50)
         logger.info("\n\n")
-
-    def enable(self):
-        self.status = FTG_STATUS.ENABLED
 
     @property
     def is_holding(self) -> bool:
@@ -282,6 +278,7 @@ VERSION = "{__VERSION__}"
 
         # Info 1
         # logger.info("starting..")
+        self.status = FTG_STATUS.START
         self.inc("start")
         # BEGIN TEST : reloading preferences
         logger.debug("..reloading preferences..")
@@ -365,7 +362,7 @@ VERSION = "{__VERSION__}"
 
         # Info 10
         self.move = self.airport.guessMove(self.aircraft.position())
-        return self.ui.promptForDestination()
+        return self.ui.promptForDestination(location=f"airport {self.airport.icao}")
 
     def newGreen(self, destination):
         # What is we had a green, and now we don't?!
@@ -381,7 +378,7 @@ VERSION = "{__VERSION__}"
         # If we find a route, we light it.
         if destination not in self.airport.getDestinations(self.move):
             logger.debug(f"destination not valid {destination} for {self.move}")
-            return self.ui.promptForDestination(f"Destination {destination} not valid for {self.move}")
+            return self.ui.promptForDestination(status=f"Destination {destination} not valid for {self.move}.")
 
         # Info 11
         logger.info(f"trying route to destination {destination}..")
@@ -406,11 +403,16 @@ VERSION = "{__VERSION__}"
         pos = self.aircraft.position()
         hdg = self.aircraft.heading()
         # gsp = self.aircraft.speed()
+
+        # collect environmental data for this session
+        # currently only reports it
         now = self.getSimulatorDatetime()
         day = self.aircraft.daylight(now=now)
-        viz = self.airport.visibility()
-        brt = self.aircraft.brightness(visibility=viz)
-        logger.info(f"environmental at {now}: day={day}, visibility={round(viz, 0)}m, brt={brt}")
+        viz = self.aircraft.visibility()
+        brt = self.aircraft.brightness()
+        ahr = self.aircraft.aheadRange()
+        logger.info(f"environmental at {now}: day={day}, visibility={round(viz, 0)}m, brt={brt}, vra={ahr}m")
+
         onRwy = False
         if self.move == MOVEMENT.ARRIVAL:
             onRwy, runway = self.airport.onRunway(pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg)  # RUNWAY_BUFFER_WIDTH either side of runway, return [True,Runway()] or [False, None]
@@ -422,6 +424,12 @@ VERSION = "{__VERSION__}"
             logger.debug("no lights")
             return self.ui.sorry("We could not light a route to your destination.")
         self.inc("lights", qty=len(self.lights.lights))
+
+        # After lights set
+        if self.cursor is None:
+            self.cursor = self.airport.cursor(route=self.route)
+        else:
+            self.cursor.set_route(route=self.route)
 
         # Info 13
         self.lights.printSegments()
@@ -438,10 +446,6 @@ VERSION = "{__VERSION__}"
         logger.debug(f"init ({initbrgn}, {initdist}, {initdiff})")
 
         self.status = FTG_STATUS.GREENS
-
-        cursor = get_global("CURSOR", self.prefs)
-        if type(cursor) is str and len(cursor) > 1:
-            self.cursor = Cursor(cursor)
 
         logger.info(f"first light at {initdist} m, heading {initbrgn} DEG")
         self.flightLoop.startFlightLoop()
@@ -533,6 +537,11 @@ VERSION = "{__VERSION__}"
     def terminate(self, reason=""):
         # Abandon the FTG mission. Instruct subroutines to turn off FTG lights, remove them,
         # and restore the environment.
+
+        if self.status in [FTG_STATUS.TERMINATED, FTG_STATUS.DELETED]:
+            logger.warning(f"{type(self).__name__} already terminated")
+            return [True, "already terminated"]
+
         self.status = FTG_STATUS.INACTIVE
 
         if self.flightLoop:
@@ -551,10 +560,14 @@ VERSION = "{__VERSION__}"
         self.inc("terminate")
         self.save_stats()
 
+        if reason == "delete":
+            return [True, "delete"]
+
         # Info 16
         logger.info(f"terminated: {reason}")
         if reason == "new green requested":
             logger.info(f"green session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session}) for greener greens")
+            # do not delete cursor
         else:
             if self.cursor is not None:
                 self.cursor.destroy()
@@ -593,6 +606,11 @@ VERSION = "{__VERSION__}"
         logger.info(f"BOOKMARK {datetime.utcnow().isoformat()} {message}")
         logger.info(f"simulator zulu time is {z.isoformat()}, local time is {l.isoformat()}")
         self.inc("bookmark")
+
+    def enable(self):
+        self.status = FTG_STATUS.ENABLED
+        self.inc("enabled")
+        return [True, ""]
 
     def disable(self):
         # alias to cancel

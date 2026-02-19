@@ -28,6 +28,7 @@ IMPERIAL_UNITS = False  # only for US or Lybia
 
 class FTG_STATUS(StrEnum):
     NEW = "NEW"  # ftg just created
+    START = "START"  # starting..
     INITIALIZED = "INITIALIZED"  # ftg initialized (preferences, etc.)
     READY = "READY"  # ready to be used
 
@@ -88,7 +89,7 @@ class TAXIWAY_ACTIVE(StrEnum):
 #
 # Menu entry texts
 FTG_MENU = "Follow the greens..."
-STW_MENU = None # "Show taxiways"  # if None, do not show menu entry for Show Taxiways
+STW_MENU = None  # "Show taxiways"  # if None, do not show menu entry for Show Taxiways
 # mainly used for debugging. Equivalent to Developer Menu->Show airways.
 
 # Commands: Path and description
