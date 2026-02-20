@@ -60,7 +60,8 @@ class Cursor:
         self.cursor = XPObject(None, 0, 0, 0)
 
         self._status = CURSOR_STATUS.NEW
-        self.active = False
+        self.active = False  # accepts futures if active
+
         self.route = None
         self._future = Queue()
         self.curr_index = 0
@@ -149,6 +150,13 @@ class Cursor:
         self.status = CURSOR_STATUS.DESTROYED
         logger.debug("destroyed")
 
+    def can_delete(self) -> bool:
+        if self.status != CURSOR_STATUS.FINISHED:
+            logger.debug("cannot destroy, not finished")
+            return False
+        self.destroy()
+        return True
+
     def set_route(self, route):
         if self.route is not None:
             self.reset_route()
@@ -189,7 +197,7 @@ class Cursor:
             logger.debug("cursor not active")
             return
         if self.status == CURSOR_STATUS.FINISHED:
-            logger.debug("cursor finisheds, does not accept future position")
+            logger.debug("cursor finished, does not accept future position")
             return
         self._future.put((position.lat, position.lon, hdg, speed, t, text))
         self._qin += 1
@@ -285,13 +293,15 @@ class Cursor:
         if self._future.empty():
             if self.status == CURSOR_STATUS.FINISHING:
                 self.status = CURSOR_STATUS.FINISHED
+                logger.debug("cursor finished")
             return False
         self._qout += 1
         f = self._future.get()
         logger.debug(f"tick future ({self._qout}, q={self._future.qsize()}) at {round(self.curr_time, 3)}: {f[-1]} (h={f[-4]}, s={f[-3]}, t={f[-2]})")
         self._set_target(*f)
         self._mkLine()
-        self.status = CURSOR_STATUS.ACTIVE
+        if self.status == CURSOR_STATUS.INITIALIZED:
+            self.status = CURSOR_STATUS.ACTIVE
         return True
 
     def _set_target(self, lat: float, lon: float, hdg: float, speed: float, t: float, text: str):
@@ -398,11 +408,20 @@ class Cursor:
         hdg = self._bearing(ratio=r)
         self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=hdg, elev=0.25)
 
+    def is_finishing(self) -> bool:
+        return self.status == CURSOR_STATUS.FINISHING
+
+    def is_finished(self) -> bool:
+        return self.status == CURSOR_STATUS.FINISHED
+
     def finish(self, message: str = ""):
         # @todo: Do better move, especially on runways
         # Add a last move, ahead and sideway, wait a few seconds and vanishes
         if not self.active:
             logger.debug("cursor not active")
+            return
+        if self.status == CURSOR_STATUS.FINISHING:
+            logger.debug("cursor already finishing")
             return
         self.status = CURSOR_STATUS.FINISHING
         LEAVE_DIST_AHEAD = 100  # m
@@ -420,16 +439,18 @@ class Cursor:
         td = LEAVE_DIST_AHEAD / spd
         t = ts() + td
         tt = td
+        logger.debug(f"carry forward {round(LEAVE_DIST_AHEAD, 1)}m in {round(td, 1)}s heading {round(hdg, 0)}D")
         self.future(position=d1, hdg=line.bearing(), speed=spd, t=t, text=f"carry on forward ({message})")
         # "Away" to away and on the size
         spd = 10.0
         td = line.length() / spd
         t = t + td
-        tt = t + td
+        tt = tt + td
+        logger.debug(f"carry sideway {round(LEAVE_DIST_SIDE, 1)}m in {round(td, 1)}s heading {round(hdg, 0)}D")
         self.future(position=dest, hdg=hdg, speed=spd, t=t, text=f"leaving on the side ({message})")
 
         self.active = False
-        logger.debug(f"cursor finished ({message})")
+        logger.debug(f"cursor finish programmed ({message})")
         # wait a bit after move
         # self._timer = Timer(tt + LEAVE_TIME, self.destroy)
         # self._timer.start()

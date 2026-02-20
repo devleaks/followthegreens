@@ -615,15 +615,21 @@ class FlightLoop:
                 total_ahead = acf_move + ahead
                 later = ts_now + nextIter
                 logger.debug(f"close light={closestLight} on edge index={light.edgeIndex}, distance from edge={round(light.distFromEdgeStart, 1)}m")
-                logger.debug(f"ahead={round(total_ahead, 1)}m = {round(ahead, 1)}m + acf move={round(acf_move, 1)}m")
+                # logger.debug(f"ahead={round(total_ahead, 1)}m = {round(ahead, 1)}m + acf move={round(acf_move, 1)}m")
                 # At next iteration, acf will move acf_move, and fmcar need to be ahead
                 # So at next iteration (t=now + iterTime), car need to be (acf_move+ahead) in front
                 light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=closestLight, ahead=total_ahead)
-                logger.debug(f"light ahead={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
+                # logger.debug(f"light ahead={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
                 fmcar.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=acf_speed, t=later)
                 logger.debug("..moved")
-                if light_index == (len(self.ftg.lights.lights) - 1):  # reached last light
-                    fmcar.finish()
+                if self.light_progress == (len(self.ftg.lights.lights) - 1):  # reached last light
+                    if fmcar.is_finished():
+                        if fmcar.can_delete():
+                            del self.ftg.cursor
+                            self.ftg.cursor = None  # ready to create a new one
+                    elif not fmcar.is_finishing():
+                        logger.debug("last light, finishing..")
+                        fmcar.finish("end of lights")
             except:
                 logger.debug("..error", exc_info=True)
 
