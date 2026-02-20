@@ -398,6 +398,7 @@ VERSION = "{__VERSION__}"
         if newGreen:  # We had a green, and we found a new one.
             # turn off previous lights
             self.terminate("new green requested")
+            self.flightLoop.newRoute()
             self.session = randint(1000, 9999)
             logger.info(f"Starting new FtG session for greener greens (session id = {self.session})")
 
@@ -430,7 +431,7 @@ VERSION = "{__VERSION__}"
         if self.cursor is None:
             self.cursor = self.airport.cursor(route=self.route)
         else:
-            self.cursor.set_route(route=self.route)
+            self.cursor.change_route(ftg=self)
 
         # Info 13
         self.lights.printSegments()

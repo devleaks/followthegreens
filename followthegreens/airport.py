@@ -282,10 +282,9 @@ class Airport:
     def cursor(self, route) -> Cursor | None:
         cursor = get_global("CURSOR", self.prefs)
         if type(cursor) is str and len(cursor) > 1:  #  and self.lights_ahead == HARDCODED_MAX_DISTANCE and self.rabbit_length == 0:
-            c = Cursor(cursor)
-            c.set_route(route)
-            logger.debug("created new cursor")
-            return c
+            logger.debug("new cursor")
+            return Cursor(cursor, route)
+        logger.debug("no cursor")
         return None
 
     def load(self):

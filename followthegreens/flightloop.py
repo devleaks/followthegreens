@@ -58,6 +58,7 @@ class FlightLoop:
         # ASMCMS Level 4 compliance stuff:
         self.target_time = None  # target takeoff hold time, ready to takeoff for ACDM compliance. (Filled/provided externally.)
         self.actual_start = None  # actual taxi start time
+        self.old_starts = []
         self.planned = None  # planned time of arrival at destination after taxi started
         # Monitoring globals
         self.remaining_time = 0
@@ -76,6 +77,7 @@ class FlightLoop:
         self.old_msg2 = ""
 
         self.ahead_range = (70, 150)
+        self.pause_dref = xp.findDataRef("sim/time/paused")
 
     def startFlightLoop(self):
         self.lastLit = 0
@@ -251,6 +253,10 @@ class FlightLoop:
             logger.info(f"taxi ended at {now.strftime("%H:%M")}Z ({minsec(diff)})")
             logger.debug(f"planned={self.planned.strftime("%H:%M")}Z, actual={now.strftime("%H:%M")}Z, {minsec(diff)} {'in advance' if diff > 0 else 'late'}")
             # logger.debug(f"control total={round(self.total_time, 1)} vs diff={round(diff, 1)}")
+
+    def newRoute(self):
+        self.old_starts.append((self.actual_start, self.target_time, self.planned))
+        self.actual_start = None
 
     def adjustedIter(self, acf_speed) -> float:
         # If aircraft move fast, we check/update FtG more often
@@ -462,6 +468,13 @@ class FlightLoop:
         # pylint: disable=unused-argument
         # monitor progress of plane on the green. Turns lights off as it does no longer needs them.
         # logger.debug('%2f, %2f, %d', elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter)
+        if xp.getDatai(self.pause_dref) == 1:
+            msg = "paused"
+            if msg != self.old_msg:
+                logger.debug(msg)
+                self.old_msg = msg
+            return
+
         self.ftg.ui.hideMainWindowIfOk(elapsedSinceLastCall)
         aircraft = self.ftg.aircraft
 
@@ -504,7 +517,6 @@ class FlightLoop:
                         logger.debug("\n\n")
                         logger.debug(f"spawning at {rnd} {SPAWN_DIST}m side of precise start position..")
                         fmcar.init(position=join_route.start, heading=join_route.bearing(), speed=0)  # @todo always spawned at rest?
-                        fmcar.set_route(route=self.ftg.route)
                         #
                         # 2. Movement from where the car is spawned to first vertex of route, car joint the route and will stay on it
                         #    @todo: first vertex of route might not be the closest vertex in front.
@@ -542,7 +554,6 @@ class FlightLoop:
                         logger.debug("\n\n")
                         logger.debug(f"spawning ahead {round(ahead / 2, 1)}m at {rnd} {SPAWN_DIST}m side of precise start position..")
                         fmcar.init(position=join_route.start, heading=join_route.bearing(), speed=initial_speed)  # @todo always spawned at rest?
-                        fmcar.set_route(route=self.ftg.route)
                         #
                         # 2. Movement from where the car is spawned to ahead on route
                         join_time = join_route.length() / initial_speed

@@ -55,14 +55,14 @@ class CarType:
 class Cursor:
     # Linear interpolator
 
-    def __init__(self, filename) -> None:
+    def __init__(self, filename, route) -> None:
         self.cursor_type = CarType(filename)
         self.cursor = XPObject(None, 0, 0, 0)
 
         self._status = CURSOR_STATUS.NEW
         self.active = False  # accepts futures if active
 
-        self.route = None
+        self.route = route
         self._future = Queue()
         self.curr_index = 0
         self.curr_dist = 0
@@ -157,10 +157,28 @@ class Cursor:
         self.destroy()
         return True
 
-    def set_route(self, route):
+    def change_route(self, ftg):
         if self.route is not None:
             self.reset_route()
-        self.route = route
+        self.route = ftg.route
+        acf_speed = ftg.aircraft.speed()
+        closestLight, distance = ftg.lights.closest(ftg.aircraft.position())
+        if closestLight is None:
+            logger.debug("no close light to start")
+            closestLight = 0
+        ahead = ftg.flightLoop.dynamicAhead(acf_speed=acf_speed, ahead_range=ftg.flightLoop.ahead_range)
+        initial_speed = acf_speed + 7.0 # m/s
+        logger.debug(f"(will moving to position ahead at light index {closestLight})")
+        light_ahead, light_index, dist_left = ftg.lights.lightAhead(index_from=closestLight, ahead=ahead)
+        join_route = Line(start=self.curr_pos, end=light_ahead.position)
+        join_time = join_route.length() / initial_speed
+        dt = ts() + join_time
+        self.curr_hdg = line.bearing()
+        target_speed = acf_speed
+        target_heading = light_ahead.heading
+        logger.debug(f"..move to route at {round(ahead, 1)}m ahead, heading={round(join_route.bearing(), 0)}, in {round(join_time, 1)}s..")
+        self.future(position=join_route.end, hdg=target_heading, speed=target_speed, t=dt, text="go to route ahead of aircraft")
+        logger.debug("..already taxiing")
 
     def reset_route(self):
         # They won't be any valid route anymore.
@@ -385,7 +403,7 @@ class Cursor:
             slow_debug("no cursor to move")
             return
         if self.curr_pos is None or self.target_pos is None:  # not initialized yet, no target
-            slow_debug(f"not moving curr={self.curr_pos}, target={self.target_pos}")
+            slow_debug(f"not moving curr={self.curr_pos.coords() if self.curr_pos is not None else 'none'}, target={self.target_pos.coords() if self.target_pos is not None else 'none'}")
             return
 
         now = ts()
