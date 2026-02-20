@@ -18,8 +18,10 @@ from .lightstring import XPObject
 class CURSOR_STATUS(StrEnum):
     NEW = "NEW"  # ftg just created
     INITIALIZED = "INITIALIZED"  # ftg initialized (preferences, etc.)
+    SCHEDULED = "SCHEDULED"  # ready to be used
     ACTIVE = "ACTIVE"  # ready to be used
     FINISHING = "FINISHING"  # ready to be used
+    FINISHED = "FINISHED"  # ready to be used
     DESTROYED = "DESTROYED"  #
 
 
@@ -42,7 +44,8 @@ class CarType:
     def __del__(self):
         if self.obj is not None:
             xp.unloadObject(self.obj)
-            logger.debug("unloaded")
+            logger.debug(f"unloaded object {self.filename}")
+        logger.debug("deleted")
 
     @property
     def has_obj(self) -> bool:
@@ -56,7 +59,7 @@ class Cursor:
         self.cursor_type = CarType(filename)
         self.cursor = XPObject(None, 0, 0, 0)
 
-        self.status = CURSOR_STATUS.NEW
+        self._status = CURSOR_STATUS.NEW
         self.active = False
         self.route = None
         self._future = Queue()
@@ -98,8 +101,18 @@ class Cursor:
         self.msg = ""
 
     @property
+    def status(self) -> CURSOR_STATUS:
+        return self._status
+
+    @status.setter
+    def status(self, status: CURSOR_STATUS):
+        if status != self._status:
+            self._status = status
+            logger.debug(f"{type(self).__name__} is now {status}")
+
+    @property
     def usable(self) -> bool:
-        return self.cursor_type.has_obj
+        return self.cursor is not None and self.cursor_type.has_obj
 
     @property
     def inited(self) -> bool:
@@ -122,9 +135,11 @@ class Cursor:
 
         self.active = True
         self.status = CURSOR_STATUS.INITIALIZED
-        logger.debug(f"initialized at {round(self.curr_time, 2)}, pos={self.curr_pos}")
+        logger.debug(f"initialized at {round(self.curr_time, 3)}, pos={self.curr_pos.coords()}")
+        self.startFlightLoop()
 
     def destroy(self):
+        self.stopFlightLoop()
         if self.cursor is not None:
             self.cursor.destroy()  # calls off()
             self.cursor = None
@@ -148,14 +163,17 @@ class Cursor:
         # the car can continue on current segment, that's ok
 
     def startFlightLoop(self):
-        if self.cursor is not None and self.usable:
-            self.flcursor = xp.createFlightLoop(callback=self.cursorFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refcursor)
-            xp.scheduleFlightLoop(self.flcursor, self.nextIter, 1)
+        if self.flightLoop is None and self.cursor is not None and self.usable:
+            self.flightLoop = xp.createFlightLoop(callback=self.cursorFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refcursor)
+            xp.scheduleFlightLoop(self.flightLoop, self.nextIter, 1)
+            self.status = CURSOR_STATUS.SCHEDULED
             logger.debug("cursor tracking started")
 
     def stopFlightLoop(self):
-        if self.ftg.cursor is not None:
-            xp.destroyFlightLoop(self.flcursor)
+        if self.flightLoop is not None:
+            xp.destroyFlightLoop(self.flightLoop)
+            self.flightLoop = None
+            self.status = CURSOR_STATUS.INITIALIZED
         logger.debug("cursor tracking stopped")
 
     def cursorFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
@@ -163,12 +181,15 @@ class Cursor:
             self.move(t=elapsedSinceLastCall)
             return -1
         except:
-            logger.debug("error", exc_info=True)
+            logger.error("error", exc_info=True)
         return 5.0
 
     def future(self, position: Point, hdg: float, speed: float, t: float, tick: bool = False, text: str = ""):
         if not self.active:
             logger.debug("cursor not active")
+            return
+        if self.status == CURSOR_STATUS.FINISHED:
+            logger.debug("cursor finisheds, does not accept future position")
             return
         self._future.put((position.lat, position.lon, hdg, speed, t, text))
         self._qin += 1
@@ -262,6 +283,8 @@ class Cursor:
     def _tick(self) -> bool:
         # returns whether it ticked
         if self._future.empty():
+            if self.status == CURSOR_STATUS.FINISHING:
+                self.status = CURSOR_STATUS.FINISHED
             return False
         self._qout += 1
         f = self._future.get()
@@ -381,25 +404,33 @@ class Cursor:
         if not self.active:
             logger.debug("cursor not active")
             return
+        self.status = CURSOR_STATUS.FINISHING
         LEAVE_DIST_AHEAD = 100  # m
         LEAVE_DIST_SIDE = 50  # m
         LEAVE_TIME = 10  # 60 secs
         hdg = self.route.edges_orient[-1]
+        rnd = 1 if (int(ts()) % 2) == 0 else -1
         end = self.route.vertices[-1]
         d1 = destination(src=end, brngDeg=hdg, d=LEAVE_DIST_AHEAD)
-        rnd = 1 if (int(ts()) % 2) == 0 else -1
         hdg = hdg + 90 * rnd
         dest = destination(src=d1, brngDeg=hdg, d=LEAVE_DIST_SIDE)
-        line = Line(end, dest)
-        spd = 7.0
-        tt = line.length() / spd
-        t = ts() + tt
-        # move away (front and random side)
-        self.status = CURSOR_STATUS.FINISHING
+        line = Line(d1, dest)
+        # Last point of route to "away"
+        spd = 10.0
+        td = LEAVE_DIST_AHEAD / spd
+        t = ts() + td
+        tt = td
+        self.future(position=d1, hdg=line.bearing(), speed=spd, t=t, text=f"carry on forward ({message})")
+        # "Away" to away and on the size
+        spd = 10.0
+        td = line.length() / spd
+        t = t + td
+        tt = t + td
         self.future(position=dest, hdg=hdg, speed=spd, t=t, text=f"leaving on the side ({message})")
+
         self.active = False
         logger.debug(f"cursor finished ({message})")
         # wait a bit after move
-        self._timer = Timer(tt + LEAVE_TIME, self.destroy())
-        self._timer.start()
+        # self._timer = Timer(tt + LEAVE_TIME, self.destroy)
+        # self._timer.start()
         logger.debug(f"cursor will be destroyed in {round(tt + LEAVE_TIME, 1)}s")

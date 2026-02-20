@@ -30,7 +30,7 @@ VERSION = "VERSION"
 class FollowTheGreens:
 
     def __init__(self, pi):
-        self.status = FTG_STATUS.NEW
+        self._status = FTG_STATUS.NEW
         self.pi = pi
         self.airport: Airport | None = None
         self.aircraft: Aircraft | None = None
@@ -82,9 +82,10 @@ class FollowTheGreens:
         return self._status
 
     @status.setter
-    def status(self, status):
-        self._status = status
-        logger.debug(f"{type(self).__name__} is now {status}")
+    def status(self, status: FTG_STATUS):
+        if status != self._status:
+            self._status = status
+            logger.debug(f"{type(self).__name__} is now {status}")
 
     def inc(self, name: str, qty: int = 1):
         self.stats[name] = qty if name not in self.stats else self.stats[name] + qty

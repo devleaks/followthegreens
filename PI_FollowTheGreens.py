@@ -140,6 +140,10 @@ class PythonInterface:
             else:
                 self.debug(f"XPluginStart: menu item «{STW_MENU}» added (index={self.menuIdx_st})")
 
+        self.debug("XPluginStart: creation of FollowTheGreens is postposed when enabling")
+        if STW_MENU is not None:
+            self.debug("XPluginStart: creation of ShowTaxiways is postposed when enabling")
+
         self.isRunningRef = xp.registerDataAccessor(
             FTG_IS_RUNNING,
             xp.Type_Int,  # The types we support

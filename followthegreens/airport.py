@@ -284,6 +284,7 @@ class Airport:
         if type(cursor) is str and len(cursor) > 1:  #  and self.lights_ahead == HARDCODED_MAX_DISTANCE and self.rabbit_length == 0:
             c = Cursor(cursor)
             c.set_route(route)
+            logger.debug("created new cursor")
             return c
         return None
 
