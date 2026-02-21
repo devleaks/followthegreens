@@ -115,7 +115,7 @@ def calc(
 
 
 def daylight(timeutc: datetime, latitude: float, longitude: float, elevation=0.0) -> bool:
-    sunrise, sunset, ignore = calc(time(), latitude, longitude, elevation, debugtz=timezone.utc)
+    sunrise, sunset, ignore = calc(timeutc.timestamp(), latitude, longitude, elevation, debugtz=timezone.utc)
     if sunrise is None or sunset is None:
         logger.warning(f"problem during calc({timeutc}, {latitude}, {longitude}, {elevation})")
         return True
