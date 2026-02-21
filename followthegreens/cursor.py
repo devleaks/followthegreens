@@ -11,7 +11,7 @@ except ImportError:
     print("X-Plane not loaded")
 
 from .globals import logger
-from .geo import FeatureCollection, Point, Line, distance, destination
+from .geo import FeatureCollection, Point, Line, distance, destination, EARTH
 from .lightstring import XPObject
 
 
@@ -52,6 +52,73 @@ class CarType:
         return self.obj is not None
 
 
+class Turn:
+
+    def __init__(self, vertex: Point, l_in: float, l_out: float, radius: float):
+        self.vertex = vertex
+        self.points = []
+        self.alpha = ((((l_out - l_in) % 360) + 540) % 360) - 180
+        self.turn_finish_point = None
+        self.tangent_length = 0
+        self.ratio_start = 0
+
+        if abs(self.alpha) < 25:
+            logger.debug(f"turn is too shallow {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D")
+            return
+
+        NUM_SEGMENTS = 180
+        a2 = abs(self.alpha) / 2
+        a2r = math.radians(a2)
+        a2sin = math.sin(a2r)
+        if a2sin == 0:
+            return
+        length = radius / a2sin
+        tangent_length = length * math.cos(a2r)
+        # turns need to start side before vertex
+        # next vertex should be at least side long
+        if tangent_length > 20:
+            logger.debug(f"tangent_length too large {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent length={round(tangent_length, 1)}")
+            return
+
+        self.tangent_length = tangent_length
+        logger.debug(f"radius={round(radius, 2)}m, tangent length={round(self.tangent_length, 2)}m")
+
+        turn_start = destination(vertex, l_in + 180, self.tangent_length)
+        turn_end = destination(vertex, l_out, self.tangent_length)
+
+        side_length = 2 * radius * math.tan(math.pi / NUM_SEGMENTS)
+        step = 360 / NUM_SEGMENTS
+        if self.alpha < 0:
+            step = -step
+
+        steps = int(abs(self.alpha / step))
+        hdg = l_in
+        self.points.append((turn_start, l_in))
+        for i in range(steps):
+            hdg = hdg + step
+            pt = destination(self.points[-1][0], hdg, side_length)
+            self.points.append((pt, hdg))
+        self.points.append((turn_end, l_out))
+
+        self.turn_finish_point = turn_end
+        logger.debug(f"turn ready, {len(self.points)} points")
+        # fc = FeatureCollection(features=[p[0].feature() for p in self.points])
+        # fn = os.path.join(os.path.dirname(__file__), "..", f"turn{randint(1000,9999)}.geojson")
+        # fc.save(fn)
+
+    @property
+    def usable(self) -> bool:
+        return len(self.points) > 0
+
+    def middle(self, ratio: float) -> tuple | bool:
+        if self.ratio_start == 0:
+            self.ratio_start = ratio
+            logger.debug(f"turn initialized at {round(self.ratio_start, 2)}")
+            return self.points[0]
+        real_ratio = (ratio - self.ratio_start) / (1 - self.ratio_start)
+        return self.points[int(real_ratio * len(self.points))]
+
+
 class Cursor:
     # Linear interpolator
 
@@ -60,6 +127,8 @@ class Cursor:
     NORMAL_SPEED = 7  # 25km/h
     LEAVE_SPEED = 10  # expedite speed to leave/clear an area
     FAST_SPEED = 14  # running fast to a destination far away
+
+    SPAWN_SIDE_DISTANCE = 20
 
     def __init__(self, filename, route) -> None:
         self.cursor_type = CarType(filename)
@@ -99,6 +168,7 @@ class Cursor:
         self.refcursor = "FtG:cursor"
         self.flightLoop = None
         self.nextIter = 1
+        self._target_turn = None
         self._qin = 0
         self._qout = 0
         self.cnt = -1
@@ -172,7 +242,7 @@ class Cursor:
         if closestLight is None:
             logger.debug("no close light to start")
             closestLight = 0
-        ahead = ftg.flightLoop.dynamicAhead(acf_speed=acf_speed, ahead_range=ftg.flightLoop.ahead_range)
+        ahead = ftg.flightLoop.adjustAhead(acf_speed=acf_speed, ahead_range=ftg.flightLoop.ahead_range)
         initial_speed = acf_speed + self.NORMAL_SPEED  # m/s
         logger.debug(f"(will moving to position ahead at light index {closestLight})")
         light_ahead, light_index, dist_left = ftg.lights.lightAhead(index_from=closestLight, ahead=ahead)
@@ -329,53 +399,14 @@ class Cursor:
         return True
 
     def _set_target(self, lat: float, lon: float, hdg: float, speed: float, t: float, text: str):
+        logger.debug(f"last time {round(self.last_time, 2)} ->  {round(self.curr_time, 2)} ({round(self.curr_time-self.last_time, 3)}s)")
         self.last_time = self.curr_time
-        logger.log(8, f"last time is {round(self.last_time, 2)}")
         self.target_pos = Point(lat=lat, lon=lon)
         self.target_hdg = hdg
         self.target_speed = speed
         self.target_time = t
         self.target_text = text
         logger.log(8, f"target time is {round(self.target_time, 2)} ({round(self.target_time-self.last_time, 2)} ahead)")
-
-    def mkTurn(self, v_in, v_rot, v_out, radius: float) -> list:
-        # https://stackoverflow.com/questions/16180595/find-the-angle-between-two-bearings
-        NUM_SEGMENTS = 36
-
-        points = []
-        l_in = Line(v_in, v_rot)
-        b_in = l_in.bearing()
-        l_out = Line(v_rot, v_out)
-        b_out = l_out.bearing()
-        alpha = self.turn(b_in, b_out)
-        a2 = abs(alpha) / 2
-        a2r = math.radians(a2)
-        a2sin = math.sin(a2r)
-        if a2sin == 0:
-            return points
-        length = radius / a2sin
-        side = length * math.cos(a2r)
-        # turns need to start side before vertex
-        # next vertex should be at least side long
-        if l_in.length() < side or l_out.length() < side:
-            return points
-        turn_start = destination(v_rot, b_in + 180, side)
-        turn_end = destination(v_rot, b_out, side)
-
-        segment = 2 * radius * math.tan(math.pi / NUM_SEGMENTS)
-        step = (360 / NUM_SEGMENTS) if alpha > 0 else -(360 / NUM_SEGMENTS)
-
-        steps = int(abs(alpha / step))
-        hdg = b_in
-        points.append((turn_start, hdg))
-        for i in range(steps):
-            hdg = hdg + step
-            pt = destination(points[-1], hdg, segment)
-            points.append((pt, hdg))
-        points.append((turn_end, b_out))
-        fc = FeatureCollection(features=points)
-        fc.save(f"turn{randint(1000,9999)}")
-        return points
 
     def turn(self, b_in, b_out):
         # https://stackoverflow.com/questions/16180595/find-the-angle-between-two-bearings
@@ -384,7 +415,12 @@ class Cursor:
         return d
 
     def _mkLine(self):
-        self.segment = Line(start=self.curr_pos, end=self.target_pos)
+        new_start = self.curr_pos
+        if self._target_turn is not None:
+            if self._target_turn.turn_finish_point is not None:
+                new_start = self._target_turn.turn_finish_point
+            self._target_turn = None  # reset current turn
+        self.segment = Line(start=new_start, end=self.target_pos)
         self.delta_tim = self.target_time - self.last_time
         self.delta_hdg = self.turn(self.curr_hdg, self.target_hdg)  # self.curr_hdg - self.target_hdg
         self.turn_limit = 10 if abs(self.delta_hdg) < 90 else 15
@@ -396,15 +432,31 @@ class Cursor:
         logger.log(8, f"heading {round(self.curr_hdg, 1)} -> {round(self.target_hdg, 1)} (delta={round(self.delta_hdg, 1)})")
         logger.log(8, f"speed {round(self.curr_speed, 1)} -> {round(self.target_speed, 1)}m/s (delta={round(self.delta_spd, 1)}, acc={acc})")
 
-    def _bearing(self, ratio):
-        # only turns towards the end or edge
-        before_turn = distance(self.curr_pos, self.target_pos)
-        if before_turn > self.turn_limit:
-            return self.curr_hdg
-        return self.curr_hdg + (1 - before_turn / self.turn_limit) * self.delta_hdg
+        self._target_turn = Turn(vertex=self.target_pos, l_in=self.segment.bearing(), l_out=self.target_hdg, radius=10)
 
     def _speed(self, ratio):
         return self.curr_speed + ratio * self.delta_spd
+
+    def nextPosition(self):
+        ratio = (self.curr_time - self.last_time) / self.delta_tim
+        dist_to_turn = distance(self.curr_pos, self.target_pos)
+
+        dist_before_turn = self.turn_limit if self._target_turn is None else self._target_turn.tangent_length
+        dist_before_turn = max(dist_before_turn, self.turn_limit)
+
+        logger.debug(f"distance turn_limit={round(self.turn_limit, 2)}, dist_before_turn={round(dist_before_turn, 2)}, dist_to_turn={round(dist_to_turn, 2)}m")
+
+        if dist_to_turn > dist_before_turn: # far from turn
+            return self.segment.middle(ratio=ratio), self.curr_hdg
+        # need to turn
+
+        if self._target_turn is None:  # lin reg
+            return self.segment.middle(ratio=ratio), self.curr_hdg + (1 - dist_to_turn / self.turn_limit) * self.delta_hdg
+
+        if not self._target_turn.usable:  # as before
+            return self.segment.middle(ratio=ratio), self.curr_hdg + (1 - dist_to_turn / self.turn_limit) * self.delta_hdg
+
+        return self._target_turn.middle(ratio=ratio)
 
     def go(self, max_speed: float):
         # Go between 2 points, start from rest, end to rest, with smooth constant acceleration and deceleration
@@ -425,12 +477,6 @@ class Cursor:
             timetospeed = math.sqrt(maxdist / self.acceleration)
             # Accel
             # Decel
-
-    def _go(self, t: float):
-        self.curr_time = self.curr_time + t
-        tdiff = self.curr_time - self.last_time
-        speed = self.acceleration * tdiff
-        self.curr_pos = destination(self.curr_pos, hdg, speed * tdiff)
 
     def move(self, t: float):
         # Currently: only linear interposition
@@ -457,10 +503,6 @@ class Cursor:
         slow_debug(f"curr_time={round(self.curr_time, 3)}, now={round(now, 3)} (diff={round(self.curr_time - now, 3)}), target={round(self.target_time, 3)}")
         slow_debug(f"segment={round(self.segment.length(), 1)}m, {round(self.segment.bearing(), 0)}D")
 
-        # no speed, but some movement to complete, so accelerate
-        # if self.curr_speed == 0 and self.target_speed == 0:
-        #     return self._go(t=t)
-
         if self.curr_time > self.target_time:
             self.curr_hdg = self.target_hdg
             self.curr_speed = self.target_speed
@@ -468,9 +510,7 @@ class Cursor:
                 self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=self.curr_hdg, elev=0.25)
                 return
 
-        r = (self.curr_time - self.last_time) / self.delta_tim
-        self.curr_pos = self.segment.middle(ratio=r)
-        hdg = self._bearing(ratio=r)
+        self.curr_pos, hdg = self.nextPosition()
         self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=hdg, elev=0.25)
 
     def is_finishing(self) -> bool:

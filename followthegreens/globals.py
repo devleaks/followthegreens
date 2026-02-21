@@ -281,6 +281,7 @@ class AIRCRAFT(Enum):
     WARNING_DISTANCE = "WARNING_DISTANCE"
     RABBIT = "RABBIT"
     AVG_LENGTH = "AVG_LENGTH"
+    VISUAL_RANGE = "VISUAL_RANGE"  # RANGE, and LIMITS
 
 
 # Aircraft preferences for rabbit

@@ -4,6 +4,7 @@
 # Enjoy.
 #
 #
+import re
 from traceback import print_exc
 from typing import Any
 
@@ -52,6 +53,7 @@ class PythonInterface:
 
     def __init__(self):
         self.Name = __NAME__
+        self.vu = "VU" + re.sub("[^0-9]", "", __VERSION__)
         self.Sig = FTG_PLUGIN_ROOT_PATH.strip("/").replace("/", ".")
         self.Desc = __DESCRIPTION__ + " (Rel. " + __VERSION__ + ")"
         self.Info = self.Name + f" {__VERSION__}"
@@ -320,10 +322,10 @@ class PythonInterface:
             return 0
 
         if self.followTheGreens and phase == 0:
-            self.debug("clearanceCmd: available.")
+            self.debug("clearanceCmd: available")
             try:
                 self.followTheGreens.ui.clearanceReceived()
-                self.debug("clearanceCmd: executed.")
+                self.debug("clearanceCmd: executed")
                 return 1
             except:
                 self.debug("clearanceCmd: exception", force=True)
@@ -349,21 +351,21 @@ class PythonInterface:
                 self.debug("cancelCmd: exception", force=True)
                 print_exc()
         elif not self.followTheGreens:
-            self.debug("cancelCmd: no FollowTheGreens running.")
+            self.debug("cancelCmd: no FollowTheGreens running")
 
         return 0
 
     def okCmd(self, commandRef, phase: int, refCon: Any):
         # pylint: disable=unused-argument
         if not self.enabled:
-            self.debug("okCmd: not enabled.")
+            self.debug("okCmd: not enabled")
             return 0
 
         if self.followTheGreens and phase == 0:
-            self.debug("okCmd: available.")
+            self.debug("okCmd: available")
             try:
                 self.followTheGreens.ui.cancelReceived("ok command received")
-                self.debug("okCmd: executed.")
+                self.debug("okCmd: executed")
                 return 1
             except:
                 self.debug("okCmd: exception")
@@ -376,14 +378,14 @@ class PythonInterface:
     def newGreensCmd(self, commandRef, phase: int, refCon: Any):
         # pylint: disable=unused-argument
         if not self.enabled:
-            self.debug("newGreensCmd: not enabled.")
+            self.debug("newGreensCmd: not enabled")
             return 0
 
         if self.followTheGreens and phase == 0:
-            self.debug("newGreensCmd: available.")
+            self.debug("newGreensCmd: available")
             try:
                 self.followTheGreens.ui.newGreensReceived()
-                self.debug("newGreensCmd: executed.")
+                self.debug("newGreensCmd: executed")
                 return 1
             except:
                 self.debug("newGreensCmd: exception")
@@ -396,14 +398,14 @@ class PythonInterface:
     def bookmarkCmd(self, commandRef, phase: int, refCon: Any):
         # pylint: disable=unused-argument
         if not self.enabled:
-            self.debug("bookmarkCmd: not enabled.")
+            self.debug("bookmarkCmd: not enabled")
             return 0
 
         if self.followTheGreens and phase == 0:
-            self.debug("bookmarkCmd: available.")
+            self.debug("bookmarkCmd: available")
             try:
                 self.followTheGreens.bookmark()
-                self.debug("bookmarkCmd: executed.")
+                self.debug("bookmarkCmd: executed")
                 return 1
             except:
                 self.debug("bookmarkCmd: exception")
@@ -422,17 +424,17 @@ class PythonInterface:
         if not self.followTheGreens:
             try:
                 self.followTheGreens = FollowTheGreens(self)
-                self.debug("followTheGreensCmd: created.")
+                self.debug("followTheGreensCmd: created")
             except:
                 self.debug("followTheGreensCmd: exception at creation", force=True)
                 print_exc()
                 return 0
 
         if self.followTheGreens and phase == 0:
-            self.debug("followTheGreensCmd: available.")
+            self.debug("followTheGreensCmd: available")
             try:
                 self.followTheGreens.start()
-                self.debug("followTheGreensCmd: started.")
+                self.debug("followTheGreensCmd: started")
                 return 1
             except:
                 self.debug("followTheGreensCmd: exception", force=True)
@@ -440,7 +442,7 @@ class PythonInterface:
                 return 0
         elif not self.followTheGreens:
             self.debug(
-                "followTheGreensCmd: Error: could not create FollowTheGreens.",
+                "followTheGreensCmd: Error: could not create FollowTheGreens",
                 force=True,
             )
 
@@ -455,19 +457,19 @@ class PythonInterface:
         if not self.showTaxiways:
             try:
                 self.showTaxiways = ShowTaxiways(self)
-                self.debug("showTaxiwaysCmd: created.")
+                self.debug("showTaxiwaysCmd: created")
             except:
                 self.debug("showTaxiwaysCmd: exception at creation", force=True)
                 print_exc()
                 return 0
 
         if self.showTaxiways is not None and phase == 0:
-            self.debug("showTaxiwaysCmd: available.")
+            self.debug("showTaxiwaysCmd: available")
 
             if self.showTaxiways.ui.mainWindowExists():  # already running, we stop it...
                 try:
                     self.showTaxiways.terminate("normal termination")
-                    self.debug("showTaxiwaysCmd: ended.")
+                    self.debug("showTaxiwaysCmd: ended")
                     return 1
                 except:
                     self.debug("showTaxiwaysCmd: exception", force=True)
@@ -476,13 +478,13 @@ class PythonInterface:
             else:
                 try:
                     self.showTaxiways.start()
-                    self.debug("showTaxiwaysCmd: started.")
+                    self.debug("showTaxiwaysCmd: started")
                     return 1
                 except:
                     self.debug("showTaxiwaysCmd: exception", force=True)
                     print_exc()
         elif not self.showTaxiways:
-            self.debug("showTaxiwaysCmd: Error: could not create ShowTaxiways.")
+            self.debug("showTaxiwaysCmd: Error: could not create ShowTaxiways")
 
         return 0
 
@@ -508,10 +510,10 @@ class PythonInterface:
             return 0
 
         if self.followTheGreens and phase == 0:
-            self.debug("rabbitMode: FollowTheGreens available.")
+            self.debug("rabbitMode: FollowTheGreens available")
             try:
                 self.followTheGreens.rabbitMode(mode)
-                self.debug("rabbitMode: set.")
+                self.debug("rabbitMode: set")
                 return 1
             except:
                 self.debug("rabbitMode: exception", force=True)
@@ -528,10 +530,10 @@ class PythonInterface:
             return 0
 
         if self.followTheGreens and phase == 0:
-            self.debug("rabbitMode: FollowTheGreens available.")
+            self.debug("rabbitMode: FollowTheGreens available")
             try:
                 self.followTheGreens.rabbitModeAuto()
-                self.debug("rabbitMode: set.")
+                self.debug("rabbitMode: set")
                 return 1
             except:
                 self.debug("rabbitMode: exception", force=True)
@@ -583,6 +585,7 @@ class PythonInterface:
 
         xp.setGraphicsState(0, 1, 0, 0, 0, 0, 0)
         xp.drawString((0.0, 1.0, 0.0), LEFT - 3, TOP, "GREENS")  # Title/header
+        xp.drawString((0.0, 1.0, 1.0), LEFT + 65, TOP, self.vu)
         color = (1.0, 0.0, 0.0) if fl.is_late else (0.0, 1.0, 0.0)
         xp.drawString(color, LEFT, TOP - LINE, fl.remaining)  # 1234m, 12:45   indication
         xp.drawString(color, LEFT, TOP - 2 * LINE, f"! {round(fl.dist_to_next_turn):4d}m")  # 1234m

@@ -30,11 +30,10 @@ MAX_UPDATE_FREQUENCY = 10  # seconds, rabbit cannot change again more that 10 se
 STOPPED_SPEED = 0.01  # m/s, under that speed, things are considered stopped, not moving.
 MIN_DIST = 40  # 100 meters, minimum distance to move to consider object is actually moving
 MIN_SPEED = 3  # m/sec., minimum speed to consider object is actually moving significantly
-SPAWN_DIST = 20  # m, 40 ideal
-CURSOR_SPEED = 7.0  # m/s, 7.0 m/s = 25km/h
 
 
 class FlightLoop:
+
     def __init__(self, ftg):
         self.ftg = ftg
         self.refrabbit = "FtG:rabbit"
@@ -76,17 +75,10 @@ class FlightLoop:
         self.old_msg = ""
         self.old_msg2 = ""
 
-        self.ahead_range = (70, 150)
         self.pause_dref = xp.findDataRef("sim/time/paused")
 
     def startFlightLoop(self):
         self.lastLit = 0
-
-        try:
-            self.ahead_range = self.ftg.aircraft.aheadRange()
-            logger.debug(f"visual range {self.ahead_range}m")
-        except:
-            logger.debug("error computing visual range", exc_info=True)
 
         if self.hasRabbit():
             if not self.rabbitRunning:
@@ -451,19 +443,6 @@ class FlightLoop:
         except:
             logger.error("set rabbitMode", exc_info=True)
 
-    def dynamicAhead(self, acf_speed: float, ahead_range: tuple) -> float:
-        # Aircraft length (because position is center of aircraft)
-        # + 1.5 aircraft length in front ogf aircrafy
-        # + 15m per m/s of speed
-        #
-        acflen = self.ftg.aircraft.acflength if self.ftg.aircraft.acflength is not None else 50
-        est_range = acflen * 2.5 + acf_speed * 15.0
-        if est_range < ahead_range[0]:
-            est_range = ahead_range[0]
-        if est_range > ahead_range[1]:
-            est_range = ahead_range[1]
-        return est_range
-
     def planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
         # monitor progress of plane on the green. Turns lights off as it does no longer needs them.
@@ -506,16 +485,16 @@ class FlightLoop:
                         rnd = 1 if (int(ts_now) % 2) == 0 else -1
                         fs = self.ftg.route.before_route()
                         # spawn at spot randomly left or right of current aircraft position
-                        spawn = destination(fs.start, fs.bearing() + rnd * 90, SPAWN_DIST)
+                        spawn = destination(fs.start, fs.bearing() + rnd * 90, fmcar.SPAWN_SIDE_DISTANCE)
                         # from spot to begining of route
                         join_route = Line(start=spawn, end=self.ftg.route.vertices[0])
                         # logger.debug(f"lines: before route={fs}, route to start={join_route}")
                         # Speed at which we'll do that move is speed of aircraft + more
-                        initial_speed = CURSOR_SPEED  # m/s
+                        initial_speed = fmcar.NORMAL_SPEED
                         tj = join_route.length() / initial_speed
                         dt = ts_now + tj
                         logger.debug("\n\n")
-                        logger.debug(f"spawning at {rnd} {SPAWN_DIST}m side of precise start position..")
+                        logger.debug(f"spawning at {rnd} {fmcar.SPAWN_SIDE_DISTANCE}m side of precise start position..")
                         fmcar.init(position=join_route.start, heading=join_route.bearing(), speed=0)  # @todo always spawned at rest?
                         #
                         # 2. Movement from where the car is spawned to first vertex of route, car joint the route and will stay on it
@@ -528,8 +507,8 @@ class FlightLoop:
                         #
                         # 3. Movement (on route) from above vertex of route to ahead of aircraft
                         #
-                        ahead = self.dynamicAhead(acf_speed=acf_speed, ahead_range=self.ahead_range)  # m
-                        tahead = ahead / CURSOR_SPEED  # secs.
+                        ahead = self.ftg.aircraft.adjustAhead()
+                        tahead = ahead / fmcar.NORMAL_SPEED  # secs.
                         light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=0, ahead=ahead)
                         logger.debug(f"..move on route {round(ahead, 1)}m ahead in {tahead}secs... (on light {light_index}, {round(dist_left, 1)}m neglected)..")
                         fmcar.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=target_speed, t=dt + tahead)
@@ -539,10 +518,10 @@ class FlightLoop:
                         #
                         # 1. Spawn the car next to (random) side of aircraft, half way "ahead"
                         rnd = 1 if (int(ts_now) % 2) == 0 else -1
-                        ahead = self.dynamicAhead(acf_speed=acf_speed, ahead_range=self.ahead_range)  # m
+                        ahead = self.ftg.aircraft.adjustAhead()
                         spawn = destination(self.ftg.route.precise_start, aircraft.heading(), ahead / 2)  # ahead/2 ahead
-                        spawn = destination(spawn, aircraft.heading() + rnd * 90, SPAWN_DIST)  # SPAWN_DIST on the side left/right
-                        initial_speed = acf_speed + CURSOR_SPEED  # m/s, 7.0 m/s = 25km/h is aircraft is stopped
+                        spawn = destination(spawn, aircraft.heading() + rnd * 90, fmcar.SPAWN_SIDE_DISTANCE)
+                        initial_speed = acf_speed + fmcar.NORMAL_SPEED
 
                         closestLight, distance = self.ftg.lights.closest(pos)
                         if closestLight is None:
@@ -551,8 +530,7 @@ class FlightLoop:
                         logger.debug(f"(will moving to position ahead at light index {closestLight})")
                         light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=closestLight, ahead=ahead)
                         join_route = Line(start=spawn, end=light_ahead.position)
-                        logger.debug("\n\n")
-                        logger.debug(f"spawning ahead {round(ahead / 2, 1)}m at {rnd} {SPAWN_DIST}m side of precise start position..")
+                        logger.debug(f"spawning ahead {round(ahead / 2, 1)}m at {rnd} {fmcar.SPAWN_SIDE_DISTANCE}m side of precise start position..")
                         fmcar.init(position=join_route.start, heading=join_route.bearing(), speed=initial_speed)  # @todo always spawned at rest?
                         #
                         # 2. Movement from where the car is spawned to ahead on route
@@ -622,7 +600,7 @@ class FlightLoop:
             logger.debug("moving..")
             try:
                 light = self.ftg.lights.lights[closestLight]
-                ahead = self.dynamicAhead(acf_speed=acf_speed, ahead_range=self.ahead_range)
+                ahead = self.ftg.aircraft.adjustAhead()
                 total_ahead = acf_move + ahead
                 later = ts_now + nextIter
                 logger.debug(f"close light={closestLight} on edge index={light.edgeIndex}, distance from edge={round(light.distFromEdgeStart, 1)}m")

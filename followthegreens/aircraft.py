@@ -57,6 +57,10 @@ AIRCRAFT_TYPES = {
             RABBIT.LENGTH: 40,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
+        AIRCRAFT.VISUAL_RANGE: {
+            "RANGE": [70, 150],
+            "LIMITS": [70, 150],
+        },
     },
     TAXIWAY_WIDTH_CODE.B: {  # Business jet, small regional jet
         # fmt: off
@@ -76,6 +80,10 @@ AIRCRAFT_TYPES = {
             RABBIT.LIGHTS_AHEAD: 0,  # 50,  # in METERS
             RABBIT.LENGTH: 80,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
+        },
+        AIRCRAFT.VISUAL_RANGE: {
+            "RANGE": [70, 150],
+            "LIMITS": [70, 150],
         },
     },
     TAXIWAY_WIDTH_CODE.C: {  # Large regional jet, single aisle
@@ -102,6 +110,10 @@ AIRCRAFT_TYPES = {
             RABBIT.LENGTH: 100,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
+        AIRCRAFT.VISUAL_RANGE: {
+            "RANGE": [70, 150],
+            "LIMITS": [70, 150],
+        },
     },
     TAXIWAY_WIDTH_CODE.D: {  # Large narrow body, small wide body
         # fmt: off
@@ -125,6 +137,10 @@ AIRCRAFT_TYPES = {
             RABBIT.LENGTH: 150,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
+        AIRCRAFT.VISUAL_RANGE: {
+            "RANGE": [70, 150],
+            "LIMITS": [70, 150],
+        },
     },
     TAXIWAY_WIDTH_CODE.E: {  # Large wide body
         # fmt: off
@@ -147,6 +163,10 @@ AIRCRAFT_TYPES = {
             RABBIT.LENGTH: 150,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
         },
+        AIRCRAFT.VISUAL_RANGE: {
+            "RANGE": [70, 150],
+            "LIMITS": [70, 150],
+        },
     },
     TAXIWAY_WIDTH_CODE.F: {  # Jumbo jets
         # fmt: off
@@ -166,6 +186,10 @@ AIRCRAFT_TYPES = {
             RABBIT.LIGHTS_AHEAD: 0,  # 200,  # in METERS
             RABBIT.LENGTH: 180,  # in **METERS**
             RABBIT.SPEED: 0.20,  # SECONDS
+        },
+        AIRCRAFT.VISUAL_RANGE: {
+            "RANGE": [70, 150],
+            "LIMITS": [70, 150],
         },
     },
 }
@@ -292,11 +316,50 @@ class Aircraft:
     def visibility(self) -> float:
         return xp.getDataf(self.visibility_dref)
 
-    def aheadRange(self) -> tuple:
-        # @todo:
-        # compute ideal ahead range
-        # aircraft speed, type, daylight...
-        return (70, 150)  # meters
+    def aheadRange(self) -> list:
+        prefs = self.aircaftPreferences()
+        ranges = prefs.get(AIRCRAFT.VISUAL_RANGE, {"RANGE": [70, 150], "LIMITS": [70, 150]})
+        r = ranges.get("RANGE", [70, 150])
+        l = ranges.get("LIMITS", [70, 150])
+
+        # extends if acf speed is fast
+        spd = self.speed()
+        if spd > 10:
+            f = 1.5
+            r = [r[0] * f, r[1] * f]
+
+        # reduces if viz is low
+        viz = self.visibility()
+        if viz < 500:
+            f = 0.5
+            r = [l[0], r[1] * f]
+        if viz < 1000:
+            f = 0.5
+            r = [r[0] * f, r[1] * f]
+        elif viz < 1500:
+            f = 0.75
+            r = [r[0] * f, r[1] * f]
+
+        r[0] = max(r[0], l[0])
+        r[1] = max(r[1], l[0])
+        r[0] = min(r[0], l[1])
+        r[1] = min(r[1], l[1])
+        return r
+
+    def adjustAhead(self) -> float:
+        # Aircraft length (because position is center of aircraft)
+        # + 1.5 aircraft length in front ogf aircrafy
+        # + 15m per m/s of speed
+        #
+        ahead_range = self.aheadRange()
+        acf_speed = self.speed()
+        acflen = self.acflength if self.acflength is not None else 50
+        ahead = acflen * 2.5 + acf_speed * 15.0
+        if ahead < ahead_range[0]:
+            ahead = ahead_range[0]
+        if ahead > ahead_range[1]:
+            ahead = ahead_range[1]
+        return ahead
 
     def heading(self) -> float:
         return xp.getDataf(self.psi)
