@@ -2,7 +2,7 @@ import os
 import math
 from datetime import datetime
 from queue import Queue
-from threading import Timer
+from random import randint
 from enum import StrEnum
 
 try:
@@ -11,7 +11,7 @@ except ImportError:
     print("X-Plane not loaded")
 
 from .globals import logger
-from .geo import Point, Line, distance, destination
+from .geo import FeatureCollection, Point, Line, distance, destination
 from .lightstring import XPObject
 
 
@@ -54,6 +54,12 @@ class CarType:
 
 class Cursor:
     # Linear interpolator
+
+    # All speed m/s
+    SLOW_SPEED = 3  # turns, careful move
+    NORMAL_SPEED = 7  # 25km/h
+    LEAVE_SPEED = 10  # expedite speed to leave/clear an area
+    FAST_SPEED = 14  # running fast to a destination far away
 
     def __init__(self, filename, route) -> None:
         self.cursor_type = CarType(filename)
@@ -167,7 +173,7 @@ class Cursor:
             logger.debug("no close light to start")
             closestLight = 0
         ahead = ftg.flightLoop.dynamicAhead(acf_speed=acf_speed, ahead_range=ftg.flightLoop.ahead_range)
-        initial_speed = acf_speed + 7.0 # m/s
+        initial_speed = acf_speed + self.NORMAL_SPEED  # m/s
         logger.debug(f"(will moving to position ahead at light index {closestLight})")
         light_ahead, light_index, dist_left = ftg.lights.lightAhead(index_from=closestLight, ahead=ahead)
         join_route = Line(start=self.curr_pos, end=light_ahead.position)
@@ -232,7 +238,7 @@ class Cursor:
             return
         # convert trip on the route into "future()" segements:
         if speed == 0:
-            speed = 7.0  # m/s, 7.0 m/s = 25km/h if aircraft is stopped
+            speed = self.NORMAL_SPEED
             logger.warning(f"cannot progress on route with no speed, setting speed = {speed}")
         if edge < self.curr_index:
             logger.debug(f"cannot backup edges ({edge} < {self.curr_index})")
@@ -332,10 +338,49 @@ class Cursor:
         self.target_text = text
         logger.log(8, f"target time is {round(self.target_time, 2)} ({round(self.target_time-self.last_time, 2)} ahead)")
 
+    def mkTurn(self, v_in, v_rot, v_out, radius: float) -> list:
+        # https://stackoverflow.com/questions/16180595/find-the-angle-between-two-bearings
+        NUM_SEGMENTS = 36
+
+        points = []
+        l_in = Line(v_in, v_rot)
+        b_in = l_in.bearing()
+        l_out = Line(v_rot, v_out)
+        b_out = l_out.bearing()
+        alpha = self.turn(b_in, b_out)
+        a2 = abs(alpha) / 2
+        a2r = math.radians(a2)
+        a2sin = math.sin(a2r)
+        if a2sin == 0:
+            return points
+        length = radius / a2sin
+        side = length * math.cos(a2r)
+        # turns need to start side before vertex
+        # next vertex should be at least side long
+        if l_in.length() < side or l_out.length() < side:
+            return points
+        turn_start = destination(v_rot, b_in + 180, side)
+        turn_end = destination(v_rot, b_out, side)
+
+        segment = 2 * radius * math.tan(math.pi / NUM_SEGMENTS)
+        step = (360 / NUM_SEGMENTS) if alpha > 0 else -(360 / NUM_SEGMENTS)
+
+        steps = int(abs(alpha / step))
+        hdg = b_in
+        points.append((turn_start, hdg))
+        for i in range(steps):
+            hdg = hdg + step
+            pt = destination(points[-1], hdg, segment)
+            points.append((pt, hdg))
+        points.append((turn_end, b_out))
+        fc = FeatureCollection(features=points)
+        fc.save(f"turn{randint(1000,9999)}")
+        return points
+
     def turn(self, b_in, b_out):
         # https://stackoverflow.com/questions/16180595/find-the-angle-between-two-bearings
         d = ((((b_out - b_in) % 360) + 540) % 360) - 180
-        logger.log(8, f"TURN {round(b_in, 1)} -> {round(b_out, 1)}s (turn={round(d, 1)}, {'right' if d < 0 else 'left'})")
+        # logger.log(8, f"TURN {round(b_in, 1)} -> {round(b_out, 1)}s (turn={round(d, 1)}, {'right' if d < 0 else 'left'})")
         return d
 
     def _mkLine(self):
@@ -403,7 +448,9 @@ class Cursor:
             slow_debug("no cursor to move")
             return
         if self.curr_pos is None or self.target_pos is None:  # not initialized yet, no target
-            slow_debug(f"not moving curr={self.curr_pos.coords() if self.curr_pos is not None else 'none'}, target={self.target_pos.coords() if self.target_pos is not None else 'none'}")
+            slow_debug(
+                f"not moving curr={self.curr_pos.coords() if self.curr_pos is not None else 'none'}, target={self.target_pos.coords() if self.target_pos is not None else 'none'}"
+            )
             return
 
         now = ts()
@@ -441,10 +488,12 @@ class Cursor:
         if self.status == CURSOR_STATUS.FINISHING:
             logger.debug("cursor already finishing")
             return
+
         self.status = CURSOR_STATUS.FINISHING
         LEAVE_DIST_AHEAD = 100  # m
         LEAVE_DIST_SIDE = 50  # m
-        LEAVE_TIME = 10  # 60 secs
+        LEAVE_WAIT_BEFORE = 10  # secs, will be dynamic later
+
         hdg = self.route.edges_orient[-1]
         rnd = 1 if (int(ts()) % 2) == 0 else -1
         end = self.route.vertices[-1]
@@ -453,23 +502,18 @@ class Cursor:
         dest = destination(src=d1, brngDeg=hdg, d=LEAVE_DIST_SIDE)
         line = Line(d1, dest)
         # Last point of route to "away"
-        spd = 10.0
+        spd = self.LEAVE_SPEED
         td = LEAVE_DIST_AHEAD / spd
-        t = ts() + td
+        t = ts() + LEAVE_WAIT_BEFORE + td
         tt = td
         logger.debug(f"carry forward {round(LEAVE_DIST_AHEAD, 1)}m in {round(td, 1)}s heading {round(hdg, 0)}D")
         self.future(position=d1, hdg=line.bearing(), speed=spd, t=t, text=f"carry on forward ({message})")
         # "Away" to away and on the size
-        spd = 10.0
+        spd = self.LEAVE_SPEED
         td = line.length() / spd
         t = t + td
         tt = tt + td
         logger.debug(f"carry sideway {round(LEAVE_DIST_SIDE, 1)}m in {round(td, 1)}s heading {round(hdg, 0)}D")
         self.future(position=dest, hdg=hdg, speed=spd, t=t, text=f"leaving on the side ({message})")
-
         self.active = False
         logger.debug(f"cursor finish programmed ({message})")
-        # wait a bit after move
-        # self._timer = Timer(tt + LEAVE_TIME, self.destroy)
-        # self._timer.start()
-        logger.debug(f"cursor will be destroyed in {round(tt + LEAVE_TIME, 1)}s")
