@@ -209,7 +209,7 @@ class Aircraft:
         self.lon = xp.findDataRef("sim/flightmodel/position/longitude")
         self.psi = xp.findDataRef("sim/flightmodel/position/psi")
         self.groundspeed = xp.findDataRef("sim/flightmodel/position/groundspeed")
-        self.tiller = xp.findDataRef("ckpt/tiller")
+        self.tiller = xp.findDataRef("ckpt/tiller")  # check if pilot is turning
         self.visibility_dref = xp.findDataRef("sim/weather/visibility_reported_m")
 
         self.width_code = TAXIWAY_WIDTH_CODE.C  # init to default
@@ -243,7 +243,7 @@ class Aircraft:
         logger.info(f"aircraft type {self.icao} not found in lists, using default category {self.width_code}")
 
     def hasPreferences(self) -> bool:
-        return "Aircrafts" in self.prefs or "Aircrafts." + self.icao in self.prefs
+        return "Aircrafts" in self.prefs or ("Aircrafts." + self.icao) in self.prefs
 
     def setPreferences(self):
         a = self.aircaftPreferences()

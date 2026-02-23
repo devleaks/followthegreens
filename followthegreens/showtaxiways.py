@@ -27,7 +27,6 @@ class ShowTaxiways(FollowTheGreens):
 
     def __init__(self, pi):
         FollowTheGreens.__init__(self, pi=pi)
-        self._status = FTG_STATUS.INITIALIZED
 
     def afterAirport(self, airport):
         return self.showTaxiways(airport)

@@ -2,6 +2,7 @@
 # Creates FTG windows.
 #
 from random import random
+from datetime import datetime
 
 try:
     import xp
@@ -172,6 +173,7 @@ class UIUtil:
             logger.debug(f"showMainWindow canHide={self.canHide}")
         if self.mainWindowExists():
             xp.showWidget(self.mainWindow["widgetID"])
+            self.ftg._last_ui_shown = datetime.now()
             self.canHide = canHide
             self.displayTime = 0
 

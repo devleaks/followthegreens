@@ -121,6 +121,21 @@ class PythonInterface:
     def XPluginStart(self):
         self.debug("XPluginStart: starting..", force=True)
 
+        try:
+            self.followTheGreens = FollowTheGreens(self)
+            self.debug("XPluginStart: FollowTheGreens created")
+        except:
+            self.debug("XPluginStart: exception", force=True)
+            print_exc()
+
+        if STW_MENU is not None:
+            try:
+                self.showTaxiways = ShowTaxiways(self)
+                self.debug("XPluginStart: ShowTaxiways created")
+            except:
+                self.debug("XPluginStart: exception", force=True)
+                print_exc()
+
         for cmd, what in self.commands.items():
             self.CmdRefs[cmd] = xp.createCommand(cmd, what[0])
             if self.CmdRefs[cmd] is not None:
@@ -233,8 +248,6 @@ class PythonInterface:
             xp.registerDrawCallback(self.hud)
 
         try:
-            self.followTheGreens = FollowTheGreens(self)
-            self.debug("XPluginEnable: FollowTheGreens created")
             if self.followTheGreens is not None:
                 self.followTheGreens.enable()
                 self.debug("XPluginEnable: FollowTheGreens enabled")
@@ -251,16 +264,12 @@ class PythonInterface:
                         self.debug(f"XPluginEnable: plugin {sig} not found")
             else:
                 self.debug("XPluginEnable: no data accessor")
-
-            self.debug("XPluginEnable: FollowTheGreens created")
         except:
             self.debug("XPluginEnable: exception", force=True)
             print_exc()
 
         if STW_MENU is not None:
             try:
-                self.showTaxiways = ShowTaxiways(self)
-                self.debug("XPluginEnable: ShowTaxiways created")
                 if self.showTaxiways is not None:
                     self.showTaxiways.enable()
                     self.debug("XPluginEnable: ShowTaxiways enabled")

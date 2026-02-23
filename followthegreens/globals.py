@@ -226,7 +226,6 @@ ROUTING_ALGORITHM = ROUTING_ALGORITHMS.ASTAR  # astar, dijkstra (default)
 RESPECT_CONSTRAINTS = True  # set to True at your own risk
 SAY_ROUTE = True  # Print route on pop up display and speak it orally.
 LEVEL4 = 0  # ASMGCS LEVEL 4 Compliance steps (highly experimental, DO NOT CHANGE.)
-CURSOR = False
 
 
 # ################################

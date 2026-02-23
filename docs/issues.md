@@ -21,7 +21,7 @@ Let aricraft moving forward until it is less that 500m away from taxiway vertex.
 # Pause
 
 Follow the Greens plugin does not handle pause.
-It keeps runnign while the simulator is pause.
+It keeps running while the simulator is paused.
 There should not be any issue with that.
 If the aircraft does not move, greens don't change.
 

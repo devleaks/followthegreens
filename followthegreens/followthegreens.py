@@ -48,21 +48,13 @@ class FollowTheGreens:
         self.localDay = xp.findDataRef("sim/time/local_date_days")
         self.session = None
         self.route = None
-
-        logger.info("\n\n")
-        logger.info(">=" * 50)
-        logger.info(f"Create new {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
-        logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}\n")
-
         self.stats = {}
-        self.load_stats()
         self.prefs = {}
-        self.init_preferences()
-
-        self.ui = UIUtil(self)  # Where windows are built
-        self.flightLoop = FlightLoop(self)  # where the magic is done
-
-        self.status = FTG_STATUS.INITIALIZED
+        self.ui = None
+        self._last_ui_shown = None
+        self.flightLoop = None
+        logger.info(f"create new {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
+        logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}\n")
 
     def __del__(self):
         # alias to cancel
@@ -85,6 +77,7 @@ class FollowTheGreens:
     def status(self, status: FTG_STATUS):
         if status != self._status:
             self._status = status
+            self.inc(status.value)
             logger.debug(f"{type(self).__name__} is now {status}")
 
     def inc(self, name: str, qty: int = 1):
@@ -105,6 +98,16 @@ class FollowTheGreens:
         with open(fn, "w") as fp:
             print(toml_dumps(self.stats), file=fp)
             logger.info(f"stats written: {self.stats}")
+
+    def init(self):
+        self.stats = {}
+        self.load_stats()
+        self.prefs = {}
+        self.init_preferences()
+        self.ui = UIUtil(self)  # Where windows are built
+        self.flightLoop = FlightLoop(self)  # where the magic is done
+        logger.info(f"initialized {type(self).__name__}")
+        self.status = FTG_STATUS.INITIALIZED
 
     def init_preferences(self, reloading: bool = False):
         # Load optional preferences file (Rel. 2 onwards)
@@ -253,10 +256,19 @@ VERSION = "{__VERSION__}"
         # Toggles visibility of main window.
         # If it was simply closed for hiding, show it again as it was.
         # If it does not exist, creates it from start of process.
+        if self.status == FTG_STATUS.NEW:
+            self.init()
         # if self.status = ACTIVE:
         logger.debug(f"current status: {self.status}, ui={self.ui.mainWindowExists()}")
         if self.ui.mainWindowExists():
             logger.debug(f"mainWindow exists, changing visibility {self.ui.isMainWindowVisible()}")
+            # @todo? Widget was hidden, it is popped up again;
+            # may be situation has changed, we should at least may be check
+            # we still are at the same airport as before?
+            # May be other checks depending on self.status?
+            # May be session should reset when not gone through everything and still not running?
+            if not self.ui.isMainWindowVisible():
+                self._last_ui_shown = datetime.now()  # becomes visible aster next call
             self.ui.toggleVisibilityMainWindow()
             return 1
 
@@ -280,16 +292,16 @@ VERSION = "{__VERSION__}"
         # Info 1
         # logger.info("starting..")
         self.status = FTG_STATUS.START
-        self.inc("start")
-        # BEGIN TEST : reloading preferences
+
         logger.debug("..reloading preferences..")
         self.init_preferences(reloading=True)
         logger.debug("..reloaded..")
-        # END TEST
+
         mainWindow = self.getAirport()
         logger.debug("mainWindow created")
         if mainWindow and not xp.isWidgetVisible(mainWindow):
             xp.showWidget(mainWindow)
+            self._last_ui_shown = datetime.now()
             logger.debug("mainWindow shown")
         self.status = FTG_STATUS.READY
         logger.info("..started.")
@@ -558,8 +570,6 @@ VERSION = "{__VERSION__}"
             self.ui.destroyMainWindow()
 
         self.status = FTG_STATUS.TERMINATED
-
-        self.inc("terminate")
         self.save_stats()
 
         if reason == "delete":
@@ -610,13 +620,13 @@ VERSION = "{__VERSION__}"
         self.inc("bookmark")
 
     def enable(self):
+        if self.status == FTG_STATUS.NEW:
+            self.init()
         self.status = FTG_STATUS.ENABLED
-        self.inc("enabled")
         return [True, ""]
 
     def disable(self):
         # alias to cancel
-        self.inc("disabled")
         self.status = FTG_STATUS.DISABLED
         return self.terminate("disabled")
 

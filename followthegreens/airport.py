@@ -182,9 +182,12 @@ class AptLine:
 
 
 class Airport:
-    """Airport represetation (limited to FTG needs)"""
+    """Airport represetation (limited to FTG needs)
 
-    # Should be split with generic non dependant airport and airport with routing, dependant on Graph
+    Note: Should be split with generic non dependant airport and airport with routing, dependant on Graph
+    """
+
+    MTWYLDWC = 10
 
     def __init__(self, icao, prefs: dict = {}):
         self.icao = icao.upper()
@@ -210,8 +213,8 @@ class Airport:
         if self.use_threshold is None:
             self.use_threshold = True
 
-        self.distance_between_taxiway_lights = get_global(AIRPORT.DISTANCE_BETWEEN_LIGHTS.value, self.prefs)  # meters, for show_taxiways()
         self.distance_between_green_lights = get_global(AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value, self.prefs)  # meters for follow_the_greens()
+        self.distance_between_taxiway_lights = get_global(AIRPORT.DISTANCE_BETWEEN_LIGHTS.value, self.prefs)  # meters, for show_taxiways()
 
         self.lights_ahead = get_global(RABBIT.LIGHTS_AHEAD.value, self.prefs)
         self.rabbit_length = get_global(RABBIT.LENGTH.value, self.prefs)
@@ -281,10 +284,28 @@ class Airport:
 
     def cursor(self, route) -> Cursor | None:
         cursor = get_global("CURSOR", self.prefs)
+        logger.debug(f"cursor {cursor}")
         if type(cursor) is str and len(cursor) > 1:  #  and self.lights_ahead == HARDCODED_MAX_DISTANCE and self.rabbit_length == 0:
-            logger.debug("new cursor")
+            adj = ""
+            if self.distance_between_green_lights > self.MTWYLDWC:
+                adj = f", distance between taxiway lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
+                self.distance_between_green_lights = self.MTWYLDWC
+            logger.debug(f"using new cursor{adj}")
             return Cursor(cursor, route)
         logger.debug("no cursor")
+        return None
+
+    def cursor2(self, route) -> Cursor | None:
+        if self.lights_ahead == HARDCODED_MAX_DISTANCE and self.rabbit_length == 0:
+            cursor = get_global("CURSOR", self.prefs)
+            adj = ""
+            if type(cursor) is not str or len(cursor) > 1:  #  and self.lights_ahead == HARDCODED_MAX_DISTANCE and self.rabbit_length == 0:
+                cursor = "xcsl/FMC.obj"
+            if self.distance_between_green_lights > self.MTWYLDWC:  # min twy light distance with/when cursor
+                adj = f", distance between taxiway lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
+                self.distance_between_green_lights = self.MTWYLDWC
+            logger.debug(f"using new cursor {cursor}, {adj}")
+            return Cursor(cursor, route)
         return None
 
     def load(self):
@@ -826,6 +847,11 @@ class Route:
     def after_route(self):
         # Last vertex to destination
         return Line(start=self.vertices[-1], end=self.precise_end)
+
+    def on_edge(self, i: int, dist: float) -> Point | None:
+        if self.vertices is not None and len(self.vertices) > i:
+            return destination(self.vertices[i], self.edges_orient[i], dist)
+        return None
 
     def mkEdges(self):
         # From liste of vertices, build list of edges

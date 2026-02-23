@@ -514,3 +514,15 @@ def distanceToLine(point: Point, segment_start: Point, segment_end: Point):
     else:
         dist = distance(point, point_2)
     return dist
+
+
+def turnRadius(speed: float) -> float:
+    # supply a turn radius for a car
+    # speed in m/s
+    if speed < 8:  # 30km/h
+        return 10
+    if speed < 15:  # 54km/h
+        return 15
+    if speed < 25:  # 90km/h
+        return 20
+    return 30
