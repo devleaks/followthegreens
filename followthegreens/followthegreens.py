@@ -275,9 +275,7 @@ VERSION = "{__VERSION__}"
         # there is no existing window, we create a new session
         if self.session is None:
             self.session = randint(1000, 9999)
-        logger.info("\n\n")
-        logger.info("-=" * 50)
-        logger.info(
+        logger.info("\n\n"+"-=" * 50+"\n"+
             " ".join(
                 [
                     "When sending session for debugging purpose,",
@@ -285,7 +283,7 @@ VERSION = "{__VERSION__}"
                     "and after 'green session ended' with matching session identifier",
                     f"(session id = {self.session})",
                 ]
-            )
+            ) + "\n"
         )
         logger.info(f"starting new green session at {datetime.now().astimezone().isoformat()} (session id = {self.session})..")
 

@@ -8,6 +8,9 @@ import time
 # https://github.com/MED-1996/kinematics5
 from .oned import eq2
 
+# https://github.com/MED-1996/kinematics5
+from .oned import eq2
+
 try:
     import xp
 except ImportError:
@@ -55,7 +58,11 @@ class CarType:
         return self.obj is not None
 
 
+<<<<<<< Updated upstream
 NUM_SEGMENTS = 10
+=======
+NUM_SEGMENTS = 36
+>>>>>>> Stashed changes
 
 
 class Turn:
@@ -71,8 +78,13 @@ class Turn:
         self.direction = 1 if self.alpha > 0 else -1
         self.center = None
         self.points = []
+<<<<<<< Updated upstream
 
         self.ratio_start = 0
+=======
+        self._err = ""
+
+>>>>>>> Stashed changes
         self.tangent_length = 0
 
         segments = NUM_SEGMENTS if segments < 1 else int(segments)
@@ -84,6 +96,7 @@ class Turn:
 
         a2sin = math.sin(a2r)
         if a2sin == 0:
+<<<<<<< Updated upstream
             logger.debug("turn is 0D (no turn) or 180D (U turn)")
             return
         dist_center = radius / a2sin
@@ -100,6 +113,27 @@ class Turn:
             return
 
         self.tangent_length = tangent_length
+=======
+            self._err = "turn is 0D (no turn) or 180D (U turn)"
+            logger.debug(self._err)
+            return
+        dist_center = radius / a2sin
+        self.tangent_length = dist_center * math.cos(a2r)
+
+        if abs(self.alpha) < self.VALID_RANGE[0]:
+            self._err = f"turn is too shallow {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={self.tangent_length}m"
+            logger.debug(self._err)
+            return
+        if abs(self.alpha) > self.VALID_RANGE[1]:
+            self._err = f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={self.tangent_length}m"
+            logger.debug(self._err)
+            return
+        if self.tangent_length > (3 * radius):
+            self._err = f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={self.tangent_length}m"
+            logger.debug(self._err)
+            return
+
+>>>>>>> Stashed changes
         self.center = destination(vertex, bissec, dist_center)
         self.length = 2 * math.pi * radius * (abs(self.alpha) / 360)  # turn length
 
@@ -109,7 +143,11 @@ class Turn:
             self.points.append((pt, l_in + i * step))
 
         logger.debug(
+<<<<<<< Updated upstream
             f"radius={round(radius, 2)}m, center={round(dist_center, 2)}m, tangent length={round(self.tangent_length, 2)}m, length={round(self.length, 1)}m, {len(self.points)} points"
+=======
+            f"radius={round(radius, 1)}m, vtx to center={round(dist_center, 1)}m, tangent length={round(self.tangent_length, 1)}m, turn length={round(self.length, 1)}m, {len(self.points)} points"
+>>>>>>> Stashed changes
         )
         # fc = FeatureCollection(features=[p[0].feature() for p in self.points])
         # fn = os.path.join(os.path.dirname(__file__), "..", f"turn.geojson")  # {randint(1000,9999)}
@@ -127,6 +165,7 @@ class Turn:
     def end(self) -> Point:
         return self.points[-1][0] if self.valid else None
 
+<<<<<<< Updated upstream
     def progress(self, dist: float):
         if dist > self.length:
             return self.points[-1]
@@ -144,6 +183,106 @@ class Turn:
             return self.points[int(steps_done)]
         real_ratio = (ratio - self.ratio_start) / (1 - self.ratio_start)
         return self.points[int(real_ratio * len(self.points))]
+=======
+    def progress(self, dist: float) -> tuple:
+        if dist > self.length:
+            return self.points[-1][0], self.points[-1][1], True
+        portion = dist / self.length
+        idx = min(round(portion * len(self.points)), len(self.points) - 1)  # not int==math.floor
+        logger.debug(f"turn {round(dist, 1)}m -> index={idx}/{len(self.points)-1}")
+        return self.points[idx][0], self.points[idx][1], False
+
+
+class PartialPath:
+
+    def __init__(self, turn_start: Turn, segment: Line, turn_end: Turn, v_start: float, v_end: float, t: float = 0.0) -> None:
+        self._valid = True
+        self.turn_start = turn_start
+        self.segment = segment
+        self.turn_end = turn_end
+        self.v_start = v_start
+        if self.v_start < 0.1:
+            self.v_start = Cursor.NORMAL_SPEED
+            logger.warning(f"cannot progress on route with no speed, setting speed = {self.v_start}")
+        self.v_end = v_end
+        if self.v_end < 0.1:
+            self.v_end = Cursor.NORMAL_SPEED
+            logger.warning(f"cannot progress on route with no speed, setting speed = {self.v_end}")
+
+        self.time_start = t
+
+        min_length = 0
+        self.effective_length = self.segment.length()
+        logger.debug(f"segment length={round(self.effective_length, 1)}m, bearing={round(self.segment.bearing(), 0)}D")
+
+        self.effective_start = self.segment.start
+        # new path starts at end of previous turn, if any, or segment.start if no turn or turn invalid
+        # if self.turn_start_valid:
+        #     min_length += self.turn_start.tangent_length
+        #     self.effective_start = destination(self.segment.start, self.segment.bearing(), self.turn_start.tangent_length)
+        #     self.effective_length = self.effective_length - self.turn_start.tangent_length
+        #     logger.debug(f"effective length remove previous turn end ({round(self.turn_start.tangent_length, 1)}m) -> {round(self.effective_length, 1)}m")
+        self.before_turn = self.effective_length
+
+        self.effective_end = self.segment.end
+        self.end = self.segment.end
+        if self.turn_end_valid:
+            min_length += self.turn_end.tangent_length
+            self.effective_end = destination(self.segment.end, self.segment.bearing() + 180, self.turn_end.tangent_length)
+            self.effective_length = self.effective_length - self.turn_end.tangent_length
+            self.before_turn = self.effective_length
+            logger.debug(f"effective length remove next turn start ({round(self.turn_end.tangent_length, 1)}m) -> {round(self.effective_length, 1)}m")
+            self.effective_length = self.effective_length + self.turn_end.length
+            self.end = self.turn_end.end
+            logger.debug(f"effective length add next turn length ({round(self.turn_end.length, 1)}m) -> {round(self.effective_length, 1)}m")
+
+        if self.segment.length() < min_length:
+            # DO MORE CHECK HERE. as previous turn completed? If yes, start from there
+            # If no do next turn fit? If no use simple straight line
+            self._valid = False
+            logger.debug(f"segment length ({round(self.segment.length(), 1)}m) shorter than turn tangents ({round(min_length, 1)}m)")
+
+        r = eq2(displacement=self.effective_length, initial_velocity=self.v_start, final_velocity=self.v_end)  # time=None
+        # logger.debug(f"eq2: {r}")
+        self.total_time = r[3]
+        self.time_end = self.time_start + self.total_time
+        logger.debug(self.desc())
+
+    @property
+    def valid(seft) -> bool:
+        return self._valid
+
+    @property
+    def turn_start_valid(self):
+        return self.turn_start is not None and self.turn_start.valid
+
+    @property
+    def turn_end_valid(self):
+        return self.turn_end is not None and self.turn_end.valid
+
+    def desc(self) -> str:
+        return f"partial path length={round(self.effective_length, 1)}m, time={round(self.total_time, 2)}secs, turns={self.turn_start_valid},{self.turn_end_valid}, before turn={round(self.before_turn, 1)}m"
+
+
+    def progress(self, t: float) -> tuple:
+        # return position and heading t seconds after started on path
+        if t > self.time_end:
+            h = self.turn_end.bearing_end if self.turn_end.valid else self.segment.bearing()
+            return self.effective_end, h, True
+        dt = t - self.time_start
+        r = eq2(displacement=None, initial_velocity=self.v_start, final_velocity=self.v_end, time=dt)
+        # logger.debug(f"eq2: {r}")
+        d = r[0]
+        if d < self.before_turn:
+            h = self.segment.bearing()
+            p = destination(self.effective_start, h, d)
+            logger.debug(f"path {round(dt, 3)}s -> {round(d, 1)}m, {round(h, 0)}D")
+            return p, h, False
+        d0 = d
+        d = d - self.before_turn
+        logger.debug(f"path {round(dt, 3)}s -> {round(d0, 1)}m, -> turn {round(d, 1)}m")
+        return self.turn_end.progress(dist=d)
+>>>>>>> Stashed changes
 
 
 class PartialPath:
@@ -250,6 +389,10 @@ class Cursor:
         self.segment: Line | None = None
         self.curr_turn = None
         self.target_turn = None
+<<<<<<< Updated upstream
+=======
+        self.path = None
+>>>>>>> Stashed changes
 
         self.delta_time = 0.0
         self.delta_hdg = 0.0
@@ -492,7 +635,7 @@ class Cursor:
         self.target_pos = Point(lat=lat, lon=lon)
         self.target_hdg = hdg
         self.target_speed = speed
-        self.target_time = t
+        self.target_time = t + 10  # TEST
         self.target_text = text
         logger.log(8, f"target time is {round(self.target_time, 2)} ({round(self.target_time-self.last_time, 2)} ahead)")
 
@@ -503,10 +646,17 @@ class Cursor:
         return d
 
     def _mkPartialPath(self):
+<<<<<<< Updated upstream
         new_start = self.curr_pos
         self.segment = Line(start=new_start, end=self.target_pos)
         self.curr_turn = self.target_turn
         self.target_turn = Turn(vertex=self.curr_pos, l_in=self.curr_hdg, l_out=self.target_hdg, radius=10)
+=======
+        new_start = self.curr_pos if self.path is None else self.path.end
+        self.segment = Line(start=new_start, end=self.target_pos)
+        self.curr_turn = self.target_turn
+        self.target_turn = Turn(vertex=self.target_pos, l_in=self.curr_hdg, l_out=self.target_hdg, radius=10)
+>>>>>>> Stashed changes
         self.path = PartialPath(turn_start=self.curr_turn, segment=self.segment, turn_end=self.target_turn, v_start=self.curr_speed, v_end=self.target_speed, t=self.curr_time)
 
         self.delta_time = self.target_time - self.last_time
@@ -518,6 +668,7 @@ class Cursor:
         if self.delta_time != 0:
             acc = self.delta_speed / self.delta_time
 
+<<<<<<< Updated upstream
         logger.log(8, f"segment {round(self.segment.length(), 1)}m in {round(self.delta_time, 2)}s")
         logger.log(8, f"heading {round(self.curr_hdg, 1)} -> {round(self.target_hdg, 1)} (delta={round(self.delta_hdg, 1)})")
         logger.log(8, f"speed {round(self.curr_speed, 1)} -> {round(self.target_speed, 1)}m/s (delta={round(self.delta_speed, 1)}, acc={acc})")
@@ -566,6 +717,17 @@ class Cursor:
             timetospeed = math.sqrt(maxdist / self.acceleration)
             # Accel
             # Decel
+=======
+        logger.debug("new path")
+        logger.log(8, f"segment {round(self.segment.length(), 1)}m in {round(self.delta_time, 2)}s")
+        logger.log(8, f"heading {round(self.curr_hdg, 1)} -> {round(self.target_hdg, 1)} (delta={round(self.delta_hdg, 1)})")
+        logger.log(8, f"speed {round(self.curr_speed, 1)} -> {round(self.target_speed, 1)}m/s (delta={round(self.delta_speed, 1)}, acc={acc})")
+
+    def nextPosition(self):
+        if self.path is not None:
+            return self.path.progress(self.curr_time)
+        return self.curr_pos, self.curr_hdg, True
+>>>>>>> Stashed changes
 
     def move(self, t: float):
         # Currently: only linear interposition
@@ -589,8 +751,9 @@ class Cursor:
             return
 
         now = ts()
-        slow_debug(f"curr_time={round(self.curr_time, 3)}, now={round(now, 3)} (diff={round(self.curr_time - now, 3)}), target={round(self.target_time, 3)}")
-        slow_debug(f"segment={round(self.segment.length(), 1)}m, {round(self.segment.bearing(), 0)}D")
+        slow_debug(f"curr_time={round(self.curr_time, 3)}, now={round(now, 3)} (diff={round(self.curr_time - now, 3)}), target={round(self.target_time, 3)}, next={round(self.target_time-self.curr_time, 3)}")
+        if self.path:
+            slow_debug(f"on path={self.path.desc()}")
 
         if self.curr_time > self.target_time:
             self.curr_hdg = self.target_hdg
@@ -598,8 +761,7 @@ class Cursor:
             if not self._tick():
                 self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=self.curr_hdg, elev=0.25)
                 return
-
-        self.curr_pos, hdg = self.nextPosition()
+        self.curr_pos, hdg, finished = self.nextPosition()
         self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=hdg, elev=0.25)
 
     def is_finishing(self) -> bool:
