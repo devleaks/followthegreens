@@ -226,6 +226,9 @@ class Aircraft:
         self.rabbit_length = r.get(RABBIT.LENGTH, 100)  # meters
         self.rabbit_length = self.rabbit_length + self.acflength  # meters
         self.rabbit_speed = r.get(RABBIT.SPEED, 0.2)  # seconds
+        self.lights_ahead_pref = False
+        self.rabbit_length_pref = False
+        self.rabbit_speed_pref = False
         # If modified in preference file
         self.setPreferences()
 
@@ -264,36 +267,50 @@ class Aircraft:
         if acf is not None:
             if RABBIT.LIGHTS_AHEAD.value in acf:
                 self.lights_ahead = acf[RABBIT.LIGHTS_AHEAD.value]
+                self.lights_ahead_pref = True
             if RABBIT.LENGTH.value in acf:
                 self.rabbit_length = acf[RABBIT.LENGTH.value]
+                self.rabbit_length_pref = True
             if RABBIT.SPEED.value in acf:
                 self.rabbit_speed = acf[RABBIT.SPEED.value]
+                self.rabbit_speed_pref = True
 
         prefs = acf.get(self.width_code.value, {})
         logger.debug(f"Aircraft type {self.width_code.value} preferences: {prefs}")
         if prefs is not None:
             if RABBIT.LIGHTS_AHEAD.value in prefs:
                 self.lights_ahead = prefs[RABBIT.LIGHTS_AHEAD.value]
+                self.lights_ahead_pref = True
             if RABBIT.LENGTH.value in prefs:
                 self.rabbit_length = prefs[RABBIT.LENGTH.value]
+                self.rabbit_length_pref = True
             if RABBIT.SPEED.value in prefs:
                 self.rabbit_speed = prefs[RABBIT.SPEED.value]
+                self.rabbit_speed_pref = True
 
         prefs = acf.get(self.icao, {})
         logger.debug(f"Aircraft model {self.icao} preferences: {prefs}")
         if prefs is not None:
             if RABBIT.LIGHTS_AHEAD.value in prefs:
                 self.lights_ahead = prefs[RABBIT.LIGHTS_AHEAD.value]
+                self.lights_ahead_pref = True
             if RABBIT.LENGTH.value in prefs:
                 self.rabbit_length = prefs[RABBIT.LENGTH.value]
+                self.rabbit_length_pref = True
             if RABBIT.SPEED.value in prefs:
                 self.rabbit_speed = prefs[RABBIT.SPEED.value]
+                self.rabbit_speed_pref = True
 
         if self.rabbit_length > 0:  # == 0 = no rabbit
             self.rabbit_length = self.rabbit_length + self.acflength  # meters
         if self.lights_ahead > 0:  # == 0 = whole path
             self.lights_ahead = self.lights_ahead + self.acflength  # meters
-        logger.debug(f"AIRCRAFT rabbit (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={self.acflength}m)")
+        if self.hasPreferences():
+            logger.debug(
+                f"aircraft rabbit preference (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={self.acflength}m)"
+            )
+        else:
+            logger.debug("aircraft has no preference for class or type")
 
     def position(self) -> list:
         return [xp.getDataf(self.lat), xp.getDataf(self.lon)]

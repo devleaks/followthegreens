@@ -216,13 +216,17 @@ class Airport:
         self.distance_between_green_lights = get_global(AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value, self.prefs)  # meters for follow_the_greens()
         self.distance_between_taxiway_lights = get_global(AIRPORT.DISTANCE_BETWEEN_LIGHTS.value, self.prefs)  # meters, for show_taxiways()
 
+        self.lights_ahead_pref = False
+        self.rabbit_length_pref = False
+        self.rabbit_speed_pref = False
         self.lights_ahead = get_global(RABBIT.LIGHTS_AHEAD.value, self.prefs)
         self.rabbit_length = get_global(RABBIT.LENGTH.value, self.prefs)
         self.rabbit_speed = get_global(RABBIT.SPEED.value, self.prefs)
         # Info 4
         # Fine tune for specific airport(s)
         self.setPreferences()
-        logger.debug(f"AIRPORT rabbit: btw greens={self.distance_between_green_lights}m, whole net={self.distance_between_taxiway_lights}m, speed={self.rabbit_speed}s")
+        logger.debug(f"airport rabbit: length={self.rabbit_length}L, speed={self.rabbit_speed}s, ahead={self.lights_ahead}L")
+        logger.debug(f"airport rabbit: btw greens={self.distance_between_green_lights}m, whole net={self.distance_between_taxiway_lights}m")
 
     def prepare(self):
         status = self.load()
@@ -262,27 +266,36 @@ class Airport:
 
     def setPreferences(self):
         # Local airport preferences override global preferences
+        if not self.hasPreferences():
+            logger.debug("airport has no preference")
+            return
         apt = self.prefs.get("Airports", {})
         prefs = apt.get(self.icao)
-        logger.debug(f"{self.icao} preferences: {prefs}")
-        if prefs is not None:
-            if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in prefs:
-                self.distance_between_green_lights = prefs[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
-            if AIRPORT.DISTANCE_BETWEEN_LIGHTS.value in prefs:
-                self.distance_between_taxiway_lights = prefs[AIRPORT.DISTANCE_BETWEEN_LIGHTS.value]
-            if RABBIT.LIGHTS_AHEAD.value in prefs:
-                self.lights_ahead = prefs[RABBIT.LIGHTS_AHEAD.value]
-            if RABBIT.LENGTH.value in prefs:
-                self.rabbit_length = prefs[RABBIT.LENGTH.value]
-            if RABBIT.SPEED.value in prefs:
-                self.rabbit_speed = prefs[RABBIT.SPEED.value]
-            return
+        # Airport specific
+        if len(prefs) > 0:
+            logger.debug(f"airport {self.icao} preferences: {prefs}")
+            if prefs is not None:
+                if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in prefs:
+                    self.distance_between_green_lights = prefs[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
+                if AIRPORT.DISTANCE_BETWEEN_LIGHTS.value in prefs:
+                    self.distance_between_taxiway_lights = prefs[AIRPORT.DISTANCE_BETWEEN_LIGHTS.value]
+                if RABBIT.LIGHTS_AHEAD.value in prefs:
+                    self.lights_ahead = prefs[RABBIT.LIGHTS_AHEAD.value]
+                    self.lights_ahead_pref = True
+                if RABBIT.LENGTH.value in prefs:
+                    self.rabbit_length = prefs[RABBIT.LENGTH.value]
+                    self.rabbit_length_pref = True
+                if RABBIT.SPEED.value in prefs:
+                    self.rabbit_speed = prefs[RABBIT.SPEED.value]
+                    self.rabbit_speed_pref = True
+                return
         # Generic
-        logger.debug(f"Airport preferences: {apt}")
-        if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in apt:
-            self.distance_between_green_lights = apt[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
+        if len(apt) > 0:
+            logger.debug(f"airport preferences: {apt}")
+            if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in apt:
+                self.distance_between_green_lights = apt[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
 
-    def cursor(self, route) -> Cursor | None:
+    def cursor_dev(self, route) -> Cursor | None:
         cursor = get_global("CURSOR", self.prefs)
         logger.debug(f"cursor {cursor}")
         if type(cursor) is str and len(cursor) > 1:  #  and self.lights_ahead == HARDCODED_MAX_DISTANCE and self.rabbit_length == 0:
@@ -295,7 +308,7 @@ class Airport:
         logger.debug("no cursor")
         return None
 
-    def cursor_prod(self, route) -> Cursor | None:
+    def cursor(self, route) -> Cursor | None:
         # cursor should be created before lights are placed
         if self.lights_ahead == HARDCODED_MAX_DISTANCE and self.rabbit_length == 0:
             cursor = get_global("CURSOR", self.prefs)
@@ -827,8 +840,9 @@ class Route:
         # If Dijstra fails, we really can't do anything about it.
         if self.algorithm == ROUTING_ALGORITHMS.ASTAR:
             self.route = self.graph.AStar(src, dst)
+            if self.found():
+                return True
             logger.info(f"..failed to find route using algorithm {self.algorithm}, will try algorithm Dijkstra..")
-            return self.found()
         self.route = self.graph.Dijkstra(src, dst)
         return self.found()
 

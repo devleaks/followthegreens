@@ -438,10 +438,10 @@ VERSION = "{__VERSION__}"
         logger.info(f"environment at {now}: day={day}, visibility={round(viz, 0)}m, brt={brt}, vra={ahr}m")
 
         # sets a reduced distance between lights
+        new_cursor = False
         if self.cursor is None:
             self.cursor = self.airport.cursor(route=self.route)
-        else:
-            self.cursor.change_route(ftg=self)
+            new_cursor = True
 
         onRwy = False
         if self.move == MOVEMENT.ARRIVAL:
@@ -458,6 +458,9 @@ VERSION = "{__VERSION__}"
         # Info 13
         self.lights.printSegments()
         self.status = FTG_STATUS.ROUTE
+
+        if self.cursor is not None and not new_cursor:
+            self.cursor.change_route(ftg=self)
 
         self.segment = 0
         logger.info(f"current segment {self.segment + 1}/{self.lights.segments + 1}")

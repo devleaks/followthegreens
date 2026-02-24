@@ -141,8 +141,8 @@ and units used for the preference.
 | ----------------------------- | ------------- | ---------------- | ---------------- | ---------------- |
 | TOML «TABLE»                  |               | [Airport.ICAO]   | [Aircraft.C]     | [Aircraft.ICAO]  |
 | ----------------------------- | ------------- | ---------------- | ---------------- | ---------------- |
-| LIGHTS_AHEAD                  | # lights      | distance(meters) | distance(meters) | distance(meters) |
-| RABBIT_LENGTH                 | # lights      | distance(meters) | distance(meters) | distance(meters) |
+| LIGHTS_AHEAD                  | # lights      | # lights         | distance(meters) | distance(meters) |
+| RABBIT_LENGTH                 | # lights      | # lights         | distance(meters) | distance(meters) |
 | RABBIT_SPEED                  | seconds       | seconds          | seconds          | seconds          |
 | RUNWAY_LIGHT_LEVEL_WHILE_FTG  | lo,med,hi,off | lo,med,hi,off    | NA               | NA               |
 | DISTANCE_BETWEEN_GREEN_LIGHTS | meters        | meters           | NA               | NA               |

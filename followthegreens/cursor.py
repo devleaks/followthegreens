@@ -13,7 +13,7 @@ except ImportError:
     print("X-Plane not loaded")
 
 from .globals import logger
-from .geo import Point, Line, bearing, destination
+from .geo import Point, Line, destination
 from .lightstring import XPObject
 
 
@@ -517,9 +517,8 @@ class Cursor:
         # They won't be any valid route anymore.
         # We have to stop the future
         logger.debug("cursor reseting route")
-        while not self._future.empty():
-            wasted = self._future.get()
-        # the car can continue on current segment, that's ok
+        with self._future.mutex:
+            self._future.clear()
 
     def startFlightLoop(self):
         if self.flightLoop is None and self.cursor is not None and self.usable:
