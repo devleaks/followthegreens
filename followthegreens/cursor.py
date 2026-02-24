@@ -13,7 +13,7 @@ except ImportError:
     print("X-Plane not loaded")
 
 from .globals import logger
-from .geo import Point, Line, destination
+from .geo import Point, Line, bearing, destination
 from .lightstring import XPObject
 
 
@@ -152,6 +152,9 @@ class Turn:
         return self.points[idx][0], self.points[idx][1], False
 
 
+STATIC_TURN_LIMIT = 10.0  # m
+
+
 class PartialPath:
 
     def __init__(self, segment: Line, turn_end: Turn, v_start: float, v_end: float, t: float = 0.0) -> None:
@@ -190,6 +193,8 @@ class PartialPath:
                 self.end = self.turn_end.end
                 logger.debug(f"effective length add next turn length ({round(self.turn_end.length, 1)}m) -> {round(self.total_length, 1)}m")
         else:
+            if self.before_turn > STATIC_TURN_LIMIT:
+                self.before_turn = self.before_turn - STATIC_TURN_LIMIT
             logger.debug("no end turn")
 
         r = eq2(displacement=self.total_length, initial_velocity=self.v_start, final_velocity=self.v_end)  # time=None
@@ -214,6 +219,10 @@ class PartialPath:
         avg_accel = 1  # m/s^2
         return self.speed
 
+    def progressBearing(self, before_turn, turn_limit: float = STATIC_TURN_LIMIT):
+        # only turns towards the end or edge
+        return self.turn_end.bearing_start + self.turn_end.alpha * before_turn / turn_limit
+
     def progress(self, t: float) -> tuple:
         # return position and heading t seconds after started on path
         if not self.turn_end_valid:
@@ -225,6 +234,8 @@ class PartialPath:
             d = r[0]
             h = self.segment_bearing
             p = destination(self.start, h, d)
+            if d > self.before_turn:
+                h = self.progressBearing(before_turn=d - self.before_turn)
             # logger.debug(f"path {round(dt, 3)}s -> {round(d, 1)}m, {round(h, 0)}D")
             return p, h, False
         # has a turn at the end
@@ -248,7 +259,7 @@ class PartialPath:
 class Cursor:
     # Linear interpolator
 
-    SPAWN_SIDE_DISTANCE = 20
+    SPAWN_SIDE_DISTANCE = 60
 
     def __init__(self, filename, route) -> None:
         self.cursor_type = CarType(filename)

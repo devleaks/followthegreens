@@ -610,7 +610,7 @@ class FlightLoop:
                 # logger.debug(f"light ahead={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
                 fmcar.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=acf_speed, t=later)
                 logger.debug("..moved")
-                if self.light_progress == (len(self.ftg.lights.lights) - 1):  # reached last light
+                if light_index == (len(self.ftg.lights.lights) - 1):  # reached last light
                     if fmcar.is_finished():
                         if fmcar.can_delete():
                             del self.ftg.cursor
