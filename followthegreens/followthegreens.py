@@ -53,6 +53,9 @@ class FollowTheGreens:
         self.ui = None
         self._last_ui_shown = None
         self.flightLoop = None
+        # frame rate estimates
+        self.frp = xp.findDataRef("sim/time/framerate_period")
+        self.fr = 1.0
         logger.info(f"created {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
         logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}\n")
 
@@ -394,6 +397,11 @@ VERSION = "{__VERSION__}"
         if destination not in self.airport.getDestinations(self.move):
             logger.debug(f"destination not valid {destination} for {self.move}")
             return self.ui.promptForDestination(status=f"Destination {destination} not valid for {self.move}.")
+
+        frp = xp.getDataf(self.frp)
+        if frp != 0:
+            self.fr = 1 / frp
+            logger.info(f"estimated frame rate {round(self.fr, 1)} fps")
 
         # Info 11
         logger.info(f"trying route to destination {destination}..")
