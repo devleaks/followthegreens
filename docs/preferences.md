@@ -230,9 +230,15 @@ It is more realistic, at the expense of being more difficult to see if not prope
 The standard realistic light has twice the brightness of a regular taxiway light
 and stand out in both daylight and night lights.
 
+![FtG Light Regular](images/regular1.png)
+![FtG Light Realistic](images/taxiway1.png)
+
+On the above pictures, please notice how lights are visible or not,
+as seen sideway, on the forefront or after the first turn.
+
 Realistic lights only have two parameters:
 
-- Color, which must by a code g (green), r (red), y (yellow/amber), no other color possible.
+- Color, which must by a code g (green), r (red), y (yellow/amber), as provided by X-Plane, no other color possible.
 - Intensity, an integer number that replicate the same light at the same position making it brighter.
 
 The intensity is therefore a integer number that tells how many copies of the light must be placed.
@@ -250,6 +256,9 @@ would create a realistic taxiway RED light with double light intensity.
 Finally, note that FtG lights, standard or realistic,
 are NOT affected by the `sim/graphics/scenery/airport_light_level` dataref
 that sets the overall intensity of runway lights.
+
+![FtG Light Regular](images/regular2.png)
+![FtG Light Realistic](images/taxiway2.png)
 
 
 ## Alternate Light Object File

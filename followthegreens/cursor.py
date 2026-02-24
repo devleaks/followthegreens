@@ -33,6 +33,14 @@ def ts() -> float:
 
 class CarType:
 
+    # All speed m/s
+    SLOW_SPEED = 3  # turns, careful move
+    NORMAL_SPEED = 7  # 25km/h
+    LEAVE_SPEED = 10  # expedite speed to leave/clear an area
+    FAST_SPEED = 14  # running fast to a destination far away
+
+    ACCELERATION = 1.0  # m/s^2, same deceleration
+
     def __init__(self, filename):
         self.filename = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "cars", filename))
         self.name = os.path.basename(self.filename).replace(".obj", "")
@@ -96,7 +104,7 @@ class Turn:
             return
 
         dist_center = radius / a2sin
-        self.tangent_length = dist_center * math.cos(a2r)
+        self.tangent_length = abs(dist_center * math.cos(a2r))  # cos may be < 0
 
         if self.tangent_length > (3 * radius):
             self._err = f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={self.tangent_length}m"
@@ -148,20 +156,22 @@ class PartialPath:
 
     def __init__(self, segment: Line, turn_end: Turn, v_start: float, v_end: float, t: float = 0.0) -> None:
         self._valid = True
+        self.turn_end = turn_end
         self.segment = segment
         self.segment_bearing = segment.bearing()  # compute it once, cache it
-        self.turn_end = turn_end
+        self.total_length = segment.length()
+
+        self.speed = v_start  # current speed of cursor
         self.v_start = v_start
         if self.v_start < 0.1:
-            self.v_start = Cursor.NORMAL_SPEED
+            self.v_start = CarType.NORMAL_SPEED
             logger.warning(f"cannot progress on route with no speed, setting speed={self.v_start}")
         self.v_end = v_end
         if self.v_end < 0.1:
-            self.v_end = Cursor.NORMAL_SPEED
+            self.v_end = CarType.NORMAL_SPEED
             logger.warning(f"cannot progress on route with no speed, setting speed={self.v_end}")
 
         self.time_start = t
-        self.total_length = self.segment.length()
         logger.debug(f"segment length={round(self.total_length, 1)}m, bearing={round(self.segment_bearing, 0)}D")
 
         self.start = self.segment.start
@@ -171,7 +181,7 @@ class PartialPath:
         if self.turn_end_valid:
             if self.total_length < self.turn_end.tangent_length:
                 self._valid = False
-                logger.debug(f"segment length ({round(self.total_length, 1)}m) shorter than turn tangents ({round(min_length, 1)}m)")
+                logger.debug(f"segment length ({round(self.total_length, 1)}m) shorter than turn tangents ({round(self.turn_end.tangent_length, 1)}m)")
             else:
                 self.total_length = self.total_length - self.turn_end.tangent_length
                 self.before_turn = self.total_length
@@ -199,6 +209,11 @@ class PartialPath:
     def desc(self) -> str:
         return f"length={round(self.total_length, 1)}m, time={round(self.total_time, 2)}secs, turn at end={self.turn_end_valid}, before turn={round(self.before_turn, 1)}m"
 
+    def accelerate(self, t):
+        # check if acceleration is necessary, adjust speed, returns current speed
+        avg_accel = 1  # m/s^2
+        return self.speed
+
     def progress(self, t: float) -> tuple:
         # return position and heading t seconds after started on path
         if not self.turn_end_valid:
@@ -210,7 +225,7 @@ class PartialPath:
             d = r[0]
             h = self.segment_bearing
             p = destination(self.start, h, d)
-            logger.debug(f"path {round(dt, 3)}s -> {round(d, 1)}m, {round(h, 0)}D")
+            # logger.debug(f"path {round(dt, 3)}s -> {round(d, 1)}m, {round(h, 0)}D")
             return p, h, False
         # has a turn at the end
         if t > self.time_end:  # this path is finished
@@ -222,7 +237,7 @@ class PartialPath:
         if d < self.before_turn:
             h = self.segment_bearing
             p = destination(self.start, h, d)
-            logger.debug(f"path {round(dt, 3)}s -> {round(d, 1)}m, {round(h, 0)}D")
+            # logger.debug(f"path {round(dt, 3)}s -> {round(d, 1)}m, {round(h, 0)}D")
             return p, h, False
         d0 = d
         d = d - self.before_turn
@@ -232,12 +247,6 @@ class PartialPath:
 
 class Cursor:
     # Linear interpolator
-
-    # All speed m/s
-    SLOW_SPEED = 3  # turns, careful move
-    NORMAL_SPEED = 7  # 25km/h
-    LEAVE_SPEED = 10  # expedite speed to leave/clear an area
-    FAST_SPEED = 14  # running fast to a destination far away
 
     SPAWN_SIDE_DISTANCE = 20
 
@@ -259,25 +268,17 @@ class Cursor:
         self.curr_speed = 0
         self.curr_time = ts()
         self.curr_text = ""
+        self.curr_turn = None
 
         self.target_pos = None
         self.target_hdg = 0
         self.target_speed = 0
         self.target_time = 0
         self.target_text = ""
-
-        self.acceleration = 1.0  # m/s^2
+        self.target_turn = None
 
         # working var for interpolation
-        self.segment: Line | None = None
-        self.curr_turn = None
-        self.target_turn = None
         self.path = None
-
-        self.delta_time = 0.0
-        self.delta_hdg = 0.0
-        self.delta_speed = 0.0
-        self.half_heading = False
 
         self.refcursor = "FtG:cursor"
         self.flightLoop = None
@@ -288,7 +289,6 @@ class Cursor:
         self.cnt = -1
         self._total_distance = 0
         self._timer = None
-        self.turn_limit = 1
         self.msg = ""
 
     @property
@@ -357,7 +357,7 @@ class Cursor:
             logger.debug("no close light to start")
             closestLight = 0
         ahead = ftg.flightLoop.adjustAhead(acf_speed=acf_speed, ahead_range=ftg.flightLoop.ahead_range)
-        initial_speed = acf_speed + self.NORMAL_SPEED  # m/s
+        initial_speed = acf_speed + self.cursor_typ.NORMAL_SPEED  # m/s
         logger.debug(f"(will moving to position ahead at light index {closestLight})")
         light_ahead, light_index, dist_left = ftg.lights.lightAhead(index_from=closestLight, ahead=ahead)
         join_route = Line(start=self.curr_pos, end=light_ahead.position)
@@ -400,7 +400,7 @@ class Cursor:
             logger.error("error", exc_info=True)
         return 5.0
 
-    def future(self, position: Point, hdg: float, speed: float, t: float, tick: bool = False, text: str = ""):
+    def future(self, position: Point, hdg: float, speed: float | None, t: float, tick: bool = False, text: str = ""):
         if not self.active:
             logger.debug("cursor not active")
             return
@@ -413,13 +413,13 @@ class Cursor:
         if tick:
             ignore = self._tick()
 
-    def future_index(self, edge: int, dist: float, speed: float, t: float):
+    def future_index(self, edge: int, dist: float, speed: float | None, t: float):
         if not self.active:
             logger.debug("cursor not active")
             return
         # convert trip on the route into "future()" segements:
         if speed == 0:
-            speed = self.NORMAL_SPEED
+            speed = self.cursor_type.NORMAL_SPEED
             logger.warning(f"cannot progress on route with no speed, setting speed = {speed}")
         if edge < self.curr_index:
             logger.debug(f"cannot backup edges ({edge} < {self.curr_index})")
@@ -504,7 +504,7 @@ class Cursor:
         f = self._future.get()
         logger.debug(f"tick future ({self._qout}, q={self._future.qsize()}) at {round(self.curr_time, 3)}: {f[-1]} (h={f[-4]}, s={f[-3]}, t={f[-2]})")
         self._set_target(*f)
-        self._mkPartialPath()
+        self._mkPathToTarget()
         if self.status == CURSOR_STATUS.READY:
             self.status = CURSOR_STATUS.ACTIVE
         return True
@@ -514,7 +514,7 @@ class Cursor:
         self.last_time = self.curr_time
         self.target_pos = Point(lat=lat, lon=lon)
         self.target_hdg = hdg
-        self.target_speed = speed
+        self.target_speed = speed if speed is not None else self.curr_speed
         self.target_time = t
         self.target_text = text
         logger.log(8, f"target time is {round(self.target_time, 2)} ({round(self.target_time-self.last_time, 2)} ahead)")
@@ -525,36 +525,33 @@ class Cursor:
         # logger.log(8, f"TURN {round(b_in, 1)} -> {round(b_out, 1)}s (turn={round(d, 1)}, {'right' if d < 0 else 'left'})")
         return d
 
-    def _mkPartialPath(self):
+    def _mkPathToTarget(self):
         # Segment starts at vertex if no turn before, or at end of previous path
         # Previous path has turn or not, i.e. terminates at end vertex if not turn at end, or at end of end turn.
+        displaced_start = self.curr_pos
+        if self.path is not None:  # only first time
+            displaced_start = self.path.end
+            logger.debug("displaced start at end of path")
+        else:
+            logger.debug("first path, start from initial position")
         displaced_start = self.curr_pos if self.path is None else self.path.end
-        self.segment = Line(start=displaced_start, end=self.target_pos)
+        segment = Line(start=displaced_start, end=self.target_pos)
         self.curr_turn = self.target_turn
         # if isintance(self.target_pos, Vertex):
         #   self.target_turn = self.route.smoothTurn[self.target_pos.id]  # precomputed
-        self.target_turn = Turn(vertex=self.target_pos, l_in=self.curr_hdg, l_out=self.target_hdg, radius=10)  # geometry
-        self.path = PartialPath(segment=self.segment, turn_end=self.target_turn, v_start=self.curr_speed, v_end=self.target_speed, t=self.curr_time)  # movement
-
-        prev = self.target_time
-        if prev < self.path.time_end:
+        r = 10
+        if self.curr_speed > 20:
+            r = 15
+        self.target_turn = Turn(vertex=self.target_pos, l_in=self.curr_hdg, l_out=self.target_hdg, radius=r)
+        self.path = PartialPath(segment=segment, turn_end=self.target_turn, v_start=self.curr_speed, v_end=self.target_speed, t=self.curr_time)  # movement
+        if self.target_time < self.path.time_end:
+            t = self.path.time_end - self.target_time
             self.target_time = self.path.time_end
-            t = self.target_time - prev
-            logger.debug(f"new target time {round(self.target_time, 3)} ({round(t, 1)} s later)")
-
-        self.delta_time = self.target_time - self.last_time
-        self.delta_hdg = self.turn(self.curr_hdg, self.target_hdg)  # self.curr_hdg - self.target_hdg
-        self.turn_limit = 10 if abs(self.delta_hdg) < 90 else 15
-
-        self.delta_speed = self.curr_speed - self.target_speed
-        acc = 0
-        if self.delta_time != 0:
-            acc = self.delta_speed / self.delta_time
-
-        logger.debug(f"new path {self.path.desc()}")
-        # logger.log(8, f"segment {round(self.segment.length(), 1)}m in {round(self.delta_time, 2)}s")
-        # logger.log(8, f"heading {round(self.curr_hdg, 1)} -> {round(self.target_hdg, 1)} (delta={round(self.delta_hdg, 1)})")
-        # logger.log(8, f"speed {round(self.curr_speed, 1)} -> {round(self.target_speed, 1)}m/s (delta={round(self.delta_speed, 1)}, acc={acc})")
+            logger.debug(f"new target time {round(self.target_time, 3)} ({round(t, 1)}s later)")
+        else:
+            t = self.target_time - self.path.time_end
+            self.target_time = self.path.time_end
+            logger.debug(f"target time is ahead, would wait {round(t, 1)}s.. adjusted, will not wait")
 
     def nextPosition(self):
         if self.path is not None:
@@ -570,15 +567,15 @@ class Cursor:
                 logger.debug(s)
 
         self.cnt += 1
-        old_time = self.curr_time
-        self.curr_time = self.curr_time + t
+        # old_time = self.curr_time
+        self.curr_time += t
 
         if self.cursor is None:
             slow_debug("no cursor to move")
             return
         if self.curr_pos is None or self.target_pos is None:  # not initialized yet, no target
             slow_debug(
-                f"not moving curr={self.curr_pos.coords() if self.curr_pos is not None else 'none'}, target={self.target_pos.coords() if self.target_pos is not None else 'none'}"
+                f"no path. curr={self.curr_pos.coords() if self.curr_pos is not None else 'none'}, target={self.target_pos.coords() if self.target_pos is not None else 'none'}"
             )
             return
 
@@ -589,7 +586,7 @@ class Cursor:
         if self.path:
             slow_debug(f"on path={self.path.desc()}")
 
-        if self.curr_time > self.target_time:
+        if self.curr_time > self.target_time:  # might turn bruptly to catch up
             self.curr_hdg = self.target_hdg
             self.curr_speed = self.target_speed
             if not self._tick():
@@ -627,14 +624,14 @@ class Cursor:
         dest = destination(src=d1, brngDeg=hdg, d=LEAVE_DIST_SIDE)
         line = Line(d1, dest)
         # Last point of route to "away"
-        spd = self.LEAVE_SPEED
+        spd = self.cursor_type.LEAVE_SPEED
         td = LEAVE_DIST_AHEAD / spd
         t = ts() + LEAVE_WAIT_BEFORE + td
         tt = td
         logger.debug(f"carry forward {round(LEAVE_DIST_AHEAD, 1)}m in {round(td, 1)}s heading {round(hdg, 0)}D")
         self.future(position=d1, hdg=line.bearing(), speed=spd, t=t, text=f"carry on forward ({message})")
         # "Away" to away and on the size
-        spd = self.LEAVE_SPEED
+        spd = self.cursor_type.LEAVE_SPEED
         td = line.length() / spd
         t = t + td
         tt = tt + td
