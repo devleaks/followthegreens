@@ -527,13 +527,12 @@ class LightString:
         currVertex = graph.get_vertex(route.route[0])
         currPoint = currVertex
         thisLights.append(Light(LIGHT_TYPE.FIRST, currPoint, 0, 0))
-        logger.debug(f"added first light at {currVertex.id}")
+        logger.debug(f"at vertex 0, added first light at vertex id={currVertex.id}, lights placed={len(thisLights)}")
 
         lastLight = currPoint
         # logger.debug("placed first light")
         distanceBeforeNextLight = self.distance_between_lights
 
-        logger.debug(f"at vertex 0, {currVertex.id}, {len(thisLights)}")
         # BEGIN OF ROUTE
         for i in range(1, len(route.route)):
             nextVertex = graph.get_vertex(route.route[i])

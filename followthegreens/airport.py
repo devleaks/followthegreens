@@ -295,16 +295,17 @@ class Airport:
         logger.debug("no cursor")
         return None
 
-    def cursor2(self, route) -> Cursor | None:
+    def cursor_prod(self, route) -> Cursor | None:
+        # cursor should be created before lights are placed
         if self.lights_ahead == HARDCODED_MAX_DISTANCE and self.rabbit_length == 0:
             cursor = get_global("CURSOR", self.prefs)
             adj = ""
-            if type(cursor) is not str or len(cursor) > 1:  #  and self.lights_ahead == HARDCODED_MAX_DISTANCE and self.rabbit_length == 0:
+            if type(cursor) is not str or len(cursor) == 0:  #  and self.lights_ahead == HARDCODED_MAX_DISTANCE and self.rabbit_length == 0:
                 cursor = "xcsl/FMC.obj"
             if self.distance_between_green_lights > self.MTWYLDWC:  # min twy light distance with/when cursor
                 adj = f", distance between taxiway lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
                 self.distance_between_green_lights = self.MTWYLDWC
-            logger.debug(f"using new cursor {cursor}, {adj}")
+            logger.debug(f"using new cursor {cursor}{adj}")
             return Cursor(cursor, route)
         return None
 

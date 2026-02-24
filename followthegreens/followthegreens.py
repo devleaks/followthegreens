@@ -53,7 +53,7 @@ class FollowTheGreens:
         self.ui = None
         self._last_ui_shown = None
         self.flightLoop = None
-        logger.info(f"create new {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
+        logger.info(f"created {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
         logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}\n")
 
     def __del__(self):
@@ -61,7 +61,7 @@ class FollowTheGreens:
         self.inc("delete")
         ret = self.terminate("delete")
         self.status = FTG_STATUS.DELETED
-        logger.info(f"Deleted {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
+        logger.info(f"deleted {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
         logger.info("<=" * 50)
         logger.info("\n\n")
 
@@ -78,7 +78,7 @@ class FollowTheGreens:
         if status != self._status:
             self._status = status
             self.inc(status.value)
-            logger.debug(f"{type(self).__name__} is now {status}")
+            logger.info(f"{type(self).__name__} is now {status}")
 
     def inc(self, name: str, qty: int = 1):
         self.stats[name] = qty if name not in self.stats else self.stats[name] + qty
@@ -106,7 +106,7 @@ class FollowTheGreens:
         self.init_preferences()
         self.ui = UIUtil(self)  # Where windows are built
         self.flightLoop = FlightLoop(self)  # where the magic is done
-        logger.info(f"initialized {type(self).__name__}")
+        # logger.info(f"initialized {type(self).__name__}")
         self.status = FTG_STATUS.INITIALIZED
 
     def init_preferences(self, reloading: bool = False):
@@ -275,15 +275,19 @@ VERSION = "{__VERSION__}"
         # there is no existing window, we create a new session
         if self.session is None:
             self.session = randint(1000, 9999)
-        logger.info("\n\n"+"-=" * 50+"\n"+
-            " ".join(
+        logger.info(
+            "\n\n"
+            + "-=" * 50
+            + "\n"
+            + " ".join(
                 [
                     "When sending session for debugging purpose,",
                     "you can cut the file above the 'starting new green session'",
                     "and after 'green session ended' with matching session identifier",
                     f"(session id = {self.session})",
                 ]
-            ) + "\n"
+            )
+            + "\n"
         )
         logger.info(f"starting new green session at {datetime.now().astimezone().isoformat()} (session id = {self.session})..")
 
@@ -423,7 +427,13 @@ VERSION = "{__VERSION__}"
         viz = self.aircraft.visibility()
         brt = self.aircraft.brightness()
         ahr = self.aircraft.aheadRange()
-        logger.info(f"environmental at {now}: day={day}, visibility={round(viz, 0)}m, brt={brt}, vra={ahr}m")
+        logger.info(f"environment at {now}: day={day}, visibility={round(viz, 0)}m, brt={brt}, vra={ahr}m")
+
+        # sets a reduced distance between lights
+        if self.cursor is None:
+            self.cursor = self.airport.cursor(route=self.route)
+        else:
+            self.cursor.change_route(ftg=self)
 
         onRwy = False
         if self.move == MOVEMENT.ARRIVAL:
@@ -436,12 +446,6 @@ VERSION = "{__VERSION__}"
             logger.debug("no lights")
             return self.ui.sorry("We could not light a route to your destination.")
         self.inc("lights", qty=len(self.lights.lights))
-
-        # After lights set
-        if self.cursor is None:
-            self.cursor = self.airport.cursor(route=self.route)
-        else:
-            self.cursor.change_route(ftg=self)
 
         # Info 13
         self.lights.printSegments()
