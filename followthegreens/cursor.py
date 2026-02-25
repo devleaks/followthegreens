@@ -1,11 +1,11 @@
 import os
 import math
 from datetime import datetime
-from queue import Queue
+from queue import Queue, Empty
 from enum import StrEnum
 
 # https://github.com/MED-1996/kinematics5
-from .oned import eq1, eq2, eq3, eq4
+from .ki import getTime, getDistance, getDistance2, getDistance3
 
 try:
     import xp
@@ -206,119 +206,19 @@ class PartialPath:
         self.accel_end = 0
         self.total_time = -1
 
-        ## CURRENTLY UNUSED
-        #
-        #
-        # if self.v_start > 0 and self.v_end > 0 and abs(self.v_start - self.v_end) < 2:  # approximate constant speed
-        #     avg = (self.v_start + self.v_end) / 2
-        #     self.v_start = avg
-        #     self.v_end = avg
-        #     self.accel_start = 0
-        #     self.accel_end = 0
-        #     logger.debug(f"eq2: displacement={round(self.total_length, 1)}m, initial_velocity={round(self.v_start, 1)}, final_velocity={round(self.v_end, 1)}, time=None")
-        #     r = eq2(displacement=self.total_length, initial_velocity=self.v_start, final_velocity=self.v_end, time=None)  # time=None
-        #     logger.debug(f"eq2: {r}")
-        #     self.total_time = r[3]
-        #     logger.debug(f"almost constant speed ({round(self.v_start, 1)}, {round(self.v_end, 1)}) v={avg}, d={round(self.total_length, 1)}, t={round(self.total_time, 1)}")
+        # self.prepareSpeeds()
 
-        # elif self.v_start > 0 and self.v_end > 0:  # constant acceleration
-        #     logger.debug(f"eq2: displacement={round(self.total_length, 1)}m, initial_velocity={round(self.v_start, 1)}, final_velocity={round(self.v_end, 1)}, time=None")
-        #     r = eq2(displacement=self.total_length, initial_velocity=self.v_start, final_velocity=self.v_end, time=None)
-        #     logger.debug(f"eq2: {r}")
-        #     self.total_time = r[3]
-        #     logger.debug(f"constant acceleration {round(self.v_start, 1)} -> {round(self.v_end, 1)} d={round(self.total_length, 1)}, t={round(self.total_time, 1)}")
-
-        # elif self.v_start == 0 and self.v_end > 0:  # accelerate to v_end, then remain constant
-        #     # 1. accelerate to final speed
-        #     logger.debug(f"eq4: displacement=None, initial_velocity=0.0, final_velocity={round(self.v_end, 1)}, acceleration={CarType.ACCELERATION}m/s^2")
-        #     r = eq4(displacement=None, initial_velocity=0.0, final_velocity=self.v_end, acceleration=CarType.ACCELERATION)
-        #     logger.debug(f"eq4: {r}")
-        #     d = r[0]
-        #     logger.debug(f"eq2: displacement={round(d, 1)}m, initial_velocity=0.0, final_velocity={round(self.v_end, 1)}, time=None")
-        #     r = eq2(displacement=d, initial_velocity=0.0, final_velocity=self.v_end, time=None)
-        #     logger.debug(f"eq2: {r}")
-        #     self.accel_start = r[3]
-        #     # 2. move at constant speed
-        #     d_left = self.total_length - d
-        #     if d_left > 0:
-        #         logger.debug(f"eq2: displacement={round(d_left, 1)}m, initial_velocity={round(self.v_end, 1)}, final_velocity={round(self.v_end, 1)}, time=None")
-        #         r = eq2(displacement=d_left, initial_velocity=self.v_end, final_velocity=self.v_end, time=None)
-        #         logger.debug(f"eq2: {r}")
-        #         self.total_time = r[3] + self.accel_start
-        #         logger.debug(f"acceleration to {round(self.v_end, 1)} ta={round(self.accel_start, 1)} d={round(self.total_length, 1)}, t={round(self.total_time, 1)}")
-        #     else:
-        #         logger.debug(f"distance {round(self.total_length, 1)}m insufficiant to accelerate to {self.v_end} (need {round(d, 1)}m)")
-
-        # elif self.v_start > 0 and self.v_end == 0:  # remain constant as long as possible then decelerate to 0
-        #     # 2. decelerate
-        #     logger.debug(f"eq4: displacement=None, initial_velocity={round(self.v_start, 1)}, final_velocity=0.0, acceleration={-CarType.ACCELERATION}m/s^2")
-        #     r = eq4(displacement=None, initial_velocity=self.v_start, final_velocity=0.0, acceleration=-CarType.ACCELERATION)
-        #     logger.debug(f"eq4: {r}")
-        #     d = r[0]
-        #     logger.debug(f"eq2: displacement={round(d, 1)}m, initial_velocity={round(self.v_start, 1)}, final_velocity=0.0, time=None")
-        #     r = eq2(displacement=d, initial_velocity=self.v_start, final_velocity=0.0, time=None)
-        #     logger.debug(f"eq2: {r}")
-        #     self.accel_end = r[3]
-        #     # 1. move at constant speed
-        #     d_left = self.total_length - d
-        #     if d_left > 0:
-        #         logger.debug(f"eq2: displacement={round(d_left, 1)}m, initial_velocity={round(self.v_start, 1)}, final_velocity={round(self.v_end, 1)}, time=None")
-        #         r = eq2(displacement=d_left, initial_velocity=self.v_start, final_velocity=self.v_start, time=None)
-        #         logger.debug(f"eq2: {r}")
-        #         self.total_time = r[3] + self.accel_end
-        #         logger.debug(f"deceleration from {round(self.v_start, 1)} td={round(self.accel_end, 1)} d={round(self.total_length, 1)}, t={round(self.total_time, 1)}")
-        #     else:
-        #         logger.debug(f"distance {round(self.total_length, 1)}m insufficiant to decelerate from {self.v_start} (need {round(d, 1)}m)")
-
-        # else:  # self.v_start == 0 and self.v_end == 0:  # accelerate to max_speed, remain at max_speed as long as possible then decelerate to 0
-        #     # 1. accelerate to final speed
-        #     logger.debug(f"eq4: displacement=None, initial_velocity=0.0, final_velocity={round(self.speed_max, 1)}, acceleration={CarType.ACCELERATION}m/s^2")
-        #     r = eq4(displacement=None, initial_velocity=0.0, final_velocity=self.speed_max, acceleration=CarType.ACCELERATION)
-        #     logger.debug(f"eq4: {r}")
-        #     d1 = r[0]
-        #     logger.debug(f"eq2: displacement={round(d1, 1)}m, initial_velocity=0.0, final_velocity={round(self.speed_max, 1)}, time=None")
-        #     r = eq2(displacement=d1, initial_velocity=0.0, final_velocity=self.speed_max, time=None)
-        #     logger.debug(f"eq2: {r}")
-        #     self.accel_start = r[3]
-        #     # 3. decelerate
-        #     # logger.debug(f"eq4: displacement=None, initial_velocity={round(self.speed_max, 1)}, final_velocity=0.0, acceleration={-CarType.ACCELERATION}m/s^2")
-        #     # r = eq4(displacement=None, initial_velocity=self.speed_max, final_velocity=0.0, acceleration=-CarType.ACCELERATION)
-        #     # logger.debug(f"eq4: {r}")
-        #     # d2 = r[0]
-        #     # logger.debug(f"eq2: displacement={round(d2, 1)}m, initial_velocity={round(self.speed_max, 1)}, final_velocity=0.0, time=None")
-        #     # r = eq2(displacement=d2, initial_velocity=self.speed_max, final_velocity=0.0, time=None)
-        #     # self.accel_end = r[3]
-        #     # logger.debug(f"eq2: {r}")
-        #     d2 = d1  # symmetric
-        #     self.accel_end = self.accel_start  # symmetric
-        #     # 1. move at constant speed
-        #     d_left = self.total_length - d1 - d2
-        #     if d_left > 0:
-        #         logger.debug(f"eq2: displacement={round(d2, 1)}m, initial_velocity={round(self.speed_max, 1)}, final_velocity={round(self.speed_max, 1)}, time=None")
-        #         r = eq2(displacement=d_left, initial_velocity=self.speed_max, final_velocity=self.speed_max, time=None)
-        #         logger.debug(f"eq2: {r}")
-        #         self.total_time = r[3] + self.accel_start + self.accel_end
-        #         logger.debug(f"acceleration to {round(self.speed_max, 1)} ta={round(self.accel_start, 1)} constant speed={round(self.speed_max, 1)}, dc={round(d_left, 1)}")
-        #         logger.debug(f"deceleration from {round(self.speed_max, 1)} td={round(self.accel_end, 1)} d={round(self.total_length, 1)}, t={round(self.total_time, 1)}")
-        #     else:
-        #         logger.debug(f"distance {round(self.total_length, 1)}m insufficiant to accelerate and decelerate to/from {self.speed_max} (need {round(d1+d2, 1)}m)")
-        #
-        #
-        ## CURRENTLY UNUSED
-
+        # Fallback
         if self.v_start == 0:
             self.v_start = CarType.NORMAL_SPEED
-            logger.debug(f"temporarily set initial speed to {self.v_start}")
+            logger.debug(f"fallback set initial speed to {self.v_start}")
         if self.v_end == 0:
             self.v_end = CarType.NORMAL_SPEED
-            logger.debug(f"temporarily set final speed to {self.v_end}")
+            logger.debug(f"fallback set final speed to {self.v_end}")
 
         if self.total_time == -1:
-            logger.debug(f"eq2: displacement={round(self.total_length, 1)}m, initial_velocity={round(self.v_start, 1)}, final_velocity={round(self.v_end, 1)}, time=None")
-            r = eq2(displacement=self.total_length, initial_velocity=self.v_start, final_velocity=self.v_end, time=None)  # time=None
-            logger.debug(f"eq2: {r}")
-            self.total_time = r[3]
-            logger.debug(f"temporarily set total time to {self.total_time}")
+            self.total_time = getTime(displacement=self.total_length, initial_velocity=self.v_start, final_velocity=self.v_end)
+            logger.debug(f"fallback set total time to {self.total_time}")
 
         self.time_end = self.time_start + self.total_time
         logger.debug(self.desc())
@@ -334,34 +234,108 @@ class PartialPath:
     def desc(self) -> str:
         return f"length={round(self.total_length, 1)}m, time={round(self.total_time, 2)}secs, turn at end={self.turn_end_valid}, before turn={round(self.before_turn, 1)}m"
 
-    def accelerate(self, t):
-        # check if acceleration is necessary, adjust speed, returns current speed
-        avg_accel = 1  # m/s^2
-        return self.speed
+    # def prepareSpeeds(self):
+    #     #
+    #     # CURRENTLY UNUSED
+    #     #
+    #     if self.v_start > 0 and self.v_end > 0 and abs(self.v_start - self.v_end) < 2:  # approximate constant speed
+    #         avg = (self.v_start + self.v_end) / 2
+    #         self.v_start = avg
+    #         self.v_end = avg
+    #         self.accel_start = 0
+    #         self.accel_dist = 0
+    #         self.accel_end = 0
+    #         self.total_time = getTime(displacement=self.total_length, initial_velocity=self.v_start, final_velocity=self.v_end)
+    #         logger.debug(f"almost constant speed ({round(self.v_start, 1)}, {round(self.v_end, 1)}) v={avg}, d={round(self.total_length, 1)}, t={round(self.total_time, 1)}")
+
+    #     elif self.v_start > 0 and self.v_end > 0:  # constant acceleration
+    #         self.total_time = getTime(displacement=self.total_length, initial_velocity=self.v_start, final_velocity=self.v_end)
+    #         logger.debug(f"constant acceleration {round(self.v_start, 1)} -> {round(self.v_end, 1)} d={round(self.total_length, 1)}, t={round(self.total_time, 1)}")
+
+    #     elif self.v_start == 0 and self.v_end > 0:  # accelerate to v_end, then remain constant
+    #         # 1. accelerate to final speed
+    #         self.accel_dist = getDistance(initial_velocity=0.0, final_velocity=self.v_end, acceleration=CarType.ACCELERATION)
+    #         self.accel_start = getTime(displacement=self.accel_dist, initial_velocity=0.0, final_velocity=self.v_end)
+    #         # 2. move at constant speed
+    #         d_left = self.total_length - self.accel_dist
+    #         if d_left > 0:
+    #             logger.debug(f"eq2: displacement={round(d_left, 1)}m, initial_velocity={round(self.v_end, 1)}, final_velocity={round(self.v_end, 1)}, time=None")
+    #             r = eq2(displacement=d_left, initial_velocity=self.v_end, final_velocity=self.v_end, time=None)
+    #             logger.debug(f"eq2: {r}")
+    #             self.total_time = r[3] + self.accel_start
+    #             logger.debug(f"acceleration to {round(self.v_end, 1)} ta={round(self.accel_start, 1)} d={round(self.total_length, 1)}, t={round(self.total_time, 1)}")
+    #         else:
+    #             logger.debug(f"distance {round(self.total_length, 1)}m insufficiant to accelerate to {self.v_end} (need {round(d, 1)}m)")
+
+    #     elif self.v_start > 0 and self.v_end == 0:  # remain constant as long as possible then decelerate to 0
+    #         # 2. decelerate
+    #         d = getDistance(initial_velocity=self.v_start, final_velocity=0.0, acceleration=-CarType.ACCELERATION)
+    #         self.accel_end = getTime(displacement=d, initial_velocity=self.v_start, final_velocity=0.0)
+    #         # 1. move at constant speed
+    #         d_left = self.total_length - d
+    #         if d_left > 0:
+    #             self.total_time = getTime(displacement=d_left, initial_velocity=self.v_start, final_velocity=self.v_start) + self.accel_end
+    #             logger.debug(f"deceleration from {round(self.v_start, 1)} td={round(self.accel_end, 1)} d={round(self.total_length, 1)}, t={round(self.total_time, 1)}")
+    #         else:
+    #             logger.debug(f"distance {round(self.total_length, 1)}m insufficiant to decelerate from {self.v_start} (need {round(d, 1)}m)")
+
+    #     else:  # self.v_start == 0 and self.v_end == 0:  # accelerate to max_speed, remain at max_speed as long as possible then decelerate to 0
+    #         # 1. accelerate to final speed
+    #         d1 = getDistance(initial_velocity=0.0, final_velocity=self.speed_max, acceleration=CarType.ACCELERATION)
+    #         self.accel_start = getTime(displacement=d1, initial_velocity=0.0, final_velocity=self.speed_max)
+    #         # 3. decelerate
+    #         # d2 = getDistance(initial_velocity=self.speed_max, final_velocity=0.0, acceleration=-CarType.ACCELERATION)
+    #         # self.accel_end = getTime(displacement=d2, initial_velocity=self.speed_max, final_velocity=0.0)
+    #         d2 = d1  # symmetric
+    #         self.accel_end = self.accel_start  # symmetric
+    #         # 2. move at constant speed
+    #         d_left = self.total_length - d1 - d2
+    #         if d_left > 0:
+    #             self.total_time = getTime(displacement=d_left, initial_velocity=self.speed_max, final_velocity=self.speed_max) + self.accel_start + self.accel_end
+    #             logger.debug(f"acceleration to {round(self.speed_max, 1)} ta={round(self.accel_start, 1)} constant speed={round(self.speed_max, 1)}, dc={round(d_left, 1)}")
+    #             logger.debug(f"deceleration from {round(self.speed_max, 1)} td={round(self.accel_end, 1)} d={round(self.total_length, 1)}, t={round(self.total_time, 1)}")
+    #         else:
+    #             logger.debug(f"distance {round(self.total_length, 1)}m insufficiant to accelerate and decelerate to/from {self.speed_max} (need {round(d1+d2, 1)}m)")
+
+    # def progressAccel(self, t: float):
+    #     if self.accel_start == 0 and self.accel_end == 0:  # constant speed
+    #         return self.progress(t)
+    #     d = 0
+    #     dt = t - self.time_start
+    #     if dt <= self.accel_start:  # need to accelerate
+    #         d = getDistance3(initial_velocity=self.v_start, acceleration=CarType.ACCELERATION, time=dt)
+    #     elif self.accel_end > 0 and dt >= (self.total_time - self.accel_end):  # need to accelerate/decelerate at end
+    #         d1 = self.v_start * (self.total_time - self.accel_end)
+    #         dt2 = self.total_time - dt
+    #         d2 = getDistance3(initial_velocity=self.v_start, acceleration=-CarType.ACCELERATION, time=dt2)
+    #         d = d1 + d2
+    #     else:  # constant but with speed after accel_start
+    #         if self.accel_start == 0:
+    #             d = self.v_start * dt
+    #         else:
+    #             d1 = getDistance3(initial_velocity=self.v_start, acceleration=CarType.ACCELERATION, time=self.accel_start)
+    #             d2 = self.v_end * (dt - self.accel_start)
+    #             d = d1 + d2
+    #     h = self.segment_bearing  # not correct if turn at the end, will correct later, good for now
+    #     p = destination(self.start, h, d)
+    #     return p, h, False
 
     def progressBearing(self, before_turn, turn_limit: float = STATIC_TURN_LIMIT):
         # only turns towards the end or edge
-        logger.debug(
-            f"{round(self.turn_end.bearing_start, 1)} -> {round(self.turn_end.bearing_end, 1)} ({round(self.turn_end.alpha, 1)}): {round(before_turn, 1)} => {round(self.turn_end.bearing_start + self.turn_end.alpha * before_turn / turn_limit, 1)}"
-        )
+        # logger.debug(
+        #     f"{round(self.turn_end.bearing_start, 1)} -> {round(self.turn_end.bearing_end, 1)} ({round(self.turn_end.alpha, 1)}): {round(before_turn, 1)} => {round(self.turn_end.bearing_start + self.turn_end.alpha * before_turn / turn_limit, 1)}"
+        # )
         return self.turn_end.bearing_start + self.turn_end.alpha * before_turn / turn_limit
-
-    def progressSpeed(self, r):
-        return self.speed
-
-    def prepareSpeed(self):
-        pass
 
     def progress(self, t: float) -> tuple:
         # return position and heading t seconds after started on path
         if not self.turn_end_valid:
             if t > self.time_end:  # this path is finished
-                logger.debug("finished")
+                logger.debug("finished (no turn)")
                 return self.end, self.segment_bearing, True
             dt = t - self.time_start
-            r = eq2(displacement=None, initial_velocity=self.v_start, final_velocity=self.v_end, time=dt)
+            d = getDistance2(initial_velocity=self.v_start, final_velocity=self.v_end, time=dt)
             # logger.debug(f"eq2: {r}")
-            d = r[0]
             h = self.segment_bearing
             p = destination(self.start, h, d)
             if d > self.before_turn and d <= self.total_length:
@@ -370,12 +344,10 @@ class PartialPath:
             return p, h, False
         # has a turn at the end
         if t > self.time_end:  # this path is finished
-            logger.debug("finished2")
+            logger.debug("finished (with turn)")
             return self.end, self.turn_end.bearing_end, True
         dt = t - self.time_start
-        r = eq2(displacement=None, initial_velocity=self.v_start, final_velocity=self.v_end, time=dt)
-        # logger.debug(f"eq2: {r}")
-        d = r[0]
+        d = getDistance2(initial_velocity=self.v_start, final_velocity=self.v_end, time=dt)
         if d < self.before_turn:
             h = self.segment_bearing
             p = destination(self.start, h, d)
@@ -401,14 +373,16 @@ class Cursor:
 
         self.route = route
         self._future = Queue()
+        self.last_future_speed = 0
+
         self.curr_index = 0
         self.curr_dist = 0
 
         self.last_time = 0
-        self.last_future_speed = 0
         self.curr_pos = None
         self.curr_hdg = 0
         self.curr_speed = 0
+        self.curr_last_speed = 0
         self.curr_time = ts()
         self.curr_text = ""
         self.curr_turn = None
@@ -416,6 +390,7 @@ class Cursor:
         self.target_pos = None
         self.target_hdg = 0
         self.target_speed = 0
+        self.target_last_speed = 0
         self.target_time = 0
         self.target_text = ""
         self.target_turn = None
@@ -517,8 +492,8 @@ class Cursor:
         # They won't be any valid route anymore.
         # We have to stop the future
         logger.debug("cursor reseting route")
-        with self._future.mutex:
-            self._future.clear()
+        self._future.clear()
+        logger.debug("reset")
 
     def startFlightLoop(self):
         if self.flightLoop is None and self.cursor is not None and self.usable:
@@ -555,12 +530,16 @@ class Cursor:
         if self.status == CURSOR_STATUS.FINISHED:
             logger.debug("cursor finished, does not accept future position")
             return
-        self._future.put((position.lat, position.lon, hdg, speed, t, text))
-        self._qin += 1
+        self._future.put((position.lat, position.lon, hdg, speed, t, self.last_future_speed, text))  # args for _set_target()
         self.last_future_speed = speed
+        self._qin += 1
         logger.debug(f"added future ({self._qin}, q={self._future.qsize()}): {text} (h={round(hdg, 0)}D, s={round(speed, 1)}m/s, t={t})")
         if tick:
             ignore = self._tick()
+
+    def set_current_index(self, edge: int, dist: float):
+        self.curr_index = edge
+        self.curr_dist = dist
 
     def future_index(self, edge: int, dist: float, speed: float, t: float):
         # Creates future() to destination which is a distance from start of edge.
@@ -586,7 +565,7 @@ class Cursor:
 
         vertices = self.route.vertices
 
-        local_speed = self.last_future_speed
+        local_speed = self.curr_last_speed
         if local_speed == 0:
             if speed > 0:
                 local_speed = speed
@@ -659,21 +638,25 @@ class Cursor:
                 self.status = CURSOR_STATUS.FINISHED
                 logger.debug("cursor finished")
             return False
-        self._qout += 1
-        f = self._future.get()
-        logger.debug(f"tick future ({self._qout}, q={self._future.qsize()}) at {round(self.curr_time, 3)}: {f[-1]} (h={f[-4]}, s={f[-3]}, t={f[-2]})")
-        self._set_target(*f)
-        self._mkPathToTarget()
-        if self.status == CURSOR_STATUS.READY:
-            self.status = CURSOR_STATUS.ACTIVE
-        return True
+        try:
+            f = self._future.get(block=False)  # (lat: float, lon: float, hdg: float, speed: float, t: float, last_speed: float, text: str)
+            self._qout += 1
+            logger.debug(f"tick future ({self._qout}, q={self._future.qsize()}) at {round(self.curr_time, 3)}: {f[-1]} (h={f[-4]}, s={f[-4]}, (ls={f[-2]}) t={f[-3]})")
+            self._set_target(*f)
+            self._mkPathToTarget()
+            if self.status == CURSOR_STATUS.READY:
+                self.status = CURSOR_STATUS.ACTIVE
+            return True
+        except Empty:
+            return False
 
-    def _set_target(self, lat: float, lon: float, hdg: float, speed: float, t: float, text: str):
+    def _set_target(self, lat: float, lon: float, hdg: float, speed: float, t: float, last_speed: float, text: str):
         logger.debug(f"last time {round(self.last_time, 2)} ->  {round(self.curr_time, 2)} ({round(self.curr_time-self.last_time, 3)}s)")
         self.last_time = self.curr_time
         self.target_pos = Point(lat=lat, lon=lon)
         self.target_hdg = hdg
-        self.target_speed = speed if speed is not None else self.curr_speed
+        self.target_speed = speed
+        self.target_last_speed = last_speed
         self.target_time = t
         self.target_text = text
         logger.log(8, f"target time is {round(self.target_time, 2)} ({round(self.target_time-self.last_time, 2)} ahead)")
@@ -748,6 +731,7 @@ class Cursor:
         if self.curr_time > self.target_time:  # might turn bruptly to catch up
             self.curr_hdg = self.target_hdg
             self.curr_speed = self.target_speed
+            self.curr_last_speed = self.target_last_speed
             if not self._tick():
                 self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=self.curr_hdg, elev=0.25)
                 return

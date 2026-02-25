@@ -199,6 +199,7 @@ class Airport:
         self.scenery_pack = False
         self.lines = []
         self.graph = Graph(name="taxiways")
+        self.roads = Graph(name="service roads")
         self.runways = {}
         self.holds = {}
         self.ramps = {}
@@ -219,6 +220,8 @@ class Airport:
         self.lights_ahead_pref = False
         self.rabbit_length_pref = False
         self.rabbit_speed_pref = False
+        self.distance_between_green_lights_pref = False
+        self.distance_between_taxiway_lights_pref = False
         self.lights_ahead = get_global(RABBIT.LIGHTS_AHEAD.value, self.prefs)
         self.rabbit_length = get_global(RABBIT.LENGTH.value, self.prefs)
         self.rabbit_speed = get_global(RABBIT.SPEED.value, self.prefs)
@@ -277,8 +280,10 @@ class Airport:
             if prefs is not None:
                 if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in prefs:
                     self.distance_between_green_lights = prefs[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
+                    self.distance_between_green_lights_pref = True
                 if AIRPORT.DISTANCE_BETWEEN_LIGHTS.value in prefs:
                     self.distance_between_taxiway_lights = prefs[AIRPORT.DISTANCE_BETWEEN_LIGHTS.value]
+                    self.distance_between_taxiway_lights_pref = True
                 if RABBIT.LIGHTS_AHEAD.value in prefs:
                     self.lights_ahead = prefs[RABBIT.LIGHTS_AHEAD.value]
                     self.lights_ahead_pref = True
@@ -295,7 +300,7 @@ class Airport:
             if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in apt:
                 self.distance_between_green_lights = apt[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
 
-    def cursor_dev(self, route) -> Cursor | None:
+    def cursor(self, route) -> Cursor | None:
         cursor = get_global("CURSOR", self.prefs)
         logger.debug(f"cursor {cursor}")
         if type(cursor) is str and len(cursor) > 1:  #  and self.lights_ahead == HARDCODED_MAX_DISTANCE and self.rabbit_length == 0:
@@ -303,12 +308,13 @@ class Airport:
             if self.distance_between_green_lights > self.MTWYLDWC:
                 adj = f", distance between taxiway lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
                 self.distance_between_green_lights = self.MTWYLDWC
-            logger.debug(f"using new cursor{adj}")
+                self.distance_between_green_lights_pref = True
+            logger.debug(f"using cursor DEVELOPER MODE{adj}")
             return Cursor(cursor, route)
         logger.debug("no cursor")
         return None
 
-    def cursor(self, route) -> Cursor | None:
+    def cursor_prod(self, route) -> Cursor | None:
         # cursor should be created before lights are placed
         if self.lights_ahead == HARDCODED_MAX_DISTANCE and self.rabbit_length == 0:
             cursor = get_global("CURSOR", self.prefs)
@@ -318,7 +324,8 @@ class Airport:
             if self.distance_between_green_lights > self.MTWYLDWC:  # min twy light distance with/when cursor
                 adj = f", distance between taxiway lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
                 self.distance_between_green_lights = self.MTWYLDWC
-            logger.debug(f"using new cursor {cursor}{adj}")
+                self.distance_between_green_lights_pref = True
+            logger.debug(f"using cursor {cursor}{adj}")
             return Cursor(cursor, route)
         return None
 
@@ -451,18 +458,34 @@ class Airport:
     # Collect 1201 and (102,1204) line codes and create routing network (graph) of taxiways
     def mkRoutingNetwork(self):
         # 1201  25.29549372  051.60759816 both 16 unnamed entity(split)
-        def addVertex(aptline):
+        def addVertex(aptline):  # same for both taxiways and service roads
             args = aptline.content().split()
             return self.graph.add_vertex(args[3], Point(args[0], args[1]), args[2], " ".join(args[3:]))
+
+        def addRoads(aptline):  # same for both taxiways and service roads
+            args = aptline.content().split()
+            return self.roads.add_vertex(node=args[3], point=Point(args[0], args[1]), usage=args[2], name=" ".join(args[3:]))
 
         vertexlines = list(filter(lambda x: x.linecode() == 1201, self.lines))
         v = list(map(addVertex, vertexlines))
         logger.debug(f"added {len(v)} vertices")
 
+        vr = list(map(addRoads, vertexlines))
+        logger.debug(f"added {len(vr)} service road vertices")
+
+        truckparkings = list(filter(lambda x: x.linecode() == 1400, self.lines))
+        vp = list(map(addRoads, truckparkings))
+        logger.debug(f"added {len(vp)} truck parkings")
+
+        truckdestinations = list(filter(lambda x: x.linecode() == 1401, self.lines))
+        vd = list(map(addRoads, truckdestinations))
+        logger.debug(f"added {len(vd)} truck destinations")
+
         # 1202 20 21 twoway runway 16L/34R
         # 1204 departure 16L,34R
         # 1204 arrival 16L,34R
         # 1204 ils 16L,34R
+        # 1206 20 21 twoway
         edgeCount = 0  # just for info
         edgeActiveCount = 0
         edge = None
@@ -489,6 +512,18 @@ class Airport:
                     edgeActiveCount += 1
                 else:
                     logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}")
+            elif aptline.linecode() == 1206:  # edge
+                args = aptline.content().split()
+                if len(args) == 3:
+                    src = self.roads.get_vertex(args[0])
+                    dst = self.roads.get_vertex(args[1])
+                    cost = distance(src, dst)
+                    # src, dst, cost, direction, usage, name
+                    edge = Edge(src=src, dst=dst, cost=cost, direction=args[2], usage="road", name="")
+                    self.roads.add_edge(edge)
+                    edgeCount += 1
+                else:
+                    logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}")
             else:
                 edge = None
 
@@ -496,6 +531,7 @@ class Airport:
         self.stats()
         logger.info(f"added {len(vertexlines)} nodes, {edgeCount} edges ({edgeActiveCount} enhanced)")
         self.graph.stats()
+        self.roads.stats()
         return True
 
     def ldRunways(self):
@@ -705,7 +741,9 @@ class Airport:
         route = Route.Find(self.graph, aircraft, arrival_runway, dst_pos, dst_type, move, use_strict_mode, self.use_threshold)
 
         if route.found():
-            route.runway = arrival_runway
+            route.arrival_runway = arrival_runway
+            if dst_pos is not None and dst_pos == "runway":
+                route.departure_runway = dst_pos
             logger.debug(f"route {route.text(destination=destination)}")
 
             route.mkVertices()  # load vertex meta for route
@@ -804,7 +842,8 @@ class Route:
         self.tleft = []
         self.smoothed = None
         self.algorithm = ROUTING_ALGORITHM  # default, unused
-        self.runway = None
+        self.departure_runway = None
+        self.arrival_runway = None
         self.precise_start = None
         self.precise_end = None
 

@@ -377,54 +377,106 @@ class LightString:
         self.taxiway_alt = 0
         self.use_wigwag = get_global("ADD_WIGWAG", preferences=self.prefs)
 
-        # Preferences are first set from Airport preferences, which are global or airport specific
-        self.distance_between_lights = airport.distance_between_green_lights  # float(get_global("DISTANCE_BETWEEN_GREEN_LIGHTS", preferences=self.prefs))
-        if self.distance_between_lights == 0:
-            self.distance_between_lights = 10
-        self.distance_between_taxiway_lights = airport.distance_between_taxiway_lights
-        if self.distance_between_lights == 0:
-            self.distance_between_lights = 100
-        self.lead_off_lights = int(float(get_global("LEAD_OFF_RUNWAY_DISTANCE", preferences=self.prefs)) / self.distance_between_lights)
-        self.rwy_twy_lights = self.lead_off_lights  # initial value
+        # PREFERENCES
+        #
+        # manages hierarchy aircraft -> airport -> global (-> default)
+        # distance_between_green_lights
+        #
+        # starts with global default value
+        self.distance_between_green_lights = get_global("DISTANCE_BETWEEN_GREEN_LIGHTS", self.prefs)  # this never changes
+        self.distance_between_green_lights_from = "global"
+        # has it been set at airport level?
+        if airport.hasPreferences():
+            if airport.distance_between_green_lights_pref:
+                self.distance_between_green_lights = airport.distance_between_green_lights
+                self.distance_between_green_lights_from = "airport"
+        logger.debug(f"distance_between_green_lights {self.distance_between_green_lights}m (from {self.distance_between_green_lights_from})")
+
+        # distance_between_taxiway_lights / DISTANCE_BETWEEN_LIGHTS
+        #
+        # starts with global default value
+        self.distance_between_taxiway_lights = get_global("DISTANCE_BETWEEN_LIGHTS", self.prefs)  # this never changes
+        self.distance_between_taxiway_lights_from = "global"
+        # has it been set at airport level?
+        if airport.hasPreferences():
+            if airport.distance_between_taxiway_lights_pref:
+                self.distance_between_taxiway_lights = airport.distance_between_taxiway_lights
+                self.distance_between_taxiway_lights_from = "airport"
+        logger.debug(f"distance_between_taxiway_lights {self.distance_between_taxiway_lights}m (from {self.distance_between_taxiway_lights_from})")
 
         # Options
+        self.lead_off_lights = int(float(get_global("LEAD_OFF_RUNWAY_DISTANCE", preferences=self.prefs)) / self.distance_between_green_lights)
+        self.rwy_twy_lights = self.lead_off_lights  # initial valu
         self.add_light_at_vertex = get_global("ADD_LIGHT_AT_VERTEX", preferences=self.prefs)
         self.add_light_at_last_vertex = get_global("ADD_LIGHT_AT_LAST_VERTEX", preferences=self.prefs)
         self.distance_between_stoplights = get_global("DISTANCE_BETWEEN_STOPLIGHTS", preferences=self.prefs)
         self.min_segments_before_hold = get_global("MIN_SEGMENTS_BEFORE_HOLD", preferences=self.prefs)
 
-        self.rabbit_mode = RABBIT_MODE.MED  # default mode on start
-
-        # @todo: Check that preference has beed set at global / airport level.
-        #        If set a global / airport level, aircraft preference may only "REFINE" preferences but not CONTREDICT them.
-        #        Example: At airport level: rabbit_speed = 0 (= no rabbit). Aircraft may not decide to use a particular rabbit speed.
-        #        But if airport level rabbit_speed = 0.2, aircraft may refine rabbit_speed = 0.3 for it own use.
-        # following two will get adjusted for aircraft
-        # if can_be_refined("RABBIT_SPEED", "LIGHTS_AHEAD"...): ...
-        self.lights_ahead = get_global("LIGHTS_AHEAD", self.prefs)
-        if "LIGHTS_AHEAD" not in self.prefs:  # if not explicitely defined for entire application
-            self.lights_ahead = int(aircraft.lights_ahead / self.distance_between_lights)  # this never changes
-            if self.lights_ahead == 0 and aircraft.lights_ahead > 0:
-                self.lights_ahead = 1
-            logger.debug(f"lights_ahead defined from aircraft preferences {self.lights_ahead}")
-        self.num_lights_ahead = self.lights_ahead  # this adjusts with acf speed
-
-        self.rabbit_length = get_global("RABBIT_LENGTH", self.prefs)
-        if "RABBIT_LENGTH" not in self.prefs:  # if not explicitely defined for entire application
-            self.rabbit_length = int(aircraft.rabbit_length / self.distance_between_lights)  # this never changes
-            if self.rabbit_length == 0 and aircraft.rabbit_length > 0:
-                self.rabbit_length = 1
-            logger.debug(f"rabbit_length defined from aircraft preferences {self.rabbit_length}")
+        # rabbit_length
+        #
+        # starts with global default value
+        self.rabbit_length = get_global("RABBIT_LENGTH", self.prefs)  # this never changes
+        self.rabbit_length_from = "global"
+        # has it been set at airport level?
+        if airport.hasPreferences():
+            if airport.rabbit_length_pref:
+                self.rabbit_length = airport.rabbit_length
+                self.rabbit_length_from = "airport"
+        # has it been set at aircraft level?
+        if aircraft.hasPreferences():
+            if aircraft.rabbit_length_pref:
+                self.rabbit_length = int(aircraft.rabbit_length / self.distance_between_green_lights)
+                logger.debug(f"rabbit_length physical units: {aircraft.rabbit_length}m")
+                if self.rabbit_length == 0 and aircraft.rabbit_length > 0:
+                    logger.debug("rabbit_length set to at least 10 lights")
+                    self.rabbit_length = 10
+                self.rabbit_length_from = "aircraft"
+        logger.debug(f"rabbit_length {self.rabbit_length} (from {self.rabbit_length_from})")
         self.num_rabbit_lights = self.rabbit_length  # can be 0, this adjusts with acf speed
         if self.num_rabbit_lights > 0:
             self.num_rabbit_lights = max(HARDCODED_MIN_RABBIT_LENGTH, self.num_rabbit_lights)
 
+        # rabbit_speed
+        #
+        # starts with global default value
         self.rabbit_speed = get_global("RABBIT_SPEED", self.prefs)  # this never changes
-        logger.debug(f"rabbit_speed global preferences {self.rabbit_speed}")
-        if "RABBIT_SPEED" not in self.prefs and self.rabbit_speed != 0.0 and aircraft.rabbit_speed != 0:  # if not explicitely defined for entire application
-            self.rabbit_speed = airport.rabbit_speed  # this never changes
-            logger.debug(f"rabbit_speed defined from aircraft preferences {self.rabbit_speed}")
+        self.rabbit_speed_from = "global"
+        # has it been set at airport level?
+        if airport.hasPreferences():
+            if airport.rabbit_speed_pref:
+                self.rabbit_speed = airport.rabbit_speed
+                self.rabbit_speed_from = "airport"
+        # has it been set at aircraft level?
+        if aircraft.hasPreferences():
+            if aircraft.rabbit_speed_pref:
+                self.rabbit_speed = aircraft.rabbit_speed
+                self.rabbit_speed_from = "aircraft"
+        logger.debug(f"rabbit_speed {self.rabbit_speed} (from {self.rabbit_speed_from})")
         self.rabbit_duration = self.rabbit_speed  # this adjusts with acf speed
+
+        self.rabbit_mode = RABBIT_MODE.MED  # default mode on start
+
+        # lights_ahead
+        #
+        # starts with global default value
+        self.lights_ahead = get_global("LIGHTS_AHEAD", self.prefs)  # this never changes
+        self.lights_ahead_from = "global"
+        # has it been set at airport level?
+        if airport.hasPreferences():
+            if airport.lights_ahead_pref:
+                self.lights_ahead = airport.lights_ahead
+                self.lights_ahead_from = "airport"
+        # has it been set at aircraft level?
+        if aircraft.hasPreferences():
+            if aircraft.lights_ahead_pref:
+                self.lights_ahead = int(aircraft.lights_ahead / self.distance_between_green_lights)
+                logger.debug(f"lights_ahead physical units: {aircraft.lights_ahead}m")
+                if self.lights_ahead == 0 and aircraft.lights_ahead > 0:
+                    logger.debug("lights_ahead set to at least 10 lights")
+                    self.lights_ahead = 10
+                self.lights_ahead_from = "aircraft"
+        logger.debug(f"lights_ahead {self.lights_ahead} (from {self.lights_ahead_from})")
+        self.num_lights_ahead = self.lights_ahead  # this adjusts with acf speed
 
         # when reset
         self.new_num_rabbit_lights = self.num_rabbit_lights
@@ -433,9 +485,7 @@ class LightString:
 
         # control logged info
         self._info_sent = False
-
-        logger.debug(f"physical units: rabbit {aircraft.rabbit_length}m, {abs(round(self.rabbit_duration, 2))} secs., ahead {aircraft.lights_ahead}m")
-        logger.info(f"rabbit: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}, greens={self.distance_between_lights}m")
+        logger.info(f"rabbit: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}, greens={self.distance_between_green_lights}m")
 
     @property
     def hasLight(self) -> bool:
@@ -531,7 +581,7 @@ class LightString:
 
         lastLight = currPoint
         # logger.debug("placed first light")
-        distanceBeforeNextLight = self.distance_between_lights
+        distanceBeforeNextLight = self.distance_between_green_lights
 
         # BEGIN OF ROUTE
         for i in range(1, len(route.route)):
@@ -635,7 +685,7 @@ class LightString:
                     thisLights.append(Light(self.nextTaxiwayLight(nextLightPos, thisEdge), nextLightPos, brgn, i - 1, distFromEdgeStart, distToNextVertex))
                     lastLight = nextLightPos
                     currPoint = nextLightPos
-                    distanceBeforeNextLight = self.distance_between_lights
+                    distanceBeforeNextLight = self.distance_between_green_lights
                     # logger.debug("added light %f, %f", distanceBeforeNextLight, distToNextVertex)
 
                 distanceBeforeNextLight = distanceBeforeNextLight - distToNextVertex
@@ -682,7 +732,7 @@ class LightString:
             segs.append(f"#{i}:{last}-{len(self.lights) - 1}")
             logger.debug("segments: " + ", ".join(segs))
 
-        logger.debug(f"distance between taxiway center lights: {self.distance_between_lights} m")
+        logger.debug(f"distance between taxiway center lights: {self.distance_between_green_lights} m")
         logger.debug(f"lights ahead: {self.num_lights_ahead},  {self.aircraft.lights_ahead} m")
         logger.debug(f"rabbit: length: {self.num_rabbit_lights} lights, {self.aircraft.rabbit_length} m")
         logger.debug(f"runway lead-off lights: {self.lead_off_lights} lights, {float(get_global('LEAD_OFF_RUNWAY_DISTANCE', preferences=self.prefs))} m")
@@ -847,10 +897,10 @@ class LightString:
         # to lead it off runway. (This is not for "all" lead-off lights and all runways.)
         #
         # logger.debug(f"nextTaxiwayLightEdge: {edge.start.id}-{edge.end.id}, active={edge.has_active()}, {edge.mkActives()}, {edge.has_active()}, {len(edge.active)}")
-        if self.route.runway is not None:  # on runway may need lead-off ligths
+        if self.route.arrival_runway is not None:  # on runway may need lead-off ligths
             self.taxiway_alt = self.taxiway_alt + 1  # alternate
             if self.rwy_twy_lights == self.lead_off_lights:  # always on runway
-                if pointInPolygon(position, self.route.runway.polygon):
+                if pointInPolygon(position, self.route.arrival_runway.polygon):
                     logger.debug(f"on runway, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
                     return LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT
             # no longer on runway, keep alterning for a few lights
@@ -919,7 +969,7 @@ class LightString:
         point = Point(position[0], position[1])
         d = distance(point, light.position)
         c, d2 = self.closest(position)
-        d3 = abs(c - ns) * self.distance_between_lights
+        d3 = abs(c - ns) * self.distance_between_green_lights
         # logger.debug(f"control: closest={c} (at {round(d2, 1)}m), next stop={ns}, d calc={round(d3, 1)}m, d mesure={round(d, 1)}m")
         return [ns, d]
 
@@ -939,8 +989,8 @@ class LightString:
         logger.debug("turned on lights %d -> %d.", self.lastLit, last)
 
     def lightAhead(self, index_from: int, ahead: float) -> tuple:
-        move = int(ahead / self.distance_between_lights)
-        left = ahead - move * self.distance_between_lights
+        move = int(ahead / self.distance_between_green_lights)
+        left = ahead - move * self.distance_between_green_lights
         idx = min(index_from + move, len(self.lights) - 1)
         return self.lights[idx], idx, left
 

@@ -17,27 +17,27 @@ def f(a: float | None) -> float | str:
 def leq1(
     initial_velocity: Optional[int | float] = None, final_velocity: Optional[int | float] = None, acceleration: Optional[int | float] = None, time: Optional[int | float] = None
 ) -> tuple | bool:
-    logger.debug(f"eq1: initial_velocity={f(initial_velocity)}m, final_velocity={f(final_velocity)}, acceleration={f(acceleration)}, time={f(time)}")
+    # logger.debug(f"eq1: initial_velocity={f(initial_velocity)}m, final_velocity={f(final_velocity)}, acceleration={f(acceleration)}, time={f(time)}")
     r = eq1(initial_velocity=initial_velocity, final_velocity=final_velocity, acceleration=acceleration, time=time)
-    logger.debug(f"eq1: {r}")
+    # logger.debug(f"eq1: {r}")
     return r
 
 
 def leq2(
     displacement: Optional[int | float] = None, initial_velocity: Optional[int | float] = None, final_velocity: Optional[int | float] = None, time: Optional[int | float] = None
 ) -> tuple | bool:
-    logger.debug(f"eq2: displacement={f(displacement)}m, initial_velocity={f(initial_velocity)}, final_velocity={f(final_velocity)}, time={f(time)}")
+    # logger.debug(f"eq2: displacement={f(displacement)}m, initial_velocity={f(initial_velocity)}, final_velocity={f(final_velocity)}, time={f(time)}")
     r = eq2(displacement=displacement, initial_velocity=initial_velocity, final_velocity=final_velocity, time=time)
-    logger.debug(f"eq2: {r}")
+    # logger.debug(f"eq2: {r}")
     return r
 
 
 def leq3(
     displacement: Optional[int | float] = None, initial_velocity: Optional[int | float] = None, acceleration: Optional[int | float] = None, time: Optional[int | float] = None
 ) -> tuple | bool:
-    logger.debug(f"eq3: displacement={f(displacement)}m, initial_velocity={f(initial_velocity)}, acceleration={f(acceleration)}, time={f(time)}")
+    # logger.debug(f"eq3: displacement={f(displacement)}m, initial_velocity={f(initial_velocity)}, acceleration={f(acceleration)}, time={f(time)}")
     r = eq3(displacement=displacement, initial_velocity=initial_velocity, acceleration=acceleration, time=time)
-    logger.debug(f"eq3: {r}")
+    # logger.debug(f"eq3: {r}")
     return r
 
 
@@ -47,9 +47,9 @@ def leq4(
     final_velocity: Optional[int | float] = None,
     acceleration: Optional[int | float] = None,
 ) -> tuple | bool:
-    logger.debug(f"eq4: displacement={f(displacement)}m, initial_velocity={f(initial_velocity)}, final_velocity={f(final_velocity)}, acceleration={f(acceleration)}")
+    # logger.debug(f"eq4: displacement={f(displacement)}m, initial_velocity={f(initial_velocity)}, final_velocity={f(final_velocity)}, acceleration={f(acceleration)}")
     r = eq4(displacement=displacement, initial_velocity=initial_velocity, final_velocity=final_velocity, acceleration=acceleration)
-    logger.debug(f"eq4: {r}")
+    # logger.debug(f"eq4: {r}")
     return r
 
 
@@ -60,4 +60,14 @@ def getTime(displacement: float, initial_velocity: float, final_velocity: float)
 
 def getDistance(initial_velocity: float, final_velocity: float, acceleration: float) -> float:
     r = leq4(displacement=None, initial_velocity=initial_velocity, final_velocity=final_velocity, acceleration=acceleration)
+    return r[0]
+
+
+def getDistance2(initial_velocity: float, final_velocity: float, time: float) -> float:
+    r = leq2(displacement=None, initial_velocity=initial_velocity, final_velocity=final_velocity, time=time)
+    return r[0]
+
+
+def getDistance3(initial_velocity: float, acceleration: float, time: float) -> float:
+    r = leq3(displacement=None, initial_velocity=initial_velocity, acceleration=acceleration, time=time)
     return r[0]
