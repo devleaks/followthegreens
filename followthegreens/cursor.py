@@ -5,10 +5,7 @@ from datetime import datetime
 from queue import Queue, Empty
 from enum import StrEnum
 
-from followthegreens.graph import Edge
-
-# https://github.com/MED-1996/kinematics5
-from .ki import getTime, getDistance, getDistance2, getDistance3
+from .ki import getTime, getDistance2
 
 try:
     import xp
@@ -16,7 +13,7 @@ except ImportError:
     print("X-Plane not loaded")
 
 from .globals import logger
-from .geo import Point, Line, distance, turn, destination
+from .geo import Point, Line, turn, destination
 from .lightstring import XPObject
 
 

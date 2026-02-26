@@ -1239,7 +1239,7 @@ class Route:
 
         return self._find(src[0], dst[0])
 
-    def mkSmoothRoute(self) -> list:
+    def mkSmoothRoute(self):
         TURN_LENGTH = 10
         vtx = self.vertices
         route = []
@@ -1259,21 +1259,23 @@ class Route:
         # Add props: distance from start, heading
         dist = 0
         d = 0
-        for i in range(len(route) - 1):
+        b = 0
+        for i in range(len(route) - 1):  # [0] to [-2]
             d = distance(route[i], route[i + 1])
             b = bearing(route[i], route[i + 1])
-            route[i].setProp("srDistance", d)
-            route[i].setProp("srTotal", dist)
-            route[i].setProp("srBearing", b)
+            route[i].setProp("srDistance", d)  # length to next vertex
+            route[i].setProp("srTotal", dist)  # total distance since start
+            route[i].setProp("srBearing", b)  # bearing to next vertex
             dist += d
-        route[-1].setProp("srDistance", 0)
-        route[-1].setProp("srTotal", dist)
-        route[-1].setProp("srBearing", b)
-        fn = os.path.join(os.path.dirname(__file__), "..", "ftg_smooth_route.geojson")  # _{route.route[0]}-{route.route[-1]}
-        fc = FeatureCollection(features=[r.feature() for r in route])
-        fc.save(fn)
+        route[-1].setProp("srDistance", 0)  # [-1]
+        route[-1].setProp("srTotal", dist)  # total length or route
+        route[-1].setProp("srBearing", b)  # repeat last
         self.smoothRoute = route
-        return route
+        logger.debug(f"smooth route is {round(d, 1)}m, has {len(self.smoothRoute)} points")
+        if logger.level < 10:
+            fn = os.path.join(os.path.dirname(__file__), "..", "ftg_smooth_route.geojson")  # _{route.route[0]}-{route.route[-1]}
+            fc = FeatureCollection(features=[r.feature() for r in route])
+            fc.save(fn)
 
     def closest(self, point: Point, cache: bool = True) -> tuple:
         closest = None
@@ -1288,14 +1290,14 @@ class Route:
             self.idxcache = i
         return [None if closest is None else self.smoothRoute[closest], shortest]
 
-    def ahead(self, i: int, dist: float):
-        j = i
-        d = dist
-        while d > 0 and j < len(self.smoothRoute):
-            d -= self.smoothRoute[j].getProp("srDistance")
-            j += 1
-        j = j - 1
-        d += self.smoothRoute[j].getProp("srDistance")
-        b = self.smoothRoute.getProp("srBearing")
-        pt = destination(self.smoothRoute[j], b, d)
-        return pt, b
+    def ahead(self, i: int, dist: float, start: float = 0):
+        # move dist after start after self.smoothRoute[i]
+        if i == len(self.smoothRoute) - 1:  # end of recursion
+            b = self.smoothRoute[-1].getProp("srBearing")
+            return self.smoothRoute[-1], b, i, 0
+        d = self.smoothRoute[i].getProp("srDistance")
+        if start + dist < d:  # there is enough room on the current edge
+            b = self.smoothRoute.getProp("srBearing")
+            pt = destination(self.smoothRoute[i], b, start + dist)
+            return pt, b, i, (start + dist)
+        return self.ahead(i + 1, start + dist - d)
