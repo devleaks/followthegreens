@@ -626,7 +626,7 @@ class FlightLoop:
                 logger.debug("moving..")
                 try:
                     dist_check = distance(Point(lat=pos[0], lon=pos[1]), fmcar.curr_pos)
-                    logger.debug(f"check d={round(dist_check, 1)}m, acf_speed={round(acf_speed, 1)}m/s, fmc_speed={round(fmcar., 1)}m/s")
+                    logger.debug(f"check d={round(dist_check, 1)}m, acf_speed={round(acf_speed, 1)}m/s, fmc_speed={round(fmcar.curr_speed, 1)}m/s")
                     light = self.ftg.lights.lights[closestLight]
                     ahead = self.ftg.aircraft.adjustAhead()
                     total_ahead = acf_move + ahead

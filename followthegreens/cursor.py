@@ -103,6 +103,7 @@ class Turn:
         self.direction = 1 if self.alpha > 0 else -1
         self.center = None
         self.points = []
+        self.edges = []
         self._err = ""
 
         self.tangent_length = 0
@@ -140,8 +141,12 @@ class Turn:
         self.length = 2 * math.pi * radius * (abs(self.alpha) / 360)  # turn length
 
         step = self.alpha / segments
+        last = None
         for i in range(segments + 1):
             pt = destination(self.center, l_in - (self.direction * 90) + i * step, radius)
+            if last is not None:
+                self.edges.append(Line(last, pt))
+                last = pt
             self.points.append((pt, l_in + i * step))
 
         logger.debug(
@@ -175,6 +180,28 @@ class Turn:
         idx = min(round(portion * len(self.points)), len(self.points) - 1)  # not int==math.floor
         # logger.debug(f"turn {round(dist, 1)}m -> index={idx}/{len(self.points)-1}")
         return self.points[idx][0], self.points[idx][1], False
+
+    def progressiveTurn(self, length: float, segments: int = NUM_SEGMENTS, min_turn: float = 3.0) -> list:
+        if abs(self.alpha) < min_turn:
+            return []
+        numsegs = int(NUM_SEGMENTS / 2)
+        part = length / numsegs
+        parta = self.alpha / numsegs
+        points = []
+        for i in range(numsegs):
+            d = length - i * part
+            pt = destination(self.vertex, self.bearing_start + 180, d)
+            b = self.bearing_start + i * parta
+            points.append((pt, b))
+        mid = self.bearing_start + self.alpha / 2
+        for i in range(numsegs):
+            d = i * part
+            pt = destination(self.vertex, self.bearing_end, d)
+            b = mid + i * parta
+            points.append((pt, b))
+        pt = destination(self.vertex, self.bearing_end, length)
+        points.append((pt, self.bearing_end))
+        return points
 
 
 STATIC_TURN_LIMIT = 10.0  # m
@@ -673,7 +700,12 @@ class Cursor:
             hdg = self.route.edges_orient[min(self.target_index + 1, len(self.route.edges) - 1)]
             # s = speed if self.target_index == last_edge else local_speed  # carry on as last speed
             self.future(
-                position=vertices[self.target_index + 1], hdg=hdg, speed=local_speed, t=start_time, edge=self.target_index, text=f"{round(e.cost, 1)}m to end of edge {self.target_index}"
+                position=vertices[self.target_index + 1],
+                hdg=hdg,
+                speed=local_speed,
+                t=start_time,
+                edge=self.target_index,
+                text=f"{round(e.cost, 1)}m to end of edge {self.target_index}",
             )
             logger.log(8, f"progress on edge {self.target_index} (whole length {round(e.cost, 1)}m, in {round(tt, 1)}s)")
             self.target_index = self.target_index + 1

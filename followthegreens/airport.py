@@ -4,6 +4,7 @@
 import os
 import re
 import math
+from sre_compile import dis
 from typing import Tuple
 
 try:
@@ -25,9 +26,9 @@ from .globals import (
     ROUTING_ALGORITHM,
     ROUTING_ALGORITHMS,
 )
-from .geo import FeatureCollection, Point, Line, Polygon, destination, distance, bearing, turn, pointInPolygon, nearestPointToLines
+from .geo import FeatureCollection, Point, Line, Polygon, destination, distance, bearing, turn, pointInPolygon
 from .graph import Graph, Edge, Vertex
-from .cursor import CursorType, Cursor
+from .cursor import CursorType, Cursor, Turn
 
 SYSTEM_DIRECTORY = "."
 
@@ -754,6 +755,7 @@ class Airport:
             route.mkTurns()  # compute turn angles at end of segment
             route.mkTiming(speed=aircraft.avgTaxiSpeed())  # compute total time left to reach destination
             route.mkDistToBrake()  # distance before significant turn
+            route.mkSmoothRoute()
             logger.debug(
                 f"control: r={len(route.route)}, v={len(route.vertices)}, e={len(route.edges)}, turns={len(route.turns)}, brk={len(route.dtb)}, atbrk={len(route.dtb_at)}, d={len(route.dleft)}, t={len(route.tleft)}"
             )
@@ -849,6 +851,9 @@ class Route:
         self.arrival_runway = None
         self.precise_start = None
         self.precise_end = None
+
+        self.smoothRoute = []
+        self.idxcache = 0
 
     def __str__(self):
         if self.found():
@@ -1233,3 +1238,64 @@ class Route:
         logger.debug("..got destination vertex..")
 
         return self._find(src[0], dst[0])
+
+    def mkSmoothRoute(self) -> list:
+        TURN_LENGTH = 10
+        vtx = self.vertices
+        route = []
+        route.append(vtx[0])
+        for i in range(1, len(vtx) - 1):
+            turn = Turn(vertex=vtx[i], l_in=self.edges_orient[i - 1], l_out=self.edges_orient[i], radius=22, segments=36)
+            if turn.valid:
+                route += [p[0] for p in turn.points]
+            else:
+                t = min(TURN_LENGTH, self.edges[i - 1].cost, self.edges[i].cost)
+                pt = turn.progressiveTurn(length=t, segments=min(max(int(2 * t), 7), 21))
+                if len(pt) > 0:
+                    route += [p[0] for p in pt]
+                else:
+                    route.append(vtx[i])
+        route.append(vtx[-1])
+        # Add props: distance from start, heading
+        dist = 0
+        d = 0
+        for i in range(len(route) - 1):
+            d = distance(route[i], route[i + 1])
+            b = bearing(route[i], route[i + 1])
+            route[i].setProp("srDistance", d)
+            route[i].setProp("srTotal", dist)
+            route[i].setProp("srBearing", b)
+            dist += d
+        route[-1].setProp("srDistance", 0)
+        route[-1].setProp("srTotal", dist)
+        route[-1].setProp("srBearing", b)
+        fn = os.path.join(os.path.dirname(__file__), "..", "ftg_smooth_route.geojson")  # _{route.route[0]}-{route.route[-1]}
+        fc = FeatureCollection(features=[r.feature() for r in route])
+        fc.save(fn)
+        self.smoothRoute = route
+        return route
+
+    def closest(self, point: Point, cache: bool = True) -> tuple:
+        closest = None
+        shortest = math.inf
+        for i in range(len(self.smoothRoute[self.idxcache :])):
+            d = distance(self.smoothRoute[i], point)
+            if d < shortest:
+                shortest = d
+                closest = i
+        logger.debug(f"{closest} at {round(shortest, 1)}m")
+        if cache:
+            self.idxcache = i
+        return [None if closest is None else self.smoothRoute[closest], shortest]
+
+    def ahead(self, i: int, dist: float):
+        j = i
+        d = dist
+        while d > 0 and j < len(self.smoothRoute):
+            d -= self.smoothRoute[j].getProp("srDistance")
+            j += 1
+        j = j - 1
+        d += self.smoothRoute[j].getProp("srDistance")
+        b = self.smoothRoute.getProp("srBearing")
+        pt = destination(self.smoothRoute[j], b, d)
+        return pt, b
