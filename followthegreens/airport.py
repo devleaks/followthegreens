@@ -318,9 +318,10 @@ class Airport:
 
     def cursor_prod(self, route) -> Cursor | None:
         # cursor should be **created** before lights are placed
-        if self.lights_ahead != HARDCODED_MAX_DISTANCE or self.rabbit_length != 0:
-            logger.debug("no cursor")
-            return None
+        if not self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False):
+            if self.lights_ahead != HARDCODED_MAX_DISTANCE or self.rabbit_length != 0:
+                logger.debug("no cursor")
+                return None
         cursor = self.prefs.get("FollowMeCar", {})
         adj = ""
         if self.distance_between_green_lights > self.MTWYLDWC:  # min twy light distance with/when cursor

@@ -351,7 +351,11 @@ class Aircraft:
         r[1] = max(r[1], l[0])
         r[0] = min(r[0], l[1])
         r[1] = min(r[1], l[1])
-        logger.debug(f"range {r0} -> {r} (acf_speed={round(acf_speed, 1)}m/s, viz={round(viz, 1)}m)")
+        # TO this estimated length we add 1.5 aircraft sizes,
+        # because lights are counted almost from the back of the acf
+        r[0] += 1.5 * self.acflength
+        r[1] += 1.5 * self.acflength
+        logger.debug(f"range {r0} -> {r} (acf_speed={round(acf_speed, 1)}m/s, viz={round(viz, 1)}m, acf_length={round(self.acflength, 1)}m)")
         return r
 
     def adjustAhead(self) -> float:

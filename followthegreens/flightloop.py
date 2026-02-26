@@ -2,6 +2,7 @@
 # We currently have two loops, one for rabbit, one to monitor aircraft position.
 #
 from datetime import datetime, timedelta, timezone
+from sre_compile import dis
 import time
 
 try:
@@ -624,17 +625,20 @@ class FlightLoop:
             if fmcar is not None:
                 logger.debug("moving..")
                 try:
+                    dist_check = distance(Point(lat=pos[0], lon=pos[1]), fmcar.curr_pos)
+                    logger.debug(f"check d={round(dist_check, 1)}m, acf_speed={round(acf_speed, 1)}m/s, fmc_speed={round(fmcar., 1)}m/s")
                     light = self.ftg.lights.lights[closestLight]
                     ahead = self.ftg.aircraft.adjustAhead()
                     total_ahead = acf_move + ahead
                     later = ts_now + nextIter
+                    fmc_speed = max(acf_speed, fmcar.detail.normal_speed)
                     logger.debug(f"close light={closestLight} on edge index={light.edgeIndex}, distance from edge={round(light.distFromEdgeStart, 1)}m")
                     # logger.debug(f"ahead={round(total_ahead, 1)}m = {round(ahead, 1)}m + acf move={round(acf_move, 1)}m")
                     # At next iteration, acf will move acf_move, and fmcar need to be ahead
                     # So at next iteration (t=now + iterTime), car need to be (acf_move+ahead) in front
                     light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=closestLight, ahead=total_ahead)
                     # logger.debug(f"light ahead={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
-                    fmcar.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=acf_speed, t=later)
+                    fmcar.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=fmc_speed, t=later)
                     logger.debug("..moved")
                     if light_index == (len(self.ftg.lights.lights) - 1):  # reached last light
                         if fmcar.is_finished():
