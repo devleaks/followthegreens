@@ -1,5 +1,6 @@
 import os
 import math
+from dataclasses import dataclass
 from datetime import datetime
 from queue import Queue, Empty
 from enum import StrEnum
@@ -27,22 +28,31 @@ class CURSOR_STATUS(StrEnum):
     DESTROYED = "DESTROYED"  # cursor destroyed
 
 
-NUM_SEGMENTS = 36  # should be function of fps: high fps, make it smoother (> fps)
-
-
 def ts() -> float:
     return datetime.now().timestamp()
 
 
-class CarType:
+@dataclass
+class CursorType:
+    """Cursor detailed information with default values"""
 
-    # All speed m/s
-    SLOW_SPEED = 3  # turns, careful move
-    NORMAL_SPEED = 7  # 25km/h
-    LEAVE_SPEED = 10  # expedite speed to leave/clear an area
-    FAST_SPEED = 14  # running fast to a destination far away
+    filename: str = "xcsl/FMC.obj"
 
-    ACCELERATION = 1.0  # m/s^2, same deceleration
+    slow_speed: float = 3.0  # turns, careful move, all speed m/s
+    normal_speed: float = 7.0  # 25km/h
+    leave_speed: float = 10.0  # expedite speed to leave/clear an area
+    fast_speed: float = 14.0  # running fast to a destination far away
+
+    turn_radius: float = 25.0  # m
+
+    acceleration: float = 1.0  # m/s^2, same deceleration
+    deceleration: float = -1.0  # m/s^2, same deceleration
+
+
+class CursorObject:
+
+    DEFAULT_SPEED = 7  # m/s, 25km/h
+    DEFAULT_ACCELERATION = 1.0  # m/s^2, same deceleration
 
     def __init__(self, filename):
         self.filename = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "cars", filename))
@@ -63,6 +73,9 @@ class CarType:
     @property
     def has_obj(self) -> bool:
         return self.obj is not None
+
+
+NUM_SEGMENTS = 36  # should be function of fps: high fps, make it smoother (> fps)
 
 
 class Turn:
@@ -91,7 +104,7 @@ class Turn:
             logger.debug(self._err)
             return
 
-        segments = NUM_SEGMENTS if segments < 1 else int(segments)
+        segments = NUM_SEGMENTS if segments < 1 else int(segments * radius / 10)
         opposite = 180 - self.alpha
         a2 = abs(opposite) / 2
         logger.debug(f"{round(l_in, 1)} -> {round(l_out, 1)}, alpha={round(self.alpha, 1)}, opposite={round(opposite, 1)}")
@@ -199,7 +212,7 @@ class PartialPath:
             logger.debug("no end turn")
 
         # CASES
-        self.speed_max = CarType.NORMAL_SPEED
+        self.speed_max = CursorObject.DEFAULT_SPEED
         self.speed = v_start  # current speed of cursor at start of path
 
         self.accel_start = 0
@@ -210,10 +223,10 @@ class PartialPath:
 
         # Fallback
         if self.v_start == 0:
-            self.v_start = CarType.NORMAL_SPEED
+            self.v_start = CursorObject.DEFAULT_SPEED
             logger.debug(f"fallback set initial speed to {self.v_start}")
         if self.v_end == 0:
-            self.v_end = CarType.NORMAL_SPEED
+            self.v_end = CursorObject.DEFAULT_SPEED
             logger.debug(f"fallback set final speed to {self.v_end}")
 
         if self.total_time == -1:
@@ -254,7 +267,7 @@ class PartialPath:
 
     #     elif self.v_start == 0 and self.v_end > 0:  # accelerate to v_end, then remain constant
     #         # 1. accelerate to final speed
-    #         self.accel_dist = getDistance(initial_velocity=0.0, final_velocity=self.v_end, acceleration=CarType.ACCELERATION)
+    #         self.accel_dist = getDistance(initial_velocity=0.0, final_velocity=self.v_end, acceleration=CursorObject.DEFAULT_ACCELERATION)
     #         self.accel_start = getTime(displacement=self.accel_dist, initial_velocity=0.0, final_velocity=self.v_end)
     #         # 2. move at constant speed
     #         d_left = self.total_length - self.accel_dist
@@ -269,7 +282,7 @@ class PartialPath:
 
     #     elif self.v_start > 0 and self.v_end == 0:  # remain constant as long as possible then decelerate to 0
     #         # 2. decelerate
-    #         d = getDistance(initial_velocity=self.v_start, final_velocity=0.0, acceleration=-CarType.ACCELERATION)
+    #         d = getDistance(initial_velocity=self.v_start, final_velocity=0.0, acceleration=-CursorObject.DEFAULT_ACCELERATION)
     #         self.accel_end = getTime(displacement=d, initial_velocity=self.v_start, final_velocity=0.0)
     #         # 1. move at constant speed
     #         d_left = self.total_length - d
@@ -281,10 +294,10 @@ class PartialPath:
 
     #     else:  # self.v_start == 0 and self.v_end == 0:  # accelerate to max_speed, remain at max_speed as long as possible then decelerate to 0
     #         # 1. accelerate to final speed
-    #         d1 = getDistance(initial_velocity=0.0, final_velocity=self.speed_max, acceleration=CarType.ACCELERATION)
+    #         d1 = getDistance(initial_velocity=0.0, final_velocity=self.speed_max, acceleration=CursorObject.DEFAULT_ACCELERATION)
     #         self.accel_start = getTime(displacement=d1, initial_velocity=0.0, final_velocity=self.speed_max)
     #         # 3. decelerate
-    #         # d2 = getDistance(initial_velocity=self.speed_max, final_velocity=0.0, acceleration=-CarType.ACCELERATION)
+    #         # d2 = getDistance(initial_velocity=self.speed_max, final_velocity=0.0, acceleration=-CursorObject.DEFAULT_ACCELERATION)
     #         # self.accel_end = getTime(displacement=d2, initial_velocity=self.speed_max, final_velocity=0.0)
     #         d2 = d1  # symmetric
     #         self.accel_end = self.accel_start  # symmetric
@@ -303,17 +316,17 @@ class PartialPath:
     #     d = 0
     #     dt = t - self.time_start
     #     if dt <= self.accel_start:  # need to accelerate
-    #         d = getDistance3(initial_velocity=self.v_start, acceleration=CarType.ACCELERATION, time=dt)
+    #         d = getDistance3(initial_velocity=self.v_start, acceleration=CursorObject.DEFAULT_ACCELERATION, time=dt)
     #     elif self.accel_end > 0 and dt >= (self.total_time - self.accel_end):  # need to accelerate/decelerate at end
     #         d1 = self.v_start * (self.total_time - self.accel_end)
     #         dt2 = self.total_time - dt
-    #         d2 = getDistance3(initial_velocity=self.v_start, acceleration=-CarType.ACCELERATION, time=dt2)
+    #         d2 = getDistance3(initial_velocity=self.v_start, acceleration=-CursorObject.DEFAULT_ACCELERATION, time=dt2)
     #         d = d1 + d2
     #     else:  # constant but with speed after accel_start
     #         if self.accel_start == 0:
     #             d = self.v_start * dt
     #         else:
-    #             d1 = getDistance3(initial_velocity=self.v_start, acceleration=CarType.ACCELERATION, time=self.accel_start)
+    #             d1 = getDistance3(initial_velocity=self.v_start, acceleration=CursorObject.DEFAULT_ACCELERATION, time=self.accel_start)
     #             d2 = self.v_end * (dt - self.accel_start)
     #             d = d1 + d2
     #     h = self.segment_bearing  # not correct if turn at the end, will correct later, good for now
@@ -364,15 +377,16 @@ class Cursor:
 
     SPAWN_SIDE_DISTANCE = 60
 
-    def __init__(self, filename, route) -> None:
-        self.cursor_type = CarType(filename)
+    def __init__(self, detail, route) -> None:
+        self.detail = detail
+        self.cursor_object = CursorObject(detail.filename)
         self.cursor = XPObject(None, 0, 0, 0)
 
         self._status = CURSOR_STATUS.NEW
         self.active = False  # accepts futures if active
 
         self.route = route
-        self._future = Queue()
+        self._future = Queue()  # Queue element: tuple(lat: float, lon: float, hdg: float, speed: float, t: float, last_speed: float, text: str)
         self.last_future_speed = 0
 
         self.curr_index = 0
@@ -396,18 +410,17 @@ class Cursor:
         self.target_turn = None
 
         # working var for interpolation
-        self.path = None
-
+        self.path = None  # actually, curr_path on which we are currently moving
         self.refcursor = "FtG:cursor"
         self.flightLoop = None
         self.nextIter = -1
-        self._target_turn = None
         self._qin = 0
         self._qout = 0
         self.cnt = -1
         self._total_distance = 0
         self._timer = None
         self.msg = ""
+        logger.info(str(self.detail))
 
     @property
     def status(self) -> CURSOR_STATUS:
@@ -421,7 +434,7 @@ class Cursor:
 
     @property
     def usable(self) -> bool:
-        return self.cursor is not None and self.cursor_type.has_obj
+        return self.cursor is not None and self.cursor_object.has_obj
 
     @property
     def inited(self) -> bool:
@@ -439,7 +452,7 @@ class Cursor:
 
         self.cursor.position = self.curr_pos
         self.cursor.heading = self.curr_hdg
-        self.cursor.place(lightType=self.cursor_type)
+        self.cursor.place(lightType=self.cursor_object)
         self.cursor.on()
 
         self.active = True
@@ -452,9 +465,9 @@ class Cursor:
         if self.cursor is not None:
             self.cursor.destroy()  # calls off()
             self.cursor = None
-        if self.cursor_type is not None:
-            del self.cursor_type  # unloads object
-            self.cursor_type = None
+        if self.cursor_object is not None:
+            del self.cursor_object  # unloads object
+            self.cursor_object = None
         self.status = CURSOR_STATUS.DESTROYED
         logger.debug("destroyed")
 
@@ -466,27 +479,41 @@ class Cursor:
         return True
 
     def change_route(self, ftg):
+        logger.debug("change route..")
         if self.route is not None:
             self.reset_route()
         self.route = ftg.route
+
         acf_speed = ftg.aircraft.speed()
         closestLight, dist = ftg.lights.closest(ftg.aircraft.position())
         if closestLight is None:
             logger.debug("no close light to start")
             closestLight = 0
+
+        # if route changed we assume aircraft is moving and this.inited
         ahead = ftg.flightLoop.adjustAhead(acf_speed=acf_speed, ahead_range=ftg.flightLoop.ahead_range)
-        initial_speed = acf_speed + self.cursor_typ.NORMAL_SPEED  # m/s
-        logger.debug(f"(will moving to position ahead at light index {closestLight})")
-        light_ahead, light_index, dist_left = ftg.lights.lightAhead(index_from=closestLight, ahead=ahead)
+        join_time = 20  # secs, reasonable time from spawn position to ahead of acf
+        acf_ahead = min(acf_speed, self.cursor_object.FAST_SPEED) * join_time
+        ahead_at_join = acf_ahead + ahead
+        light_ahead, light_index, dist_left = ftg.lights.lightAhead(index_from=closestLight, ahead=ahead_at_join)
         join_route = Line(start=self.curr_pos, end=light_ahead.position)
-        join_time = join_route.length() / initial_speed
+        initial_speed = join_route.length() / join_time
+        self.curr_speed = initial_speed
+        self.curr_hdg = join_route.bearing()
         dt = ts() + join_time
-        self.curr_hdg = line.bearing()
-        target_speed = acf_speed
-        target_heading = light_ahead.heading
-        logger.debug(f"..move to route at {round(ahead, 1)}m ahead, heading={round(join_route.bearing(), 0)}, in {round(join_time, 1)}s..")
-        self.future(position=join_route.end, hdg=target_heading, speed=target_speed, t=dt, text="go to route ahead of aircraft")
-        logger.debug("..already taxiing")
+        # we will move the car well ahead, the car should not backup
+        # aircraft will move acf_ahead ahead of closestLight, or acf_ahead/lights.distance_between_green_lights lights
+        logger.debug(
+            f"..move on route at {round(ahead_at_join, 1)}m ahead, heading={round(join_route.bearing(), 0)}, in {round(join_time, 1)}s (aircraft will be at light index {self.light_progress}).."
+        )
+        self.light_progress = closestLight + int(ahead / ftg.lights.distance_between_green_lights)
+        # we move the car in front of acf, and progress at same speed as acf.
+        self.future(position=join_route.end, hdg=light_ahead.heading, speed=acf_speed, t=dt, tick=True, text="go on route ahead of aircraft after new route")
+        # finally, we have to tell future_index() where car is when it join route
+        # so that when move() catches up with future_index() it will start from there
+        # (after above future)
+        self.set_current_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart)
+        logger.debug("..route changed, already taxiing")
 
     def reset_route(self):
         # They won't be any valid route anymore.
@@ -540,6 +567,7 @@ class Cursor:
     def set_current_index(self, edge: int, dist: float):
         self.curr_index = edge
         self.curr_dist = dist
+        logger.debug(f"jumped to {round(dist, 1)}m of index {edge}")
 
     def future_index(self, edge: int, dist: float, speed: float, t: float):
         # Creates future() to destination which is a distance from start of edge.
@@ -570,7 +598,7 @@ class Cursor:
             if speed > 0:
                 local_speed = speed
             else:
-                local_speed = CarType.NORMAL_SPEED
+                local_speed = self.detail.normal_speed
                 logger.debug(f"no speed for future, forced normal local speed {round(local_speed, 1)}m/s")
 
         # first quick precompute
@@ -681,9 +709,9 @@ class Cursor:
         self.curr_turn = self.target_turn
         # if isintance(self.target_pos, Vertex):
         #   self.target_turn = self.route.smoothTurn[self.target_pos.id]  # precomputed
-        r = 10
-        if self.curr_speed > 20:
-            r = 15
+        r = self.detail.turn_radius
+        if self.curr_speed > self.detail.normal_speed:
+            r = 1.5 * r
         self.target_turn = Turn(vertex=self.target_pos, l_in=self.curr_hdg, l_out=self.target_hdg, radius=r)
         self.path = PartialPath(segment=segment, turn_end=self.target_turn, v_start=self.curr_speed, v_end=self.target_speed, t=self.curr_time)  # movement
         if self.target_time < self.path.time_end:
@@ -704,6 +732,8 @@ class Cursor:
         # Currently: only linear interposition
         # between start and end
         # Future: d += speed * t with avg(speed) for acceleration
+        ABOVE_GROUND = 0.25  # xcsl objects offset, in meter
+
         def slow_debug(s):
             if self.cnt % 100 == 0:
                 logger.debug(s)
@@ -733,10 +763,10 @@ class Cursor:
             self.curr_speed = self.target_speed
             self.curr_last_speed = self.target_last_speed
             if not self._tick():
-                self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=self.curr_hdg, elev=0.25)
+                self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=self.curr_hdg, elev=ABOVE_GROUND)
                 return
         self.curr_pos, hdg, finished = self.nextPosition()
-        self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=hdg, elev=0.25)
+        self.cursor.move(lat=self.curr_pos.lat, lon=self.curr_pos.lon, hdg=hdg, elev=ABOVE_GROUND)
 
     def is_finishing(self) -> bool:
         return self.status == CURSOR_STATUS.FINISHING
@@ -761,20 +791,26 @@ class Cursor:
 
         hdg = self.route.edges_orient[-1]
         rnd = 1 if (int(ts()) % 2) == 0 else -1
+        if self.route.departure_runway is not None:
+            hdg = self.route.departure_runway.bearing()
+            LEAVE_DIST_AHEAD = LEAVE_DIST_AHEAD * 2
+            LEAVE_DIST_SIDE = LEAVE_DIST_SIDE * 2  # m
+            if self.route.precise_start is not None:  # leaves towards departure area, like return to position
+                rnd = self.route.departure_runway.side(self.route.precise_start)
         end = self.route.vertices[-1]
         d1 = destination(src=end, brngDeg=hdg, d=LEAVE_DIST_AHEAD)
         hdg = hdg + 90 * rnd
         dest = destination(src=d1, brngDeg=hdg, d=LEAVE_DIST_SIDE)
         line = Line(d1, dest)
         # Last point of route to "away"
-        spd = self.cursor_type.LEAVE_SPEED
+        spd = self.cursor_object.LEAVE_SPEED
         td = LEAVE_DIST_AHEAD / spd
         t = ts() + LEAVE_WAIT_BEFORE + td
         tt = td
         logger.debug(f"carry forward {round(LEAVE_DIST_AHEAD, 1)}m in {round(td, 1)}s heading {round(hdg, 0)}D")
         self.future(position=d1, hdg=line.bearing(), speed=spd, t=t, text=f"carry on forward ({message})")
         # "Away" to away and on the size
-        spd = self.cursor_type.LEAVE_SPEED
+        spd = self.cursor_object.LEAVE_SPEED
         td = line.length() / spd
         t = t + td
         tt = tt + td

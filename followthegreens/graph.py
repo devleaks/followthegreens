@@ -103,7 +103,7 @@ class Edge(Line):
             if len(usage) == 9:
                 self.width_code = TAXIWAY_WIDTH_CODE(usage[8].upper())
         elif usage.startswith("road"):
-            self.usage = "road"
+            self.usage = TAXIWAY_TYPE.ROAD
 
         # inner/outer (non formal guess)
         self.usage2 = TAXIWAY_DIRECTION.BOTH  # default, unused

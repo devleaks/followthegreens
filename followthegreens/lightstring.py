@@ -12,6 +12,7 @@ except ImportError:
 
 from .geo import Point, FeatureCollection, distance, bearing, destination, convertAngleTo360, pointInPolygon
 from .globals import (
+    TAXIWAY_DIRECTION,
     logger,
     get_global,
     DISTANCE_BETWEEN_STOPLIGHTS,
@@ -307,7 +308,7 @@ class Stopbar:
         skip = 0
         if self.use_wigwag:
             pos = destination(self.position, brng, (numlights + side) * self.distance_between_stoplights)
-            self.lights.append(Light(LIGHT_TYPE.RUNWAY, pos, self.heading, numlights))
+            self.lights.append(Light(LIGHT_TYPE.RUNWAY_GUARD, pos, self.heading, numlights))
             skip = 1
 
         # the other side of centerline
@@ -317,7 +318,7 @@ class Stopbar:
             self.lights.append(Light(self.light, pos, 0, numlights + i + skip))
         if self.use_wigwag:
             pos = destination(self.position, brng, (numlights + side) * self.distance_between_stoplights)
-            self.lights.append(Light(LIGHT_TYPE.RUNWAY, pos, self.heading, 2 * numlights + skip))
+            self.lights.append(Light(LIGHT_TYPE.RUNWAY_GUARD, pos, self.heading, 2 * numlights + skip))
 
     def place(self, lightTypes, lightTypeOff=None):
         for light in self.lights:
@@ -385,11 +386,10 @@ class LightString:
         # starts with global default value
         self.distance_between_green_lights = get_global("DISTANCE_BETWEEN_GREEN_LIGHTS", self.prefs)  # this never changes
         self.distance_between_green_lights_from = "global"
-        # has it been set at airport level?
-        if airport.hasPreferences():
-            if airport.distance_between_green_lights_pref:
-                self.distance_between_green_lights = airport.distance_between_green_lights
-                self.distance_between_green_lights_from = "airport"
+        # has it been set at airport level, may be forced by Cursor needs?
+        if airport.distance_between_green_lights_pref:
+            self.distance_between_green_lights = airport.distance_between_green_lights
+            self.distance_between_green_lights_from = "airport"
         logger.debug(f"distance_between_green_lights {self.distance_between_green_lights}m (from {self.distance_between_green_lights_from})")
 
         # distance_between_taxiway_lights / DISTANCE_BETWEEN_LIGHTS
@@ -901,19 +901,19 @@ class LightString:
             self.taxiway_alt = self.taxiway_alt + 1  # alternate
             if self.rwy_twy_lights == self.lead_off_lights:  # always on runway
                 if pointInPolygon(position, self.route.arrival_runway.polygon):
-                    logger.debug(f"on runway, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
-                    return LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT
+                    logger.debug(f"on runway, alternate {LIGHT_TYPE.RUNWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.RUNWAY_ALT}")
+                    return LIGHT_TYPE.RUNWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.RUNWAY_ALT
             # no longer on runway, keep alterning for a few lights
             self.rwy_twy_lights = self.rwy_twy_lights - 1
             if self.rwy_twy_lights > 0:
-                logger.debug(f"not on runway, leaving, alternate {LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT}")
-                return LIGHT_TYPE.TAXIWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.TAXIWAY_ALT
+                logger.debug(f"not on runway, leaving, alternate {LIGHT_TYPE.RUNWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.RUNWAY_ALT}")
+                return LIGHT_TYPE.RUNWAY if self.taxiway_alt % 2 == 0 else LIGHT_TYPE.RUNWAY_ALT
             if not self._info_sent:
-                logger.debug("no longer on runway, using normal lights")
+                logger.debug("no longer on runway, using taxiway lights")
                 self._info_sent = True
 
         if not self._info_sent:
-            logger.debug("not on runway, using normal lights")
+            logger.debug("not on runway, using taxiway lights")
             self._info_sent = True
 
         # if edge.direction == TAXIWAY_DIRECTION.ONEWAY:
@@ -932,7 +932,12 @@ class LightString:
             logger.debug(f"edge is active ({edge.mkActives()})")
             return LIGHT_TYPE.ACTIVE
 
-        return LIGHT_TYPE.TAXIWAY
+        directional = (
+            LIGHT_TYPE.TAXIWAY
+            if edge.direction in [TAXIWAY_DIRECTION.TWOWAY, TAXIWAY_DIRECTION.BOTH] or edge.usage2 in [TAXIWAY_DIRECTION.TWOWAY, TAXIWAY_DIRECTION.BOTH]
+            else LIGHT_TYPE.TAXIWAY_ALT
+        )
+        return directional
 
     def nextStop(self):
         # index of light where should stop next

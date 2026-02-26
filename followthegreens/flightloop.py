@@ -510,16 +510,16 @@ class FlightLoop:
                         # 2. Movement from where the car is spawned to first vertex of route, car joint the route and will stay on it
                         #    @todo: first vertex of route might not be the closest vertex in front.
                         # logger.debug("..move to begining of route..")
-                        tj = join_route.length() / fmcar.cursor_type.NORMAL_SPEED
+                        tj = join_route.length() / fmcar.detail.normal_speed
                         dt = ts_now + tj
                         target_heading = self.ftg.route.edges[0].bearing(orig=self.ftg.route.vertices[0])
                         logger.debug(f"..move to begining of route: distance={round(join_route.length(), 1)}, heading={round(join_route.bearing(), 0)}, in {round(tj, 1)}s..")
-                        fmcar.future(position=join_route.end, hdg=target_heading, speed=fmcar.cursor_type.NORMAL_SPEED, t=dt, tick=True, text="go to begining of route")
+                        fmcar.future(position=join_route.end, hdg=target_heading, speed=fmcar.detail.normal_speed, t=dt, tick=True, text="go to begining of route")
                         #
                         # 3. Movement (on route) from above vertex of route to ahead of aircraft
                         #
                         ahead = self.ftg.aircraft.adjustAhead()
-                        tahead = ahead / fmcar.cursor_type.NORMAL_SPEED  # secs.
+                        tahead = ahead / fmcar.detail.normal_speed  # secs.
                         light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=0, ahead=ahead)
                         logger.debug(f"..move on route {round(ahead, 1)}m ahead in {round(tahead, 1)}secs... (on light {light_index}, {round(dist_left, 1)}m neglected)..")
                         # we know aircraft is not moving (in this case), so at the end of route, target speed is 0.
@@ -539,7 +539,7 @@ class FlightLoop:
                             closestLight = 0
                         join_time = 20  # secs, reasonable time from spawn position to ahead of acf
                         # during join travel, aircraft will move forward, aircraft might still be running fast, we limit ot speed of car:
-                        acf_ahead = min(acf_speed, fmcar.cursor_type.FAST_SPEED) * join_time
+                        acf_ahead = min(acf_speed, fmcar.detail.fast_speed) * join_time
                         ahead_at_join = acf_ahead + ahead
                         light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=closestLight, ahead=ahead_at_join)
                         join_route = Line(start=spawn, end=light_ahead.position)
@@ -555,8 +555,10 @@ class FlightLoop:
                         target_heading = light_ahead.heading
                         # we will move the car well ahead, the car should not backup
                         # aircraft will move acf_ahead ahead of closestLight, or acf_ahead/lights.distance_between_green_lights lights
-                        logger.debug(f"..move on route at {round(ahead_at_join, 1)}m ahead, heading={round(join_route.bearing(), 0)}, in {round(join_time, 1)}s (aircraft will be at light index {self.light_progress})..")
-                        self.light_progress = closestLight + int(ahead/self.ftg.lights.distance_between_green_lights)
+                        logger.debug(
+                            f"..move on route at {round(ahead_at_join, 1)}m ahead, heading={round(join_route.bearing(), 0)}, in {round(join_time, 1)}s (aircraft will be at light index {self.light_progress}).."
+                        )
+                        self.light_progress = closestLight + int(ahead / self.ftg.lights.distance_between_green_lights)
                         # we move the car in front of acf, and progress at same speed as acf.
                         fmcar.future(position=join_route.end, hdg=target_heading, speed=acf_speed, t=dt, tick=True, text="go on route ahead of aircraft")
                         # finally, we have to tell future_index() where car is when it join route

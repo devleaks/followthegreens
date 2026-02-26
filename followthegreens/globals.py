@@ -76,6 +76,7 @@ class TAXIWAY_TYPE(StrEnum):
     TAXIWAY = "taxiway"
     RUNWAY = "runway"
     BOTH = "both"
+    ROAD = "road"
 
 
 class TAXIWAY_ACTIVE(StrEnum):
@@ -336,7 +337,9 @@ class LIGHT_TYPE(StrEnum):  # DO NOT CHANGE
     VERTEX = "VERTEX"
     DEFAULT = "DEFAULT"
     ACTIVE = "ACTIVE"
-    RUNWAY = "RUNWAY"  # runway entry guard light
+    RUNWAY_GUARD = "RUNWAY_GUARD"  # runway entry guard light  (wigwag)
+    RUNWAY = "RUNWAY"  # runway alternating green
+    RUNWAY_ALT = "RUNWAY_ALT"  # runway alternating yellow
     # ACTIVE_DEP = "ACTIVE_DEP"  # current edge is active for departure
     # ACTIVE_ARR = "ACTIVE_ARR"
     # ACTIVE_ILS = "ACTIVE_ILS"
@@ -349,15 +352,16 @@ LIGHT_TYPE_OBJFILES = {
     LIGHT_TYPE.OFF: "off_light.obj",
     LIGHT_TYPE.FIRST: "green.obj",
     LIGHT_TYPE.TAXIWAY: "green.obj",
-    LIGHT_TYPE.TAXIWAY_ALT: "amber.obj",
+    LIGHT_TYPE.TAXIWAY_ALT: "green.obj",  # should be unidirectional
     LIGHT_TYPE.STOP: "red.obj",
     LIGHT_TYPE.VERTEX: "green.obj",
     LIGHT_TYPE.WARNING: "amber.obj",
     LIGHT_TYPE.LAST: "green.obj",
     LIGHT_TYPE.DEFAULT: "white.obj",
     LIGHT_TYPE.ACTIVE: "green.obj",
-    LIGHT_TYPE.RUNWAY: "runway.obj",
-    # LIGHT_TYPE.RUNWAY: "green.obj",
+    LIGHT_TYPE.RUNWAY_GUARD: "runway.obj",
+    LIGHT_TYPE.RUNWAY: "green.obj",  # taxiway lead-in/out lights, alternating green/amber, should be unidirectional
+    LIGHT_TYPE.RUNWAY_ALT: "amber.obj",  # same
     # LIGHT_TYPE.ACTIVE_DEP: "green.obj",
     # LIGHT_TYPE.ACTIVE_ARR: "green.obj",
     # LIGHT_TYPE.ACTIVE_ILS: "green.obj",

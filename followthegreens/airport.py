@@ -27,7 +27,7 @@ from .globals import (
 )
 from .geo import FeatureCollection, Point, Line, Polygon, destination, distance, bearing, turn, pointInPolygon, nearestPointToLines
 from .graph import Graph, Edge, Vertex
-from .cursor import Cursor
+from .cursor import CursorType, Cursor
 
 SYSTEM_DIRECTORY = "."
 
@@ -210,6 +210,7 @@ class Airport:
 
         # PREFERENCES - Fetched by LightString
         # Set sensible default value from global preferences
+        self.fmc = get_global("FMC", self.prefs)
         self.use_threshold = get_global("USE_THRESHOLD", self.prefs)
         if self.use_threshold is None:
             self.use_threshold = True
@@ -265,7 +266,7 @@ class Airport:
         return [True, "Airport ready"]
 
     def hasPreferences(self) -> bool:
-        return "Airports" in self.prefs or "Airports." + self.icao in self.prefs
+        return "Airports." + self.icao in self.prefs
 
     def setPreferences(self):
         # Local airport preferences override global preferences
@@ -273,8 +274,7 @@ class Airport:
             logger.debug("airport has no preference")
             return
         apt = self.prefs.get("Airports", {})
-        prefs = apt.get(self.icao)
-        # Airport specific
+        prefs = apt.get(self.icao, {})
         if len(prefs) > 0:
             logger.debug(f"airport {self.icao} preferences: {prefs}")
             if prefs is not None:
@@ -293,6 +293,8 @@ class Airport:
                 if RABBIT.SPEED.value in prefs:
                     self.rabbit_speed = prefs[RABBIT.SPEED.value]
                     self.rabbit_speed_pref = True
+                if "FMC" in prefs:
+                    self.fmc = self.prefs.get("FMC", "xcsl/fmc.obj")
                 return
         # Generic
         if len(apt) > 0:
@@ -301,33 +303,33 @@ class Airport:
                 self.distance_between_green_lights = apt[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
 
     def cursor(self, route) -> Cursor | None:
-        cursor = get_global("CURSOR", self.prefs)
-        logger.debug(f"cursor {cursor}")
-        if type(cursor) is str and len(cursor) > 1:  #  and self.lights_ahead == HARDCODED_MAX_DISTANCE and self.rabbit_length == 0:
-            adj = ""
-            if self.distance_between_green_lights > self.MTWYLDWC:
-                adj = f", distance between taxiway lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
-                self.distance_between_green_lights = self.MTWYLDWC
-                self.distance_between_green_lights_pref = True
-            logger.debug(f"using cursor DEVELOPER MODE{adj}")
-            return Cursor(cursor, route)
-        logger.debug("no cursor")
-        return None
+        cursor = self.prefs.get("FollowMeCar", {})
+        if len(cursor) == 0:
+            logger.debug("no cursor")
+            return None
+        adj = ""
+        if self.distance_between_green_lights > self.MTWYLDWC:
+            adj = f", distance between green lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
+            self.distance_between_green_lights = self.MTWYLDWC
+            self.distance_between_green_lights_pref = True
+        logger.debug(f"using cursor DEVELOPER MODE (prefs={cursor}){adj}")
+        details = CursorType(**cursor)
+        return Cursor(details, route)
 
     def cursor_prod(self, route) -> Cursor | None:
-        # cursor should be created before lights are placed
-        if self.lights_ahead == HARDCODED_MAX_DISTANCE and self.rabbit_length == 0:
-            cursor = get_global("CURSOR", self.prefs)
-            adj = ""
-            if type(cursor) is not str or len(cursor) == 0:  #  and self.lights_ahead == HARDCODED_MAX_DISTANCE and self.rabbit_length == 0:
-                cursor = "xcsl/FMC.obj"
-            if self.distance_between_green_lights > self.MTWYLDWC:  # min twy light distance with/when cursor
-                adj = f", distance between taxiway lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
-                self.distance_between_green_lights = self.MTWYLDWC
-                self.distance_between_green_lights_pref = True
-            logger.debug(f"using cursor {cursor}{adj}")
-            return Cursor(cursor, route)
-        return None
+        # cursor should be **created** before lights are placed
+        if self.lights_ahead != HARDCODED_MAX_DISTANCE or self.rabbit_length != 0:
+            logger.debug("no cursor")
+            return None
+        cursor = self.prefs.get("FollowMeCar", {})
+        adj = ""
+        if self.distance_between_green_lights > self.MTWYLDWC:  # min twy light distance with/when cursor
+            adj = f", distance between taxiway lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
+            self.distance_between_green_lights = self.MTWYLDWC
+            self.distance_between_green_lights_pref = True
+        logger.debug(f"using cursor {cursor}{adj}")
+        details = CursorType(**cursor)
+        return Cursor(details, route)
 
     def load(self):
         APT_FILES = {}

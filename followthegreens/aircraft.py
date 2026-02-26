@@ -246,7 +246,7 @@ class Aircraft:
         logger.info(f"aircraft type {self.icao} not found in lists, using default category {self.width_code}")
 
     def hasPreferences(self) -> bool:
-        return "Aircrafts" in self.prefs or ("Aircrafts." + self.icao) in self.prefs
+        return ("Aircrafts" + self.width_code.value) in self.prefs or ("Aircrafts." + self.icao) in self.prefs
 
     def setPreferences(self):
         a = self.aircaftPreferences()
@@ -262,19 +262,8 @@ class Aircraft:
         #
 
         acf = self.prefs.get("Aircrafts", {})
-
         logger.debug(f"Aircraft preferences: {acf}")
-        if acf is not None:
-            if RABBIT.LIGHTS_AHEAD.value in acf:
-                self.lights_ahead = acf[RABBIT.LIGHTS_AHEAD.value]
-                self.lights_ahead_pref = True
-            if RABBIT.LENGTH.value in acf:
-                self.rabbit_length = acf[RABBIT.LENGTH.value]
-                self.rabbit_length_pref = True
-            if RABBIT.SPEED.value in acf:
-                self.rabbit_speed = acf[RABBIT.SPEED.value]
-                self.rabbit_speed_pref = True
-
+        # Aircraft CLASS
         prefs = acf.get(self.width_code.value, {})
         logger.debug(f"Aircraft type {self.width_code.value} preferences: {prefs}")
         if prefs is not None:
@@ -287,7 +276,7 @@ class Aircraft:
             if RABBIT.SPEED.value in prefs:
                 self.rabbit_speed = prefs[RABBIT.SPEED.value]
                 self.rabbit_speed_pref = True
-
+        # Aircraft TYPE
         prefs = acf.get(self.icao, {})
         logger.debug(f"Aircraft model {self.icao} preferences: {prefs}")
         if prefs is not None:
@@ -337,11 +326,12 @@ class Aircraft:
         prefs = self.aircaftPreferences()
         ranges = prefs.get(AIRCRAFT.VISUAL_RANGE, {"RANGE": [70, 150], "LIMITS": [70, 150]})
         r = ranges.get("RANGE", [70, 150])
+        r0 = r
         l = ranges.get("LIMITS", [70, 150])
 
         # extends if acf speed is fast
-        spd = self.speed()
-        if spd > 10:
+        acf_speed = self.speed()
+        if acf_speed > 10:
             f = 1.5
             r = [r[0] * f, r[1] * f]
 
@@ -361,6 +351,7 @@ class Aircraft:
         r[1] = max(r[1], l[0])
         r[0] = min(r[0], l[1])
         r[1] = min(r[1], l[1])
+        logger.debug(f"range {r0} -> {r} (acf_speed={round(acf_speed, 1)}m/s, viz={round(viz, 1)}m)")
         return r
 
     def adjustAhead(self) -> float:
@@ -372,10 +363,12 @@ class Aircraft:
         acf_speed = self.speed()
         acflen = self.acflength if self.acflength is not None else 50
         ahead = acflen * 2.5 + acf_speed * 15.0
+        ahead0 = ahead
         if ahead < ahead_range[0]:
             ahead = ahead_range[0]
         if ahead > ahead_range[1]:
             ahead = ahead_range[1]
+        logger.debug(f"ahead {round(ahead0, 1)}m -> {round(ahead, 1)}m (acf_speed={round(acf_speed, 1)}m/s, range={ahead_range}m)")
         return ahead
 
     def heading(self) -> float:
