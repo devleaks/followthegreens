@@ -904,6 +904,11 @@ class Route:
         # Last vertex to destination
         return Line(start=self.vertices[-1], end=self.precise_end)
 
+    def from_edge(self, i: int, position: Point) -> float | None:
+        if self.vertices is not None and len(self.vertices) > i:
+            return distance(self.vertices[i], position)
+        return None
+
     def on_edge(self, i: int, dist: float) -> Point | None:
         if self.vertices is not None and len(self.vertices) > i:
             return destination(self.vertices[i], self.edges_orient[i], dist)

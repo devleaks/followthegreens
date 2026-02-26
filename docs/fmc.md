@@ -13,11 +13,12 @@ runs out of its initial recommanded route.
 Route indication is the green lights displayed in front of the aircraft.
 And monitoring of current route is performed by detecting the light closest to the aircraft.
 
-It is not difficult to difficult to place an alternate object
+It is not difficult to place an alternate object
 at the very precise position of the light closest to the aircraft.
 Or a few lights ahead of this light closest to the aircraft.
 
 This is how Follow Me Car sub project is born.
+Placing a car instead of a light at the position a few lights ahead of the light closest to the aircraft.
 
 Same core algorithms to
 
@@ -55,9 +56,20 @@ a funny addition to the core, serious, hi-tech Follow the greens.
 
 Pursuing that spirit, Follow me car is added as a fun addition:
 
-*After extensive study of ideal number of visible lights ahead, questioning numerous A.I., sources agreed to the same number of lights: It does not matter, as long as you do not use 42 lights. 42 is already used for answering a far more complex question. So we had to come up with a solution in case a pilot requires exactly 42 lights ahead. We came with the solution of using a follow me car instead of the green lights. So if you require no rabbit (rabbit_length=0) and exactly 42 lights ahead (lights_ahead=42), you will see no green lights in front of you but a follow me car instead. We apologise for the inconvenience.*
+*After extensive study of ideal number of visible lights ahead, questioning numerous A.I.,
+sources agreed to the same number of lights:
+It does not matter, as long as you do not use 42 lights.
+42 is already used for answering a far more complex question.
+So we had to come up with a solution in case a pilot requires exactly 42 lights ahead.
+We came with the solution of using a follow me car instead of the green lights.
+So if you require no rabbit (rabbit_length=0) and exactly 42 lights ahead (lights_ahead=42),
+you will see no green lights in front of you but a follow me car instead.
+We apologise for the inconvenience.*
 
-*Don’t worry, the car will follow the same route as the greens would show you. And it will monitor your speed and invite you to taxi faster if it is far in front of you, and slow down to not being swallowed by your Trent 900+ engine if it is closer to you. Just follow it. Don’t run over it.*
+*Don’t worry, the car will follow the same route as the greens would show you.
+It will monitor the clock and your speed and invite you to taxi faster if it is far in front of you,
+and slow down to not being swallowed by your brand new Rolls-Royce Trent UltraFan engine if it is closer to you.
+Just follow the car. Don’t run over it.*
 
 Taxi safely
 
@@ -86,7 +98,7 @@ LIGHTS_AHEAD = 42
 
 The above preferences will use Follow the greens at all airports
 except at Liège Airport where it will use a Follow Me Car
-(as it is the case in real life.)
+(as it is in real life.)
 
 
 ## Alternate Follow Me Car
@@ -95,8 +107,8 @@ An alternate follow me car object can be selected at global
 or airport level.
 
 ```
-[Airports.EBLG]
-FMC = "xscl/FMC2.obj"
+[FollowMeCar]
+filename = "xscl/FMC2.obj"
 ```
 
 Path objects are relative to the `followthegreens` folder.

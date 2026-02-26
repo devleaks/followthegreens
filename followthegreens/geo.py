@@ -44,13 +44,17 @@ def convertAngleTo360(alfa):
 
 
 def turn(bi, bo):
+    return ((((bo - bi) % 360) + 540) % 360) - 180
+    # https://stackoverflow.com/questions/16180595/find-the-angle-between-two-bearings
+    #
+    # old algorithm
     # turn in [-180, 180]
-    t = bi - bo
-    while t < -180:
-        t += 360
-    while t > 180:
-        t -= 360
-    return t
+    # t = bi - bo
+    # while t < -180:
+    #     t += 360
+    # while t > 180:
+    #     t -= 360
+    # return t
 
 
 def sign(x):  # there is no sign function in python...

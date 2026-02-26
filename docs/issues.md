@@ -32,3 +32,9 @@ Follow the Greens takes a «picture» of the situation when a new session is sta
 If the aircraft is changed or relocated after the session is started,
 pilot should cancel the previous session and restart a new one to take
 into account all changes.
+
+
+# FMC stop
+
+When FMC stops in a turn or at the end of a turn,
+it restarts at the same distance but on the edge (little jump).

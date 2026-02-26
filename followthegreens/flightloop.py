@@ -564,7 +564,7 @@ class FlightLoop:
                         # finally, we have to tell future_index() where car is when it join route
                         # so that when move() catches up with future_index() it will start from there
                         # (after above future)
-                        fmcar.set_current_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart)
+                        fmcar.set_target_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart)
                         logger.debug("..already taxiing")
                 except:
                     logger.debug("..error", exc_info=True)
