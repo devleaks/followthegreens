@@ -83,6 +83,7 @@ class CursorObject:
     def has_obj(self) -> bool:
         return self.obj is not None
 
+
 class MyQueue:
 
     def __init__(self) -> None:
@@ -221,7 +222,7 @@ class Cursor:
         if self.route is not None:
             self.reset_route()
         self.route = ftg.route
-        logger.debug("new route installed")
+        logger.debug("..new route installed..")
 
         acf_speed = ftg.aircraft.speed()
 
@@ -233,8 +234,9 @@ class Cursor:
             logger.debug("no close light to start")
             closestLight = 0
 
-        # if route changed we assume aircraft is moving and this.inited
         try:
+            logger.debug("..estimate new position ahead of aircraft..")
+            # if route changed we assume aircraft is moving and this.inited
             ahead = ftg.aircraft.adjustAhead()
             join_time = 20  # secs, reasonable time from spawn position to ahead of acf, aircraft will speed up
             acf_ahead = min(acf_speed, self.detail.fast_speed) * join_time
@@ -247,9 +249,9 @@ class Cursor:
             dt = ts() + join_time
             # we will move the car well ahead, the car should not backup
             # aircraft will move acf_ahead ahead of closestLight, or acf_ahead/lights.distance_between_green_lights lights
-            self.light_progress = closestLight + int(acf_ahead / ftg.lights.distance_between_green_lights)
+            light_progress = closestLight + int(acf_ahead / ftg.lights.distance_between_green_lights)
             logger.debug(
-                f"..move on route at {round(ahead_at_join, 1)}m ahead, heading={round(join_route.bearing(), 0)}, in {round(join_time, 1)}s (aircraft will be at light index {self.light_progress}).."
+                f"..move on route at {round(ahead_at_join, 1)}m ahead, heading={round(join_route.bearing(), 0)}, in {round(join_time, 1)}s (aircraft will be at light index {light_progress}).."
             )
             # we move the car in front of acf, and progress at same speed as acf.
             self.future(position=join_route.end, hdg=light_ahead.heading, speed=acf_speed, t=dt, tick=True, text="go on route ahead of aircraft after new route")
@@ -264,9 +266,9 @@ class Cursor:
     def reset_route(self):
         # They won't be any valid route anymore.
         # We have to stop the future
-        logger.debug("cursor reseting route")
+        logger.debug("reseting cursor planned route..")
         self._future.clear()
-        logger.debug("reset")
+        logger.debug("..reset")
 
     def startFlightLoop(self):
         if self.flightLoop is None and self.cursor is not None and self.usable:
@@ -312,6 +314,7 @@ class Cursor:
             ignore = self._tick()
 
     def set_current_index(self, edge: int, dist: float | None = None):
+        # self.route.smooth_equiv(edge, dist)
         self.current_index = edge
         msg = ""
         if dist is not None:
@@ -320,6 +323,7 @@ class Cursor:
         logger.debug(f"jumped to {msg}index {edge}")
 
     def set_target_index(self, edge: int, dist: float):
+        # self.route.smooth_equiv(edge, dist)
         self.target_index = edge
         self.target_dist = dist
         logger.debug(f"future at {round(dist, 1)}m of index {edge}")
@@ -687,6 +691,8 @@ class Cursor:
             LEAVE_DIST_SIDE = LEAVE_DIST_SIDE * 2  # m
             if self.route.precise_start is not None:  # leaves towards departure area, like return to position
                 rnd = self.route.departure_runway.side(self.route.precise_start)
+        else:
+            logger.debug("no departure runway, continue on course")
         end = self.route.vertices[-1]
         d1 = destination(src=end, brngDeg=hdg, d=LEAVE_DIST_AHEAD)
         hdg = hdg + 90 * rnd
