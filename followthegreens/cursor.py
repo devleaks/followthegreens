@@ -1,3 +1,4 @@
+from logging import disable
 import os
 import math
 from dataclasses import dataclass
@@ -13,7 +14,7 @@ except ImportError:
     print("X-Plane not loaded")
 
 from .globals import logger
-from .geo import Point, Line, turn, destination
+from .geo import Point, Line, destination, distance, bearing
 from .lightstring import XPObject
 
 
@@ -84,330 +85,6 @@ class CursorObject:
         return self.obj is not None
 
 
-NUM_SEGMENTS = 36  # should be function of fps: high fps, make it smoother (> fps)
-
-
-class Turn:
-
-    VALID_RANGE = [30, 150]
-
-    def __init__(self, vertex: Point, l_in: float, l_out: float, radius: float, segments: int = NUM_SEGMENTS):
-        self.bearing_start = l_in
-        self.bearing_end = l_out
-        self.radius = radius
-        self.vertex = vertex
-        self.alpha = turn(l_in, l_out)
-        self.direction = 1 if self.alpha > 0 else -1
-        self.center = None
-        self.points = []
-        self.edges = []
-        self._err = ""
-
-        self.tangent_length = 0
-
-        if abs(self.alpha) < self.VALID_RANGE[0]:
-            self._err = f"turn is too shallow {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={self.tangent_length}m"
-            logger.debug(self._err)
-            return
-        if abs(self.alpha) > self.VALID_RANGE[1]:
-            self._err = f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={self.tangent_length}m"
-            logger.debug(self._err)
-            return
-
-        segments = NUM_SEGMENTS if segments < 1 else int(segments * radius / 10)
-        opposite = 180 - self.alpha
-        a2 = abs(opposite) / 2
-        logger.debug(f"{round(l_in, 1)} -> {round(l_out, 1)}, alpha={round(self.alpha, 1)}, opposite={round(opposite, 1)}")
-        bissec = (l_in + self.alpha / 2 + (self.direction * 90)) % 360
-        a2r = math.radians(a2)
-        a2sin = math.sin(a2r)
-        if a2sin == 0:
-            self._err = "turn is 0D (no turn) or 180D (U turn), ignored"
-            logger.debug(self._err)
-            return
-
-        dist_center = radius / a2sin
-        self.tangent_length = abs(dist_center * math.cos(a2r))  # cos may be < 0
-
-        if self.tangent_length > (3 * radius):
-            self._err = f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={round(self.tangent_length, 1)}m"
-            logger.debug(self._err)
-            return
-
-        self.center = destination(vertex, bissec, dist_center)
-        self.length = 2 * math.pi * radius * (abs(self.alpha) / 360)  # turn length
-
-        step = self.alpha / segments
-        last = None
-        for i in range(segments + 1):
-            pt = destination(self.center, l_in - (self.direction * 90) + i * step, radius)
-            if last is not None:
-                self.edges.append(Line(last, pt))
-                last = pt
-            self.points.append((pt, l_in + i * step))
-
-        logger.debug(
-            f"radius={round(radius, 1)}m, vtx to center={round(dist_center, 1)}m, tangent length={round(self.tangent_length, 1)}m, turn length={round(self.length, 1)}m, {len(self.points)} points"
-        )
-        # fc = FeatureCollection(features=[p[0].feature() for p in self.points])
-        # fn = os.path.join(os.path.dirname(__file__), "..", f"turn.geojson")  # {randint(1000,9999)}
-        # fc.save(fn)
-
-    @property
-    def valid(self) -> bool:
-        return len(self.points) > 0
-
-    @property
-    def error(self) -> str:
-        return self._err if type(self._err) is str else ""
-
-    @property
-    def start(self) -> Point:
-        return self.points[0][0] if self.valid else None
-
-    @property
-    def end(self) -> Point:
-        return self.points[-1][0] if self.valid else None
-
-    def progress(self, dist: float) -> tuple:
-        # dist from start of turn
-        if dist > self.length:
-            return self.points[-1][0], self.points[-1][1], True
-        portion = dist / self.length
-        idx = min(round(portion * len(self.points)), len(self.points) - 1)  # not int==math.floor
-        # logger.debug(f"turn {round(dist, 1)}m -> index={idx}/{len(self.points)-1}")
-        return self.points[idx][0], self.points[idx][1], False
-
-    def progressiveTurn(self, length: float, segments: int = NUM_SEGMENTS, min_turn: float = 3.0) -> list:
-        if abs(self.alpha) < min_turn:
-            return []
-        numsegs = int(NUM_SEGMENTS / 2)
-        part = length / numsegs
-        parta = self.alpha / numsegs
-        points = []
-        for i in range(numsegs):
-            d = length - i * part
-            pt = destination(self.vertex, self.bearing_start + 180, d)
-            b = self.bearing_start + i * parta
-            points.append((pt, b))
-        mid = self.bearing_start + self.alpha / 2
-        for i in range(numsegs):
-            d = i * part
-            pt = destination(self.vertex, self.bearing_end, d)
-            b = mid + i * parta
-            points.append((pt, b))
-        pt = destination(self.vertex, self.bearing_end, length)
-        points.append((pt, self.bearing_end))
-        return points
-
-
-STATIC_TURN_LIMIT = 10.0  # m
-
-
-class PartialPath:
-
-    def __init__(self, segment: Line, turn_end: Turn, v_start: float | None, v_end: float | None, t: float = 0.0) -> None:
-        self._valid = True
-        self.turn_end = turn_end
-        self.segment = segment
-        self.segment_bearing = segment.bearing()  # compute it once, cache it
-        self.total_length = segment.length()
-        logger.debug(f"segment length={round(self.total_length, 1)}m, bearing={round(self.segment_bearing, 0)}D")
-
-        if v_start is None:
-            logger.warning("starting speed of path should not be null, assuming 0.0m/s")
-            v_start = 0.0
-        self.v_start = v_start
-
-        self.v_end = v_end
-        if v_end is None:  # do not change speed
-            self.v_end = self.v_start
-
-        if self.v_end == 0:
-            self.decelerate = -1
-
-        self.time_start = t
-        self.start = self.segment.start
-        self.end = self.segment.end
-        self.before_turn = self.total_length
-
-        if self.turn_end_valid:
-            if self.total_length < self.turn_end.tangent_length:
-                self._valid = False
-                logger.debug(f"segment length ({round(self.total_length, 1)}m) shorter than turn tangents ({round(self.turn_end.tangent_length, 1)}m)")
-            else:
-                self.total_length = self.total_length - self.turn_end.tangent_length
-                self.before_turn = self.total_length
-                logger.debug(f"effective length remove next turn start ({round(self.turn_end.tangent_length, 1)}m) -> {round(self.total_length, 1)}m")
-                self.total_length = self.total_length + self.turn_end.length
-                self.end = self.turn_end.end
-                logger.debug(f"effective length add next turn length ({round(self.turn_end.length, 1)}m) -> {round(self.total_length, 1)}m")
-        else:
-            if self.before_turn > STATIC_TURN_LIMIT:
-                self.before_turn = self.before_turn - STATIC_TURN_LIMIT
-            logger.debug("no end turn")
-
-        # CASES
-        self.speed_max = CursorObject.DEFAULT_SPEED
-        self.speed = v_start  # current speed of cursor at start of path
-
-        self.accel_start = 0
-        self.accel_end = 0
-        self.total_time = -1
-
-        # self.prepareSpeeds()
-
-        # Fallback
-        if self.v_start == 0:
-            self.v_start = CursorObject.DEFAULT_SPEED
-            logger.debug(f"fallback set initial speed to {self.v_start}")
-        if self.v_end == 0:
-            self.v_end = CursorObject.DEFAULT_SPEED
-            logger.debug(f"fallback set final speed to {self.v_end}")
-
-        if self.total_time == -1:
-            self.total_time = getTime(displacement=self.total_length, initial_velocity=self.v_start, final_velocity=self.v_end)
-            logger.debug(f"fallback set total time to {round(self.total_time, 1)}s")
-
-        self.time_end = self.time_start + self.total_time
-        logger.debug(self.desc())
-
-    @property
-    def valid(seft) -> bool:
-        return self._valid
-
-    @property
-    def turn_end_valid(self):
-        return self.turn_end is not None and self.turn_end.valid
-
-    def desc(self) -> str:
-        return f"length={round(self.total_length, 1)}m, time={round(self.total_time, 2)}secs, turn at end={self.turn_end_valid}, before turn={round(self.before_turn, 1)}m"
-
-    # def prepareSpeeds(self):
-    #     #
-    #     # CURRENTLY UNUSED
-    #     #
-    #     if self.v_start > 0 and self.v_end > 0 and abs(self.v_start - self.v_end) < 2:  # approximate constant speed
-    #         avg = (self.v_start + self.v_end) / 2
-    #         self.v_start = avg
-    #         self.v_end = avg
-    #         self.accel_start = 0
-    #         self.accel_dist = 0
-    #         self.accel_end = 0
-    #         self.total_time = getTime(displacement=self.total_length, initial_velocity=self.v_start, final_velocity=self.v_end)
-    #         logger.debug(f"almost constant speed ({round(self.v_start, 1)}, {round(self.v_end, 1)}) v={avg}, d={round(self.total_length, 1)}, t={round(self.total_time, 1)}")
-
-    #     elif self.v_start > 0 and self.v_end > 0:  # constant acceleration
-    #         self.total_time = getTime(displacement=self.total_length, initial_velocity=self.v_start, final_velocity=self.v_end)
-    #         logger.debug(f"constant acceleration {round(self.v_start, 1)} -> {round(self.v_end, 1)} d={round(self.total_length, 1)}, t={round(self.total_time, 1)}")
-
-    #     elif self.v_start == 0 and self.v_end > 0:  # accelerate to v_end, then remain constant
-    #         # 1. accelerate to final speed
-    #         self.accel_dist = getDistance(initial_velocity=0.0, final_velocity=self.v_end, acceleration=CursorObject.DEFAULT_ACCELERATION)
-    #         self.accel_start = getTime(displacement=self.accel_dist, initial_velocity=0.0, final_velocity=self.v_end)
-    #         # 2. move at constant speed
-    #         d_left = self.total_length - self.accel_dist
-    #         if d_left > 0:
-    #             logger.debug(f"eq2: displacement={round(d_left, 1)}m, initial_velocity={round(self.v_end, 1)}, final_velocity={round(self.v_end, 1)}, time=None")
-    #             r = eq2(displacement=d_left, initial_velocity=self.v_end, final_velocity=self.v_end, time=None)
-    #             logger.debug(f"eq2: {r}")
-    #             self.total_time = r[3] + self.accel_start
-    #             logger.debug(f"acceleration to {round(self.v_end, 1)} ta={round(self.accel_start, 1)} d={round(self.total_length, 1)}, t={round(self.total_time, 1)}")
-    #         else:
-    #             logger.debug(f"distance {round(self.total_length, 1)}m insufficiant to accelerate to {self.v_end} (need {round(d, 1)}m)")
-
-    #     elif self.v_start > 0 and self.v_end == 0:  # remain constant as long as possible then decelerate to 0
-    #         # 2. decelerate
-    #         d = getDistance(initial_velocity=self.v_start, final_velocity=0.0, acceleration=-CursorObject.DEFAULT_ACCELERATION)
-    #         self.accel_end = getTime(displacement=d, initial_velocity=self.v_start, final_velocity=0.0)
-    #         # 1. move at constant speed
-    #         d_left = self.total_length - d
-    #         if d_left > 0:
-    #             self.total_time = getTime(displacement=d_left, initial_velocity=self.v_start, final_velocity=self.v_start) + self.accel_end
-    #             logger.debug(f"deceleration from {round(self.v_start, 1)} td={round(self.accel_end, 1)} d={round(self.total_length, 1)}, t={round(self.total_time, 1)}")
-    #         else:
-    #             logger.debug(f"distance {round(self.total_length, 1)}m insufficiant to decelerate from {self.v_start} (need {round(d, 1)}m)")
-
-    #     else:  # self.v_start == 0 and self.v_end == 0:  # accelerate to max_speed, remain at max_speed as long as possible then decelerate to 0
-    #         # 1. accelerate to final speed
-    #         d1 = getDistance(initial_velocity=0.0, final_velocity=self.speed_max, acceleration=CursorObject.DEFAULT_ACCELERATION)
-    #         self.accel_start = getTime(displacement=d1, initial_velocity=0.0, final_velocity=self.speed_max)
-    #         # 3. decelerate
-    #         # d2 = getDistance(initial_velocity=self.speed_max, final_velocity=0.0, acceleration=-CursorObject.DEFAULT_ACCELERATION)
-    #         # self.accel_end = getTime(displacement=d2, initial_velocity=self.speed_max, final_velocity=0.0)
-    #         d2 = d1  # symmetric
-    #         self.accel_end = self.accel_start  # symmetric
-    #         # 2. move at constant speed
-    #         d_left = self.total_length - d1 - d2
-    #         if d_left > 0:
-    #             self.total_time = getTime(displacement=d_left, initial_velocity=self.speed_max, final_velocity=self.speed_max) + self.accel_start + self.accel_end
-    #             logger.debug(f"acceleration to {round(self.speed_max, 1)} ta={round(self.accel_start, 1)} constant speed={round(self.speed_max, 1)}, dc={round(d_left, 1)}")
-    #             logger.debug(f"deceleration from {round(self.speed_max, 1)} td={round(self.accel_end, 1)} d={round(self.total_length, 1)}, t={round(self.total_time, 1)}")
-    #         else:
-    #             logger.debug(f"distance {round(self.total_length, 1)}m insufficiant to accelerate and decelerate to/from {self.speed_max} (need {round(d1+d2, 1)}m)")
-
-    # def progressAccel(self, t: float):
-    #     if self.accel_start == 0 and self.accel_end == 0:  # constant speed
-    #         return self.progress(t)
-    #     d = 0
-    #     dt = t - self.time_start
-    #     if dt <= self.accel_start:  # need to accelerate
-    #         d = getDistance3(initial_velocity=self.v_start, acceleration=CursorObject.DEFAULT_ACCELERATION, time=dt)
-    #     elif self.accel_end > 0 and dt >= (self.total_time - self.accel_end):  # need to accelerate/decelerate at end
-    #         d1 = self.v_start * (self.total_time - self.accel_end)
-    #         dt2 = self.total_time - dt
-    #         d2 = getDistance3(initial_velocity=self.v_start, acceleration=-CursorObject.DEFAULT_ACCELERATION, time=dt2)
-    #         d = d1 + d2
-    #     else:  # constant but with speed after accel_start
-    #         if self.accel_start == 0:
-    #             d = self.v_start * dt
-    #         else:
-    #             d1 = getDistance3(initial_velocity=self.v_start, acceleration=CursorObject.DEFAULT_ACCELERATION, time=self.accel_start)
-    #             d2 = self.v_end * (dt - self.accel_start)
-    #             d = d1 + d2
-    #     h = self.segment_bearing  # not correct if turn at the end, will correct later, good for now
-    #     p = destination(self.start, h, d)
-    #     return p, h, False
-
-    def progressBearing(self, before_turn, turn_limit: float = STATIC_TURN_LIMIT):
-        # only turns towards the end or edge
-        # logger.debug(
-        #     f"{round(self.turn_end.bearing_start, 1)} -> {round(self.turn_end.bearing_end, 1)} ({round(self.turn_end.alpha, 1)}): {round(before_turn, 1)} => {round(self.turn_end.bearing_start + self.turn_end.alpha * before_turn / turn_limit, 1)}"
-        # )
-        return self.turn_end.bearing_start + self.turn_end.alpha * before_turn / turn_limit
-
-    def progress(self, t: float) -> tuple:
-        # return position and heading t seconds after started on path
-        if not self.turn_end_valid:
-            if t > self.time_end:  # this path is finished
-                # logger.debug("finished (no turn)")
-                return self.end, self.segment_bearing, True
-            dt = t - self.time_start
-            d = getDistance2(initial_velocity=self.v_start, final_velocity=self.v_end, time=dt)
-            # logger.debug(f"eq2: {r}")
-            h = self.segment_bearing
-            p = destination(self.start, h, d)
-            if d > self.before_turn and d <= self.total_length:
-                h = self.progressBearing(before_turn=d - self.before_turn)
-            # logger.debug(f"path {round(dt, 3)}s -> {round(d, 1)}m, {round(h, 0)}D")
-            return p, h, False
-        # has a turn at the end
-        if t > self.time_end:  # this path is finished
-            # logger.debug("finished (with turn)")
-            return self.end, self.turn_end.bearing_end, True
-        dt = t - self.time_start
-        d = getDistance2(initial_velocity=self.v_start, final_velocity=self.v_end, time=dt)
-        if d < self.before_turn:
-            h = self.segment_bearing
-            p = destination(self.start, h, d)
-            # logger.debug(f"path {round(dt, 3)}s -> {round(d, 1)}m, {round(h, 0)}D")
-            return p, h, False
-        d0 = d
-        d = d - self.before_turn
-        # logger.debug(f"path {round(dt, 3)}s -> {round(d0, 1)}m, -> turn {round(d, 1)}m")
-        return self.turn_end.progress(dist=d)
-
-
 class Cursor:
     # Linear interpolator
 
@@ -433,9 +110,10 @@ class Cursor:
         self.curr_last_speed = 0
         self.curr_time = ts()
         self.curr_text = ""
-        self.curr_turn = None
         self.curr_index = 0  # where we are now
         self.curr_dist = 0
+        self.curr_start_pos = None
+        self.curr_start_time = ts()
 
         self.target_pos = None
         self.target_hdg = 0
@@ -443,7 +121,6 @@ class Cursor:
         self.target_last_speed = 0
         self.target_time = 0
         self.target_text = ""
-        self.target_turn = None
         self.target_index = 0  # where we will be in the future
         self.target_dist = 0
 
@@ -596,6 +273,7 @@ class Cursor:
             return
         self._future.put((position.lat, position.lon, hdg, speed, t, edge, self.last_future_speed, text))  # args for _set_target()
         self.last_future_speed = speed
+        self.on_route = edge != -1
         self._qin += 1
         logger.debug(f"added future ({self._qin}, q={self._future.qsize()}): {text} (h={round(hdg, 0)}D, s={round(speed, 1)}m/s, t={st(t)})")
         if tick:
@@ -769,41 +447,28 @@ class Cursor:
     def _mkPathToTarget(self):
         # Segment starts at vertex if no turn before, or at end of previous path
         # Previous path has turn or not, i.e. terminates at end vertex if not turn at end, or at end of end turn.
-        displaced_start = self.curr_pos
-        if self.path is not None:  # only first time
-            displaced_start = self.path.end
-            if self.path.turn_end_valid:
-                self.curr_dist = self.path.turn_end.tangent_length  # moved at least at end of turn
-            logger.debug(f"displaced start at end of path, {round(self.curr_dist, 1)}m ahead of start vertex of edge {self.curr_index}")
-            d = self.route.from_edge(i=self.curr_index, position=self.target_pos)
-            logger.debug(f"target position {round(self.curr_dist, 1)}m ahead start vertex of edge {self.curr_index}")
-            if d < self.curr_dist:
-                logger.debug(f"cannot backup on current edge ({round(d, 1)}m < {round(self.curr_dist, 1)}m)")
-                return
-        else:
-            logger.debug("first path, start from initial position")
-        segment = Line(start=displaced_start, end=self.target_pos)
-        self.curr_turn = self.target_turn
-        # if isintance(self.target_pos, Vertex):
-        #   self.target_turn = self.route.smoothTurn[self.target_pos.id]  # precomputed
-        r = self.detail.turn_radius
-        if self.curr_speed > self.detail.normal_speed:
-            r = 1.5 * r
-        self.target_turn = Turn(vertex=self.target_pos, l_in=self.curr_hdg, l_out=self.target_hdg, radius=r)
-        self.path = PartialPath(segment=segment, turn_end=self.target_turn, v_start=self.curr_speed, v_end=self.target_speed, t=self.curr_time)  # movement
-        if self.target_time < self.path.time_end:
-            t = self.path.time_end - self.target_time
-            self.target_time = self.path.time_end
+        self.curr_start_time = self.curr_time
+        self.curr_start_pos = self.curr_pos
+        total_time = getTime(displacement=distance(self.curr_pos, self.target_pos), initial_velocity=self.curr_speed, final_velocity=self.target_speed)
+        time_end = self.curr_start_time + total_time
+        if self.target_time < time_end:
+            t = time_end - self.target_time
+            self.target_time = time_end
             logger.debug(f"new target time {st(self.target_time)} ({round(t, 1)}s later)")
         else:
-            t = self.target_time - self.path.time_end
-            self.target_time = self.path.time_end
+            t = self.target_time - time_end
+            self.target_time = time_end
             logger.debug(f"target time is ahead, would wait {round(t, 1)}s.. adjusted, will not wait")
 
     def nextPosition(self):
-        if self.path is not None:
-            return self.path.progress(self.curr_time)
-        return self.curr_pos, self.curr_hdg, True
+        if self.curr_time > self.target_time:  # this path is finished
+            return self.curr_pos, self.curr_hdg, True
+
+        dt = self.curr_time - self.curr_start_time
+        d = getDistance2(initial_velocity=self.curr_speed, final_velocity=self.target_speed, time=dt)
+        h = self.curr_hdg
+        p = destination(self.curr_start_pos, self.curr_hdg, d)
+        return p, h, False
 
     def move(self, t: float):
         # Currently: only linear interposition

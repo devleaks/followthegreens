@@ -520,13 +520,13 @@ def distanceToLine(point: Point, segment_start: Point, segment_end: Point):
     return dist
 
 
-def turnRadius(speed: float) -> float:
-    # supply a turn radius for a car
+def turnRadius(speed: float, radius: float = 10) -> float:
+    # supply a turn radius for a "regular" car, not an aircaft
     # speed in m/s
     if speed < 8:  # 30km/h
-        return 10
+        return radius
     if speed < 15:  # 54km/h
-        return 15
+        return radius * 1.5
     if speed < 25:  # 90km/h
-        return 20
-    return 30
+        return radius * 2
+    return radius * 3

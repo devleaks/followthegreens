@@ -11,11 +11,10 @@ except ImportError:
 
 from .globals import (
     logger,
-    get_global,
     minsec,
     MOVEMENT,
     TOO_FAR,
-    ROUTING_ALGORITHM,
+    ROUTING_ALGORITHM,  # not open as a preference "yet"
     ROUTING_ALGORITHMS,
 )
 from .geo import FeatureCollection, Point, Line, destination, distance, bearing, turn
@@ -23,7 +22,7 @@ from .geo import FeatureCollection, Point, Line, destination, distance, bearing,
 SYSTEM_DIRECTORY = "."
 
 # Turn data
-TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
+TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line, no slow down
 SMALL_TURN_LIMIT = 15.0  # °, above this angle, it is recommended to slow down for the turn
 NUM_SEGMENTS = 36  # default number of segments for a smooth turn, will be adjusted for turn size, radius and speed
 

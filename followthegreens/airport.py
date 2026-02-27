@@ -769,4 +769,3 @@ class Airport:
     def getLines(self, code):
         # Returns all lines with supplied linecode
         return list(filter(lambda x: x.linecode() == code, self.lines))
-
