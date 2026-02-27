@@ -1,4 +1,4 @@
-# Wrapper around OneD kinetic equation, with logging
+# Unnecessary wrapper around OneD kinetic equation, with logging
 #
 from typing import Optional
 

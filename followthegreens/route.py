@@ -3,6 +3,7 @@
 #
 import os
 import math
+from enum import StrEnum
 
 try:
     import xp
@@ -27,10 +28,18 @@ SMALL_TURN_LIMIT = 15.0  # °, above this angle, it is recommended to slow down 
 NUM_SEGMENTS = 36  # default number of segments for a smooth turn, will be adjusted for turn size, radius and speed
 
 
+class SMOOTH_ROUTE(StrEnum):
+    INDEX = "srIndex"
+    DISTANCE = "srDistance"
+    BEARING = "sbBearing"
+    TOTAL = "srTotal"
+    REVERSE_INDEX = "srRevIndex"
+
+
 class Turn:
 
     SMALL_TURN_TANGENT = 10.0  # m
-    VALID_RANGE = [30, 150]
+    VALID_RANGE = [30, 150]  # for a smooth turn
 
     def __init__(self, vertex: Point, l_in: float, l_out: float, radius: float, segments: int = NUM_SEGMENTS):
         self.bearing_start = l_in
@@ -55,7 +64,7 @@ class Turn:
             logger.debug(self._err)
             return
 
-        segments = NUM_SEGMENTS if segments < 1 else int(segments * radius / 10)
+        numsegs = NUM_SEGMENTS if segments < 2 else int(segments * radius / 10)
         opposite = 180 - self.alpha
         a2 = abs(opposite) / 2
         logger.debug(f"{round(l_in, 1)} -> {round(l_out, 1)}, alpha={round(self.alpha, 1)}, opposite={round(opposite, 1)}")
@@ -78,9 +87,9 @@ class Turn:
         self.center = destination(vertex, bissec, dist_center)
         self.length = 2 * math.pi * radius * (abs(self.alpha) / 360)  # turn length
 
-        step = self.alpha / segments
+        step = self.alpha / numsegs
         last = None
-        for i in range(segments + 1):
+        for i in range(numsegs + 1):
             pt = destination(self.center, l_in - (self.direction * 90) + i * step, radius)
             if last is not None:
                 self.edges.append(Line(last, pt))
@@ -110,19 +119,11 @@ class Turn:
     def end(self) -> Point:
         return self.points[-1][0] if self.valid else None
 
-    def progress(self, dist: float) -> tuple:
-        # dist from start of turn
-        if dist > self.length:
-            return self.points[-1][0], self.points[-1][1], True
-        portion = dist / self.length
-        idx = min(round(portion * len(self.points)), len(self.points) - 1)  # not int==math.floor
-        # logger.debug(f"turn {round(dist, 1)}m -> index={idx}/{len(self.points)-1}")
-        return self.points[idx][0], self.points[idx][1], False
-
     def progressiveTurn(self, length: float, segments: int = NUM_SEGMENTS, min_turn: float = 3.0) -> list:
+        # Build alternate list of (points, heading) without a turn (just heading change)
         if abs(self.alpha) < min_turn:
             return []
-        numsegs = int(NUM_SEGMENTS / 2)
+        numsegs = int(segments / 2)
         part = length / numsegs
         parta = self.alpha / numsegs
         points = []
@@ -139,6 +140,7 @@ class Turn:
             points.append((pt, b))
         pt = destination(self.vertex, self.bearing_end, length)
         points.append((pt, self.bearing_end))
+        logger.debug(f"length={round(length, 1)}m, turn={round(self.alpha, 1)}D, {len(points)} points")
         return points
 
 
@@ -655,6 +657,27 @@ class Route:
             pt = destination(self.smoothRoute[i], b, start + dist)
             return pt, b, i, (start + dist)
         return self.ahead(i + 1, start + dist - d)
+
+    def on_edge_smooth(self, i: int, dist: float) -> Point | None:
+        # returns point at dist from vertex i on smoothRoute[]
+        # assumes dist < self.smoothRoute[i].getProp("srDistance")
+        if self.smoothRoute is not None and i < len(self.smoothRoute):
+            if dist > self.smoothRoute[i].getProp("srDistance"):
+                logger.warning(f"requested distance {round(dist, 1)}m larger than segment {round(self.smoothRoute[i].getProp("srDistance"), 1)}m")
+            return destination(self.smoothRoute[i], self.smoothRoute[i].getProp("srBearing"), dist)
+        return None
+
+    def smooth_equiv(self, i: int, dist: float):
+        # Progress dist from vertex i of route[] is equivalent to
+        # progress d from vertex j of smoothRoute[]
+        d = dist
+        j = self.vertices[i].getProp("srRevRouteIndex")
+        while d > 0 and j < len(self.smoothRoute):
+            d -= self.smoothRoute[j].getProp("srDistance")
+            j += 1
+        j -= 1
+        d += self.smoothRoute[j].getProp("srDistance")
+        return j, d
 
     def srFinished(self, position) -> bool:
         return self.smoothRoute[-1] == position

@@ -534,7 +534,7 @@ class FlightLoop:
                         ahead = self.ftg.aircraft.adjustAhead()
                         spawn = destination(self.ftg.route.precise_start, aircraft.heading(), ahead / 2)  # ahead/2 ahead
                         spawn = destination(spawn, aircraft.heading() + rnd * 90, fmcar.SPAWN_SIDE_DISTANCE)
-                        closestLight, distance = self.ftg.lights.closest(pos)
+                        closestLight, dist = self.ftg.lights.closest(pos)
                         if closestLight is None:
                             logger.debug("no close light to start")
                             closestLight = 0
@@ -607,7 +607,7 @@ class FlightLoop:
             if not self.may_rabbit_autotune:
                 self.allowRabbitAutotune("no longer close to stop")
 
-        closestLight, distance = self.ftg.lights.closest(pos)
+        closestLight, dist = self.ftg.lights.closest(pos)
         if closestLight is None:
             if self.closestLight_cnt % 20:
                 logger.debug("no close light")
@@ -655,27 +655,27 @@ class FlightLoop:
             self.adjustRabbit(position=pos, closestLight=closestLight, acf_speed=acf_speed)  # Here is the 4D!
 
         # logger.debug("closest %d %f", closestLight, distance)
-        if closestLight > self.lastLit and distance < self.diftingLimit:  # Progress OK
+        if closestLight > self.lastLit and dist < self.diftingLimit:  # Progress OK
             # logger.debug("moving %d %d", closestLight, self.lastLit)
             self.lastLit = closestLight
-            self.distance = distance
+            self.distance = dist
             return self.adjustedIter(acf_speed=acf_speed)
 
-        if self.lastLit == closestLight and (abs(self.distance - distance) < DISTANCE_BETWEEN_GREEN_LIGHTS):  # not moved enought, may even be stopped
+        if self.lastLit == closestLight and (abs(self.distance - dist) < DISTANCE_BETWEEN_GREEN_LIGHTS):  # not moved enought, may even be stopped
             # logger.debug("aircraft did not move")
             return self.adjustedIter(acf_speed=acf_speed)
 
         # @todo
         # Need to send warning when pilot moves away from the green.
         # if distance > DRIFTING_DISTANCE send warning?
-        if distance > DRIFTING_DISTANCE:
-            logger.debug(f"aircraft drifting away from track? (d={round(distance, 1)} > {DRIFTING_DISTANCE})")
+        if dist > DRIFTING_DISTANCE:
+            logger.debug(f"aircraft drifting away from track? (d={round(dist, 1)} > {DRIFTING_DISTANCE})")
 
         # if distance > (2*DRIFTING_DISTANCE) and AUTO_REROUTE:
         #     logger.debug(f"aircraft drifting away from track? (d={round(distance, 1)} > {DRIFTING_DISTANCE}), starting new greens")
         #     self.ftg.newGreen(destination=self.ftg.destination)
 
-        self.distance = distance
+        self.distance = dist
 
         return self.adjustedIter(acf_speed=acf_speed)
 
