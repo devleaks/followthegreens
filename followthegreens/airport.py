@@ -4,7 +4,6 @@
 import os
 import re
 import math
-from sre_compile import dis
 from typing import Tuple
 
 try:
@@ -15,26 +14,19 @@ except ImportError:
 from .globals import (
     logger,
     get_global,
-    minsec,
     DISTANCE_TO_RAMPS,
     TAXIWAY_TYPE,
     RUNWAY_BUFFER_WIDTH,
     AIRPORT,
     MOVEMENT,
     RABBIT,
-    TOO_FAR,
-    ROUTING_ALGORITHM,
-    ROUTING_ALGORITHMS,
 )
-from .geo import FeatureCollection, Point, Line, Polygon, destination, distance, bearing, turn, pointInPolygon
+from .geo import Point, Line, Polygon, destination, distance, pointInPolygon
 from .graph import Graph, Edge, Vertex
-from .cursor import CursorType, Cursor, Turn
+from .cursor import CursorType, Cursor
+from .route import Route
 
 SYSTEM_DIRECTORY = "."
-
-TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
-SMALL_TURN_LIMIT = 15.0  # °, above this angle, it is recommended to slow down for the turn
-HARDCODED_MAX_DISTANCE = int(6 * 7)  # m
 
 
 class Runway(Line):
@@ -188,7 +180,8 @@ class Airport:
     Note: Should be split with generic non dependant airport and airport with routing, dependant on Graph
     """
 
-    MTWYLDWC = 10
+    HARDCODED_MAX_DISTANCE = int(6 * 7)  # m DO NOT CHANGE
+    MTWYLDWC = 10  # count
 
     def __init__(self, icao, prefs: dict = {}):
         self.icao = icao.upper()
@@ -320,7 +313,7 @@ class Airport:
     def cursor_prod(self, route) -> Cursor | None:
         # cursor should be **created** before lights are placed
         if not self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False):
-            if self.lights_ahead != HARDCODED_MAX_DISTANCE or self.rabbit_length != 0:
+            if self.lights_ahead != Airport.HARDCODED_MAX_DISTANCE or self.rabbit_length != 0:
                 logger.debug("no cursor")
                 return None
         cursor = self.prefs.get("FollowMeCar", {})
@@ -749,65 +742,10 @@ class Airport:
             if dst_pos is not None and dst_pos == "runway":
                 route.departure_runway = dst_pos
             logger.debug(f"route {route.text(destination=destination)}")
-
-            route.mkVertices()  # load vertex meta for route
-            route.mkEdges()  # compute segment distances
-            route.mkTurns()  # compute turn angles at end of segment
-            route.mkTiming(speed=aircraft.avgTaxiSpeed())  # compute total time left to reach destination
-            route.mkDistToBrake()  # distance before significant turn
-            route.mkSmoothRoute()
-            logger.debug(
-                f"control: r={len(route.route)}, v={len(route.vertices)}, e={len(route.edges)}, turns={len(route.turns)}, brk={len(route.dtb)}, atbrk={len(route.dtb_at)}, d={len(route.dleft)}, t={len(route.tleft)}"
-            )
-            if logger.level < 10:
-                fn = os.path.join(os.path.dirname(__file__), "..", "ftg_route.geojson")  # _{route.route[0]}-{route.route[-1]}
-                fc = FeatureCollection(features=route.features())
-                fc.save(fn)
-                logger.debug(f"taxi route saved in {os.path.abspath(fn)}")
+            route.build(acf_speed=aircraft.avgTaxiSpeed())
             return (True, route)
 
         return (False, "We could not find a route to your destination.")
-
-    # def mkSmoothRoute(self, aircraft, destination, move: MOVEMENT, use_strict_mode: bool):
-    #     def findClosestVertexSmooth(coord):
-    #         return self.smoothGraph.findClosestVertex(Point(coord[0], coord[1]))
-
-    #     pos = aircraft.position()
-    #     src = findClosestVertexSmooth(pos)
-    #     dst = src
-
-    #     if move == MOVEMENT.DEPARTURE:
-    #         if destination in self.runways.keys():
-    #             runway = self.getRunway(destination)
-    #             if runway is not None:  # we sure to find one because first test
-    #                 dstpt = runway.end  # Last "nice" turn will towards runways' end.
-    #                 # this is currently equivalent to searching vertex closest to threshold like done right after...
-    #                 # entry = runway.firstEntry(graph=self.graph)
-    #                 # ...so we do not do it now. We'll refine the firstEntry() later.
-    #                 if self.use_threshold:
-    #                     logger.debug("departure destination: using runway threshold")
-    #                     dst = findClosestVertexSmooth(runway.threshold.coords())
-    #                 else:
-    #                     logger.debug("departure destination: using end of runway")
-    #                     dst = findClosestVertexSmooth(runway.start.coords())
-    #             else:
-    #                 return (False, f"We could not find runway {destination}.")
-    #         elif destination in self.holds.keys():
-    #             dst = findClosestVertexSmooth(self.holds[destination].coords())
-    #             # dstpt: We don't know which way for takeoff.
-    #     else:
-    #         ramp = self.getRamp(destination)
-    #         if ramp is not None:
-    #             dstpt = ramp
-    #             dst = findClosestVertexSmooth(ramp.coords())
-    #         else:
-    #             return (False, f"We could not find parking or ramp {destination}.")
-
-    #     route = Route(self.smoothGraph, src[0], dst[0], None, None, move, {})
-    #     route.find()
-    #     if not route.found():  # if there were options, we try to find a route without option
-    #         return (False, "We could not find a smooth route to your destination.")
-    #     return [True, route]
 
     def hasATC(self):
         # Returns ATC ground frequency if it exists
@@ -824,480 +762,11 @@ class Airport:
 
         return self.atc_ground
 
-    # Return boolean on taxiway network existence
     def hasTaxiwayRoutes(self):
+        # Return boolean on taxiway network existence
         return len(self.graph.edges_arr) > 0  # weak but ok for now
 
-    # Returns all lines with supplied linecode
     def getLines(self, code):
+        # Returns all lines with supplied linecode
         return list(filter(lambda x: x.linecode() == code, self.lines))
 
-
-class Route:
-    # Container for route from src to dst on graph
-    def __init__(self, graph):
-        self.graph = graph
-        self.route = []
-        self.vertices = None
-        self.edges = None
-        self.turns = None
-        self.dtb = None  # Distance To Brake (distance before reason to brake)
-        self.dtb_at = None
-        self.dleft = []
-        self.tleft = []
-        self.smoothed = None
-        self.algorithm = ROUTING_ALGORITHM  # default, unused
-        self.departure_runway = None
-        self.arrival_runway = None
-        self.precise_start = None
-        self.precise_end = None
-
-        self.smoothRoute = []
-        self.idxcache = 0
-
-    def __str__(self):
-        if self.found():
-            return "-".join(self.route)
-        return ""
-
-    def features(self) -> list:
-        features = []
-        for i in range(len(self.route) - 1):
-            v = self.graph.get_vertex(self.route[i])
-            v.setProp("index", i)
-            v.setProp("turn", self.turns[i])
-            v.setProp("remaining", self.dleft[i])
-            v.setProp("remaining_time", self.tleft[i])
-            v.setProp("tobrake", self.dtb[i])
-            v.setProp("tobrake_index", self.dtb_at[i])
-            f = v.feature()
-            f["properties"]["marker-size"] = "medium"
-            if abs(self.turns[i]) > TURN_LIMIT:
-                f["properties"]["marker-color"] = "#006600"  # dark green
-            else:
-                f["properties"]["marker-color"] = "#00AA00"  # green
-            features.append(f)
-            e = self.graph.get_edge(self.route[i], self.route[i + 1])
-            e.setProp("index", i)
-            features.append(e.feature())
-        return features
-
-    def _find(self, src, dst) -> bool:
-        # If requested to try AStar, try it first, if failed, try Dijkstra
-        # If Dijstra fails, we really can't do anything about it.
-        if self.algorithm == ROUTING_ALGORITHMS.ASTAR:
-            self.route = self.graph.AStar(src, dst)
-            if self.found():
-                return True
-            logger.info(f"..failed to find route using algorithm {self.algorithm}, will try algorithm Dijkstra..")
-        self.route = self.graph.Dijkstra(src, dst)
-        return self.found()
-
-    def found(self) -> bool:
-        return self.route is not None and len(self.route) > 2
-
-    def baseline(self, idx: int = 0) -> tuple:
-        # Returns distance and time left at route index
-        if len(self.dleft) > 0 and len(self.tleft) > 0:
-            return self.dleft[idx], self.tleft[idx]
-        return 0, 0
-
-    def before_route(self):
-        # Original point to first vertex
-        return Line(start=self.precise_start, end=self.vertices[0])
-
-    def after_route(self):
-        # Last vertex to destination
-        return Line(start=self.vertices[-1], end=self.precise_end)
-
-    def from_edge(self, i: int, position: Point) -> float | None:
-        if self.vertices is not None and len(self.vertices) > i:
-            return distance(self.vertices[i], position)
-        return None
-
-    def on_edge(self, i: int, dist: float) -> Point | None:
-        if self.vertices is not None and len(self.vertices) > i:
-            return destination(self.vertices[i], self.edges_orient[i], dist)
-        return None
-
-    def mkEdges(self):
-        # From liste of vertices, build list of edges
-        # but also set the size of the taxiway in the vertex
-        # note: edges[k] starts at vertices[k]
-        self.edges = []
-        self.edges_orient = []  # True: start->end, False: end->start
-        for i in range(len(self.route) - 1):
-            e = self.graph.get_edge(self.route[i], self.route[i + 1])
-            v = self.graph.get_vertex(self.route[i])
-            v.setProp("taxiway-width", e.width_code.value if e.width_code is not None else "-")
-            v.setProp("ls", i)
-            self.edges.append(e)
-            self.edges_orient.append(e.bearing(orig=v))
-        logger.debug(f"route (vtx): {self}.")
-        logger.debug("route (edg): " + "-".join([e.name for e in self.edges]))
-        logger.debug("route: " + self.text())
-        logger.debug(f"segment lengths: {[round(e.cost, 1) for e in self.edges]}")
-        # Cumulative distance left to taxi
-        # at vertex i, there is dleft[i] meter left to taxi
-        total = 0
-        self.dleft = []
-        for i in range(len(self.route) - 1, 0, -1):
-            self.dleft.append(total)
-            e = self.graph.get_edge(self.route[i - 1], self.route[i])
-            total = total + e.cost
-        self.dleft.append(total)
-        self.dleft.reverse()
-        logger.debug(f"distance left to destination at vertex: {[round(e, 1) for e in self.dleft]}")
-
-    def mkVertices(self):
-        self.vertices = list(map(lambda x: self.graph.get_vertex(x), self.route))
-
-    def mkTurns(self):
-        # At end of edge x, turn will be turns[x] degrees
-        # Idea: while walking the lights, determine how far is next turn (position to vertex) and how much it will turn.
-        #       when closing to edge, invide to slow down if turn is important
-        #       if turn is unimportant, anticipate to next vertex
-        # note: at vertices[k], there is a turn from vertices[k-1] to vertices[k+1]
-        # origin to first vertex
-        b1 = bearing(self.precise_start, self.vertices[0])
-        b2 = bearing(self.vertices[0], self.vertices[1])
-        self.turns = [turn(b1, b2)]
-        v0 = self.graph.get_vertex(self.route[0])
-        v1 = self.graph.get_vertex(self.route[1])
-        for i in range(1, len(self.route) - 1):
-            v2 = self.graph.get_vertex(self.route[i + 1])
-            self.turns.append(v1.turn(v0, v2))
-            v0 = v1
-            v1 = v2
-        # last vertex to destination
-        b1 = bearing(self.vertices[-2], self.vertices[-1])
-        b2 = bearing(self.vertices[-1], self.precise_end)
-        self.turns.append(turn(b1, b2))
-        logger.debug(f"turns at vertex: {[round(t, 0) for t in self.turns]}")
-
-    def mkDistToBrake(self):
-        # for each vertex, write the distance to the next vertex
-        # where there is a reason to slow down at that vertex: Either a sharp turn (> SMALL_TURN_LIMIT), or a stop bar (later).
-        # note: at vertices[k], there is self.dtb[k] distance left to turn at self.dtb_at[k]
-        #       (there may be a turn at vertices[k] itself, in turns[k])
-        if self.turns is None or len(self.turns) == 0:
-            return
-        self.dtb = []
-        self.dtb_at = []
-        total = 0
-        next_at = len(self.route) - 1
-        self.dtb.append(total)  # at last vertex, no distance to next turn
-        self.dtb_at.append(next_at)  # at last vertex, next turn is at last vertex
-        # for i in range(len(self.route) - 1, 0, -1):
-        #     total = total + self.edges[i - 1].cost
-        #     self.dtb.append(total)
-        #     self.dtb_at.append(next_at)
-        #     if abs(self.turns[i - 1]) > SMALL_TURN_LIMIT:
-        #         next_at = i - 1
-        #         total = 0
-        for i in range(len(self.edges), 0, -1):
-            total = total + self.edges[i - 1].cost
-            self.dtb.append(total)
-            self.dtb_at.append(next_at)
-            if abs(self.turns[i - 1]) > SMALL_TURN_LIMIT:
-                next_at = i - 1
-                total = 0
-        self.dtb.reverse()
-        self.dtb_at.reverse()
-        logger.debug(f"distance before turn brake at vertex: {[round(e, 1) for e in self.dtb]}")
-        logger.debug(f"next turn brake at vertex: {[e for e in self.dtb_at]}")
-
-    def mkTiming(self, speed: float):
-        if speed <= 0:
-            logger.debug(f"invalid speed {speed}")
-            return
-        TURN_ANGLE = 45  # degree
-        TURN_PENALTY = 30  # seconds
-        self.tleft = []
-        total = 0
-        penalty = 0
-        for i in range(len(self.edges), 0, -1):
-            self.tleft.append(total)
-            total = total + self.edges[i - 1].cost / speed
-            if abs(self.turns[i - 1]) > TURN_ANGLE:
-                total = total + TURN_PENALTY
-                penalty = penalty + 1
-        self.tleft.append(total)
-        self.tleft.reverse()
-        logger.debug(f"time left to destination at vertex (speed={round(speed, 1)}m/s, {penalty} turns): {', '.join([minsec(e) for e in self.tleft])}")
-
-    def text(self, destination: str = "destination") -> str:
-        if self.edges is None or len(self.edges) == 0:
-            self.mkEdges()
-        route_str = ""
-        last = ""
-        for e in self.edges:
-            if e.name != "" and e.name != last:
-                route_str = route_str + " " + e.name
-                last = e.name
-        route_str = route_str.strip().upper()
-        # logger.debug(f"route to {destination} via {route_str}")
-        # if destination != "":
-        #     logger.debug(f"route to {destination} via {route_str}")
-        # else:
-        #     logger.debug(f"taxi route {route_str}")
-        return route_str
-
-    @classmethod
-    def Find(
-        cls,
-        graph,
-        aircraft,
-        arrival_runway: Runway | None,
-        dst_pos: Runway | Ramp | Hold,
-        dst_type: str,
-        move: MOVEMENT,
-        use_strict_mode: bool,
-        use_threshold: bool,
-    ):
-        # Returns first route that works, or a route that does not work
-        if use_strict_mode:
-            logger.info("searching restricted route..")
-            width_code = aircraft.width_code
-            for respect_width_code in [True, False]:
-                wc = "Y" if respect_width_code else "N"
-                # WY/IY/RY/OY = respect_width/respect_inner/user_runway/respect_one_way
-
-                cannot_use_runway = True  # forced, otherwise wierd things happen
-                # cannot_use_runway = arrival_runway is None
-
-                if cannot_use_runway:
-                    # Strict, do not use runways, respect oneway, respect inner/outer
-                    # subgraph = graph.clone(
-                    #     width_code=width_code,
-                    #     move=move,
-                    #     respect_width=respect_width_code,
-                    #     respect_inner=True
-                    #     use_runway=False,
-                    #     respect_oneway=True,
-                    # )
-                    # route = cls(subgraph)
-                    # if route.find(aircraft, arrival_runway, dst_pos, dst_type, move, use_threshold=use_threshold):
-                    #     logger.info(f"..found/W{wc}IYRNOY")
-                    #     return route
-                    # logger.debug("..failed..")
-
-                    # do not use runways, respect oneway
-                    subgraph = graph.clone(
-                        width_code=width_code,
-                        move=move,
-                        respect_width=respect_width_code,
-                        respect_inner=False,  # unused anyway
-                        use_runway=False,
-                        respect_oneway=True,
-                    )
-                    route = cls(subgraph)
-                    if route.find(aircraft, arrival_runway, dst_pos, dst_type, move, use_threshold=use_threshold):
-                        logger.info(f"..found/W{wc}INRNOY")
-                        return route
-                    logger.debug("..failed..")
-                    # Alternative:
-                    # route = Route.Find(subgraph, aircraft, arrival_runway, dst_pos, dst_type, move, use_strict_mode=False, use_threshold=use_threshold)
-                    # if route.found():
-                    #     logger.info(f"..found/W{wc}INRNOY")
-                    #     return route
-                    # logger.debug("..failed..")
-
-                    # do not respect one ways
-                    subgraph = graph.clone(
-                        width_code=width_code,
-                        move=move,
-                        respect_width=respect_width_code,
-                        respect_inner=False,  # unused anyway
-                        use_runway=False,
-                        respect_oneway=False,
-                    )
-                    route = cls(subgraph)
-                    if route.find(aircraft, arrival_runway, dst_pos, dst_type, move, use_threshold=use_threshold):
-                        logger.info(f"..found/W{wc}INRNON")
-                        return route
-                    logger.debug("..failed..")
-                else:
-                    logger.debug("runway can be used while taxiing, probably because we are on a runway")
-
-                # use runway
-                subgraph = graph.clone(
-                    width_code=width_code,
-                    move=move,
-                    respect_width=respect_width_code,
-                    respect_inner=False,  # unused anyway
-                    use_runway=True,
-                    respect_oneway=True,
-                )
-                route = cls(subgraph)
-                if route.find(aircraft, arrival_runway, dst_pos, dst_type, move, use_threshold=use_threshold):
-                    logger.info(f"..found/W{wc}INRYOY")
-                    return route
-                logger.debug("..failed..")
-
-                # do not respect one ways
-                subgraph = graph.clone(
-                    width_code=width_code,
-                    move=move,
-                    respect_width=respect_width_code,
-                    respect_inner=False,  # unused anyway
-                    use_runway=True,
-                    respect_oneway=False,
-                )
-                route = cls(subgraph)
-                if route.find(aircraft, arrival_runway, dst_pos, dst_type, move, use_threshold=use_threshold):
-                    logger.info(f"..found/W{wc}INRYON")
-                    return route
-
-            # We're desperate
-            logger.info("..failed to find restricted route, trying wide search..")
-        else:
-            logger.info("searching route without restriction..")
-
-        # else, default on whole graph
-        route = cls(graph)
-        if route.find(aircraft, arrival_runway, dst_pos, dst_type, move, use_threshold):
-            logger.info("..found")
-        else:
-            logger.info("..failed (definitively)")
-        return route
-
-    def find(self, aircraft, arrival_runway: Runway | None, dst_pos: Runway | Ramp | Hold, dst_type: str, move: MOVEMENT, use_threshold: bool) -> bool:
-        # From aircraft position..
-        pos = aircraft.position()
-        if not pos:
-            logger.debug("plane could not be located")
-            return self.found()
-        pos_pt = Point(pos[0], pos[1])
-        self.precise_start = pos_pt
-        logger.debug(f"..got starting position {pos}..")
-
-        src = None
-        if move == MOVEMENT.DEPARTURE:
-            src = self.graph.findClosestVertex(pos_pt)
-        else:  # arrival
-            if arrival_runway is not None and dst_type == "stand":
-                if dst_pos is not None:
-                    nextexit = arrival_runway.nextExit(graph=self.graph, position=pos_pt, destination=dst_pos)
-                    if nextexit is not None:
-                        src = nextexit
-                        logger.debug(f"arrival: on runway {arrival_runway.name}, closest exit vertex in front is {nextexit[0]}")
-                logger.debug(f"arrival: on runway {arrival_runway.name}")
-            else:
-                brng = aircraft.heading()
-                speed = aircraft.speed()
-                logger.debug(f"arrival: not on runway, trying vertex ahead {brng}, {speed}")
-                src = self.graph.findClosestVertexAheadGuess(pos_pt, brng, speed)
-                if src is None or src[0] is None:  # tries a less constraining search...
-                    logger.debug("no vertex ahead, fallback on closest vertex, not necessarily ahead")
-                    src = self.graph.findClosestVertex(pos_pt)
-
-        if src is None:
-            logger.debug("no return from findClosestVertex")
-            return self.found()
-        if src[0] is None:
-            logger.debug("no close vertex")
-            return self.found()
-        if src[1] > TOO_FAR:
-            logger.debug(f"aircraft too far from taxiways ({round(src[1], 2)}m)")
-            return self.found()
-        logger.debug("..got starting vertex..")
-
-        # ..to destination
-        dst = None
-        if move == MOVEMENT.DEPARTURE:
-            if dst_type == "runway":
-                if use_threshold:
-                    logger.debug("departure destination: using runway threshold")
-                    dst = self.graph.findClosestVertex(dst_pos.threshold)
-                    self.precise_end = dst_pos.threshold
-                else:
-                    logger.debug("departure destination: using end of runway")
-                    dst = self.graph.findClosestVertex(dst_pos.start)
-                    self.precise_end = dst_pos.start
-            elif dst_type == "hold":
-                dst = self.graph.findClosestVertex(dst_pos)
-                self.precise_end = dst_pos
-            else:
-                logger.warning("departure destination is not a runway or a hold position")
-        else:  # arrival, dst_type == "stand"
-            if dst_type != "stand":
-                logger.warning("arrival destination is not a stand")
-            dst = self.graph.findClosestVertex(dst_pos)
-            self.precise_end = dst_pos
-
-        if dst is None:
-            logger.debug("no return from findClosestVertex")
-            return self.found()
-        if dst[0] is None:
-            logger.debug("no close vertex")
-            return self.found()
-        if dst[1] > TOO_FAR:
-            logger.debug(f"aircraft too far from taxiways ({round(dst[1], 2)}m)")
-            return self.found()
-        logger.debug("..got destination vertex..")
-
-        return self._find(src[0], dst[0])
-
-    def mkSmoothRoute(self):
-        TURN_LENGTH = 10
-        vtx = self.vertices
-        route = []
-        route.append(vtx[0])
-        for i in range(1, len(vtx) - 1):
-            turn = Turn(vertex=vtx[i], l_in=self.edges_orient[i - 1], l_out=self.edges_orient[i], radius=22, segments=36)
-            if turn.valid:
-                route += [p[0] for p in turn.points]
-            else:
-                t = min(TURN_LENGTH, self.edges[i - 1].cost, self.edges[i].cost)
-                pt = turn.progressiveTurn(length=t, segments=min(max(int(2 * t), 7), 21))
-                if len(pt) > 0:
-                    route += [p[0] for p in pt]
-                else:
-                    route.append(vtx[i])
-        route.append(vtx[-1])
-        # Add props: distance from start, heading
-        dist = 0
-        d = 0
-        b = 0
-        for i in range(len(route) - 1):  # [0] to [-2]
-            d = distance(route[i], route[i + 1])
-            b = bearing(route[i], route[i + 1])
-            route[i].setProp("srDistance", d)  # length to next vertex
-            route[i].setProp("srTotal", dist)  # total distance since start
-            route[i].setProp("srBearing", b)  # bearing to next vertex
-            dist += d
-        route[-1].setProp("srDistance", 0)  # [-1]
-        route[-1].setProp("srTotal", dist)  # total length or route
-        route[-1].setProp("srBearing", b)  # repeat last
-        self.smoothRoute = route
-        logger.debug(f"smooth route is {round(d, 1)}m, has {len(self.smoothRoute)} points")
-        if logger.level < 10:
-            fn = os.path.join(os.path.dirname(__file__), "..", "ftg_smooth_route.geojson")  # _{route.route[0]}-{route.route[-1]}
-            fc = FeatureCollection(features=[r.feature() for r in route])
-            fc.save(fn)
-
-    def closest(self, point: Point, cache: bool = True) -> tuple:
-        closest = None
-        shortest = math.inf
-        for i in range(len(self.smoothRoute[self.idxcache :])):
-            d = distance(self.smoothRoute[i], point)
-            if d < shortest:
-                shortest = d
-                closest = i
-        logger.debug(f"{closest} at {round(shortest, 1)}m")
-        if cache:
-            self.idxcache = i
-        return [None if closest is None else self.smoothRoute[closest], shortest]
-
-    def ahead(self, i: int, dist: float, start: float = 0):
-        # move dist after start after self.smoothRoute[i]
-        if i == len(self.smoothRoute) - 1:  # end of recursion
-            b = self.smoothRoute[-1].getProp("srBearing")
-            return self.smoothRoute[-1], b, i, 0
-        d = self.smoothRoute[i].getProp("srDistance")
-        if start + dist < d:  # there is enough room on the current edge
-            b = self.smoothRoute.getProp("srBearing")
-            pt = destination(self.smoothRoute[i], b, start + dist)
-            return pt, b, i, (start + dist)
-        return self.ahead(i + 1, start + dist - d)
