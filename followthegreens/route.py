@@ -149,6 +149,16 @@ class Route:
     def __init__(self, graph):
         self.graph = graph
         self.route = []
+        self.algorithm = ROUTING_ALGORITHM  # default, unused
+
+        self.precise_start = None
+        self.precise_end = None
+
+        self.departure_runway = None
+        self.arrival_runway = None
+
+        # working vars
+        self.move = None
         self.vertices = None
         self.edges = None
         self.turns = None
@@ -156,13 +166,6 @@ class Route:
         self.dtb_at = None
         self.dleft = []
         self.tleft = []
-        self.smoothed = None
-        self.algorithm = ROUTING_ALGORITHM  # default, unused
-        self.departure_runway = None
-        self.arrival_runway = None
-        self.precise_start = None
-        self.precise_end = None
-
         self.smoothRoute = []
         self.idxcache = 0  # progress on smooth route, cannot backup
 
@@ -548,6 +551,8 @@ class Route:
             return self.found()
         logger.debug("..got destination vertex..")
 
+        self.move = move
+
         return self._find(src[0], dst[0])
 
     def mkSmoothRoute(self):
@@ -571,12 +576,14 @@ class Route:
                     p.setProp("srRouteIndex", i - 1)
                     p.setProp("marker-color", "#DDDDDD")  # light grey
                     p.setProp("srIndex", idx)
+                    p.setProp("srTurnStart", len(route))  # also an indication that this point is part of the turn
                     idx += 1
                 vtx[i].setProp("srRevRouteIndex", len(route) + mid)
                 for p in pts[mid:]:  # tag second half turn with original next route index
                     p.setProp("srRouteIndex", i)
                     p.setProp("marker-color", "#DDDDDD")  # light grey
                     p.setProp("srIndex", idx)
+                    p.setProp("srTurnStart", len(route))
                     idx += 1
                 pts[mid].setProp("marker-color", "#FFDDDD")  # light grey different
                 route += pts
@@ -591,12 +598,14 @@ class Route:
                         p.setProp("srRouteIndex", i - 1)
                         p.setProp("marker-color", "#AAAAAA")  # light grey
                         p.setProp("srIndex", idx)
+                        p.setProp("srTurnStart", len(route))
                         idx += 1
                     vtx[i].setProp("srRevRouteIndex", len(route) + mid)
                     for p in pts[mid:]:
                         p.setProp("srRouteIndex", i)
                         p.setProp("marker-color", "#AAAAAA")  # light grey
                         p.setProp("srIndex", idx)
+                        p.setProp("srTurnStart", len(route))
                         idx += 1
                     pts[mid].setProp("marker-color", "#FFAAAA")  # light grey different
                     route += pts
@@ -628,7 +637,7 @@ class Route:
         route[-1].setProp("srBearing", b)  # repeat last
         self.smoothRoute = route
         logger.debug(f"smooth route is {round(dist, 1)}m, has {len(self.smoothRoute)} points")
-        if logger.level <= 10:
+        if logger.level < 10:
             fn = os.path.join(os.path.dirname(__file__), "..", "ftg_smooth_route.geojson")  # _{route.route[0]}-{route.route[-1]}
             fc = FeatureCollection(features=[r.feature() for r in route])
             fc.save(fn)
@@ -692,7 +701,7 @@ class Route:
         logger.debug(
             f"control: r={len(self.route)}, v={len(self.vertices)}, e={len(self.edges)}, turns={len(self.turns)}, brk={len(self.dtb)}, atbrk={len(self.dtb_at)}, d={len(self.dleft)}, t={len(self.tleft)}"
         )
-        if logger.level <= 10:
+        if logger.level < 10:
             fn = os.path.join(os.path.dirname(__file__), "..", "ftg_route.geojson")  # _{self.route[0]}-{self.route[-1]}
             fc = FeatureCollection(features=self.features())
             fc.save(fn)

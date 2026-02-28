@@ -199,6 +199,8 @@ ACF_MIN_SPEED = 3  # m/s
 
 class Aircraft:
 
+    SPEED_STOPPED = 0.02  # m/s
+
     def __init__(self, prefs: dict = {}):
         self.prefs = prefs
         self.icao = None
@@ -379,7 +381,8 @@ class Aircraft:
         return xp.getDataf(self.psi)
 
     def speed(self) -> float:
-        return xp.getDataf(self.groundspeed)
+        s = xp.getDataf(self.groundspeed)  # sometimes fluctuates around 0...
+        return s if s > Aircraft.SPEED_STOPPED else 0.0
 
     def mark(self) -> int:
         self.positions.append(self.position())

@@ -739,7 +739,7 @@ class Airport:
 
         if route.found():
             route.arrival_runway = arrival_runway
-            if dst_pos is not None and dst_pos == "runway":
+            if dst_pos is not None and dst_type == "runway":
                 route.departure_runway = dst_pos
             logger.debug(f"route {route.text(destination=destination)}")
             route.build(acf_speed=aircraft.avgTaxiSpeed())

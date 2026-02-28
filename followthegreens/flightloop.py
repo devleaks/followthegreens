@@ -269,7 +269,7 @@ class FlightLoop:
         try:
             if acf_speed is None or acf_speed < STOPPED_SPEED:
                 return self.nextIter
-            SPEEDS = [  # [speed=m/s, iter=s]
+            SPEEDS = [  # [speed=m/s, iter=s], to keep about 10 meter acf movement
                 [12, 0.8],
                 [10, 1],
                 [7, 1.2],

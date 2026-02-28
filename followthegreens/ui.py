@@ -330,17 +330,18 @@ class UIUtil:
             btns,
         )
 
-    def promptForClearance(self, intro: list = []):
+    def promptForClearance(self, intro: list = [], destination: str = ""):
         logger.debug("prompt for clearance")
         # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
         btns = {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel}
         if self.dest:
             btns[IAMLOST_TEXT] = self.cbNewGreen
         self.waiting_for_clearance = True
+        dst = f" to {destination}" if destination != "" else ""
         return self.window(
             intro
             + [
-                "Follow the greens until you encounter red stop lights across the taxiway.",
+                f"Follow the greens{dst} until you encounter red stop lights across the taxiway.",
                 "At the stop lights, contact ATC for clearance. Press Clearance received when cleared.",
             ],
             btns,
@@ -372,7 +373,7 @@ class UIUtil:
             {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel},
         )
 
-    def promptForParked(self):
+    def promptForParked(self, destination: str = ""):
         logger.debug("invite to ftg to parking")
         btns = {CONTINUE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel}
         if self.dest:
@@ -380,7 +381,7 @@ class UIUtil:
         # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
         return self.window(
             [
-                "Follow the greens to the designated parking area.",
+                f"Follow the greens to the parking stand {destination}.",
                 "Press Continue when parked.",
             ],
             btns,

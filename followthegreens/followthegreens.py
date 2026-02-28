@@ -507,16 +507,16 @@ VERSION = "{__VERSION__}"
             if self.move == MOVEMENT.ARRIVAL:
                 if len(self.lights.stopbars) == 0:  # not terminated by a stop bar, it is probably an arrival...
                     logger.debug("just one segment on arrival")
-                    return self.ui.promptForParked()
+                    return self.ui.promptForParked(destination=destination)
                 if len(self.lights.stopbars) == 1:  # terminated with a stop bar, it is probably a departure...
                     logger.debug("1 segment with 1 stopbar on arrival?")
-                    return self.ui.promptForClearance()
+                    return self.ui.promptForClearance(destination=self.destination)
             if self.move == MOVEMENT.DEPARTURE:
                 if len(self.lights.stopbars) == 0:  # not terminated by a stop bar, it is probably an arrival...
                     logger.debug("1 segment with 0 stopbar on departure?")
                     return self.ui.promptForDeparture()
 
-        return self.ui.promptForClearance(intro=intro_arr)
+        return self.ui.promptForClearance(intro=intro_arr, destination=self.destination)
         # return self.ui.sorry("Follow the greens is not completed yet.")  # development
 
     def nextLeg(self):
@@ -556,10 +556,10 @@ VERSION = "{__VERSION__}"
             return self.ui.bye()
 
         if self.move == MOVEMENT.ARRIVAL and self.segment == self.lights.segments:
-            return self.ui.promptForParked()
+            return self.ui.promptForParked(destination=self.destination)
 
         self.ui.canHide = True
-        return self.ui.promptForClearance()
+        return self.ui.promptForClearance(destination=self.destination)
 
     def terminate(self, reason=""):
         # Abandon the FTG mission. Instruct subroutines to turn off FTG lights, remove them,
