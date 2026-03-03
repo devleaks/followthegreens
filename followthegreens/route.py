@@ -582,6 +582,7 @@ class Route:
             fc = FeatureCollection(features=self.features())
             fc.save(fn)
             logger.debug(f"taxi route saved in {os.path.abspath(fn)}")
+
     # SMOOTH ROUTE
     # Adds turns at vertices.
     #
