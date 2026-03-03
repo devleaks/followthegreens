@@ -569,11 +569,10 @@ class FlightLoop:
                         )
                         self.light_progress = closestLight + int(ahead / self.ftg.lights.distance_between_green_lights)
                         # we move the car in front of acf, and progress at same speed as acf.
-                        fmcar.future(position=join_route.end, hdg=target_heading, speed=acf_speed, t=dt, tick=True, text="go on route ahead of aircraft")
+                        fmcar.future(position=join_route.end, hdg=target_heading, speed=acf_speed, edge=edge, t=dt, tick=True, text="go on route ahead of aircraft")
                         # finally, we have to tell future_index() where car is when it join route
                         # so that when move() catches up with future_index() it will start from there
                         # (after above future)
-                        fmcar.set_target_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart)
                         logger.debug("..already taxiing")
                 except:
                     logger.debug("..error", exc_info=True)
