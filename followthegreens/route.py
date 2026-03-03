@@ -34,6 +34,7 @@ class SMOOTH_ROUTE(StrEnum):
     BEARING = "sbBearing"
     TOTAL = "srTotal"
     REVERSE_INDEX = "srRevIndex"
+    SEGMENT_LENGTH = "srSegLen"
 
 
 class Turn:
@@ -623,6 +624,10 @@ class Route:
         vtx[-1].setProp("srRevRouteIndex", len(route) - 1)
         # Add props: distance from start, heading
         dist = 0
+        seglen = 0  # current segment length
+        last_idx = 0  # where to write length of next route segment (previous start of segment)
+        rtidx = 0  # current route segment
+        last_rtidx = 0  # previous route segment
         d = 0
         b = 0
         for i in range(len(route) - 1):  # [0] to [-2]
@@ -631,13 +636,20 @@ class Route:
             route[i].setProp("srDistance", d)  # length to next vertex
             route[i].setProp("srTotal", dist)  # total distance since start
             route[i].setProp("srBearing", b)  # bearing to next vertex
+            rtidx = route[i].getProp("srRouteIndex")
+            if rtidx != last_rtidx:  # write previous route segment length for smooth route
+                route[last_idx].setProp("srSegLen", seglen)
+                last_idx = i
+                seglen = 0
+            last_rtidx = rtidx
             dist += d
+            seglen += d
         route[-1].setProp("srDistance", 0)  # [-1]
         route[-1].setProp("srTotal", dist)  # total length or route
         route[-1].setProp("srBearing", b)  # repeat last
         self.smoothRoute = route
         logger.debug(f"smooth route is {round(dist, 1)}m, has {len(self.smoothRoute)} points")
-        if logger.level < 10:
+        if logger.level <= 10:
             fn = os.path.join(os.path.dirname(__file__), "..", "ftg_smooth_route.geojson")  # _{route.route[0]}-{route.route[-1]}
             fc = FeatureCollection(features=[r.feature() for r in route])
             fc.save(fn)
@@ -701,7 +713,7 @@ class Route:
         logger.debug(
             f"control: r={len(self.route)}, v={len(self.vertices)}, e={len(self.edges)}, turns={len(self.turns)}, brk={len(self.dtb)}, atbrk={len(self.dtb_at)}, d={len(self.dleft)}, t={len(self.tleft)}"
         )
-        if logger.level < 10:
+        if logger.level <= 10:
             fn = os.path.join(os.path.dirname(__file__), "..", "ftg_route.geojson")  # _{self.route[0]}-{self.route[-1]}
             fc = FeatureCollection(features=self.features())
             fc.save(fn)
