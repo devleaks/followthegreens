@@ -569,7 +569,15 @@ class FlightLoop:
                         )
                         self.light_progress = closestLight + int(ahead / self.ftg.lights.distance_between_green_lights)
                         # we move the car in front of acf, and progress at same speed as acf.
-                        fmcar.future(position=join_route.end, hdg=target_heading, speed=acf_speed, t=dt, tick=True, text="go on route ahead of aircraft", end=(light_ahead.edgeIndex, light_ahead.distFromEdgeStart))
+                        fmcar.future(
+                            position=join_route.end,
+                            hdg=target_heading,
+                            speed=acf_speed,
+                            t=dt,
+                            tick=True,
+                            text="go on route ahead of aircraft",
+                            end=(light_ahead.edgeIndex, light_ahead.distFromEdgeStart),
+                        )
                         # finally, we have to tell future_index() where car is when it join route
                         # so that when move() catches up with future_index() it will start from there
                         # (after above future)

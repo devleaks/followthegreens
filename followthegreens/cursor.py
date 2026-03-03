@@ -12,7 +12,7 @@ except ImportError:
     print("X-Plane not loaded")
 
 from .globals import MOVEMENT, logger
-from .geo import Point, Line, destination, distance, bearing
+from .geo import Point, Line, destination, distance
 from .lightstring import XPObject
 
 
@@ -55,6 +55,12 @@ class CursorType:
 
     acceleration: float = 1.0  # m/s^2, same deceleration
     deceleration: float = -1.0  # m/s^2, same deceleration
+
+    def __str__(self):
+        """Returns a string containing only the non-default field values."""
+        # https://stackoverflow.com/questions/71344648/how-to-define-str-for-dataclass-that-omits-default-values
+        s = ", ".join(f"{field.name}={getattr(self, field.name)!r}" for field in fields(self) if getattr(self, field.name) != field.default)
+        return f"{type(self).__name__}({s})"
 
 
 class CursorObject:
@@ -319,7 +325,16 @@ class Cursor:
                 f"..move on route at {round(ahead_at_join, 1)}m ahead, heading={round(join_route.bearing(), 0)}, in {round(join_time, 1)}s (aircraft will be at light index {light_progress}).."
             )
             # we move the car in front of acf, and progress at same speed as acf.
-            self.future(position=join_route.end, hdg=light_ahead.heading, speed=acf_speed, t=dt, edge=-1, tick=True, text="go on route ahead of aircraft after new route", end=(light_ahead.edgeIndex, light_ahead.distFromEdgeStart))
+            self.future(
+                position=join_route.end,
+                hdg=light_ahead.heading,
+                speed=acf_speed,
+                t=dt,
+                edge=-1,
+                tick=True,
+                text="go on route ahead of aircraft after new route",
+                end=(light_ahead.edgeIndex, light_ahead.distFromEdgeStart),
+            )
             # finally, we have to tell future_index() where car is when it join route
             # so that when move() catches up with future_index() it will start from there
             # (after above future)
@@ -395,7 +410,6 @@ class Cursor:
                 hdg = self.route.edges_orient[edge]
                 self.future(position=dest, hdg=hdg, speed=speed, t=t, edge=edge, text="go further on edge")
                 logger.debug(f"progress on edge {edge} from {round(last_distance_on_edge, 1)}m to {round(dist, 1)}m, distance adjusted")
-                # last_distance_on_edge = dist
             else:
                 logger.log(8, f"no progress on edge {edge}, ({round(dist, 1)}m <= {round(last_distance_on_edge, 1)}m)")
             return
@@ -444,17 +458,8 @@ class Cursor:
         # RESET
         last_index = last_route_index + 1
 
-        self.future(
-            position=vertices[last_route_index + 1],
-            hdg=hdg,
-            speed=local_speed,
-            t=start_time,
-            edge=last_route_index,
-            text=txt,
-            end=(last_index, 0)
-        )
+        self.future(position=vertices[last_route_index + 1], hdg=hdg, speed=local_speed, t=start_time, edge=last_route_index, text=txt, end=(last_index, 0))
         # logger.log(8, f"progress {round(d, 1)}m on edge {last_route_index} to end of edge in {round(tt, 1)}s")
-
 
         # travel entire next edges
         while last_index < edge and last_index < (len(self.route.edges)):
@@ -473,7 +478,7 @@ class Cursor:
                 t=start_time,
                 edge=last_index,
                 text=f"{round(e.cost, 1)}m to end of edge {last_index}",
-                end=(last_index+1, 0)
+                end=(last_index + 1, 0),
             )
             logger.log(8, f"progress on edge {last_index} (whole length {round(e.cost, 1)}m, in {round(tt, 1)}s)")
             last_index = last_index + 1
@@ -512,8 +517,8 @@ class Cursor:
         return False
 
     def _set_target(self, target: Situation):
-        logger.debug(f"current {self.current}")
-        logger.debug(f"setting target {target}..")
+        logger.debug(f"current {self.current.comment}")
+        logger.debug(f"setting target {target.comment}..")
         if self.current.route_index < 0:  # direct route to target
             logger.debug("direct route to target")
             self.target = target
@@ -537,6 +542,7 @@ class Cursor:
     def _mkPathToTarget(self):
         self.path_start_pos = self.current.position
         self.path_start_time = self.current.time
+        self.path_start_speed = self.current.speed
         self.path_length = distance(self.current.position, self.target.position)
 
         if self.current.speed <= 0.1:
@@ -565,8 +571,10 @@ class Cursor:
         else:
             if self.current.route_index != self.target.route_index:
                 logger.debug(f"route index differ ({self.current.route_index}, {self.target.route_index})")
-            logger.debug(f"control: {round(self.path_length, 1)}m {round(self.target.distance_on_edge - self.current.distance_on_edge, 1)}m")
-            logger.debug(f"path on edge {self.current.route_index}, at {round(self.current.distance_on_edge, 1)}m from edge start, need to travel {round(self.path_length, 1)}m on edge in {round(self.path_time, 1)}, will finish at {st(self.target.time)}")
+            # logger.debug(f"control: {round(self.path_length, 1)}m {round(self.target.distance_on_edge - self.current.distance_on_edge, 1)}m")
+            logger.debug(
+                f"path on edge {self.current.route_index}, at {round(self.current.distance_on_edge, 1)}m from edge start, need to travel {round(self.path_length, 1)}m on edge in {round(self.path_time, 1)}, will finish at {st(self.target.time)}"
+            )
 
     def distance(self, position) -> float:
         return distance(self.current.position, position)

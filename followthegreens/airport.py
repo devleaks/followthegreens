@@ -287,28 +287,12 @@ class Airport:
                 if RABBIT.SPEED.value in prefs:
                     self.rabbit_speed = prefs[RABBIT.SPEED.value]
                     self.rabbit_speed_pref = True
-                if "FMC" in prefs:
-                    self.fmc = self.prefs.get("FMC", "xcsl/fmc.obj")
                 return
         # Generic
         if len(apt) > 0:
             logger.debug(f"airport preferences: {apt}")
             if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in apt:
                 self.distance_between_green_lights = apt[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
-
-    # def cursor(self, route) -> Cursor | None:
-    #     cursor = self.prefs.get("FollowMeCar", {})
-    #     if len(cursor) == 0:
-    #         logger.debug("no cursor")
-    #         return None
-    #     adj = ""
-    #     if self.distance_between_green_lights > self.MTWYLDWC:
-    #         adj = f", distance between green lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
-    #         self.distance_between_green_lights = self.MTWYLDWC
-    #         self.distance_between_green_lights_pref = True
-    #     logger.debug(f"using cursor DEVELOPER MODE (prefs={cursor}){adj}")
-    #     details = CursorType(**cursor)
-    #     return Cursor(details, route)
 
     def cursor(self, route) -> Cursor | None:
         # cursor should be **created** before lights are placed
