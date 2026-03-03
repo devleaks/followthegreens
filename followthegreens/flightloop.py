@@ -516,7 +516,7 @@ class FlightLoop:
                         dt = ts_now + tj
                         target_heading = self.ftg.route.edges[edge].bearing(orig=self.ftg.route.vertices[edge])
                         logger.debug(f"..move to begining of route: distance={round(join_route.length(), 1)}, heading={round(join_route.bearing(), 0)}, in {round(tj, 1)}s..")
-                        fmcar.future(position=join_route.end, hdg=target_heading, speed=fmcar.adjustedSpeed(), edge=edge, t=dt, tick=True, text="go to begining of route")
+                        fmcar.future(position=join_route.end, hdg=target_heading, speed=fmcar.adjustedSpeed(), t=dt, tick=True, text="go to begining of route", end=(0, 0))
                         #
                         # 3. Movement (on route) from above vertex of route to ahead of aircraft
                         #
@@ -569,7 +569,7 @@ class FlightLoop:
                         )
                         self.light_progress = closestLight + int(ahead / self.ftg.lights.distance_between_green_lights)
                         # we move the car in front of acf, and progress at same speed as acf.
-                        fmcar.future(position=join_route.end, hdg=target_heading, speed=acf_speed, edge=edge, t=dt, tick=True, text="go on route ahead of aircraft")
+                        fmcar.future(position=join_route.end, hdg=target_heading, speed=acf_speed, t=dt, tick=True, text="go on route ahead of aircraft", end=(light_ahead.edgeIndex, light_ahead.distFromEdgeStart))
                         # finally, we have to tell future_index() where car is when it join route
                         # so that when move() catches up with future_index() it will start from there
                         # (after above future)
