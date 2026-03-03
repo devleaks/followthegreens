@@ -527,9 +527,9 @@ class FlightLoop:
                         fmcar.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=0.0, t=dt + tahead)
                         logger.debug("..ready to taxi")
                     else:
-                        # Aircraft is moving or we are on arrival (or both)
+                        # Aircraft is moving (example if new green request) or we are on arrival (or both)
                         #
-                        # 1. Spawn the car next to (random) side of aircraft, half way "ahead" so that pilot can see
+                        # 1. Spawn the car next to (random) side of aircraft, half way "ahead" so that pilot can see the car on the side
                         rnd = 1 if (int(ts_now) % 2) == 0 else -1
                         ahead = self.ftg.aircraft.adjustAhead()
                         spawn = destination(self.ftg.route.precise_start, aircraft.heading(), ahead / 2)  # ahead/2 ahead
@@ -551,7 +551,7 @@ class FlightLoop:
                         # we spawn the car at aircraft speed + speed to travel in front of acf.
                         fmcar.init(position=join_route.start, heading=join_route.bearing(), speed=initial_speed)  # @todo always spawned at rest?
                         #
-                        # 2. Movement from where the car is spawned to ahead of acf on route
+                        # 2. Movement from where the car is spawned to ahead of acf on route, goes in a straight line
                         dt = ts_now + join_time
                         target_heading = light_ahead.heading
                         # we will move the car well ahead, the car should not backup

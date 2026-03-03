@@ -181,7 +181,7 @@ class Cursor:
     def status(self, status: CURSOR_STATUS):
         if status != self._status:
             self._status = status
-            logger.debug(f"{type(self).__name__} is now {status}")
+            logger.info(f"{type(self).__name__} is now {status}")
 
     @property
     def usable(self) -> bool:
@@ -649,10 +649,6 @@ class Cursor:
             logger.debug(f"target time is ahead, would wait {round(t, 1)}s; adjusted, will not wait")
 
     def nextPosition(self):
-        if self.current.time > self.target.time:  # this path is finished
-            logger.debug("time expired")
-            return self.current.position, self.current.heading, True
-
         dt = self.current.time - self.path_start_time
         d = getDistance2(initial_velocity=self.current.speed, final_velocity=self.target.speed, time=dt)
         if d > self.path_length:
@@ -696,22 +692,18 @@ class Cursor:
         # if at end of time, should be at end of path too...
         if self.current.time > self.target.time:  # note: might turn bruptly or change speed instantaneously to catch up
             slow_debug("time is out for path")
-            self.current.heading = self.target.heading
-            self.current.speed = self.target.speed
+            self.current = self.target
             if not self._tick():
                 logger.debug("no more future")
-                self.cursor.move(lat=self.current.position.lat, lon=self.current.position.lon, hdg=self.current.heading, elev=ABOVE_GROUND)
                 return
 
-        # if at end of edge, tick to next edge (if any)
+        # is current position after path_length?
         d = distance(self.path_start_pos, self.current.position)
         if d > self.path_length:
             slow_debug("path is finished")
-            self.current.heading = self.target.heading
-            self.current.speed = self.target.speed
+            self.current = self.target
             if not self._tick():
                 logger.debug("no more future")
-                self.cursor.move(lat=self.current.position.lat, lon=self.current.position.lon, hdg=self.current.heading, elev=ABOVE_GROUND)
                 return
 
         self.current.position, hdg, finished = self.nextPosition()
