@@ -131,7 +131,6 @@ class OnRoute:
 
     index: int = -1
     distance: float = 0.0  # distance "forward" from above index
-    vertices: list = []  # list of reference vertices for OnRoute() instance
 
 
 @dataclass
