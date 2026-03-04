@@ -35,7 +35,7 @@ class FollowTheGreens:
         self.airport: Airport | None = None
         self.aircraft: Aircraft | None = None
         self.lights: LightString | None = None
-        self.cursor = None
+        self.fmcar = None
         self.segment = 0  # counter for green segments currently lit -0-----|-1-----|-2---------|-3---
         self.move: MOVEMENT | None = None  # departure or arrival, guessed first, can be changed by pilot.
         self.destination = None  # Handy
@@ -438,10 +438,10 @@ VERSION = "{__VERSION__}"
         logger.info(f"environment at {now}: day={day}, visibility={round(viz, 0)}m, brt={brt}, vra={ahr}m")
 
         # sets a reduced distance between lights
-        new_cursor = False
-        if self.cursor is None:
-            self.cursor = self.airport.cursor(route=self.route)
-            new_cursor = True
+        new_fmcar = False
+        if self.fmcar is None:
+            self.fmcar = self.airport.fmcar(route=self.route)
+            new_fmcar = True
 
         onRwy = False
         if self.move == MOVEMENT.ARRIVAL:
@@ -459,8 +459,8 @@ VERSION = "{__VERSION__}"
         self.lights.printSegments()
         self.status = FTG_STATUS.ROUTE
 
-        if self.cursor is not None and not new_cursor:
-            self.cursor.change_route(ftg=self)
+        if self.fmcar is not None and not new_fmcar:
+            self.fmcar.change_route(ftg=self)
 
         self.segment = 0
         logger.info(f"current segment {self.segment + 1}/{self.lights.segments + 1}")
@@ -592,11 +592,11 @@ VERSION = "{__VERSION__}"
         logger.info(f"terminated: {reason}")
         if reason == "new green requested":
             logger.info(f"green session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session}) for greener greens")
-            # do not delete cursor
+            # do not delete fmcar
         else:
-            if self.cursor is not None:
-                self.cursor.destroy()
-                self.cursor = None
+            if self.fmcar is not None:
+                self.fmcar.destroy()
+                self.fmcar = None
             logger.info(f"green session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session})")
             logger.info("-=" * 50)
             logger.info("\n\n")

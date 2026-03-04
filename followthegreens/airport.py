@@ -294,20 +294,20 @@ class Airport:
             if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in apt:
                 self.distance_between_green_lights = apt[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
 
-    def cursor(self, route) -> Cursor | None:
-        # cursor should be **created** before lights are placed
+    def fmcar(self, route) -> Cursor | None:
+        # fmcar should be **created** before lights are placed
         if not self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False):
             if self.lights_ahead != Airport.HARDCODED_MAX_DISTANCE or self.rabbit_length != 0:
-                logger.debug("no cursor")
+                logger.debug("no fmcar")
                 return None
-        cursor = self.prefs.get("FollowMeCar", {})
+        fmcar = self.prefs.get("FollowMeCar", {})
         adj = ""
-        if self.distance_between_green_lights > self.MTWYLDWC:  # min twy light distance with/when cursor
+        if self.distance_between_green_lights > self.MTWYLDWC:  # min twy light distance with/when fmcar
             adj = f", distance between taxiway lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
             self.distance_between_green_lights = self.MTWYLDWC
             self.distance_between_green_lights_pref = True
-        logger.debug(f"using cursor {cursor}{adj}")
-        details = CursorType(**cursor)
+        logger.debug(f"using fmcar {fmcar}{adj}")
+        details = CursorType(**fmcar)
         return Cursor(details, route)
 
     def load(self):
