@@ -126,6 +126,15 @@ class SimpleQueue:
 
 
 @dataclass
+class OnRoute:
+    """4 position with other information"""
+
+    index: int = -1
+    distance: float = 0.0  # distance "forward" from above index
+    vertices: list = []  # list of reference vertices for OnRoute() instance
+
+
+@dataclass
 class Situation:
     """4 position with other information"""
 
@@ -614,7 +623,7 @@ class Cursor:
             self.current.distance_on_edge = self.target.end[1]
             logger.debug(f"set end: set current edge {self.current.route_index}, at {round(self.current.distance_on_edge, 1)}m from edge start")
         else:
-            coords = self.target.vertex.coords() if self.target.vertex is not None else 'none'
+            coords = self.target.vertex.coords() if self.target.vertex is not None else "none"
             logger.debug(f"set end: set current edge {self.current.route_index} to target edge {coords}")
             self.current.route_index = self.target.route_index
             self.current.distance_on_edge = self.target.distance_on_edge
@@ -722,7 +731,7 @@ class Cursor:
             LEAVE_DIST_AHEAD = 200
             LEAVE_DIST_SIDE = 100  # m
             if self.route.precise_start is not None:  # leaves towards departure area, like return to position
-                rnd = - self.route.departure_runway.side(self.route.precise_start)
+                rnd = -self.route.departure_runway.side(self.route.precise_start)
         elif self.route.move == MOVEMENT.ARRIVAL:
             LEAVE_DIST_AHEAD = 40  # m, to service road in front of aircraft?
             LEAVE_DIST_SIDE = 100  # m, on service road, away to vanish out of sight

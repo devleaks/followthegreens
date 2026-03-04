@@ -801,7 +801,7 @@ class Route:
         v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
         route.append(v)
         for i in range(1, len(vtx) - 1):  # [1, 2]!
-            turn = Turn(vertex=vtx[i], l_in=edges[i-1].bearing(), l_out=edges[i].bearing(), radius=22, segments=36)
+            turn = Turn(vertex=vtx[i], l_in=edges[i - 1].bearing(), l_out=edges[i].bearing(), radius=22, segments=36)
             if turn.valid:
                 pts = [p[0] for p in turn.points]
                 mid = int(len(pts) / 2)
