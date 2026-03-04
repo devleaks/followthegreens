@@ -21,7 +21,7 @@ Let aricraft moving forward until it is less that 500m away from taxiway vertex.
 # Pause
 
 Follow the Greens plugin does not handle pause.
-It keeps runnign while the simulator is pause.
+It keeps running while the simulator is paused.
 There should not be any issue with that.
 If the aircraft does not move, greens don't change.
 
@@ -32,3 +32,9 @@ Follow the Greens takes a «picture» of the situation when a new session is sta
 If the aircraft is changed or relocated after the session is started,
 pilot should cancel the previous session and restart a new one to take
 into account all changes.
+
+
+# FMC stop
+
+When FMC stops in a turn or at the end of a turn,
+it restarts at the same distance but on the edge (little jump).

@@ -44,13 +44,17 @@ def convertAngleTo360(alfa):
 
 
 def turn(bi, bo):
+    return ((((bo - bi) % 360) + 540) % 360) - 180
+    # https://stackoverflow.com/questions/16180595/find-the-angle-between-two-bearings
+    #
+    # old algorithm
     # turn in [-180, 180]
-    t = bi - bo
-    while t < -180:
-        t += 360
-    while t > 180:
-        t -= 360
-    return t
+    # t = bi - bo
+    # while t < -180:
+    #     t += 360
+    # while t > 180:
+    #     t -= 360
+    # return t
 
 
 def sign(x):  # there is no sign function in python...
@@ -514,3 +518,15 @@ def distanceToLine(point: Point, segment_start: Point, segment_end: Point):
     else:
         dist = distance(point, point_2)
     return dist
+
+
+def turnRadius(speed: float, radius: float = 10) -> float:
+    # supply a turn radius for a "regular" car, not an aircaft
+    # speed in m/s
+    if speed < 8:  # 30km/h
+        return radius
+    if speed < 15:  # 54km/h
+        return radius * 1.5
+    if speed < 25:  # 90km/h
+        return radius * 2
+    return radius * 3

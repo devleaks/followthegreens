@@ -199,6 +199,8 @@ ACF_MIN_SPEED = 3  # m/s
 
 class Aircraft:
 
+    SPEED_STOPPED = 0.02  # m/s
+
     def __init__(self, prefs: dict = {}):
         self.prefs = prefs
         self.icao = None
@@ -209,7 +211,7 @@ class Aircraft:
         self.lon = xp.findDataRef("sim/flightmodel/position/longitude")
         self.psi = xp.findDataRef("sim/flightmodel/position/psi")
         self.groundspeed = xp.findDataRef("sim/flightmodel/position/groundspeed")
-        self.tiller = xp.findDataRef("ckpt/tiller")
+        self.tiller = xp.findDataRef("ckpt/tiller")  # check if pilot is turning
         self.visibility_dref = xp.findDataRef("sim/weather/visibility_reported_m")
 
         self.width_code = TAXIWAY_WIDTH_CODE.C  # init to default
@@ -226,6 +228,9 @@ class Aircraft:
         self.rabbit_length = r.get(RABBIT.LENGTH, 100)  # meters
         self.rabbit_length = self.rabbit_length + self.acflength  # meters
         self.rabbit_speed = r.get(RABBIT.SPEED, 0.2)  # seconds
+        self.lights_ahead_pref = False
+        self.rabbit_length_pref = False
+        self.rabbit_speed_pref = False
         # If modified in preference file
         self.setPreferences()
 
@@ -243,7 +248,7 @@ class Aircraft:
         logger.info(f"aircraft type {self.icao} not found in lists, using default category {self.width_code}")
 
     def hasPreferences(self) -> bool:
-        return "Aircrafts" in self.prefs or "Aircrafts." + self.icao in self.prefs
+        return ("Aircrafts" + self.width_code.value) in self.prefs or ("Aircrafts." + self.icao) in self.prefs
 
     def setPreferences(self):
         a = self.aircaftPreferences()
@@ -259,41 +264,44 @@ class Aircraft:
         #
 
         acf = self.prefs.get("Aircrafts", {})
-
         logger.debug(f"Aircraft preferences: {acf}")
-        if acf is not None:
-            if RABBIT.LIGHTS_AHEAD.value in acf:
-                self.lights_ahead = acf[RABBIT.LIGHTS_AHEAD.value]
-            if RABBIT.LENGTH.value in acf:
-                self.rabbit_length = acf[RABBIT.LENGTH.value]
-            if RABBIT.SPEED.value in acf:
-                self.rabbit_speed = acf[RABBIT.SPEED.value]
-
+        # Aircraft CLASS
         prefs = acf.get(self.width_code.value, {})
         logger.debug(f"Aircraft type {self.width_code.value} preferences: {prefs}")
         if prefs is not None:
             if RABBIT.LIGHTS_AHEAD.value in prefs:
                 self.lights_ahead = prefs[RABBIT.LIGHTS_AHEAD.value]
+                self.lights_ahead_pref = True
             if RABBIT.LENGTH.value in prefs:
                 self.rabbit_length = prefs[RABBIT.LENGTH.value]
+                self.rabbit_length_pref = True
             if RABBIT.SPEED.value in prefs:
                 self.rabbit_speed = prefs[RABBIT.SPEED.value]
-
+                self.rabbit_speed_pref = True
+        # Aircraft TYPE
         prefs = acf.get(self.icao, {})
         logger.debug(f"Aircraft model {self.icao} preferences: {prefs}")
         if prefs is not None:
             if RABBIT.LIGHTS_AHEAD.value in prefs:
                 self.lights_ahead = prefs[RABBIT.LIGHTS_AHEAD.value]
+                self.lights_ahead_pref = True
             if RABBIT.LENGTH.value in prefs:
                 self.rabbit_length = prefs[RABBIT.LENGTH.value]
+                self.rabbit_length_pref = True
             if RABBIT.SPEED.value in prefs:
                 self.rabbit_speed = prefs[RABBIT.SPEED.value]
+                self.rabbit_speed_pref = True
 
         if self.rabbit_length > 0:  # == 0 = no rabbit
             self.rabbit_length = self.rabbit_length + self.acflength  # meters
         if self.lights_ahead > 0:  # == 0 = whole path
             self.lights_ahead = self.lights_ahead + self.acflength  # meters
-        logger.debug(f"AIRCRAFT rabbit (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={self.acflength}m)")
+        if self.hasPreferences():
+            logger.debug(
+                f"aircraft rabbit preference (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={self.acflength}m)"
+            )
+        else:
+            logger.debug("aircraft has no preference for class or type")
 
     def position(self) -> list:
         return [xp.getDataf(self.lat), xp.getDataf(self.lon)]
@@ -320,11 +328,12 @@ class Aircraft:
         prefs = self.aircaftPreferences()
         ranges = prefs.get(AIRCRAFT.VISUAL_RANGE, {"RANGE": [70, 150], "LIMITS": [70, 150]})
         r = ranges.get("RANGE", [70, 150])
+        r0 = r
         l = ranges.get("LIMITS", [70, 150])
 
         # extends if acf speed is fast
-        spd = self.speed()
-        if spd > 10:
+        acf_speed = self.speed()
+        if acf_speed > 10:
             f = 1.5
             r = [r[0] * f, r[1] * f]
 
@@ -344,6 +353,11 @@ class Aircraft:
         r[1] = max(r[1], l[0])
         r[0] = min(r[0], l[1])
         r[1] = min(r[1], l[1])
+        # TO this estimated length we add 1.5 aircraft sizes,
+        # because lights are counted almost from the back of the acf
+        r[0] += 1.0 * self.acflength
+        r[1] += 1.0 * self.acflength
+        # logger.debug(f"range {r0} -> {r} (acf_speed={round(acf_speed, 1)}m/s, viz={round(viz, 1)}m, acf_length={round(self.acflength, 1)}m)")
         return r
 
     def adjustAhead(self) -> float:
@@ -355,17 +369,20 @@ class Aircraft:
         acf_speed = self.speed()
         acflen = self.acflength if self.acflength is not None else 50
         ahead = acflen * 2.5 + acf_speed * 15.0
+        ahead0 = ahead
         if ahead < ahead_range[0]:
             ahead = ahead_range[0]
         if ahead > ahead_range[1]:
             ahead = ahead_range[1]
+        # logger.debug(f"ahead {round(ahead0, 1)}m -> {round(ahead, 1)}m (acf_speed={round(acf_speed, 1)}m/s, range={ahead_range}m)")
         return ahead
 
     def heading(self) -> float:
         return xp.getDataf(self.psi)
 
     def speed(self) -> float:
-        return xp.getDataf(self.groundspeed)
+        s = xp.getDataf(self.groundspeed)  # sometimes fluctuates around 0...
+        return s if s > Aircraft.SPEED_STOPPED else 0.0
 
     def mark(self) -> int:
         self.positions.append(self.position())

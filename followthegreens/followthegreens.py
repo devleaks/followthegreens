@@ -35,7 +35,7 @@ class FollowTheGreens:
         self.airport: Airport | None = None
         self.aircraft: Aircraft | None = None
         self.lights: LightString | None = None
-        self.cursor = None
+        self.fmcar = None
         self.segment = 0  # counter for green segments currently lit -0-----|-1-----|-2---------|-3---
         self.move: MOVEMENT | None = None  # departure or arrival, guessed first, can be changed by pilot.
         self.destination = None  # Handy
@@ -48,28 +48,23 @@ class FollowTheGreens:
         self.localDay = xp.findDataRef("sim/time/local_date_days")
         self.session = None
         self.route = None
-
-        logger.info("\n\n")
-        logger.info(">=" * 50)
-        logger.info(f"Create new {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
-        logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}\n")
-
         self.stats = {}
-        self.load_stats()
         self.prefs = {}
-        self.init_preferences()
-
-        self.ui = UIUtil(self)  # Where windows are built
-        self.flightLoop = FlightLoop(self)  # where the magic is done
-
-        self.status = FTG_STATUS.INITIALIZED
+        self.ui = None
+        self._last_ui_shown = None
+        self.flightLoop = None
+        # frame rate estimates
+        self.frp = xp.findDataRef("sim/time/framerate_period")
+        self.fr = 1.0
+        logger.info(f"created {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
+        logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}\n")
 
     def __del__(self):
         # alias to cancel
         self.inc("delete")
         ret = self.terminate("delete")
         self.status = FTG_STATUS.DELETED
-        logger.info(f"Deleted {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
+        logger.info(f"deleted {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
         logger.info("<=" * 50)
         logger.info("\n\n")
 
@@ -85,7 +80,8 @@ class FollowTheGreens:
     def status(self, status: FTG_STATUS):
         if status != self._status:
             self._status = status
-            logger.debug(f"{type(self).__name__} is now {status}")
+            self.inc(status.value)
+            logger.info(f"{type(self).__name__} is now {status}")
 
     def inc(self, name: str, qty: int = 1):
         self.stats[name] = qty if name not in self.stats else self.stats[name] + qty
@@ -105,6 +101,16 @@ class FollowTheGreens:
         with open(fn, "w") as fp:
             print(toml_dumps(self.stats), file=fp)
             logger.info(f"stats written: {self.stats}")
+
+    def init(self):
+        self.stats = {}
+        self.load_stats()
+        self.prefs = {}
+        self.init_preferences()
+        self.ui = UIUtil(self)  # Where windows are built
+        self.flightLoop = FlightLoop(self)  # where the magic is done
+        # logger.info(f"initialized {type(self).__name__}")
+        self.status = FTG_STATUS.INITIALIZED
 
     def init_preferences(self, reloading: bool = False):
         # Load optional preferences file (Rel. 2 onwards)
@@ -253,20 +259,30 @@ VERSION = "{__VERSION__}"
         # Toggles visibility of main window.
         # If it was simply closed for hiding, show it again as it was.
         # If it does not exist, creates it from start of process.
+        if self.status == FTG_STATUS.NEW:
+            self.init()
         # if self.status = ACTIVE:
         logger.debug(f"current status: {self.status}, ui={self.ui.mainWindowExists()}")
         if self.ui.mainWindowExists():
             logger.debug(f"mainWindow exists, changing visibility {self.ui.isMainWindowVisible()}")
+            # @todo? Widget was hidden, it is popped up again;
+            # may be situation has changed, we should at least may be check
+            # we still are at the same airport as before?
+            # May be other checks depending on self.status?
+            # May be session should reset when not gone through everything and still not running?
+            if not self.ui.isMainWindowVisible():
+                self._last_ui_shown = datetime.now()  # becomes visible aster next call
             self.ui.toggleVisibilityMainWindow()
             return 1
 
         # there is no existing window, we create a new session
         if self.session is None:
             self.session = randint(1000, 9999)
-        logger.info("\n\n")
-        logger.info("-=" * 50)
         logger.info(
-            " ".join(
+            "\n\n"
+            + "-=" * 50
+            + "\n"
+            + " ".join(
                 [
                     "When sending session for debugging purpose,",
                     "you can cut the file above the 'starting new green session'",
@@ -274,22 +290,23 @@ VERSION = "{__VERSION__}"
                     f"(session id = {self.session})",
                 ]
             )
+            + "\n"
         )
         logger.info(f"starting new green session at {datetime.now().astimezone().isoformat()} (session id = {self.session})..")
 
         # Info 1
         # logger.info("starting..")
         self.status = FTG_STATUS.START
-        self.inc("start")
-        # BEGIN TEST : reloading preferences
+
         logger.debug("..reloading preferences..")
         self.init_preferences(reloading=True)
         logger.debug("..reloaded..")
-        # END TEST
+
         mainWindow = self.getAirport()
         logger.debug("mainWindow created")
         if mainWindow and not xp.isWidgetVisible(mainWindow):
             xp.showWidget(mainWindow)
+            self._last_ui_shown = datetime.now()
             logger.debug("mainWindow shown")
         self.status = FTG_STATUS.READY
         logger.info("..started.")
@@ -381,6 +398,11 @@ VERSION = "{__VERSION__}"
             logger.debug(f"destination not valid {destination} for {self.move}")
             return self.ui.promptForDestination(status=f"Destination {destination} not valid for {self.move}.")
 
+        frp = xp.getDataf(self.frp)
+        if frp != 0:
+            self.fr = 1 / frp
+            logger.info(f"estimated frame rate {round(self.fr, 1)} fps")
+
         # Info 11
         logger.info(f"trying route to destination {destination}..")
         rerr, self.route = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("RESPECT_CONSTRAINTS", preferences=self.prefs))
@@ -413,7 +435,13 @@ VERSION = "{__VERSION__}"
         viz = self.aircraft.visibility()
         brt = self.aircraft.brightness()
         ahr = self.aircraft.aheadRange()
-        logger.info(f"environmental at {now}: day={day}, visibility={round(viz, 0)}m, brt={brt}, vra={ahr}m")
+        logger.info(f"environment at {now}: day={day}, visibility={round(viz, 0)}m, brt={brt}, vra={ahr}m")
+
+        # sets a reduced distance between lights
+        new_fmcar = False
+        if self.fmcar is None:
+            self.fmcar = self.airport.fmcar(route=self.route)
+            new_fmcar = True
 
         onRwy = False
         if self.move == MOVEMENT.ARRIVAL:
@@ -427,15 +455,12 @@ VERSION = "{__VERSION__}"
             return self.ui.sorry("We could not light a route to your destination.")
         self.inc("lights", qty=len(self.lights.lights))
 
-        # After lights set
-        if self.cursor is None:
-            self.cursor = self.airport.cursor(route=self.route)
-        else:
-            self.cursor.change_route(ftg=self)
-
         # Info 13
         self.lights.printSegments()
         self.status = FTG_STATUS.ROUTE
+
+        if self.fmcar is not None and not new_fmcar:
+            self.fmcar.change_route(ftg=self)
 
         self.segment = 0
         logger.info(f"current segment {self.segment + 1}/{self.lights.segments + 1}")
@@ -482,16 +507,16 @@ VERSION = "{__VERSION__}"
             if self.move == MOVEMENT.ARRIVAL:
                 if len(self.lights.stopbars) == 0:  # not terminated by a stop bar, it is probably an arrival...
                     logger.debug("just one segment on arrival")
-                    return self.ui.promptForParked()
+                    return self.ui.promptForParked(destination=destination)
                 if len(self.lights.stopbars) == 1:  # terminated with a stop bar, it is probably a departure...
                     logger.debug("1 segment with 1 stopbar on arrival?")
-                    return self.ui.promptForClearance()
+                    return self.ui.promptForClearance(destination=self.destination)
             if self.move == MOVEMENT.DEPARTURE:
                 if len(self.lights.stopbars) == 0:  # not terminated by a stop bar, it is probably an arrival...
                     logger.debug("1 segment with 0 stopbar on departure?")
                     return self.ui.promptForDeparture()
 
-        return self.ui.promptForClearance(intro=intro_arr)
+        return self.ui.promptForClearance(intro=intro_arr, destination=self.destination)
         # return self.ui.sorry("Follow the greens is not completed yet.")  # development
 
     def nextLeg(self):
@@ -531,10 +556,10 @@ VERSION = "{__VERSION__}"
             return self.ui.bye()
 
         if self.move == MOVEMENT.ARRIVAL and self.segment == self.lights.segments:
-            return self.ui.promptForParked()
+            return self.ui.promptForParked(destination=self.destination)
 
         self.ui.canHide = True
-        return self.ui.promptForClearance()
+        return self.ui.promptForClearance(destination=self.destination)
 
     def terminate(self, reason=""):
         # Abandon the FTG mission. Instruct subroutines to turn off FTG lights, remove them,
@@ -558,8 +583,6 @@ VERSION = "{__VERSION__}"
             self.ui.destroyMainWindow()
 
         self.status = FTG_STATUS.TERMINATED
-
-        self.inc("terminate")
         self.save_stats()
 
         if reason == "delete":
@@ -569,11 +592,11 @@ VERSION = "{__VERSION__}"
         logger.info(f"terminated: {reason}")
         if reason == "new green requested":
             logger.info(f"green session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session}) for greener greens")
-            # do not delete cursor
+            # do not delete fmcar
         else:
-            if self.cursor is not None:
-                self.cursor.destroy()
-                self.cursor = None
+            if self.fmcar is not None:
+                self.fmcar.destroy()
+                self.fmcar = None
             logger.info(f"green session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session})")
             logger.info("-=" * 50)
             logger.info("\n\n")
@@ -610,13 +633,13 @@ VERSION = "{__VERSION__}"
         self.inc("bookmark")
 
     def enable(self):
+        if self.status == FTG_STATUS.NEW:
+            self.init()
         self.status = FTG_STATUS.ENABLED
-        self.inc("enabled")
         return [True, ""]
 
     def disable(self):
         # alias to cancel
-        self.inc("disabled")
         self.status = FTG_STATUS.DISABLED
         return self.terminate("disabled")
 
