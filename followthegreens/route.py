@@ -175,6 +175,7 @@ class Route:
         self.dleft = []
         self.tleft = []
         self.smoothRoute = []
+        self.srVertices = []
         self.idxcache = 0  # progress on smooth route, cannot backup
         self._srBegin = []
         self._srEnd = []
@@ -655,6 +656,9 @@ class Route:
         v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
         route.append(v)
         vtx[-1].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) - 1)
+
+        self.srVertices = [route[v.getProp(SMOOTH_ROUTE.REVERSE_INDEX.value)] for v in self.vertices]
+
         # Add props: distance from start, heading
         dist = 0
         seglen = 0  # current segment length
@@ -685,6 +689,9 @@ class Route:
         if logger.level <= 10:
             fn = os.path.join(os.path.dirname(__file__), "..", "ftg_smooth_route.geojson")  # _{route.route[0]}-{route.route[-1]}
             fc = FeatureCollection(features=[r.feature() for r in route])
+            fc.save(fn)
+            fn = os.path.join(os.path.dirname(__file__), "..", "ftg_srvertices.geojson")  # _{route.route[0]}-{route.route[-1]}
+            fc = FeatureCollection(features=[r.feature() for r in self.srVertices])
             fc.save(fn)
 
     def srClosest(self, point: Point, cache: bool = True) -> tuple:
