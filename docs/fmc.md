@@ -113,5 +113,8 @@ filename = "xscl/FMC2.obj"
 
 Path objects are relative to the `followthegreens` folder.
 
+Follow the greens offers 2 follow me cars from [X-CSL Library](https://x-csl.ru/?lang_id=43) distribution (with permission).
+(`xscl/FMC.obj` and `xscl/FMC2.obj`)
+
 
 Taxi safely
