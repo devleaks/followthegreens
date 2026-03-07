@@ -302,6 +302,16 @@ class Airport:
                 return None
         fmcar = self.prefs.get("FollowMeCar", {})
         adj = ""
+        # check at airport-level first...
+        apt = self.prefs.get("Airports", {})
+        prefs = apt.get(self.icao, {})
+        movement = prefs.get("MOVEMENT")
+        # if no value, check at global level, if no value, all movements are OK
+        if movement is None:
+            movement = self.prefs.get("MOVEMENT", ",".join([m.value for m in MOVEMENT]))
+        if route.move.value not in movement:
+            logger.debug(f"no fmcar for {route.move} ({movement} only)")
+            return None
         if self.distance_between_green_lights > self.MTWYLDWC:  # min twy light distance with/when fmcar
             adj = f", distance between taxiway lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
             self.distance_between_green_lights = self.MTWYLDWC
