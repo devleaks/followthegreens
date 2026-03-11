@@ -29,19 +29,22 @@ NUM_SEGMENTS = 36  # default number of segments for a smooth turn, will be adjus
 
 
 class SMOOTH_ROUTE(StrEnum):
-    INDEX = "srIndex"
-    ROUTE_INDEX = "srRouteIndex"
+    INDEX = "srIndex"  # smooth route index
+    ROUTE_INDEX = "srRouteIndex"  # corresponding route index
     DISTANCE = "srDistance"
     BEARING = "srBearing"
-    TOTAL = "srTotal"
-    REVERSE_INDEX = "srRevRouteIndex"
-    SEGMENT_LENGTH = "srSegLen"
+    TOTAL = "srTotal"  # accumulator of distance on smooth route
+    REVERSE_INDEX = "srRevRouteIndex"  # on *route*, index of smooth route corresponding vertex
+    SEGMENT_LENGTH = "srSegLen"  # length of route segment on smooth route
+    TURN_START = "srTurnStart"
+    TURN_MIDDLE = "srTurnMid"
+    TURN_END = "srTurnEnd"
 
 
 class Turn:
 
     SMALL_TURN_TANGENT = 10.0  # m
-    VALID_RANGE = [30, 150]  # for a smooth turn
+    VALID_RANGE = [15, 150]  # for a smooth turn
 
     def __init__(self, vertex: Point, l_in: float, l_out: float, radius: float, segments: int = NUM_SEGMENTS):
         self.bearing_start = l_in
@@ -152,6 +155,12 @@ class Turn:
         return points
 
 
+class SmoothRoute:
+    def __init__(self, route):
+        self.route = route
+        self.smoothRoute = []
+
+
 class Route:
     # Container for route from src to dst on graph
     def __init__(self, graph):
@@ -174,10 +183,17 @@ class Route:
         self.dtb_at = None
         self.dleft = []
         self.tleft = []
+
         self.smoothRoute = []
+<<<<<<< Updated upstream
+=======
+        self.srVertices = []
+
+>>>>>>> Stashed changes
         self.idxcache = 0  # progress on smooth route, cannot backup
-        self._srBegin = []
-        self._srEnd = []
+        self._srcnt = 0
+        self._srscan = 0
+        self._srrecurr = 0
 
     def __str__(self):
         if self.found():
@@ -257,6 +273,7 @@ class Route:
             v.setProp("ls", i)
             self.edges.append(e)
             self.edges_orient.append(e.bearing(orig=v))
+        # self.edges_orient.append(self.orientLastVertext())  # ??
         logger.debug(f"route (vtx): {self}.")
         logger.debug("route (edg): " + "-".join([e.name for e in self.edges]))
         logger.debug("route: " + self.text())
@@ -272,6 +289,9 @@ class Route:
         self.dleft.append(total)
         self.dleft.reverse()
         logger.debug(f"distance left to destination at vertex: {[round(e, 1) for e in self.dleft]}")
+
+    def orientLastVertext(self) -> float:
+        return self.departure_runway.bearing() if self.move == MOVEMENT.DEPARTURE and self.departure_runway is not None else self.edges_orient[-1]
 
     def mkVertices(self):
         self.vertices = list(map(lambda x: self.graph.get_vertex(x), self.route))
@@ -576,9 +596,9 @@ class Route:
         self.mkTiming(speed=acf_speed)  # compute total time left to reach destination
         self.mkDistToBrake()  # distance before significant turn
         self.mkSmoothRoute()
-        logger.debug(
-            f"control: r={len(self.route)}, v={len(self.vertices)}, e={len(self.edges)}, turns={len(self.turns)}, brk={len(self.dtb)}, atbrk={len(self.dtb_at)}, d={len(self.dleft)}, t={len(self.tleft)}"
-        )
+        # logger.debug(
+        #     f"control: r={len(self.route)}, v={len(self.vertices)}, e={len(self.edges)}, turns={len(self.turns)}, brk={len(self.dtb)}, atbrk={len(self.dtb_at)}, d={len(self.dleft)}, t={len(self.tleft)}"
+        # )
         if logger.level <= 10:
             fn = os.path.join(os.path.dirname(__file__), "..", "ftg_route.geojson")  # _{self.route[0]}-{self.route[-1]}
             fc = FeatureCollection(features=self.features())
@@ -610,14 +630,18 @@ class Route:
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i - 1)
                     p.setProp("marker-color", "#DDDDDD")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
-                    p.setProp("srTurnStart", len(route))  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
                     idx += 1
                 vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
                 for p in pts[mid:]:  # tag second half turn with original next route index
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
                     p.setProp("marker-color", "#DDDDDD")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
-                    p.setProp("srTurnStart", len(route))
+                    p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
+                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
                     idx += 1
                 pts[mid].setProp("marker-color", "#FFDDDD")  # light grey different
                 route += pts
@@ -632,14 +656,18 @@ class Route:
                         p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i - 1)
                         p.setProp("marker-color", "#AAAAAA")  # light grey
                         p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
-                        p.setProp("srTurnStart", len(route))
+                        p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
+                        p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
+                        p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
                         idx += 1
                     vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
                     for p in pts[mid:]:
                         p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
                         p.setProp("marker-color", "#AAAAAA")  # light grey
                         p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
-                        p.setProp("srTurnStart", len(route))
+                        p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
+                        p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
+                        p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
                         idx += 1
                     pts[mid].setProp("marker-color", "#FFAAAA")  # light grey different
                     route += pts
@@ -700,21 +728,48 @@ class Route:
             self.idxcache = i
         return [None if closest is None else self.smoothRoute[closest], shortest]
 
-    def srAhead(self, i: int, dist: float, start: float = 0):
-        # move dist after start after self.smoothRoute[i]
-        if i >= len(self.smoothRoute) - 1:  # end of route, end of recursion, return last point
-            b = self.smoothRoute[-1].getProp(SMOOTH_ROUTE.BEARING.value)
-            return self.smoothRoute[-1], b, i, 0
-        d = self.smoothRoute[i].getProp(SMOOTH_ROUTE.DISTANCE.value)
+    def srAheadRoute(self, route, i: int, dist: float, start: float = 0) -> tuple:
+        # move dist after start after route[i]
+        # return point, bearing, index, distance on edge(index) from start of edge(index)
+        if i >= len(route) - 1:  # end of route, end of recursion, return last point
+            b = route[-1].getProp(SMOOTH_ROUTE.BEARING.value)
+            return route[-1], b, i, 0
+        if (start + dist) == 0:
+            b = route[i].getProp(SMOOTH_ROUTE.BEARING.value)
+            return route[i], b, i, 0
+        self._srrecurr += 1
+        d = route[i].getProp(SMOOTH_ROUTE.DISTANCE.value)
         if start + dist < d:  # there is enough room on the current edge, recursion ends
-            b = self.smoothRoute.getProp(SMOOTH_ROUTE.BEARING.value)
-            pt = destination(self.smoothRoute[i], b, start + dist)
+            b = route[i].getProp(SMOOTH_ROUTE.BEARING.value)
+            pt = destination(route[i], b, start + dist)
             return pt, b, i, (start + dist)
-        return self.ahead(i + 1, start + dist - d)
+        return self.srAheadRoute(route=route, i=i + 1, dist=start + dist - d)
+
+    def srAhead(self, i: int, dist: float, start: float = 0) -> tuple:
+        # move dist after start after self.smoothRoute[i]
+        # return point, bearing, index, distance on edge(index) from start of edge(index)
+        return self.srAheadRoute(route=self.smoothRoute, i=i, dist=dist, start=start)
+
+    def srDestination(self, i: int, dist: float) -> tuple:
+        # point at dist of start of edge i on smoothRoute
+        return self.srAhead(i=i, dist=dist)
+
+    def srDistanceRoute(self, route, i1: int, dist1: float, i2: int, dist2: float) -> float:
+        # distance between two points on smoothRoute
+        total = route[i1].getProp(SMOOTH_ROUTE.DISTANCE) - dist1
+        for i in range(i1 + 1, i2):
+            total += route[i].getProp(SMOOTH_ROUTE.DISTANCE)
+        total += dist2
+        return total
+
+    def srDistance(self, i1: int, dist1: float, i2: int, dist2: float) -> float:
+        # distance between two points on smoothRoute
+        return self.srDistanceRoute(self.smoothRoute, i1=i1, dist1=dist1, i2=i2, dist2=dist2)
 
     def srOnEdge(self, i: int, dist: float) -> Point | None:
         # returns point at dist from vertex i on smoothRoute[]
         # assumes dist < self.smoothRoute[i].getProp(SMOOTH_ROUTE.DISTANCE.value)
+        # DOES NOT GO TO NEXT VERTEX, sends a warning if overshoot
         if self.smoothRoute is not None and i < len(self.smoothRoute):
             if dist > self.smoothRoute[i].getProp(SMOOTH_ROUTE.DISTANCE.value):
                 logger.warning(f"requested distance {round(dist, 1)}m larger than segment {round(self.smoothRoute[i].getProp(SMOOTH_ROUTE.DISTANCE.value), 1)}m")
@@ -724,21 +779,29 @@ class Route:
     def srEquiv(self, i: int, dist: float):
         # Progress dist from vertex i of route[] is equivalent to
         # progress d from vertex j of smoothRoute[]
+        self._srcnt += 1
+        if dist == 0:
+            j = self.vertices[i].getProp(SMOOTH_ROUTE.REVERSE_INDEX.value)
+            return j, 0.0
         d = dist
         j = self.vertices[i].getProp(SMOOTH_ROUTE.REVERSE_INDEX.value)
+        # logger.debug(f"LOOP {i}, {dist} -> {j}, {d}")
         while d > 0 and j < len(self.smoothRoute):
+            self._srscan += 1
             d -= self.smoothRoute[j].getProp(SMOOTH_ROUTE.DISTANCE.value)
             j += 1
+            # logger.debug(f"LOOP {i}, {dist} -> {j}, {d}")
         j -= 1
         d += self.smoothRoute[j].getProp(SMOOTH_ROUTE.DISTANCE.value)
+        # logger.debug(f"RETURN {i}, {dist} -> {j}, {d}")
         return j, d
 
-    def srBegin(self, start: Point, vertex: int = 0):
-        # Direct segment to join route at vertex
+    def srStraight(self, start: Point, end: Point, heading: float):
+        # Direct segment to join route with turn at the end
         route = [start]
-        line = Line(start, self.vertices[vertex])
+        line = Line(start, end)
 
-        turn = Turn(vertex=self.vertices[vertex], l_in=line.bearing(), l_out=self.edges_orient[vertex], radius=22, segments=36)
+        turn = Turn(vertex=end, l_in=line.bearing(), l_out=heading, radius=22, segments=36)
         if turn.valid:
             pts = [p[0] for p in turn.points]
             mid = int(len(pts) / 2)
@@ -747,18 +810,22 @@ class Route:
                 p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
                 p.setProp("marker-color", "#DDDDDD")  # light grey
                 p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
-                p.setProp("srTurnStart", len(route))  # also an indication that this point is part of the turn
+                p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))  # also an indication that this point is part of the turn
+                p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
+                p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
                 idx += 1
             for p in pts[mid:]:  # tag second half turn with original next route index
                 p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
                 p.setProp("marker-color", "#DDDDDD")  # light grey
                 p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
-                p.setProp("srTurnStart", len(route))
+                p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
+                p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
+                p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
                 idx += 1
             pts[mid].setProp("marker-color", "#FFDDDD")  # light grey different
             route += pts
         else:
-            t = min(Turn.SMALL_TURN_TANGENT, line.length(), self.edges[vertex].cost)
+            t = min(Turn.SMALL_TURN_TANGENT, line.length())
             pt = turn.progressiveTurn(length=t, segments=min(max(int(2 * t), 7), 21))
             if len(pt) > 0:
                 pts = [p[0] for p in pt]
@@ -768,23 +835,60 @@ class Route:
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
                     p.setProp("marker-color", "#AAAAAA")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
-                    p.setProp("srTurnStart", len(route))
+                    p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
+                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
                     idx += 1
                 for p in pts[mid:]:
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
                     p.setProp("marker-color", "#AAAAAA")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
-                    p.setProp("srTurnStart", len(route))
+                    p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
+                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
                     idx += 1
                 pts[mid].setProp("marker-color", "#FFAAAA")  # light grey different
                 route += pts
-            else:
-                v = copy(vtx[i])
+            else: # no turn
+                v = end
                 v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
                 v.setProp("marker-color", "#888888")  # medium grey
                 v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
                 route.append(v)
-        self._srBegin = route
+
+        # Add props: distance from start, heading
+        dist = 0
+        seglen = 0  # current segment length
+        last_idx = 0  # where to write length of next route segment (previous start of segment)
+        rtidx = 0  # current route segment
+        last_rtidx = 0  # previous route segment
+        d = 0
+        b = 0
+        for i in range(len(route) - 1):  # [0] to [-2]
+            d = distance(route[i], route[i + 1])
+            b = bearing(route[i], route[i + 1])
+            route[i].setProp(SMOOTH_ROUTE.DISTANCE.value, d)  # length to next vertex
+            route[i].setProp(SMOOTH_ROUTE.TOTAL.value, dist)  # total distance since start
+            route[i].setProp(SMOOTH_ROUTE.BEARING.value, b)  # bearing to next vertex
+            rtidx = route[i].getProp(SMOOTH_ROUTE.ROUTE_INDEX.value)
+            if rtidx != last_rtidx:  # write previous route segment length for smooth route
+                route[last_idx].setProp(SMOOTH_ROUTE.SEGMENT_LENGTH.value, seglen)
+                last_idx = i
+                seglen = 0
+            last_rtidx = rtidx
+            dist += d
+            seglen += d
+        route[-1].setProp(SMOOTH_ROUTE.DISTANCE.value, 0)  # [-1]
+        route[-1].setProp(SMOOTH_ROUTE.TOTAL.value, dist)  # total length or route
+        route[-1].setProp(SMOOTH_ROUTE.BEARING.value, b)  # repeat last
+
+        if logger.level <= 10:
+            fn = os.path.join(os.path.dirname(__file__), "..", "ftg_straight.geojson")  # _{self.route[0]}-{self.route[-1]}
+            fc = FeatureCollection(features=[r.feature() for r in route])
+            fc.save(fn)
+            logger.debug(f"straight line to route saved in {os.path.abspath(fn)}")
+
+        return route
 
     def srEnd(self, leave: Point, vanish: Point):
         # Additional segments to quit route at end of route
@@ -810,14 +914,18 @@ class Route:
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i - 1)
                     p.setProp("marker-color", "#DDDDDD")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
-                    p.setProp("srTurnStart", len(route))  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
                     idx += 1
                 vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
                 for p in pts[mid:]:  # tag second half turn with original next route index
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
                     p.setProp("marker-color", "#DDDDDD")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
-                    p.setProp("srTurnStart", len(route))
+                    p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
+                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
                     idx += 1
                 pts[mid].setProp("marker-color", "#FFDDDD")  # light grey different
                 route += pts
@@ -832,14 +940,18 @@ class Route:
                         p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i - 1)
                         p.setProp("marker-color", "#AAAAAA")  # light grey
                         p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
-                        p.setProp("srTurnStart", len(route))
+                        p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
+                        p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
+                        p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
                         idx += 1
                     vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
                     for p in pts[mid:]:
                         p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
                         p.setProp("marker-color", "#AAAAAA")  # light grey
                         p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
-                        p.setProp("srTurnStart", len(route))
+                        p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
+                        p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
+                        p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
                         idx += 1
                     pts[mid].setProp("marker-color", "#FFAAAA")  # light grey different
                     route += pts
@@ -855,7 +967,10 @@ class Route:
         v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
         route.append(v)
         vtx[-1].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) - 1)
-        self._srEnd = route
+        return route
 
     def srFinished(self, position) -> bool:
         return self.smoothRoute[-1] == position
+
+    def stats(self):
+        logger.debug(f"equiv {selft._srcnt}, scan={self._srscan}, ahead recur={self._srrecurr}")

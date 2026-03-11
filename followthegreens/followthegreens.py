@@ -56,6 +56,7 @@ class FollowTheGreens:
         # frame rate estimates
         self.frp = xp.findDataRef("sim/time/framerate_period")
         self.fr = 1.0
+        self.xp_log_dir = os.path.join(".", "Output", "caches", "followthegreens")  # relative to X-Plane "root/home" folder, needs to be created first
         logger.info(f"created {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
         logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}\n")
 
@@ -460,7 +461,7 @@ VERSION = "{__VERSION__}"
         self.status = FTG_STATUS.ROUTE
 
         if self.fmcar is not None and not new_fmcar:
-            self.fmcar.change_route(ftg=self)
+            self.fmcar.changeRoute(ftg=self)
 
         self.segment = 0
         logger.info(f"current segment {self.segment + 1}/{self.lights.segments + 1}")

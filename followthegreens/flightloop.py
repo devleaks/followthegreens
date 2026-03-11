@@ -2,8 +2,6 @@
 # We currently have two loops, one for rabbit, one to monitor aircraft position.
 #
 from datetime import datetime, timedelta, timezone
-from sre_compile import dis
-import time
 
 try:
     import xp
@@ -656,9 +654,9 @@ class FlightLoop:
                     # logger.debug(f"light ahead={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
                     fmcar.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=fmc_speed, t=later)
                     logger.debug("..moved")
-                    if light_index == (len(self.ftg.lights.lights) - 1) and not fmcar.is_finishing():  # reached last light
+                    if light_index == (len(self.ftg.lights.lights) - 1) and not fmcar.isFinishing():  # reached last light
                         fmcar.finish("end of lights")
-                    if fmcar.is_finished() and fmcar.can_delete():
+                    if fmcar.isFinished() and fmcar.canDelete():
                         self.ftg.fmcar.destroy()
                         self.ftg.fmcar = None  # ready to create a new one
                 except:

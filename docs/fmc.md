@@ -49,10 +49,14 @@ The above refinements took several hours to be added
 to the Follow the green core software,
 just for the smooth movement of the car.
 
+
 # How to Get a Follow Me Car
 
 Follow Me Car was always considered as a joke, a side project, an accident,
 a funny addition to the core, serious, hi-tech Follow the greens.
+
+ - Follow the greens is A-SMGCS (Advanced Surface Movement Guidance and Control System)
+ - A Follow Me Car is also A-SMGCS (_Antique_ Surface Movement Guidance and Control System)
 
 Pursuing that spirit, Follow me car is added as a fun addition:
 
@@ -77,12 +81,14 @@ Taxi safely
 ## Global Addition
 
 If you do not want to use Follow the greens and prefer Follow Me Car,
-add the following prefereces at the _global_ level:
+add the following preferences at the _global_ level:
 
 ```
 RABBIT_LENGTH = 0
 LIGHTS_AHEAD = 42
 ```
+
+You will never get Follow the greens, all airports will use Follow Me Car.
 
 
 ## Local Addition
