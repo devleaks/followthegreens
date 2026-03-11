@@ -29,6 +29,7 @@ from followthegreens import (
     FTG_CLEARANCE_COMMAND,
     FTG_CLEARANCE_COMMAND_DESC,
     FTG_IS_RUNNING,
+    FTG_SIGN_INDIC,
     FTG_OK_COMMAND_DESC,
     FTG_SPEED_COMMAND,
     FTG_SPEED_COMMAND_DESC,
@@ -64,6 +65,7 @@ class PythonInterface:
         self.enabled = False
 
         self.isRunningRef = None
+        self.getSignRef = None
 
         # 1. Follow The Greens
         self.menuIdx = None
@@ -180,6 +182,25 @@ class PythonInterface:
             0,
             0,
         )  # Refcons not used
+        self.getSignRef = xp.registerDataAccessor(
+            FTG_SIGN_INDIC,
+            xp.Type_Int,  # The types we support
+            0,  # Read-Only
+            self.getSign,
+            0,  # Accessors for ints, read-only, no write.
+            0,
+            0,  # No accessors for floats
+            0,
+            0,  # No accessors for doubles
+            0,
+            0,  # No accessors for int arrays
+            0,
+            0,  # No accessors for float arrays
+            0,
+            0,  # No accessors for raw data
+            0,
+            0,
+        )  # Refcons not used
         self.debug("XPluginStart: runnig data accessor installed")
 
         self.debug("XPluginStart: ..started", force=True)
@@ -224,6 +245,7 @@ class PythonInterface:
 
         if self.isRunningRef is not None:  # and self.isRunningRef > 0?
             xp.unregisterDataAccessor(self.isRunningRef)
+            xp.unregisterDataAccessor(self.getSignRef)
             self.isRunningRef = None
             self.debug("XPluginStop: data accessor unregistered")
         else:
@@ -563,6 +585,10 @@ class PythonInterface:
         return 0
 
     # Data accessors
+    def getSign(self, inRefcon):
+        # Returns 1 if actually running (lights blinking on taxiways). 0 otherwise.
+        return self.followTheGreens.fmcar.indicator if self.followTheGreens is not None and self.followTheGreens.fmcar is not None else 0
+
     def getRunningStatusCallback(self, inRefcon):
         # Returns 1 if actually running (lights blinking on taxiways). 0 otherwise.
         return 1 if self.followTheGreens is not None and self.followTheGreens.flightLoop.rabbitRunning else 0

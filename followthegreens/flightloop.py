@@ -518,7 +518,7 @@ class FlightLoop:
                         #
                         # 3. Movement (on route) from above vertex of route to ahead of aircraft
                         #
-                        ahead = self.ftg.aircraft.adjustAhead()
+                        ahead = self.ftg.aircraft.adjustAhead(rabbit_mode=self.rabbitMode)
                         tahead = ahead / fmcar.adjustedSpeed()  # secs.
                         ref_light = 0
                         closestLight, dist = self.ftg.lights.closest(pos)

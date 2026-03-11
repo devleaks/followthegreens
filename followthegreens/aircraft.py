@@ -7,7 +7,7 @@ try:
 except ImportError:
     print("X-Plane not loaded")
 
-from .globals import logger, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT, AMBIANT_RWY_LIGHT
+from .globals import logger, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT, AMBIANT_RWY_LIGHT, RABBIT_MODE
 from .geo import distance, Point
 from .se import daylight
 
@@ -325,6 +325,8 @@ class Aircraft:
         return xp.getDataf(self.visibility_dref)
 
     def aheadRange(self) -> list:
+        # provides a reasonable range for this aircraft type
+        # depends on visibility and speed
         prefs = self.aircaftPreferences()
         ranges = prefs.get(AIRCRAFT.VISUAL_RANGE, {"RANGE": [70, 150], "LIMITS": [70, 150]})
         r = ranges.get("RANGE", [70, 150])
@@ -360,21 +362,34 @@ class Aircraft:
         # logger.debug(f"range {r0} -> {r} (acf_speed={round(acf_speed, 1)}m/s, viz={round(viz, 1)}m, acf_length={round(self.acflength, 1)}m)")
         return r
 
-    def adjustAhead(self) -> float:
+    def adjustAhead(self, rabbit_mode: RABBIT_MODE) -> float:
         # Aircraft length (because position is center of aircraft)
         # + 1.5 aircraft length in front ogf aircrafy
         # + 15m per m/s of speed
         #
+        # depends on rabbit mode which is an invitation to adjust speed
+        # too fast->range smaller, too slow->range larger
+        RABBIT_FACTOR = {
+            RABBIT_MODE.SLOWEST: 0.25,
+            RABBIT_MODE.SLOWER: 0.50,
+            RABBIT_MODE.MED: 1.00,
+            RABBIT_MODE.FASTER: 1.50,
+            RABBIT_MODE.FASTEST: 2.00
+        }
         ahead_range = self.aheadRange()
         acf_speed = self.speed()
         acflen = self.acflength if self.acflength is not None else 50
         ahead = acflen * 2.5 + acf_speed * 15.0
         ahead0 = ahead
+        ahead_range0 = ahead_range
+        # correction of valid range for rabbit speed/mode
+        ahead_range[0] *= RABBIT_FACTOR[rabbit_mode]
+        ahead_range[1] *= RABBIT_FACTOR[rabbit_mode]
         if ahead < ahead_range[0]:
             ahead = ahead_range[0]
         if ahead > ahead_range[1]:
             ahead = ahead_range[1]
-        # logger.debug(f"ahead {round(ahead0, 1)}m -> {round(ahead, 1)}m (acf_speed={round(acf_speed, 1)}m/s, range={ahead_range}m)")
+        # logger.debug(f"ahead {round(ahead0, 1)}m -> {round(ahead, 1)}m (acf_speed={round(acf_speed, 1)}m/s, range0={ahead_range0}m, range={ahead_range}m)")
         return ahead
 
     def heading(self) -> float:

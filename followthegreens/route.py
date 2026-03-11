@@ -185,11 +185,8 @@ class Route:
         self.tleft = []
 
         self.smoothRoute = []
-<<<<<<< Updated upstream
-=======
         self.srVertices = []
 
->>>>>>> Stashed changes
         self.idxcache = 0  # progress on smooth route, cannot backup
         self._srcnt = 0
         self._srscan = 0
@@ -752,7 +749,8 @@ class Route:
 
     def srDestination(self, i: int, dist: float) -> tuple:
         # point at dist of start of edge i on smoothRoute
-        return self.srAhead(i=i, dist=dist)
+        r = self.srAhead(i=i, dist=dist)
+        return r[0]
 
     def srDistanceRoute(self, route, i1: int, dist1: float, i2: int, dist2: float) -> float:
         # distance between two points on smoothRoute

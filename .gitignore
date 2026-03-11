@@ -145,8 +145,5 @@ ftg_route.geojson
 ftg_tn_taxiways.geojson
 ftg_tn_service roads.geojson
 ftg_smooth_route.geojson
-<<<<<<< Updated upstream
-=======
 ftg_srvertices.geojson
 ftg_straight.geojson
->>>>>>> Stashed changes

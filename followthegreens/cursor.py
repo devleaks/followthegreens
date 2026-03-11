@@ -134,7 +134,6 @@ class OnRoute:
 
     index: int = NOT_ON_ROUTE
     distance: float = 0.0  # distance "forward" from above index
-    vertices: list = []  # list of reference vertices for OnRoute() instance
 
     def __str__(self):
         """Returns a string containing only the non-default field values."""
@@ -176,7 +175,7 @@ class Situation:
         # https://stackoverflow.com/questions/71344648/how-to-define-str-for-dataclass-that-omits-default-values
 
         def f(i):
-            if isinstance(i, list) and len(i) > 0 and isinstance(i[0], Point):
+            if type (i) in [list, tuple] and len(i) > 0 and isinstance(i[0], Point):
                 return "[ route ]"
             if isinstance(i, Point):
                 return [round(p, 5) for p in i.coords()]
@@ -200,6 +199,7 @@ class Cursor:
         self.detail = detail
         self.cursor_object = CursorObject(detail.filename)
         self.cursor = XPObject(None, 0, 0, 0)
+        self.indicator = 0
 
         self._status = CURSOR_STATUS.NEW
         self.active = False  # accepts futures if active
@@ -225,6 +225,7 @@ class Cursor:
         self._timer = None
         self._set_current = False
         self.msg = ""
+        self.last_dist_to_next_vertex = 0.0
         logger.info(str(self.detail))
         logger.debug(f"route end: {self.route.move}, {self.route.departure_runway}, {self.route.arrival_runway}")
 
@@ -328,6 +329,19 @@ class Cursor:
             logger.error("error", exc_info=True)
         return 5.0
 
+    # Information external interface
+    #
+    def distance(self, position) -> float:
+        return distance(self.current.position, position)
+
+    def speed(self) -> float:
+        return self.current.speed
+
+    def adjustedSpeed(self, speed_type: str = "normal", reference: float = 0.0) -> float:
+        if speed_type == "fast":
+            return self.detail.fast_speed
+        return self.detail.normal_speed
+
     # Abrupt change or route, reset
     #
     def changeRoute(self, ftg):
@@ -391,11 +405,6 @@ class Cursor:
         self._future.clear()
         logger.log(8, "..reset")
 
-    def adjustedSpeed(self, speed_type: str = "normal", reference: float = 0.0) -> float:
-        if speed_type == "fast":
-            return self.detail.fast_speed
-        return self.detail.normal_speed
-
     # Itinerary: Next positions (as requested from client)
     #
     def future(self, position: Point, hdg: float, speed: float, t: float, edge: int = NOT_ON_ROUTE, tick: bool = False, text: str = "", end: tuple = (NOT_ON_ROUTE, 0)):
@@ -410,6 +419,7 @@ class Cursor:
         if self.status == CURSOR_STATUS.FINISHED:
             logger.debug("cursor finished, does not accept future position")
             return
+        logger.debug("adding future..")
         f = Situation(position=position, heading=hdg, speed=speed, time=t, route_index=edge, comment=text, end=end)
         #
         # immediately convert route data into smooth route data
@@ -423,13 +433,13 @@ class Cursor:
                 f.distance_on_edge = f.end[1]
                 f.vertex = self.route.vertices[f.route_index]
                 f.sr_position = f.sr_end
-                logger.debug(f"srEquiv at route end {f.end} -> {f.sr_position} (d={sf(distance(position, self.route.srOnEdge(f.sr_position.index, f.sr_position.distance)), 'm')})")
+                logger.debug(f"srEquiv at route end {f.end} -> {f.sr_position} (d={sf(distance(position, self.route.srDestination(f.sr_position.index, f.sr_position.distance)), 'm')})")
             else:  # no forced end, just a move on the edge
                 # f.route_index = edge
                 f.vertex = self.route.vertices[edge]
                 f.distance_on_edge = distance(f.vertex, position)
                 f.sr_position = OnRoute(*self.route.srEquiv(i=f.route_index, dist=f.distance_on_edge))
-                logger.debug(f"srEquiv on route {f.route_index},{sf(f.distance_on_edge, 'm')} -> {f.sr_position} (d={sf(distance(position, self.route.srOnEdge(f.sr_position.index, f.sr_position.distance)), 'm')})")
+                logger.debug(f"srEquiv on route {f.route_index},{sf(f.distance_on_edge, 'm')} -> {f.sr_position} (d={sf(distance(position, self.route.srDestination(f.sr_position.index, f.sr_position.distance)), 'm')})")
         # else:  If not on sharp route, we will compute the target position in _mkPathToTarget()
         if f.speed <= 0.1:
             f.speed = self.detail.normal_speed
@@ -437,9 +447,11 @@ class Cursor:
 
         self._future.put(f)
         self._qin += 1
-        logger.debug(f"added future #{self._qin} (q.len={self._future.qsize()}): {f}")
+        logger.debug(f"..added future #{self._qin} (q.len={self._future.qsize()}): {f}{', ticking immediately..' if tick else ''}")
         if tick:
             ignore = self._tick()
+            if ignore:
+                logger.debug("..ticked immediately")
 
     def future_index(self, edge: int, dist: float, speed: float, t: float):
         # future_index() always travel on a route.
@@ -574,7 +586,7 @@ class Cursor:
         f = self._future.get()
         if f is not None:
             self._qout += 1
-            logger.debug(f"tick future #{self._qout} (q.len={self._future.qsize()}) at {st(self.current.time)}: {f}..")  #
+            logger.debug(f"ticking future #{self._qout} (q.len={self._future.qsize()}) at {st(self.current.time)}: {f}..")  #
             if self.set_target(f):
                 self._mkPathToTarget()
                 if self.status == CURSOR_STATUS.READY:
@@ -607,14 +619,14 @@ class Cursor:
         logger.debug(f"..from target {self.target}..")
 
         # self.current.position = self.target.position
-        logger.debug(f"current position vs target before adjustments {sf(distance(self.current.position, self.target.position), 'm')}")
+        logger.log(8, f"current position vs target before adjustments {sf(distance(self.current.position, self.target.position), 'm')}")
 
         # 1. Where are we coming from (current is at target, but still holds info from where it is coming)
         if self.current.route_index == NOT_ON_ROUTE:
-            logger.debug("control: we were off route")
+            logger.log(8, "control: we were off route")
             # 1.2. Where are we going to
             if self.target.route_index != NOT_ON_ROUTE or self.target.end[0] >= 0:
-                logger.debug("control: we go on route")
+                logger.log(8, "control: we go on route")
                 if self.target.end[0] >= 0: # target is on route, there is a forced end
                     self.current.route_index = self.target.end[0]
                     self.current.vertex = self.route.vertices[self.target.end[0]]
@@ -623,68 +635,49 @@ class Cursor:
                     self.current.sr_position = OnRoute(*self.route.srEquiv(i=self.current.route_index, dist=self.current.distance_on_edge))
                     logger.debug(f"adjustments because end of turn reached {sf(self.current.distance_on_edge, 'm')}")
                     # self.current.sr_position = self.target.sr_end  # should be the case...
-                    logger.debug(f"control: {sf(distance(self.current.position, self.route.srOnEdge(self.current.route_index, self.current.distance_on_edge)), 'm')}")
+                    logger.log(8, f"control: {sf(distance(self.current.position, self.route.srDestination(self.current.route_index, self.current.distance_on_edge)), 'm')}")
                     logger.debug(f"set current from forced end on route {self.target.end}: {self.current.route_index}, at {round(self.current.distance_on_edge, 1)}m from edge start")
                 else:
                     self.current.route_index = self.target.route_index
                     self.current.distance_on_edge = self.target.distance_on_edge
                     self.current.vertex = self.target.vertex
-                    logger.debug(f"control: {sf(distance(self.current.position, self.route.srOnEdge(self.target.end[0], self.target.end[1])), 'm')}")
+                    logger.log(8, f"control: {sf(distance(self.current.position, self.route.srDestination(self.target.end[0], self.target.end[1])), 'm')}")
                     logger.debug(f"set current from position: {self.current.route_index}, at {round(self.current.distance_on_edge, 1)}m")
             else:
                 logger.debug("control: we go off route")
                 logger.debug("TO DO!")
         else:
-            logger.debug("control: we were on route")
+            logger.log(8, "control: we were on route")
             # 2. Where are we going to
             if self.target.route_index != NOT_ON_ROUTE or self.target.end[0] >= 0:
-                logger.debug("control: we go on route")
+                logger.log(8, "control: we go on route")
                 if self.target.end[0] >= 0: # target is on route, there is a forced end
                     self.current.route_index = self.target.end[0]
                     self.current.vertex = self.route.vertices[self.target.end[0]]
                     self.current.distance_on_edge = self.target.end[1]
                     self.current.sr_position = OnRoute(*self.route.srEquiv(i=self.current.route_index, dist=self.current.distance_on_edge))
                     # self.current.sr_position = self.target.sr_end  # should be the case...
-                    logger.debug(f"control: {sf(distance(self.current.position, self.route.srOnEdge(self.target.end[0], self.target.end[1])), 'm')}")
+                    logger.log(8, f"control: {sf(distance(self.current.position, self.route.srDestination(self.target.end[0], self.target.end[1])), 'm')}")
                     logger.debug(f"set current from forced end on route {self.target.end}: {self.current.route_index}, at {round(self.current.distance_on_edge, 1)}m from edge start")
                 else:
                     self.current.route_index = self.target.route_index
                     self.current.distance_on_edge = self.target.distance_on_edge
                     self.current.vertex = self.target.vertex
-                    logger.debug(f"control: {sf(distance(self.current.position, self.route.srOnEdge(self.current.route_index, self.current.distance_on_edge)), 'm')}")
+                    self.current.sr_position = OnRoute(*self.route.srEquiv(i=self.current.route_index, dist=self.current.distance_on_edge))
+                    logger.log(8, f"control: {sf(distance(self.current.position, self.route.srDestination(self.current.route_index, self.current.distance_on_edge)), 'm')}")
                     logger.debug(f"set current from position: {self.current.route_index}, at {round(self.current.distance_on_edge, 1)}m")
             else:
                 logger.debug("control: we go off route")
-                logger.debug("control: we go off route")
                 logger.debug("TO DO!")
-
-        # if self.target.end[0] >= 0: # target is on route, there is a forced end
-        #     self.current.route_index = self.target.end[0]
-        #     self.current.distance_on_edge = self.target.end[1]
-        #     self.current.vertex = self.route.vertices[self.target.end[0]]
-        #     # self.current.sr_position = self.target.sr_end  # should be the case...
-        #     logger.debug(f"control: {sf(distance(self.current.position, self.route.srOnEdge(self.target.end[0], self.target.end[1])), 'm')}")
-        #     logger.debug(f"set current from forced end on route {self.target.end}: {self.current.route_index}, at {round(self.current.distance_on_edge, 1)}m from edge start")
-        # else:
-        #     self.current.route_index = self.target.route_index
-        #     self.current.distance_on_edge = self.target.distance_on_edge
-        #     self.current.vertex = self.target.vertex
-        #     logger.debug(f"control: {sf(distance(self.current.position, self.route.srOnEdge(self.target.end[0], self.target.end[1])), 'm')}")
-        #     logger.debug(f"set current from position: {self.current.route_index}, at {round(self.current.distance_on_edge, 1)}m")
 
         self.current.end = self.target.end
         self.current.sr_end = self.target.sr_end
         logger.debug(f"set current sr_end={self.current.sr_end} from target")
-        # if self.current.end[0] >= 0:
-        #     self.current.distance_on_edge = distance(self.current.vertex, self.current.position)
-        #     self.current.sr_position = OnRoute(*self.route.srEquiv(i=self.current.route_index, dist=self.current.distance_on_edge))
-        #     logger.debug(f"srEquiv current at {self.current.sr_end}")
-
         # self.current.heading = self.target.heading
-        self.current.speed = self.target.speed
+        # self.current.speed = self.target.speed
         self.current.comment = self.target.comment
         self._set_current = True
-        logger.debug(f"current position vs target after adjustments {sf(distance(self.current.position, self.target.position), 'm')}")
+        logger.log(8, f"current position vs target after adjustments {sf(distance(self.current.position, self.target.position), 'm')}")
         logger.debug(f"..current set from target reached {self.current}")
         return True
 
@@ -705,10 +698,10 @@ class Cursor:
             logger.debug("..target set from future (target not on route)")
             return True
         # we are on route
-        if target.route_index < self.current.route_index:
+        if self.current.route_index > target.route_index:
             logger.debug(f"..cannot backup edge ({target.route_index} < {self.current.route_index}), target not set")
             return False
-        if target.route_index == self.current.route_index and target.distance_on_edge < self.current.distance_on_edge:
+        if self.current.route_index == target.route_index and self.current.distance_on_edge > target.distance_on_edge:
             logger.debug(f"..cannot backup on current edge ({round(target.distance_on_edge, 1)}m < {round(self.current.distance_on_edge, 1)}m), target not set")
             return False
         if self.current.sr_position.index >= target.sr_position.index and self.current.sr_position.distance >= target.sr_position.distance:
@@ -765,10 +758,15 @@ class Cursor:
         logger.debug("..built")
 
     def targetReached(self) -> bool:
-        r = self.current.sr_position.index >= self.target.sr_position.index and self.current.sr_position.distance >= self.target.sr_position.distance
+        r = False
+        if self.current.sr_position.index > self.target.sr_position.index:
+            r = True
+        elif self.current.sr_position.index == self.target.sr_position.index and self.current.sr_position.distance >= self.target.sr_position.distance:
+            r = True
         if not r:
             if self.current.time >= self.target.time and self.en_route:  # note: might turn bruptly or change speed instantaneously to catch up
-                logger.debug(f"target not reached but time is out {sf(self.current.time - self.target.time, 's')}, continuing..")
+                # experimentally, we observed delay might occur if X-Plane activity introduces tiny delays (~ a few millisecs)
+                logger.debug(f"target not reached but time is out {round(self.current.time - self.target.time, 3)}, continuing..")
                 # r = True
         else:
             if self.current.time > self.target.time and self.en_route:  # note: might turn bruptly or change speed instantaneously to catch up
@@ -777,13 +775,16 @@ class Cursor:
         return r
 
     def nextPosition(self):
+        # test: self.indicator = int(self.current.time / 10) % 4
+        if self.targetReached():
+            return self.current.position, self.current.heading, self.current.sr_position, True
+        self.nextTurn(self.current.route_index)
         dt = self.current.time - self.start.time
         r = eq2(displacement=None, initial_velocity=self.start.speed, final_velocity=self.target.speed, time=dt)
         d = r[0]
         point, hdg, idx, dist = self.route.srAheadRoute(self.current.sr_route, i=self.start.sr_position.index, start=self.start.sr_position.distance, dist=d)
-        self.current.sr_position = OnRoute(index=idx, distance=dist)
-        finished = self.targetReached()
-        return point, hdg, finished
+        sr_position = OnRoute(index=idx, distance=dist)
+        return point, hdg, sr_position, False
 
     def move(self, t: float) -> int | float:
         # Currently: only linear interposition
@@ -805,17 +806,17 @@ class Cursor:
         msg = f"now={st(now)}: curr_time={st(self.current.time)} (diff={round(self.current.time - now, 3)}), target={st(self.target.time)}, before target={round(self.target.time-self.current.time, 3)}"
         slow_debug(self.cnt, msg)
 
-        self.current.position, self.current.heading, finished = self.nextPosition()
+        self.current.position, self.current.heading, self.current.sr_position, finished = self.nextPosition()
         if finished:
             if self.en_route:
-                logger.debug("target reached")
+                logger.debug(f"target '{self.target.comment}' reached")
                 self.en_route = False
             if self.set_current():
                 logger.debug("current adjusted")
             if not self._tick():
                 # slow_debug(self.cnt, "no more future (distance)")
                 return -1  # no need to move cursor
-        # logger.debug(f"move {self.current.route_index} {self.current.sr_position} {sf(self.current.heading, '')}")
+        # logger.debug(f"move at {st(self.current.time)}: {self.current.route_index} {self.current.sr_position} {sf(self.current.heading, '')}")
         self.cursor.move(lat=self.current.position.lat, lon=self.current.position.lon, hdg=self.current.heading, elev=self.detail.above_ground)
         return -1
 
@@ -883,3 +884,30 @@ class Cursor:
         self.future(position=final_dest, hdg=hdg, speed=spd, t=t, text=f"leaving on the side ({message})")
         self.active = False
         logger.debug(f"cursor finish programmed ({message})")
+
+    def nextTurn(self, edge: int):
+        TURN_LIMIT = 30.0  # no indicator for turns below that
+        if edge == NOT_ON_ROUTE:
+            edge = -1
+        next_vertex = min(edge + 1, len(self.route.vertices) - 1)
+        nextvtx = self.route.vertices[next_vertex]
+        dist_to_next_vertex = distance(self.current.position, nextvtx)
+        if round(self.last_dist_to_next_vertex, 1) == round(dist_to_next_vertex, 1):  # not moved
+            return self.indicator
+        self.last_dist_to_next_vertex = dist_to_next_vertex
+        turn = self.route.turns[edge]
+        idx = next_vertex
+        while abs(turn) < TURN_LIMIT and idx < len(self.route.turns):
+            turn = self.route.turns[idx]
+            idx = idx + 1
+        if idx >= len(self.route.route):  # end of route
+            idx = len(self.route.route) - 1
+        dist_to_next_turn = 0 if abs(self.route.turns[next_vertex]) > TURN_LIMIT else self.route.dtb[next_vertex]
+        dist_to_next_turn += dist_to_next_vertex
+        # logger.debug(f"at edge {edge}, next turn at edge {idx}, turn={sf(turn, 'D')}, at d={sf(dist_to_next_turn, 'm')}")
+        indicator = 0
+        if abs(turn) > TURN_LIMIT and dist_to_next_turn < 50:
+            indicator = 3 if turn < 0 else 2
+        if indicator != self.indicator:
+            self.indicator = indicator
+            logger.debug(f"indicator {self.indicator} (turn={sf(turn, 'D')}, d={sf(dist_to_next_turn, 'm')})")
