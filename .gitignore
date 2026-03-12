@@ -147,3 +147,4 @@ ftg_tn_service roads.geojson
 ftg_smooth_route.geojson
 ftg_srvertices.geojson
 ftg_straight.geojson
+ftg_straight*.geojson
