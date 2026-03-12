@@ -67,6 +67,8 @@ class CursorType:
     acceleration: float = 1.0  # m/s^2, same deceleration
     deceleration: float = -1.0  # m/s^2, same deceleration
 
+    indicator_warning_disttance: float = 50.0  # m
+
     def __str__(self):
         """Returns a string containing only the non-default field values."""
         # https://stackoverflow.com/questions/71344648/how-to-define-str-for-dataclass-that-omits-default-values
@@ -732,10 +734,15 @@ class Cursor:
             current.sr_route = self.route.srStraight(start=current.position, end=target.position, heading=target.heading)
             target.sr_position = OnRoute(len(current.sr_route) - 2, current.sr_route[-1].getProp("srDistance"))
             # or target.sr_position = OnRoute(len(target.sr_route)-1, 0)
-            logger.debug(f"srEquiv direct route on custom smooth route -> {target.sr_position} (end={target.sr_end})")
+            logger.debug(f"not on route, srEquiv direct route on custom smooth route -> {target.sr_position} (end={target.sr_end})")
         else:
-            current.sr_route = self.route.smoothRoute
-            logger.debug(f"route on smooth route from {current.sr_position} to target {target.sr_position} (end={target.sr_end})")
+            if self.target.route_index < 0:  # going off-route
+                current.sr_route = self.route.srStraight(start=current.position, end=target.position, heading=target.heading)
+                target.sr_position = OnRoute(len(current.sr_route) - 2, current.sr_route[-1].getProp("srDistance"))
+                logger.debug(f"leaving route, srEquiv direct route on custom smooth route -> {target.sr_position} (end={target.sr_end})")
+            else:
+                current.sr_route = self.route.smoothRoute
+                logger.debug(f"route on smooth route from {current.sr_position} to target {target.sr_position} (end={target.sr_end})")
 
         path_length = self.route.srDistanceRoute(
             route=current.sr_route, i1=current.sr_position.index, dist1=current.sr_position.distance, i2=target.sr_position.index, dist2=target.sr_position.distance
@@ -906,7 +913,7 @@ class Cursor:
         dist_to_next_turn += dist_to_next_vertex
         # logger.debug(f"at edge {edge}, next turn at edge {idx}, turn={sf(turn, 'D')}, at d={sf(dist_to_next_turn, 'm')}")
         indicator = 0
-        if abs(turn) > TURN_LIMIT and dist_to_next_turn < 50:
+        if abs(turn) > TURN_LIMIT and dist_to_next_turn < self.detail.indicator_warning_disttance:
             indicator = 3 if turn < 0 else 2
         if indicator != self.indicator:
             self.indicator = indicator

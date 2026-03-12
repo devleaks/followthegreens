@@ -16,6 +16,8 @@ followthegreens/cars/xcsl/FMCglass.png|47836
 followthegreens/cars/xcsl/credits.html|590
 followthegreens/cars/xcsl/x-csl-info.info|101
 followthegreens/cars/xcsl/xsb_aircraft.txt|263
+followthegreens/cars/indicator/indicator.obj|0
+followthegreens/cars/indicator/indicator.png|0
 followthegreens/cursor.py|23071
 followthegreens/flightloop.py|33712
 followthegreens/followthegreens.py|26448
