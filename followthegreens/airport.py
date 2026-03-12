@@ -297,11 +297,29 @@ class Airport:
     def fmcar(self, route) -> Cursor | None:
         # fmcar should be **created** before lights are placed
         if not self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False):
-            if self.lights_ahead != Airport.HARDCODED_MAX_DISTANCE or self.rabbit_length != 0:
+            if self.lights_ahead != Airport.HARDCODED_MAX_DISTANCE or self.rabbit_length != 0: # or self.rabbit_speed != 0
                 logger.debug("no fmcar")
                 return None
         fmcar = self.prefs.get("FollowMeCar", {})
         adj = ""
+        # check at airport-level first...
+        apt = self.prefs.get("Airports", {})
+        prefs = apt.get(self.icao, {})
+        movement = prefs.get("MOVEMENT")
+        # if no value, check at global level, if no value, all movements are OK
+        if movement is None:
+            movement = self.prefs.get("MOVEMENT", ",".join([m.value for m in MOVEMENT]))
+        if route.move.value not in movement:
+            logger.debug(f"no fmcar for {route.move} ({movement} only)")
+            # Setting global default rather than HARDCODED_MAX_DISTANCE/0/0
+            logger.info(f"using global default for {self.icao}, no fmcar on {route.move.value}")
+            self.rabbit_speed = get_global(RABBIT.LIGHTS_AHEAD.value, self.prefs)
+            self.lights_ahead_pref = True
+            self.rabbit_length = get_global(RABBIT.LENGTH.value, self.prefs)
+            self.rabbit_length_pref = True
+            self.rabbit_speed = get_global(RABBIT.SPEED.value, self.prefs)
+            self.rabbit_speed_pref = True
+            return None
         if self.distance_between_green_lights > self.MTWYLDWC:  # min twy light distance with/when fmcar
             adj = f", distance between taxiway lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
             self.distance_between_green_lights = self.MTWYLDWC
