@@ -107,6 +107,15 @@ class FlightLoop:
 
         # Dim runway lights according to preferences
         ll = get_global("RUNWAY_LIGHT_LEVEL_WHILE_FTG", preferences=self.ftg.prefs)
+        ll = ll.lower()
+        if ll.startswith("l"):
+            ll = "lo"
+        elif ll.startswith("m"):
+            ll = "med"
+        elif ll.startswith("h"):
+            ll = "hi"
+        elif ll.startswith("o"):
+            ll = "off"
         if self.planeRunning and self.ftg.airport_light_level is not None:
             self.runway_level_original = xp.getDataf(self.ftg.airport_light_level)
             if ll is not None:
@@ -537,7 +546,7 @@ class FlightLoop:
                         #
                         # 1. Spawn the car next to (random) side of aircraft, half way "ahead" so that pilot can see the car on the side
                         rnd = 1 if (int(ts_now) % 2) == 0 else -1
-                        ahead = self.ftg.aircraft.adjustAhead()
+                        ahead = self.ftg.aircraft.adjustAhead(rabbit_mode=self.rabbitMode)
                         spawn = destination(self.ftg.route.precise_start, aircraft.heading(), ahead / 2)  # ahead/2 ahead
                         spawn = destination(spawn, aircraft.heading() + rnd * 90, fmcar.SPAWN_SIDE_DISTANCE)
                         closestLight, dist = self.ftg.lights.closest(pos)
@@ -641,7 +650,7 @@ class FlightLoop:
                     dist_check = fmcar.distance(position=Point(lat=pos[0], lon=pos[1]))
                     logger.debug(f"check d={round(dist_check, 1)}m, acf_speed={round(acf_speed, 1)}m/s, fmc_speed={round(fmcar.speed(), 1)}m/s")
                     light = self.ftg.lights.lights[closestLight]
-                    ahead = self.ftg.aircraft.adjustAhead()
+                    ahead = self.ftg.aircraft.adjustAhead(rabbit_mode=self.rabbitMode)
                     total_ahead = acf_move + ahead
                     later = ts_now + nextIter
                     fmc_speed = max(acf_speed, fmcar.adjustedSpeed())

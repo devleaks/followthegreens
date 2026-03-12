@@ -4,6 +4,7 @@
 import os
 import math
 from enum import StrEnum
+from datetime import datetime
 
 try:
     import xp
@@ -131,7 +132,7 @@ class Turn:
     #     return self.points[idx][0], self.points[idx][1], False
 
     def progressiveTurn(self, length: float, segments: int = NUM_SEGMENTS, min_turn: float = 3.0) -> list:
-        # Build alternate list of (points, heading) without a turn (just heading change)
+        # Build alternate list of (points, heading) without a turn (stay on edge(s), progressive heading changes, appears to be turning)
         if abs(self.alpha) < min_turn:
             return []
         numsegs = int(segments / 2)
@@ -270,7 +271,7 @@ class Route:
             v.setProp("ls", i)
             self.edges.append(e)
             self.edges_orient.append(e.bearing(orig=v))
-        # self.edges_orient.append(self.orientLastVertext())  # ??
+        # self.edges_orient.append(self.orientLastVertex())  # ??
         logger.debug(f"route (vtx): {self}.")
         logger.debug("route (edg): " + "-".join([e.name for e in self.edges]))
         logger.debug("route: " + self.text())
@@ -287,7 +288,7 @@ class Route:
         self.dleft.reverse()
         logger.debug(f"distance left to destination at vertex: {[round(e, 1) for e in self.dleft]}")
 
-    def orientLastVertext(self) -> float:
+    def orientLastVertex(self) -> float:
         return self.departure_runway.bearing() if self.move == MOVEMENT.DEPARTURE and self.departure_runway is not None else self.edges_orient[-1]
 
     def mkVertices(self):
@@ -708,7 +709,7 @@ class Route:
         self.smoothRoute = route
         logger.debug(f"smooth route is {round(dist, 1)}m, has {len(self.smoothRoute)} points")
         if logger.level <= 10:
-            fn = os.path.join(os.path.dirname(__file__), "..", "ftg_smooth_route.geojson")  # _{route.route[0]}-{route.route[-1]}
+            fn = os.path.join(os.path.dirname(__file__), "..", "ftg_smooth_route.geojson")  # _{route.route[0]}-{route.route[-1]}, {datetime.now().strftime('%M%S%f')}
             fc = FeatureCollection(features=[r.feature() for r in route])
             fc.save(fn)
 
@@ -754,6 +755,7 @@ class Route:
 
     def srDistanceRoute(self, route, i1: int, dist1: float, i2: int, dist2: float) -> float:
         # distance between two points on smoothRoute
+        logger.debug(f"{len(route)}, {i1}, {dist1}, {i2}, {dist2}")
         total = route[i1].getProp(SMOOTH_ROUTE.DISTANCE) - dist1
         for i in range(i1 + 1, i2):
             total += route[i].getProp(SMOOTH_ROUTE.DISTANCE)
@@ -794,7 +796,7 @@ class Route:
         # logger.debug(f"RETURN {i}, {dist} -> {j}, {d}")
         return j, d
 
-    def srStraight(self, start: Point, end: Point, heading: float):
+    def srStraightRoute(self, start: Point, end: Point, heading: float):
         # Direct segment to join route with turn at the end
         route = [start]
         line = Line(start, end)
@@ -826,6 +828,7 @@ class Route:
             t = min(Turn.SMALL_TURN_TANGENT, line.length())
             pt = turn.progressiveTurn(length=t, segments=min(max(int(2 * t), 7), 21))
             if len(pt) > 0:
+                logger.debug(f"adding progressive turn ({len(pt)})")
                 pts = [p[0] for p in pt]
                 mid = int(len(pts) / 2)
                 idx = len(route)
@@ -848,6 +851,7 @@ class Route:
                 pts[mid].setProp("marker-color", "#FFAAAA")  # light grey different
                 route += pts
             else: # no turn
+                logger.debug(f"no turn (l_in={line.bearing()}, l_out={heading})")
                 v = end
                 v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
                 v.setProp("marker-color", "#888888")  # medium grey
@@ -881,7 +885,7 @@ class Route:
         route[-1].setProp(SMOOTH_ROUTE.BEARING.value, b)  # repeat last
 
         if logger.level <= 10:
-            fn = os.path.join(os.path.dirname(__file__), "..", "ftg_straight.geojson")  # _{self.route[0]}-{self.route[-1]}
+            fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_straight{datetime.now().strftime('%M%S%f')}.geojson")  # _{self.route[0]}-{self.route[-1]}
             fc = FeatureCollection(features=[r.feature() for r in route])
             fc.save(fn)
             logger.debug(f"straight line to route saved in {os.path.abspath(fn)}")

@@ -326,7 +326,7 @@ class Aircraft:
 
     def aheadRange(self) -> list:
         # provides a reasonable range for this aircraft type
-        # depends on visibility and speed
+        # adjust for visibility and aircraft length (because measure starts under the aircraft)
         prefs = self.aircaftPreferences()
         ranges = prefs.get(AIRCRAFT.VISUAL_RANGE, {"RANGE": [70, 150], "LIMITS": [70, 150]})
         r = ranges.get("RANGE", [70, 150])
@@ -352,44 +352,43 @@ class Aircraft:
             r = [r[0] * f, r[1] * f]
 
         r[0] = max(r[0], l[0])
-        r[1] = max(r[1], l[0])
-        r[0] = min(r[0], l[1])
+        # r[1] = max(r[1], l[0])
+        # r[0] = min(r[0], l[1])
         r[1] = min(r[1], l[1])
         # TO this estimated length we add 1.5 aircraft sizes,
         # because lights are counted almost from the back of the acf
         r[0] += 1.0 * self.acflength
         r[1] += 1.0 * self.acflength
+        r = sorted(r)
         # logger.debug(f"range {r0} -> {r} (acf_speed={round(acf_speed, 1)}m/s, viz={round(viz, 1)}m, acf_length={round(self.acflength, 1)}m)")
         return r
 
     def adjustAhead(self, rabbit_mode: RABBIT_MODE) -> float:
-        # Aircraft length (because position is center of aircraft)
-        # + 1.5 aircraft length in front ogf aircrafy
-        # + 15m per m/s of speed
-        #
-        # depends on rabbit mode which is an invitation to adjust speed
-        # too fast->range smaller, too slow->range larger
+        # adjust aircraft/environment (visibility, daylight, etc.) range
+        # for aircraft speed and rabbit mode (which is an invitation to adjust speed:
+        # too fast->range smaller, too slow->range larger)
         RABBIT_FACTOR = {
-            RABBIT_MODE.SLOWEST: 0.25,
-            RABBIT_MODE.SLOWER: 0.50,
+            RABBIT_MODE.SLOWEST: 0.50,
+            RABBIT_MODE.SLOWER: 0.70,
             RABBIT_MODE.MED: 1.00,
-            RABBIT_MODE.FASTER: 1.50,
-            RABBIT_MODE.FASTEST: 2.00
+            RABBIT_MODE.FASTER: 1.25,
+            RABBIT_MODE.FASTEST: 1.50
         }
-        ahead_range = self.aheadRange()
-        acf_speed = self.speed()
-        acflen = self.acflength if self.acflength is not None else 50
-        ahead = acflen * 2.5 + acf_speed * 15.0
-        ahead0 = ahead
+        ahead_range = self.aheadRange()  # already adjusted for visibility conditions
         ahead_range0 = ahead_range
         # correction of valid range for rabbit speed/mode
         ahead_range[0] *= RABBIT_FACTOR[rabbit_mode]
         ahead_range[1] *= RABBIT_FACTOR[rabbit_mode]
+
+        acf_speed = self.speed()
+        acflen = self.acflength if self.acflength is not None else 50
+        ahead = acflen * 2.5 + acf_speed * 15.0
+        ahead0 = ahead
         if ahead < ahead_range[0]:
             ahead = ahead_range[0]
         if ahead > ahead_range[1]:
             ahead = ahead_range[1]
-        # logger.debug(f"ahead {round(ahead0, 1)}m -> {round(ahead, 1)}m (acf_speed={round(acf_speed, 1)}m/s, range0={ahead_range0}m, range={ahead_range}m)")
+        logger.debug(f"ahead {round(ahead0, 1)}m -> {round(ahead, 1)}m (acf_speed={round(acf_speed, 1)}m/s, range0={ahead_range0}m, range={ahead_range}m)")
         return ahead
 
     def heading(self) -> float:

@@ -197,11 +197,8 @@ class Airport:
         self.runways = {}
         self.holds = {}
         self.ramps = {}
-        #
-        self.smooth_line = 0
-        self.smoothGraph = Graph(name="Smoothed taxiways")
-        self.tempSmoothCurve = []
 
+        #
         # PREFERENCES - Fetched by LightString
         # Set sensible default value from global preferences
         self.fmc = get_global("FMC", self.prefs)
@@ -297,7 +294,7 @@ class Airport:
     def fmcar(self, route) -> Cursor | None:
         # fmcar should be **created** before lights are placed
         if not self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False):
-            if self.lights_ahead != Airport.HARDCODED_MAX_DISTANCE or self.rabbit_length != 0: # or self.rabbit_speed != 0
+            if self.lights_ahead != Airport.HARDCODED_MAX_DISTANCE or self.rabbit_length != 0 or self.rabbit_speed != 0:
                 logger.debug("no fmcar")
                 return None
         fmcar = self.prefs.get("FollowMeCar", {})

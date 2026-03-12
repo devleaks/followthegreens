@@ -428,8 +428,8 @@ class LightString:
                 self.rabbit_length = int(aircraft.rabbit_length / self.distance_between_green_lights)
                 logger.debug(f"rabbit_length physical units: {aircraft.rabbit_length}m")
                 if self.rabbit_length == 0 and aircraft.rabbit_length > 0:
-                    logger.debug("rabbit_length set to at least 10 lights")
-                    self.rabbit_length = 10
+                    logger.debug(f"rabbit_length set to at least {HARDCODED_MIN_RABBIT_LENGTH} lights")
+                    self.rabbit_length = HARDCODED_MIN_RABBIT_LENGTH
                 self.rabbit_length_from = "aircraft"
         logger.debug(f"rabbit_length {self.rabbit_length} (from {self.rabbit_length_from})")
         self.num_rabbit_lights = self.rabbit_length  # can be 0, this adjusts with acf speed
