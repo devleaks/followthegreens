@@ -360,7 +360,7 @@ class Aircraft:
         r[0] += 1.0 * self.acflength
         r[1] += 1.0 * self.acflength
         r = sorted(r)
-        # logger.debug(f"range {r0} -> {r} (acf_speed={round(acf_speed, 1)}m/s, viz={round(viz, 1)}m, acf_length={round(self.acflength, 1)}m)")
+        logger.debug(f"AHEAD_RANGE {r0} adjusted to {r} for acf speed and visibility (acf_speed={round(acf_speed, 1)}m/s, viz={round(viz, 1)}m, acf_length={round(self.acflength, 1)}m)")
         return r
 
     def adjustAhead(self, rabbit_mode: RABBIT_MODE) -> float:
@@ -388,7 +388,7 @@ class Aircraft:
             ahead = ahead_range[0]
         if ahead > ahead_range[1]:
             ahead = ahead_range[1]
-        logger.debug(f"ahead {round(ahead0, 1)}m -> {round(ahead, 1)}m (acf_speed={round(acf_speed, 1)}m/s, range0={ahead_range0}m, range={ahead_range}m)")
+        logger.debug(f"AHEAD {round(ahead0, 1)}m adjusted to {round(ahead, 1)}m (acf_speed={round(acf_speed, 1)}m/s, range0={ahead_range0}m, range rabbit_mode={ahead_range}m)")
         return ahead
 
     def heading(self) -> float:

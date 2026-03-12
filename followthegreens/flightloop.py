@@ -571,10 +571,10 @@ class FlightLoop:
                         target_heading = light_ahead.heading
                         # we will move the car well ahead, the car should not backup
                         # aircraft will move acf_ahead ahead of closestLight, or acf_ahead/lights.distance_between_green_lights lights
+                        self.light_progress = closestLight + int(acf_ahead / self.ftg.lights.distance_between_green_lights)
                         logger.debug(
-                            f"..move on route at {round(ahead_at_join, 1)}m ahead, heading={round(join_route.bearing(), 0)}, in {round(join_time, 1)}s (aircraft will be at light index {self.light_progress}).."
+                            f"..move on route at {round(ahead_at_join, 1)}m ahead, heading={round(join_route.bearing(), 0)}, in {round(join_time, 1)}s (aircraft will be at light index {self.light_progress} when fmcar join route).."
                         )
-                        self.light_progress = closestLight + int(ahead / self.ftg.lights.distance_between_green_lights)
                         # we move the car in front of acf, and progress at same speed as acf.
                         fmcar.future(
                             position=join_route.end,
