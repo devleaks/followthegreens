@@ -124,6 +124,7 @@ FTG_BOOKMARK_COMMAND_DESC = "Log UTC timestamp in log file"
 # Data Accessor
 FTG_IS_RUNNING = FTG_PLUGIN_ROOT_PATH + "is_running"
 FTG_IS_HOLDING = FTG_PLUGIN_ROOT_PATH + "is_holding"  # this is for the next stop, it is set for the *next* stop after clearing a stop
+FTG_SIGN_INDIC = "fm/anim/sign"
 
 
 # X-PLANE Runway Lights Datarefs

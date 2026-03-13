@@ -29,7 +29,7 @@ but different route indication.
 In the case of Follow the greens, all lights are lit.
 In the case of Follow Me Car, there is just an indication of
 one light ahead of the aircraft, and we replace that light
-by .. a FollowMe car.
+by .. a Follow Me car.
 
 Above additions to get a Follow Me Car on top of Follow the greens development
 took just a few minutes to complete.
@@ -49,10 +49,14 @@ The above refinements took several hours to be added
 to the Follow the green core software,
 just for the smooth movement of the car.
 
+
 # How to Get a Follow Me Car
 
 Follow Me Car was always considered as a joke, a side project, an accident,
 a funny addition to the core, serious, hi-tech Follow the greens.
+
+ - Follow the greens is A-SMGCS (Advanced Surface Movement Guidance and Control System)
+ - A Follow Me Car is also A-SMGCS (_Antique_ Surface Movement Guidance and Control System)
 
 Pursuing that spirit, Follow me car is added as a fun addition:
 
@@ -77,12 +81,15 @@ Taxi safely
 ## Global Addition
 
 If you do not want to use Follow the greens and prefer Follow Me Car,
-add the following prefereces at the _global_ level:
+add the following preferences at the _global_ level:
 
 ```
 RABBIT_LENGTH = 0
+RABBIT_SPEED = 0
 LIGHTS_AHEAD = 42
 ```
+
+You will never get Follow the greens, all airports will use Follow Me Car.
 
 
 ## Local Addition
@@ -93,6 +100,7 @@ you must add the same preference at an _airport_ level.
 ```
 [Airports.EBLG]
 RABBIT_LENGTH = 0
+RABBIT_SPEED = 0
 LIGHTS_AHEAD = 42
 ```
 
@@ -113,8 +121,37 @@ filename = "xscl/FMC2.obj"
 
 Path objects are relative to the `followthegreens` folder.
 
-Follow the greens offers 2 follow me cars from [X-CSL Library](https://x-csl.ru/?lang_id=43) distribution (with permission).
-(`xscl/FMC.obj` and `xscl/FMC2.obj`)
+Follow the greens provides two follow me cars alternative
+courtesy of X-CSL team.
+Many thanks to them for their generosity and their hard work.
 
+# Troubleshooting and Limitations
 
-Taxi safely
+Follow the greens and Follow Me car are software development.
+They are subject to limitations and bugs.
+
+Here is a small list of limitations, and known issues.
+
+Follow Me Car are limited in their U-turn capabilities.
+They will do it, but almost immediately at their current place.
+Turns of more that about 150° are subject to the same limitation.
+
+If lost, or if the aircraft did not follow indicated paths, it might get lost.
+Follow the greens provides a instruction to generate, on the fly, a new route
+to the desired destination.
+It is called "New greens", to create a new route to the same destination.
+The new route might not start close to the aircraft, but an alternate route will be provided.
+If the new proposed route is not suitable to bring the aircraft back on route,
+the pilot may call "New greens" over and over again, until FtG satisfies the requirements.
+If the aircraft is moving, new path will be generated and may be more appropriate.
+
+In normal condition, FtG has been tested thouroughly.
+Follow the greens, within its known limitations, works reliably.
+The Follow Me car is more complicated, because the smooth management of the car
+involves numerous tradeoffs are are known to have limitations too, like explained above.
+
+Overall, Follow the greens brings more joy than pain!
+In case of trouble, never hasitate to reset it,
+and/or reset python scripts through the XPPython3 plugin menu item "Reload scripts".
+
+Taxi safely.

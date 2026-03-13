@@ -7,7 +7,7 @@ try:
 except ImportError:
     print("X-Plane not loaded")
 
-from .globals import logger, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT, AMBIANT_RWY_LIGHT
+from .globals import logger, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT, AMBIANT_RWY_LIGHT, RABBIT_MODE
 from .geo import distance, Point
 from .se import daylight
 
@@ -248,7 +248,8 @@ class Aircraft:
         logger.info(f"aircraft type {self.icao} not found in lists, using default category {self.width_code}")
 
     def hasPreferences(self) -> bool:
-        return ("Aircrafts" + self.width_code.value) in self.prefs or ("Aircrafts." + self.icao) in self.prefs
+        acf = self.prefs.get("Aircrafts", {})
+        return self.width_code.value in acf or self.icao in acf
 
     def setPreferences(self):
         a = self.aircaftPreferences()
@@ -325,6 +326,8 @@ class Aircraft:
         return xp.getDataf(self.visibility_dref)
 
     def aheadRange(self) -> list:
+        # provides a reasonable range for this aircraft type
+        # adjust for visibility and aircraft length (because measure starts under the aircraft)
         prefs = self.aircaftPreferences()
         ranges = prefs.get(AIRCRAFT.VISUAL_RANGE, {"RANGE": [70, 150], "LIMITS": [70, 150]})
         r = ranges.get("RANGE", [70, 150])
@@ -350,31 +353,41 @@ class Aircraft:
             r = [r[0] * f, r[1] * f]
 
         r[0] = max(r[0], l[0])
-        r[1] = max(r[1], l[0])
-        r[0] = min(r[0], l[1])
+        # r[1] = max(r[1], l[0])
+        # r[0] = min(r[0], l[1])
         r[1] = min(r[1], l[1])
         # TO this estimated length we add 1.5 aircraft sizes,
         # because lights are counted almost from the back of the acf
         r[0] += 1.0 * self.acflength
         r[1] += 1.0 * self.acflength
-        # logger.debug(f"range {r0} -> {r} (acf_speed={round(acf_speed, 1)}m/s, viz={round(viz, 1)}m, acf_length={round(self.acflength, 1)}m)")
+        r = sorted(r)
+        logger.debug(
+            f"AHEAD_RANGE {r0} adjusted to {r} for acf speed and visibility (acf_speed={round(acf_speed, 1)}m/s, viz={round(viz, 1)}m, acf_length={round(self.acflength, 1)}m)"
+        )
         return r
 
-    def adjustAhead(self) -> float:
-        # Aircraft length (because position is center of aircraft)
-        # + 1.5 aircraft length in front ogf aircrafy
-        # + 15m per m/s of speed
-        #
-        ahead_range = self.aheadRange()
+    def adjustAhead(self, rabbit_mode: RABBIT_MODE) -> float:
+        # adjust aircraft/environment (visibility, daylight, etc.) range
+        # for aircraft speed and rabbit mode (which is an invitation to adjust speed:
+        # too fast->range smaller, too slow->range larger)
+        RABBIT_FACTOR = {RABBIT_MODE.SLOWEST: 0.50, RABBIT_MODE.SLOWER: 0.70, RABBIT_MODE.MED: 1.00, RABBIT_MODE.FASTER: 1.25, RABBIT_MODE.FASTEST: 1.50}
+        ahead_range = self.aheadRange()  # already adjusted for visibility conditions
+        ahead_range0 = ahead_range
+        # correction of valid range for rabbit speed/mode
+        ahead_range[0] *= RABBIT_FACTOR[rabbit_mode]
+        ahead_range[1] *= RABBIT_FACTOR[rabbit_mode]
+
         acf_speed = self.speed()
         acflen = self.acflength if self.acflength is not None else 50
-        ahead = acflen * 2.5 + acf_speed * 15.0
+        ahead = acflen * 2.5 + acf_speed * 12.0  # acflen * 2.5 = "offset" to take into account lights under aircraft, flight loop iteration, etc.
         ahead0 = ahead
         if ahead < ahead_range[0]:
             ahead = ahead_range[0]
         if ahead > ahead_range[1]:
             ahead = ahead_range[1]
-        # logger.debug(f"ahead {round(ahead0, 1)}m -> {round(ahead, 1)}m (acf_speed={round(acf_speed, 1)}m/s, range={ahead_range}m)")
+        logger.debug(
+            f"AHEAD {round(ahead0, 1)}m adjusted to {round(ahead, 1)}m (acf_speed={round(acf_speed, 1)}m/s, range0={ahead_range0}m, range rabbit_mode={rabbit_mode} => {ahead_range}m)"
+        )
         return ahead
 
     def heading(self) -> float:

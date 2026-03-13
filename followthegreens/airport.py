@@ -197,11 +197,8 @@ class Airport:
         self.runways = {}
         self.holds = {}
         self.ramps = {}
-        #
-        self.smooth_line = 0
-        self.smoothGraph = Graph(name="Smoothed taxiways")
-        self.tempSmoothCurve = []
 
+        #
         # PREFERENCES - Fetched by LightString
         # Set sensible default value from global preferences
         self.fmc = get_global("FMC", self.prefs)
@@ -260,7 +257,7 @@ class Airport:
         return [True, "Airport ready"]
 
     def hasPreferences(self) -> bool:
-        return "Airports." + self.icao in self.prefs
+        return self.icao in self.prefs.get("Airports", {})
 
     def setPreferences(self):
         # Local airport preferences override global preferences
@@ -297,8 +294,8 @@ class Airport:
     def fmcar(self, route) -> Cursor | None:
         # fmcar should be **created** before lights are placed
         if not self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False):
-            if self.lights_ahead != Airport.HARDCODED_MAX_DISTANCE or self.rabbit_length != 0:
-                logger.debug("no fmcar")
+            if self.lights_ahead != Airport.HARDCODED_MAX_DISTANCE or self.rabbit_length != 0 or self.rabbit_speed != 0:
+                logger.debug(f"no fmcar (t={self.prefs.get('DEVELOPER_PREFERENCE_ONLY', False)}, a={self.lights_ahead}, rl={self.rabbit_length}, rs={self.rabbit_speed})")
                 return None
         fmcar = self.prefs.get("FollowMeCar", {})
         adj = ""
@@ -311,6 +308,14 @@ class Airport:
             movement = self.prefs.get("MOVEMENT", ",".join([m.value for m in MOVEMENT]))
         if route.move.value not in movement:
             logger.debug(f"no fmcar for {route.move} ({movement} only)")
+            # Setting global default rather than HARDCODED_MAX_DISTANCE/0/0
+            logger.info(f"using global default for {self.icao}, no fmcar on {route.move.value}")
+            self.rabbit_speed = get_global(RABBIT.LIGHTS_AHEAD.value, self.prefs)
+            self.lights_ahead_pref = True
+            self.rabbit_length = get_global(RABBIT.LENGTH.value, self.prefs)
+            self.rabbit_length_pref = True
+            self.rabbit_speed = get_global(RABBIT.SPEED.value, self.prefs)
+            self.rabbit_speed_pref = True
             return None
         if self.distance_between_green_lights > self.MTWYLDWC:  # min twy light distance with/when fmcar
             adj = f", distance between taxiway lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"

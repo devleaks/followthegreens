@@ -2,8 +2,6 @@
 # We currently have two loops, one for rabbit, one to monitor aircraft position.
 #
 from datetime import datetime, timedelta, timezone
-from sre_compile import dis
-import time
 
 try:
     import xp
@@ -109,6 +107,15 @@ class FlightLoop:
 
         # Dim runway lights according to preferences
         ll = get_global("RUNWAY_LIGHT_LEVEL_WHILE_FTG", preferences=self.ftg.prefs)
+        ll = ll.lower()
+        if ll.startswith("l"):
+            ll = "lo"
+        elif ll.startswith("m"):
+            ll = "med"
+        elif ll.startswith("h"):
+            ll = "hi"
+        elif ll.startswith("o"):
+            ll = "off"
         if self.planeRunning and self.ftg.airport_light_level is not None:
             self.runway_level_original = xp.getDataf(self.ftg.airport_light_level)
             if ll is not None:
@@ -520,7 +527,7 @@ class FlightLoop:
                         #
                         # 3. Movement (on route) from above vertex of route to ahead of aircraft
                         #
-                        ahead = self.ftg.aircraft.adjustAhead()
+                        ahead = self.ftg.aircraft.adjustAhead(rabbit_mode=self.rabbitMode)
                         tahead = ahead / fmcar.adjustedSpeed()  # secs.
                         ref_light = 0
                         closestLight, dist = self.ftg.lights.closest(pos)
@@ -539,7 +546,7 @@ class FlightLoop:
                         #
                         # 1. Spawn the car next to (random) side of aircraft, half way "ahead" so that pilot can see the car on the side
                         rnd = 1 if (int(ts_now) % 2) == 0 else -1
-                        ahead = self.ftg.aircraft.adjustAhead()
+                        ahead = self.ftg.aircraft.adjustAhead(rabbit_mode=self.rabbitMode)
                         spawn = destination(self.ftg.route.precise_start, aircraft.heading(), ahead / 2)  # ahead/2 ahead
                         spawn = destination(spawn, aircraft.heading() + rnd * 90, fmcar.SPAWN_SIDE_DISTANCE)
                         closestLight, dist = self.ftg.lights.closest(pos)
@@ -564,10 +571,10 @@ class FlightLoop:
                         target_heading = light_ahead.heading
                         # we will move the car well ahead, the car should not backup
                         # aircraft will move acf_ahead ahead of closestLight, or acf_ahead/lights.distance_between_green_lights lights
+                        self.light_progress = closestLight + int(acf_ahead / self.ftg.lights.distance_between_green_lights)
                         logger.debug(
-                            f"..move on route at {round(ahead_at_join, 1)}m ahead, heading={round(join_route.bearing(), 0)}, in {round(join_time, 1)}s (aircraft will be at light index {self.light_progress}).."
+                            f"..move on route at {round(ahead_at_join, 1)}m ahead, heading={round(join_route.bearing(), 0)}, in {round(join_time, 1)}s (aircraft will be at light index {self.light_progress} when fmcar join route).."
                         )
-                        self.light_progress = closestLight + int(ahead / self.ftg.lights.distance_between_green_lights)
                         # we move the car in front of acf, and progress at same speed as acf.
                         fmcar.future(
                             position=join_route.end,
@@ -643,7 +650,7 @@ class FlightLoop:
                     dist_check = fmcar.distance(position=Point(lat=pos[0], lon=pos[1]))
                     logger.debug(f"check d={round(dist_check, 1)}m, acf_speed={round(acf_speed, 1)}m/s, fmc_speed={round(fmcar.speed(), 1)}m/s")
                     light = self.ftg.lights.lights[closestLight]
-                    ahead = self.ftg.aircraft.adjustAhead()
+                    ahead = self.ftg.aircraft.adjustAhead(rabbit_mode=self.rabbitMode)
                     total_ahead = acf_move + ahead
                     later = ts_now + nextIter
                     fmc_speed = max(acf_speed, fmcar.adjustedSpeed())
@@ -656,9 +663,9 @@ class FlightLoop:
                     # logger.debug(f"light ahead={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
                     fmcar.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=fmc_speed, t=later)
                     logger.debug("..moved")
-                    if light_index == (len(self.ftg.lights.lights) - 1) and not fmcar.is_finishing():  # reached last light
+                    if light_index == (len(self.ftg.lights.lights) - 1) and not fmcar.isFinishing():  # reached last light
                         fmcar.finish("end of lights")
-                    if fmcar.is_finished() and fmcar.can_delete():
+                    if fmcar.isFinished() and fmcar.canDelete():
                         self.ftg.fmcar.destroy()
                         self.ftg.fmcar = None  # ready to create a new one
                 except:
