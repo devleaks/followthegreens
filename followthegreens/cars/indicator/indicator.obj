@@ -2389,4 +2389,6 @@ ANIM_begin
 	TRIS	4338 12
 ANIM_end
 
+# LIGHT_CUSTOM       0   2.0   0.0    1.0 1.0 1.0 1   1.0  0.0  0.42  0.86  0.2  UNUSED
+
 # Built with SketchUp 17.2.2555. Exported with SketchUp2XPlane 1.70.

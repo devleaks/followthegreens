@@ -468,6 +468,9 @@ class FlightLoop:
         # pylint: disable=unused-argument
         # monitor progress of plane on the green. Turns lights off as it does no longer needs them.
         # logger.debug('%2f, %2f, %d', elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter)
+        def faster(s: float) -> float:
+            return s + 4
+
         if xp.getDatai(self.pause_dref) == 1:
             msg = "paused"
             if msg != self.old_msg:
@@ -555,6 +558,7 @@ class FlightLoop:
                             closestLight = 0
                         join_time = 20  # secs, reasonable time from spawn position to ahead of acf
                         # during join travel, aircraft will move forward, aircraft might still be running fast, we limit ot speed of car:
+                        fast = min(faster(acf_speed), fmcar.adjustedSpeed(speed_type="fast"))
                         acf_ahead = min(acf_speed, fmcar.adjustedSpeed(speed_type="fast")) * join_time
                         ahead_at_join = acf_ahead + ahead
                         light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=closestLight, ahead=ahead_at_join)
@@ -571,6 +575,8 @@ class FlightLoop:
                         target_heading = light_ahead.heading
                         # we will move the car well ahead, the car should not backup
                         # aircraft will move acf_ahead ahead of closestLight, or acf_ahead/lights.distance_between_green_lights lights
+                        # we can expect "cannot backup on route" while aircraft catches up with its supposed position
+                        # and the fmcar already in position
                         self.light_progress = closestLight + int(acf_ahead / self.ftg.lights.distance_between_green_lights)
                         logger.debug(
                             f"..move on route at {round(ahead_at_join, 1)}m ahead, heading={round(join_route.bearing(), 0)}, in {round(join_time, 1)}s (aircraft will be at light index {self.light_progress} when fmcar join route).."
@@ -579,7 +585,7 @@ class FlightLoop:
                         fmcar.future(
                             position=join_route.end,
                             hdg=target_heading,
-                            speed=acf_speed,
+                            speed=fast,
                             t=dt,
                             tick=True,
                             text="go on route ahead of aircraft",
@@ -639,7 +645,7 @@ class FlightLoop:
         self.closestLight_cnt = 0
 
         if closestLight <= self.light_progress:
-            logger.debug(f"backup detected, ignoring light closestLight={closestLight}, using {self.light_progress}, no progress")
+            logger.debug(f"backup detected, ignoring closestLight={closestLight}, using {self.light_progress}, no progress")
             closestLight = max(closestLight, self.light_progress)
         else:
             # MOVE
@@ -653,7 +659,7 @@ class FlightLoop:
                     ahead = self.ftg.aircraft.adjustAhead(rabbit_mode=self.rabbitMode)
                     total_ahead = acf_move + ahead
                     later = ts_now + nextIter
-                    fmc_speed = max(acf_speed, fmcar.adjustedSpeed())
+                    fmc_speed = max(acf_speed, fmcar.adjustedSpeed(reference=acf_speed))
                     logger.debug(f"aircraft closest light={closestLight} on edge index={light.edgeIndex}, distance from edge={round(light.distFromEdgeStart, 1)}m")
                     # logger.debug(f"ahead={round(total_ahead, 1)}m = {round(ahead, 1)}m + acf move={round(acf_move, 1)}m")
                     # At next iteration, acf will move acf_move, and fmcar need to be ahead
@@ -664,8 +670,10 @@ class FlightLoop:
                     fmcar.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=fmc_speed, t=later)
                     logger.debug("..moved")
                     if light_index == (len(self.ftg.lights.lights) - 1) and not fmcar.isFinishing():  # reached last light
+                        logger.debug("fmcar reached end of lights, initiating finish trip")
                         fmcar.finish("end of lights")
                     if fmcar.isFinished() and fmcar.canDelete():
+                        logger.debug("fmcar done, removing")
                         self.ftg.fmcar.destroy()
                         self.ftg.fmcar = None  # ready to create a new one
                 except:

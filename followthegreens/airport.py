@@ -322,6 +322,9 @@ class Airport:
             self.distance_between_green_lights = self.MTWYLDWC
             self.distance_between_green_lights_pref = True
         logger.debug(f"using fmcar {fmcar}{adj}")
+        if self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False) and self.rabbit_speed == 0:
+            self.rabbit_speed = get_global(RABBIT.SPEED.value, {RABBIT.SPEED.value: 0.2})
+            logger.debug(f"and lights for development (forced rabbit_speed={self.rabbit_speed} != 0)")
         details = CursorType(**fmcar)
         return Cursor(details, route)
 

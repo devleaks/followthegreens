@@ -489,7 +489,8 @@ class LightString:
 
     @property
     def hasLight(self) -> bool:
-        return self.rabbit_length > 0 and self.num_lights_ahead != HARDCODED_MAX_DISTANCE
+        # logger.debug(f"rabbit_speed={self.rabbit_speed}, rabbit_length={self.rabbit_length}, num_lights_ahead={self.num_lights_ahead} => {(self.rabbit_length > 0 and self.num_lights_ahead != HARDCODED_MAX_DISTANCE) or self.rabbit_speed > 0}")
+        return (self.rabbit_length > 0 and self.num_lights_ahead != HARDCODED_MAX_DISTANCE) or self.rabbit_speed > 0
 
     def hasRabbit(self) -> bool:
         return (abs(self.rabbit_duration) > 0 and self.num_rabbit_lights > 0) or self.lights_ahead > 0

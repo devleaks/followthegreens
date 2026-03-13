@@ -2,6 +2,7 @@ import os
 from dataclasses import dataclass, fields
 from datetime import datetime
 from enum import StrEnum
+from weakref import ref
 
 from .oned import eq2
 
@@ -61,6 +62,8 @@ class CursorType:
     normal_speed: float = 7.0  # 25km/h
     leave_speed: float = 10.0  # expedite speed to leave/clear an area
     fast_speed: float = 14.0  # running fast to a destination far away
+
+    max_speed: float = 18.0
 
     turn_radius: float = 25.0  # m
 
@@ -342,9 +345,19 @@ class Cursor:
         return self.current.speed
 
     def adjustedSpeed(self, speed_type: str = "normal", reference: float = 0.0) -> float:
+        # reference is a possibility to inout acf speed (i.e. the thing following fmcar)
         if speed_type == "fast":
-            return self.detail.fast_speed
-        return self.detail.normal_speed
+            s = reference + self.detail.fast_speed
+            logger.debug(f"recommanded speed {sf(s, 'm/s')} ({speed_type}, {sf(reference, 'm/s')})")
+            return min(s, self.detail.max_speed)
+        if speed_type == "slow":
+            s = reference + self.detail.slow_speed
+            logger.debug(f"recommanded speed {sf(s, 'm/s')} ({speed_type}, {sf(reference, 'm/s')})")
+            return min(s, self.detail.max_speed)
+        # a little bit faster than reference if provided
+        s = (1.05 * reference) if reference > 0.0 else self.detail.normal_speed
+        logger.debug(f"recommanded speed {sf(s, 'm/s')} ({speed_type}, {sf(reference, 'm/s')})")
+        return min(s, self.detail.max_speed)
 
     # Abrupt change or route, reset
     #
@@ -813,7 +826,7 @@ class Cursor:
         # test: self.indicator = int(self.current.time / 10) % 4
         if self.targetReached():
             return self.current.position, self.current.heading, self.current.sr_position, True
-        # self.nextTurn(self.current.route_index)  # compute turn indicator code for turns
+        self.nextTurnIndicator(self.current.route_index)  # compute turn indicator code for turns
         dt = self.current.time - self.start.time
         r = eq2(displacement=None, initial_velocity=self.start.speed, final_velocity=self.target.speed, time=dt)
         d = r[0]
@@ -922,7 +935,7 @@ class Cursor:
         logger.debug("cursor inactive")
         logger.debug(f"cursor finish programmed ({message})")
 
-    def nextTurn(self, edge: int):
+    def nextTurnIndicator(self, edge: int):
         TURN_LIMIT = 30.0  # no indicator for turns below that
         if edge == NOT_ON_ROUTE:
             edge = -1
@@ -945,6 +958,8 @@ class Cursor:
         indicator = 0
         if abs(turn) > TURN_LIMIT and dist_to_next_turn < self.detail.indicator_warning_disttance:
             indicator = 3 if turn < 0 else 2
+        # demo
+        indicator = int(self.current.time / 10) % 4
         if indicator != self.indicator:
             self.indicator = indicator
             logger.debug(f"indicator {self.indicator} (turn={sf(turn, 'D')}, d={sf(dist_to_next_turn, 'm')})")
