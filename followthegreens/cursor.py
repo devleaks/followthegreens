@@ -19,13 +19,13 @@ ABOVE_GROUND = 0.25  # xcsl objects offset, in meter
 
 class CURSOR_STATUS(StrEnum):
     NEW = "NEW"  # cursor just created
-    READY = "READY"  # cursor initialized, got starting position, cursor spawned
-    SCHEDULED = "SCHEDULED"  # flight loop running
-    ACTIVE = "ACTIVE"  # got first path, running
+    READY = "READY"  # cursor initialized, got starting position, cursor spawned, flight loop not running
+    ACTIVE = "ACTIVE"  # flight loop running
     FINISHING = "FINISHING"  # initiated finish
     FINISHED = "FINISHED"  # finish finished, can be deleted
     DESTROYED = "DESTROYED"  # cursor destroyed
     DELETED = "DELETED"  # cursor deleted
+    HOLD = "HOLD"  # cursor temporarily held
 
 
 def ts() -> float:
@@ -177,7 +177,7 @@ class Situation:
         # https://stackoverflow.com/questions/71344648/how-to-define-str-for-dataclass-that-omits-default-values
 
         def f(i):
-            if type (i) in [list, tuple] and len(i) > 0 and isinstance(i[0], Point):
+            if type(i) in [list, tuple] and len(i) > 0 and isinstance(i[0], Point):
                 return f"[ route[{len(i)}] ]"
             if isinstance(i, Point):
                 return [round(p, 5) for p in i.coords()]
@@ -314,7 +314,7 @@ class Cursor:
         if self.flightLoop is None and self.cursor is not None and self.usable:
             self.flightLoop = xp.createFlightLoop(callback=self.cursorFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refcursor)
             xp.scheduleFlightLoop(self.flightLoop, self.nextIter, 1)
-            self.status = CURSOR_STATUS.SCHEDULED
+            self.status = CURSOR_STATUS.ACTIVE
             logger.debug("cursor tracking started")
 
     def stopFlightLoop(self):
@@ -350,25 +350,26 @@ class Cursor:
     #
     def changeRoute(self, ftg):
         if self.status != CURSOR_STATUS.ACTIVE:
-            logger.warning("change route: Cursor is not active")
+            logger.warning(f"change route: Cursor is not active (is {self.status})")
             return
-        logger.debug("change route..")
-        if self.route is not None:
-            self.reset_route()
-        self.route = ftg.route
-        logger.log(8, "..new route installed..")
-
-        acf_speed = ftg.aircraft.speed()
-
-        if ftg.lights is None:
-            logger.warning("..no light, cannot route to new route")
-            return
-        closestLight, dist = ftg.lights.closest(ftg.aircraft.position())
-        if closestLight is None:
-            logger.debug("..no close light to start, directing to start of route..")
-            closestLight = 0
-
         try:
+            self.status = CURSOR_STATUS.HOLD  # lock, prevents tick when changing routes
+            logger.debug("change route..")
+            if self.route is not None:
+                self.resetRoute()
+            self.route = ftg.route
+            logger.log(8, "..new route installed..")
+
+            acf_speed = ftg.aircraft.speed()
+
+            if ftg.lights is None:
+                logger.warning("..no light, cannot route to new route")
+                return
+            closestLight, dist = ftg.lights.closest(ftg.aircraft.position())
+            if closestLight is None:
+                logger.debug("..no close light to start, directing to start of route..")
+                closestLight = 0
+
             logger.log(8, "..estimate new position ahead of aircraft..")
             # if route changed we assume aircraft is moving and this.inited
             ahead = ftg.aircraft.adjustAhead(rabbit_mode=ftg.flightLoop.rabbitMode)
@@ -388,6 +389,7 @@ class Cursor:
                 f"..move on route at {sf(ahead_at_join, 'm')} ahead, heading={round(join_route.bearing(), 0)}, in {round(join_time, 1)}s (aircraft will be at light index {light_progress}).."
             )
             # we move the car in front of acf, and progress at same speed as acf.
+            self.status = CURSOR_STATUS.ACTIVE
             self.future(
                 position=join_route.end,
                 hdg=light_ahead.heading,
@@ -435,18 +437,22 @@ class Cursor:
             f.sr_end = OnRoute(*self.route.srEquiv(i=f.end[0], dist=f.end[1]))
             logger.debug(f"srEquiv forced end {f.end} -> {f.sr_end}")
         if edge >= 0:  # if we are on sharp route
-            if f.end[0] >= 0: # if there is a "forced end"
+            if f.end[0] >= 0:  # if there is a "forced end"
                 f.route_index = f.end[0]
                 f.distance_on_edge = f.end[1]
                 f.vertex = self.route.vertices[f.route_index]
                 f.sr_position = f.sr_end
-                logger.debug(f"srEquiv at route end {f.end} -> {f.sr_position} (d={sf(distance(position, self.route.srDestination(f.sr_position.index, f.sr_position.distance)), 'm')})")
+                logger.debug(
+                    f"srEquiv at route end {f.end} -> {f.sr_position} (d={sf(distance(position, self.route.srDestination(f.sr_position.index, f.sr_position.distance)), 'm')})"
+                )
             else:  # no forced end, just a move on the edge
                 # f.route_index = edge
                 f.vertex = self.route.vertices[edge]
                 f.distance_on_edge = distance(f.vertex, position)
                 f.sr_position = OnRoute(*self.route.srEquiv(i=f.route_index, dist=f.distance_on_edge))
-                logger.debug(f"srEquiv on route {f.route_index},{sf(f.distance_on_edge, 'm')} -> {f.sr_position} (d={sf(distance(position, self.route.srDestination(f.sr_position.index, f.sr_position.distance)), 'm')})")
+                logger.debug(
+                    f"srEquiv on route {f.route_index},{sf(f.distance_on_edge, 'm')} -> {f.sr_position} (d={sf(distance(position, self.route.srDestination(f.sr_position.index, f.sr_position.distance)), 'm')})"
+                )
         # else:  If not on sharp route, we will compute the target position in _mkPathToTarget()
         if f.speed <= 0.1:
             f.speed = self.detail.normal_speed
@@ -586,6 +592,9 @@ class Cursor:
     #
     def _tick(self) -> bool:
         # returns whether it ticked, new target set, and path constructed
+        if self.status == CURSOR_STATUS.HOLD:
+            logger.debug("cursor temporarily on hold, cannot tick")
+            return False
         if self._future.empty():
             if self.status == CURSOR_STATUS.FINISHING:
                 self.status = CURSOR_STATUS.FINISHED
@@ -596,8 +605,6 @@ class Cursor:
             logger.debug(f"ticking future #{self._qout} (q.len={self._future.qsize()}) at {st(self.current.time)}: {f}..")  #
             if self.set_target(f):
                 self._mkPathToTarget()
-                if self.status == CURSOR_STATUS.READY:
-                    self.status = CURSOR_STATUS.ACTIVE
                 self._set_current = False
                 logger.debug("..ticked")
                 return True
@@ -634,7 +641,7 @@ class Cursor:
             # 1.2. Where are we going to
             if self.target.route_index != NOT_ON_ROUTE or self.target.end[0] >= 0:
                 logger.log(8, "control: we go on route")
-                if self.target.end[0] >= 0: # target is on route, there is a forced end
+                if self.target.end[0] >= 0:  # target is on route, there is a forced end
                     self.current.route_index = self.target.end[0]
                     self.current.vertex = self.route.vertices[self.target.end[0]]
                     # we are a little bit further on the route
@@ -643,7 +650,9 @@ class Cursor:
                     logger.debug(f"adjustments because end of turn reached {sf(self.current.distance_on_edge, 'm')}")
                     # self.current.sr_position = self.target.sr_end  # should be the case...
                     logger.log(8, f"control: {sf(distance(self.current.position, self.route.srDestination(self.current.route_index, self.current.distance_on_edge)), 'm')}")
-                    logger.debug(f"set current from forced end on route {self.target.end}: {self.current.route_index}, at {round(self.current.distance_on_edge, 1)}m from edge start")
+                    logger.debug(
+                        f"set current from forced end on route {self.target.end}: {self.current.route_index}, at {round(self.current.distance_on_edge, 1)}m from edge start"
+                    )
                 else:
                     self.current.route_index = self.target.route_index
                     self.current.distance_on_edge = self.target.distance_on_edge
@@ -652,7 +661,7 @@ class Cursor:
                     logger.debug(f"set current from position: {self.current.route_index}, at {round(self.current.distance_on_edge, 1)}m")
             else:
                 logger.log(8, "control: we go off route")
-                self.current.sr_position = OnRoute(index=0, distance=0) # we are at the start of that straightRoute
+                self.current.sr_position = OnRoute(index=0, distance=0)  # we are at the start of that straightRoute
                 # self.current.vertex = self.target.vertex  # ?
                 # self.current.distance_on_edge = 0  # ?
                 logger.debug("set current position to start of new smooth route")
@@ -661,14 +670,16 @@ class Cursor:
             # 2. Where are we going to
             if self.target.route_index != NOT_ON_ROUTE or self.target.end[0] >= 0:
                 logger.log(8, "control: we go on route")
-                if self.target.end[0] >= 0: # target is on route, there is a forced end
+                if self.target.end[0] >= 0:  # target is on route, there is a forced end
                     self.current.route_index = self.target.end[0]
                     self.current.vertex = self.route.vertices[self.target.end[0]]
                     self.current.distance_on_edge = self.target.end[1]
                     self.current.sr_position = OnRoute(*self.route.srEquiv(i=self.current.route_index, dist=self.current.distance_on_edge))
                     # self.current.sr_position = self.target.sr_end  # should be the case...
                     logger.log(8, f"control: {sf(distance(self.current.position, self.route.srDestination(self.target.end[0], self.target.end[1])), 'm')}")
-                    logger.debug(f"set current from forced end on route {self.target.end}: {self.current.route_index}, at {round(self.current.distance_on_edge, 1)}m from edge start")
+                    logger.debug(
+                        f"set current from forced end on route {self.target.end}: {self.current.route_index}, at {round(self.current.distance_on_edge, 1)}m from edge start"
+                    )
                 else:
                     self.current.route_index = self.target.route_index
                     self.current.distance_on_edge = self.target.distance_on_edge
@@ -678,7 +689,7 @@ class Cursor:
                     logger.debug(f"set current from position: {self.current.route_index}, at {round(self.current.distance_on_edge, 1)}m")
             else:
                 logger.log(8, "control: we go off route")
-                self.current.sr_position = OnRoute(index=0, distance=0) # we are at the start of that straightRoute
+                self.current.sr_position = OnRoute(index=0, distance=0)  # we are at the start of that straightRoute
                 # self.current.vertex = self.target.vertex  # ?
                 # self.current.distance_on_edge = 0  # ?
                 logger.debug("set current position to start of new smooth route")
@@ -747,7 +758,7 @@ class Cursor:
             if self.target.route_index < 0:  # going off-route
                 current.sr_route = self.route.srStraightRoute(start=current.position, end=target.position, heading=target.heading)
                 self.start.sr_position = OnRoute(index=0, distance=0.0)
-                current.sr_position = OnRoute(index=0, distance=0.0) # we are at the start of the straightRoute
+                current.sr_position = OnRoute(index=0, distance=0.0)  # we are at the start of the straightRoute
                 target.sr_position = OnRoute(index=len(current.sr_route) - 1, distance=0.0)  # end of straightRoute
                 logger.debug(f"leaving route, srEquiv direct route on custom smooth route -> {target.sr_position} (end={target.sr_end})")
             else:

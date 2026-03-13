@@ -395,6 +395,9 @@ VERSION = "{__VERSION__}"
         #   the name of a parking ramp for arrival.
         # We know where we are, we know where we want to go.
         # If we find a route, we light it.
+        if newGreen:
+            logger.info("new green requested")
+
         if destination not in self.airport.getDestinations(self.move):
             logger.debug(f"destination not valid {destination} for {self.move}")
             return self.ui.promptForDestination(status=f"Destination {destination} not valid for {self.move}.")

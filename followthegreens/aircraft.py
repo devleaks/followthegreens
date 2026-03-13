@@ -248,7 +248,8 @@ class Aircraft:
         logger.info(f"aircraft type {self.icao} not found in lists, using default category {self.width_code}")
 
     def hasPreferences(self) -> bool:
-        return ("Aircrafts" + self.width_code.value) in self.prefs or ("Aircrafts." + self.icao) in self.prefs
+        acf = self.prefs.get("Aircrafts", {})
+        return self.width_code.value in acf or self.icao in acf
 
     def setPreferences(self):
         a = self.aircaftPreferences()
@@ -360,20 +361,16 @@ class Aircraft:
         r[0] += 1.0 * self.acflength
         r[1] += 1.0 * self.acflength
         r = sorted(r)
-        logger.debug(f"AHEAD_RANGE {r0} adjusted to {r} for acf speed and visibility (acf_speed={round(acf_speed, 1)}m/s, viz={round(viz, 1)}m, acf_length={round(self.acflength, 1)}m)")
+        logger.debug(
+            f"AHEAD_RANGE {r0} adjusted to {r} for acf speed and visibility (acf_speed={round(acf_speed, 1)}m/s, viz={round(viz, 1)}m, acf_length={round(self.acflength, 1)}m)"
+        )
         return r
 
     def adjustAhead(self, rabbit_mode: RABBIT_MODE) -> float:
         # adjust aircraft/environment (visibility, daylight, etc.) range
         # for aircraft speed and rabbit mode (which is an invitation to adjust speed:
         # too fast->range smaller, too slow->range larger)
-        RABBIT_FACTOR = {
-            RABBIT_MODE.SLOWEST: 0.50,
-            RABBIT_MODE.SLOWER: 0.70,
-            RABBIT_MODE.MED: 1.00,
-            RABBIT_MODE.FASTER: 1.25,
-            RABBIT_MODE.FASTEST: 1.50
-        }
+        RABBIT_FACTOR = {RABBIT_MODE.SLOWEST: 0.50, RABBIT_MODE.SLOWER: 0.70, RABBIT_MODE.MED: 1.00, RABBIT_MODE.FASTER: 1.25, RABBIT_MODE.FASTEST: 1.50}
         ahead_range = self.aheadRange()  # already adjusted for visibility conditions
         ahead_range0 = ahead_range
         # correction of valid range for rabbit speed/mode
@@ -382,13 +379,15 @@ class Aircraft:
 
         acf_speed = self.speed()
         acflen = self.acflength if self.acflength is not None else 50
-        ahead = acflen * 2.5 + acf_speed * 15.0
+        ahead = acflen * 2.5 + acf_speed * 12.0  # acflen * 2.5 = "offset" to take into account lights under aircraft, flight loop iteration, etc.
         ahead0 = ahead
         if ahead < ahead_range[0]:
             ahead = ahead_range[0]
         if ahead > ahead_range[1]:
             ahead = ahead_range[1]
-        logger.debug(f"AHEAD {round(ahead0, 1)}m adjusted to {round(ahead, 1)}m (acf_speed={round(acf_speed, 1)}m/s, range0={ahead_range0}m, range rabbit_mode={ahead_range}m)")
+        logger.debug(
+            f"AHEAD {round(ahead0, 1)}m adjusted to {round(ahead, 1)}m (acf_speed={round(acf_speed, 1)}m/s, range0={ahead_range0}m, range rabbit_mode={rabbit_mode} => {ahead_range}m)"
+        )
         return ahead
 
     def heading(self) -> float:

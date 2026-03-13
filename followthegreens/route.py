@@ -629,8 +629,8 @@ class Route:
                     p.setProp("marker-color", "#DDDDDD")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                     p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))  # also an indication that this point is part of the turn
-                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
-                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                     idx += 1
                 vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
                 for p in pts[mid:]:  # tag second half turn with original next route index
@@ -638,8 +638,8 @@ class Route:
                     p.setProp("marker-color", "#DDDDDD")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                     p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
-                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
-                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                     idx += 1
                 pts[mid].setProp("marker-color", "#FFDDDD")  # light grey different
                 route += pts
@@ -655,8 +655,8 @@ class Route:
                         p.setProp("marker-color", "#AAAAAA")  # light grey
                         p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                         p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
-                        p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
-                        p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
+                        p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
+                        p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                         idx += 1
                     vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
                     for p in pts[mid:]:
@@ -664,8 +664,8 @@ class Route:
                         p.setProp("marker-color", "#AAAAAA")  # light grey
                         p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                         p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
-                        p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
-                        p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
+                        p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
+                        p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                         idx += 1
                     pts[mid].setProp("marker-color", "#FFAAAA")  # light grey different
                     route += pts
@@ -811,16 +811,16 @@ class Route:
                 p.setProp("marker-color", "#DDDDDD")  # light grey
                 p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                 p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))  # also an indication that this point is part of the turn
-                p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
-                p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
+                p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
+                p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                 idx += 1
             for p in pts[mid:]:  # tag second half turn with original next route index
                 p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
                 p.setProp("marker-color", "#DDDDDD")  # light grey
                 p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                 p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
-                p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
-                p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
+                p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
+                p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                 idx += 1
             pts[mid].setProp("marker-color", "#FFDDDD")  # light grey different
             route += pts
@@ -837,20 +837,20 @@ class Route:
                     p.setProp("marker-color", "#AAAAAA")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                     p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
-                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
-                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                     idx += 1
                 for p in pts[mid:]:
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
                     p.setProp("marker-color", "#AAAAAA")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                     p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
-                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
-                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                     idx += 1
                 pts[mid].setProp("marker-color", "#FFAAAA")  # light grey different
                 route += pts
-            else: # no turn
+            else:  # no turn
                 logger.debug(f"no turn (l_in={line.bearing()}, l_out={heading})")
                 v = end
                 v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
@@ -917,8 +917,8 @@ class Route:
                     p.setProp("marker-color", "#DDDDDD")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                     p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))  # also an indication that this point is part of the turn
-                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
-                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                     idx += 1
                 vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
                 for p in pts[mid:]:  # tag second half turn with original next route index
@@ -926,8 +926,8 @@ class Route:
                     p.setProp("marker-color", "#DDDDDD")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                     p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
-                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
-                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                     idx += 1
                 pts[mid].setProp("marker-color", "#FFDDDD")  # light grey different
                 route += pts
@@ -943,8 +943,8 @@ class Route:
                         p.setProp("marker-color", "#AAAAAA")  # light grey
                         p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                         p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
-                        p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
-                        p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
+                        p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
+                        p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                         idx += 1
                     vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
                     for p in pts[mid:]:
@@ -952,8 +952,8 @@ class Route:
                         p.setProp("marker-color", "#AAAAAA")  # light grey
                         p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                         p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
-                        p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route)+mid)  # also an indication that this point is part of the turn
-                        p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route)+len(pts))  # also an indication that this point is part of the turn
+                        p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
+                        p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                         idx += 1
                     pts[mid].setProp("marker-color", "#FFAAAA")  # light grey different
                     route += pts

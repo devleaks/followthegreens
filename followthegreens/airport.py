@@ -257,7 +257,7 @@ class Airport:
         return [True, "Airport ready"]
 
     def hasPreferences(self) -> bool:
-        return "Airports." + self.icao in self.prefs
+        return self.icao in self.prefs.get("Airports", {})
 
     def setPreferences(self):
         # Local airport preferences override global preferences
@@ -295,7 +295,7 @@ class Airport:
         # fmcar should be **created** before lights are placed
         if not self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False):
             if self.lights_ahead != Airport.HARDCODED_MAX_DISTANCE or self.rabbit_length != 0 or self.rabbit_speed != 0:
-                logger.debug("no fmcar")
+                logger.debug(f"no fmcar (t={self.prefs.get('DEVELOPER_PREFERENCE_ONLY', False)}, a={self.lights_ahead}, rl={self.rabbit_length}, rs={self.rabbit_speed})")
                 return None
         fmcar = self.prefs.get("FollowMeCar", {})
         adj = ""

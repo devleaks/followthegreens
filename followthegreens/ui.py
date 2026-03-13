@@ -499,7 +499,7 @@ class UIUtil:
                 return 0
             xp.hideWidget(self.mainWindow["widgetID"])
             nextWindow = self.ftg.newGreen(self.dest)
-            logger.info("new greens requested")
+            logger.info("new greens provided")
             xp.showWidget(nextWindow)
             return 1
         return 0
