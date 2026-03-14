@@ -36,6 +36,7 @@ class SMOOTH_ROUTE(StrEnum):
     BEARING = "srBearing"
     TOTAL = "srTotal"  # accumulator of distance on smooth route
     REVERSE_INDEX = "srRevRouteIndex"  # on *route*, index of smooth route corresponding vertex
+    REFERENCE_VERTEX = "srRefVtxIdx"  # Original vertex of route index (vertex id in graph)
     SEGMENT_LENGTH = "srSegLen"  # length of route segment on smooth route
     TURN_START = "srTurnStart"
     TURN_MIDDLE = "srTurnMid"
@@ -616,6 +617,7 @@ class Route:
         v = copy(vtx[0])
         v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, 0)  # tag with original route index
         v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
+        v.setProp(SMOOTH_ROUTE.REFERENCE_VERTEX.value, self.route[0])
         route.append(v)
         vtx[0].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, 0)  # in original route, remember index in smooth route
         for i in range(1, len(vtx) - 1):
@@ -631,6 +633,7 @@ class Route:
                     p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))  # also an indication that this point is part of the turn
                     p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
                     p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.REFERENCE_VERTEX.value, self.route[i])
                     idx += 1
                 vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
                 for p in pts[mid:]:  # tag second half turn with original next route index
@@ -640,6 +643,7 @@ class Route:
                     p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
                     p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
                     p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
+                    p.setProp(SMOOTH_ROUTE.REFERENCE_VERTEX.value, self.route[i])
                     idx += 1
                 pts[mid].setProp("marker-color", "#FFDDDD")  # light grey different
                 route += pts
@@ -657,6 +661,7 @@ class Route:
                         p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
                         p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
                         p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
+                        p.setProp(SMOOTH_ROUTE.REFERENCE_VERTEX.value, self.route[i])
                         idx += 1
                     vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
                     for p in pts[mid:]:
@@ -666,6 +671,7 @@ class Route:
                         p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
                         p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
                         p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
+                        p.setProp(SMOOTH_ROUTE.REFERENCE_VERTEX.value, self.route[i])
                         idx += 1
                     pts[mid].setProp("marker-color", "#FFAAAA")  # light grey different
                     route += pts
@@ -674,11 +680,13 @@ class Route:
                     v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
                     v.setProp("marker-color", "#888888")  # medium grey
                     v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
+                    v.setProp(SMOOTH_ROUTE.REFERENCE_VERTEX.value, self.route[i])
                     route.append(v)
                     vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) - 1)  # to check
         v = copy(vtx[-1])
         v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, len(vtx) - 1)
         v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
+        v.setProp(SMOOTH_ROUTE.REFERENCE_VERTEX.value, self.route[-1])
         route.append(v)
         vtx[-1].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) - 1)
 
@@ -711,7 +719,7 @@ class Route:
         route[-1].setProp(SMOOTH_ROUTE.BEARING.value, b)  # repeat last
         self.smoothRoute = route
         logger.debug(f"smooth route is {round(dist, 1)}m, has {len(self.smoothRoute)} points")
-        if logger.level < 10:
+        if logger.level <= 10:
             fn = os.path.join(os.path.dirname(__file__), "..", "ftg_smooth_route.geojson")  # _{route.route[0]}-{route.route[-1]}, {datetime.now().strftime('%M%S%f')}
             fc = FeatureCollection(features=[r.feature() for r in route])
             fc.save(fn)
@@ -803,7 +811,7 @@ class Route:
         return j, d
 
     def srStraightRoute(self, start: Point, end: Point, heading: float):
-        # Direct segment to join route with turn at the end
+        # Direct segment to join route with turn at the end towards heading
         route = [start]
         line = Line(start, end)
 

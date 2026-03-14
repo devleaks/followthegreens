@@ -486,6 +486,7 @@ class Airport:
         # 1204 ils 16L,34R
         # 1206 20 21 twoway
         edgeCount = 0  # just for info
+        roadEdgeCount = 0
         edgeActiveCount = 0
         edge = None
         for aptline in self.lines:
@@ -520,7 +521,7 @@ class Airport:
                     # src, dst, cost, direction, usage, name
                     edge = Edge(src=src, dst=dst, cost=cost, direction=args[2], usage="road", name="")
                     self.roads.add_edge(edge)
-                    edgeCount += 1
+                    roadEdgeCount += 1
                 else:
                     logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}")
             else:
@@ -528,7 +529,7 @@ class Airport:
 
         # Info 6
         self.stats()
-        logger.info(f"added {len(vertexlines)} nodes, {edgeCount} edges ({edgeActiveCount} enhanced)")
+        logger.info(f"added {len(vertexlines)} nodes, {edgeCount} edges ({edgeActiveCount} enhanced), {roadEdgeCount} road edges")
         self.graph.stats()
         self.roads.stats()
         return True

@@ -10,7 +10,7 @@ try:
 except ImportError:
     print("X-Plane not loaded")
 
-from .globals import MOVEMENT, logger
+from .globals import logger, MOVEMENT, INDICATOR
 from .geo import Point, Line, destination, distance
 from .lightstring import XPObject
 
@@ -210,7 +210,7 @@ class Cursor:
         # self.indicator_object = CursorObject("indicator/indicator.obj")
         self.cursor = XPObject(None, 0, 0, 0)
 
-        self.indicator = 0
+        self._indicator = INDICATOR.FOLLOW_ME
         self.indicator_object = None
         self.indicator_cursor = None
         if detail.indicator:
@@ -259,6 +259,16 @@ class Cursor:
         if status != self._status:
             self._status = status
             logger.info(f"{type(self).__name__} is now {status}")
+
+    @property
+    def indicator(self) -> int:
+        return self._indicator.value
+
+    @indicator.setter
+    def indicator(self, indicator: INDICATOR):
+        if indicator != self._indicator:
+            self._indicator = indicator
+            logger.info(f"{type(self).__name__} is now {indicator}")
 
     @property
     def usable(self) -> bool:
@@ -551,6 +561,7 @@ class Cursor:
             else:
                 local_speed = self.detail.normal_speed
                 logger.log(8, f"no speed for future, forced normal local speed {round(local_speed, 1)}m/s")
+        logger.debug(f"speeds: requested at end {speed}, last_pos={last_pos.speed}, local={local_speed}m/s")
 
         # first quick precompute
         e = self.route.edges[last_route_index]
@@ -849,7 +860,7 @@ class Cursor:
         # test: self.indicator = int(self.current.time / 10) % 4
         if self.targetReached():
             return self.current.position, self.current.heading, self.current.sr_position, True
-        self.nextTurnIndicator(self.current.route_index)  # compute turn indicator code for turns
+        self.indicator = self.nextTurnIndicator(self.current.route_index)  # compute turn indicator code for turns
         dt = self.current.time - self.start.time
         r = eq2(displacement=None, initial_velocity=self.start.speed, final_velocity=self.target.speed, time=dt)
         d = r[0]
@@ -890,7 +901,9 @@ class Cursor:
         # logger.debug(f"move at {st(self.current.time)}: {self.current.route_index} {self.current.sr_position} {sf(self.current.heading, '')}")
         self.cursor.move(lat=self.current.position.lat, lon=self.current.position.lon, hdg=self.current.heading, elev=self.detail.above_ground)
         if self.indicator_cursor is not None:
-            self.indicator_cursor.move(lat=self.current.position.lat, lon=self.current.position.lon, hdg=self.current.heading, elev=self.detail.indicator_shift[0], fwd=self.detail.indicator_shift[1])
+            self.indicator_cursor.move(
+                lat=self.current.position.lat, lon=self.current.position.lon, hdg=self.current.heading, elev=self.detail.indicator_shift[0], fwd=self.detail.indicator_shift[1]
+            )
         return -1
 
     # End of route elegance: End of route is reached and Cursor progress a little more then vanishes
@@ -980,7 +993,7 @@ class Cursor:
         tt = length / speed
         self.future_index(edge=route.route[-1].getProp("srRevIndex"), dist=length, speed=0.0, t=tt)
 
-    def nextTurnIndicator(self, edge: int):
+    def nextTurnIndicator(self, edge: int) -> INDICATOR:
         TURN_LIMIT = 30.0  # no indicator for turns below that
         if edge == NOT_ON_ROUTE:
             edge = -1
@@ -988,7 +1001,7 @@ class Cursor:
         nextvtx = self.route.vertices[next_vertex]
         dist_to_next_vertex = distance(self.current.position, nextvtx)
         if round(self.last_dist_to_next_vertex, 1) == round(dist_to_next_vertex, 1):  # not moved
-            return self.indicator
+            return self._indicator
         self.last_dist_to_next_vertex = dist_to_next_vertex
         turn = self.route.turns[edge]
         idx = next_vertex
@@ -1000,9 +1013,7 @@ class Cursor:
         dist_to_next_turn = 0 if abs(self.route.turns[next_vertex]) > TURN_LIMIT else self.route.dtb[next_vertex]
         dist_to_next_turn += dist_to_next_vertex
         # logger.debug(f"at edge {edge}, next turn at edge {idx}, turn={sf(turn, 'D')}, at d={sf(dist_to_next_turn, 'm')}")
-        indicator = 0
+        indicator = INDICATOR.FOLLOW_ME
         if abs(turn) > TURN_LIMIT and dist_to_next_turn < self.detail.indicator_warning_distance:
-            indicator = 3 if turn < 0 else 2
-        if indicator != self.indicator:
-            self.indicator = indicator
-            logger.debug(f"indicator {self.indicator} (turn={sf(turn, 'D')}, d={sf(dist_to_next_turn, 'm')})")
+            indicator = INDICATOR.LEFT if turn < 0 else INDICATOR.RIGHT
+        return indicator

@@ -24,8 +24,7 @@ It also sets a few development features, see below.
 
 # Follow Me Car Tests
 
-Follow me car is available with limited functions.
-The car still does not move on its own and follows edges with sharp turn.
+Follow me car is available for testing.
 
 If preference
 
@@ -35,6 +34,8 @@ DEVELOPER_PREFERENCE_ONLY = true
 
 is set, the Follow Me Car is working TOGETHER WITH Follow the greens (i.e. green lights are visible.)
 If not set or false (default value), Follow me car has a normal behavior.
+
+## Normal Behavior
 
 To get a Follow Me Car you have to set preferences as follow:
 
@@ -57,8 +58,22 @@ MOVEMENT = "arrival"
 ```
 
 It is possible to get a follow me car for Arrival or Departure only with the MOVEMENT preference (default is both).
-When NOT using a FMC for both movement, the opposite movement (without the FM car) uses the global default
+
+When NOT using a FMC for both movements, the opposite movement (without the FM car) uses the global default
 for lights_ahead, rabbit length and speed. (since it is not possible to specify it otherwise)
+
+
+# Follow Me Car Preferences
+
+```
+[FollowMeCar]
+filename = "xcsl/FMC.obj"  # "xcsl/FMC.obj", "xcsl/FMC2.obj", "follow_me/fm_van.obj"
+indicator = true
+indicator_shift = [1.95, -0.70]  # both in meters
+# [height above ground, distance forward from center of above car object (distance can be negative to move backwards)]
+turn_radius = 22.0  # m
+normal_speed = 10  # m/s
+```
 
 
 Taxi safely

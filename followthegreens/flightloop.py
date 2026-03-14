@@ -21,6 +21,7 @@ from .globals import (
     DRIFTING_LIMIT,
     AMBIANT_RWY_LIGHT_CMDROOT,
     AMBIANT_RWY_LIGHT,
+    INDICATOR,
 )
 from .geo import EARTH, Point, Line, destination, distance
 
@@ -558,7 +559,7 @@ class FlightLoop:
                             closestLight = 0
                         join_time = 20  # secs, reasonable time from spawn position to ahead of acf
                         # during join travel, aircraft will move forward, aircraft might still be running fast, we limit ot speed of car:
-                        fast = min(faster(acf_speed), fmcar.adjustedSpeed(speed_type="fast"))
+                        fast = fmcar.adjustedSpeed(speed_type="fast", reference=faster(acf_speed))
                         acf_ahead = min(acf_speed, fmcar.adjustedSpeed(speed_type="fast")) * join_time
                         ahead_at_join = acf_ahead + ahead
                         light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=closestLight, ahead=ahead_at_join)
@@ -621,6 +622,8 @@ class FlightLoop:
         nextStop, warn = self.ftg.lights.toNextStop(pos)
         if nextStop and warn < aircraft.warningDistance():
             logger.debug("closing to stop")
+            if fmcar is not None:
+                fmcar.indicator = 1  # stop
             if self.hasRabbit():
                 self.allowRabbitAutotune("close to stop, force update to SLOWEST")
                 self.rabbitMode = RABBIT_MODE.SLOWEST

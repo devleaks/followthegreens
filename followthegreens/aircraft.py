@@ -385,13 +385,14 @@ class Aircraft:
         ahead_range0 = ahead_range
         logger.debug(f"acceptable range for speed/viz {ahead_range0}")
         # correction of valid range for rabbit speed/mode
-        ahead_range[0] *= RABBIT_FACTOR[rabbit_mode]
-        ahead_range[1] *= RABBIT_FACTOR[rabbit_mode]
-        logger.debug(f"range adjusted for rabbit mode {rabbit_mode} {ahead_range0}")
+        if rabbit_mode != RABBIT_MODE.MED:
+            ahead_range[0] *= RABBIT_FACTOR[rabbit_mode]
+            ahead_range[1] *= RABBIT_FACTOR[rabbit_mode]
+            logger.debug(f"range adjusted for rabbit mode {rabbit_mode} {ahead_range0}")
 
         acf_speed = self.speed()
         acflen = self.acflength if self.acflength is not None else 50
-        ahead = acflen * 2.5 + acf_speed * 12.0  # acflen * 2.5 = "offset" to take into account lights under aircraft, flight loop iteration, etc.
+        ahead = acflen * 1.5 + acf_speed * 10.0  # acflen * 2.5 = "offset" to take into account lights under aircraft, flight loop iteration, etc.
         ahead0 = ahead
         logger.debug(f"ahead proposition {round(ahead0, 1)}m ({round(acflen * 2.5, 1)}+{round(acf_speed * 12.0, 1)})")
 
@@ -400,7 +401,7 @@ class Aircraft:
         if ahead > ahead_range[1]:
             ahead = ahead_range[1]
         logger.debug(
-            f"ahead {round(ahead0, 1)}m adjusted to {round(ahead, 1)}m (acf_speed={round(acf_speed, 1)}m/s, range0={ahead_range0}m, range rabbit_mode={rabbit_mode} => {ahead_range}m)"
+            f"ahead {round(ahead0, 1)}m adjusted to {round(ahead, 1)}m (acf_speed={round(acf_speed, 1)}m/s, range/viz/speed={ahead_range0}m, range/rabbit_mode={rabbit_mode}={ahead_range}m)"
         )
         return ahead
 

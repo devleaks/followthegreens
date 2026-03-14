@@ -2,7 +2,7 @@
 #
 import os
 import logging
-from enum import Enum, StrEnum
+from enum import Enum, StrEnum, IntEnum
 from typing import Any
 
 # ################################
@@ -307,6 +307,12 @@ class TAXI_SPEED(Enum):  # in m/s
     CAUTION = "CAUTION"
     TURN = "TURN"
 
+
+class INDICATOR(IntEnum):
+    FOLLOW_ME = 0
+    STOP = 1
+    RIGHT = 2
+    LEFT = 3
 
 # These are global default values, only used if no other value if found.
 LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
