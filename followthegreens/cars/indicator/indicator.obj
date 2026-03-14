@@ -2341,8 +2341,8 @@ IDX10	1409 1412 1409 1410 1413 1414 1415 1414 1413 1416
 TRIS	0 4302
 ANIM_begin
 	# Left Beacon
-	ANIM_show	0 3	fm/anim/sign
-	ANIM_hide	2 2	fm/anim/sign
+	ANIM_show	0 3	XPPython3/followthegreens/indicator
+	ANIM_hide	2 2	XPPython3/followthegreens/indicator
 	LIGHT_NAMED	airplane_beacon	  -0.7559    0.0902   -0.2090	
 	LIGHT_NAMED	airplane_beacon	  -0.8238    0.0910   -0.2090	
 	LIGHT_NAMED	airplane_beacon	  -0.8598    0.0935   -0.2090	
@@ -2354,8 +2354,8 @@ ANIM_begin
 ANIM_end
 ANIM_begin
 	# Right Beacon
-	ANIM_show	0 3	fm/anim/sign
-	ANIM_hide	3 3	fm/anim/sign
+	ANIM_show	0 3	XPPython3/followthegreens/indicator
+	ANIM_hide	3 3	XPPython3/followthegreens/indicator
 	LIGHT_NAMED	airplane_beacon	   0.7897    0.0891   -0.2090	
 	LIGHT_NAMED	airplane_beacon	   0.7527    0.0911   -0.2090	
 	LIGHT_NAMED	airplane_beacon	   0.8649    0.0862   -0.2090	
@@ -2367,28 +2367,31 @@ ANIM_begin
 ANIM_end
 ANIM_begin
 	# Sign_FollowMe
-	ANIM_hide	1 3	fm/anim/sign
+	ANIM_hide	1 3	XPPython3/followthegreens/indicator
 	TRIS	4302 12
 ANIM_end
 ANIM_begin
 	# Sign_Stop
-	ANIM_hide	0 3	fm/anim/sign
-	ANIM_show	1 1	fm/anim/sign
+	ANIM_hide	0 3	XPPython3/followthegreens/indicator
+	ANIM_show	1 1	XPPython3/followthegreens/indicator
 	TRIS	4314 12
 ANIM_end
 ANIM_begin
 	# Sign_Turn Left
-	ANIM_hide	0 3	fm/anim/sign
-	ANIM_show	3 3	fm/anim/sign
+	ANIM_hide	0 3	XPPython3/followthegreens/indicator
+	ANIM_show	3 3	XPPython3/followthegreens/indicator
 	TRIS	4326 12
 ANIM_end
 ANIM_begin
 	# Sign_Turn Right
-	ANIM_hide	0 3	fm/anim/sign
-	ANIM_show	2 2	fm/anim/sign
+	ANIM_hide	0 3	XPPython3/followthegreens/indicator
+	ANIM_show	2 2	XPPython3/followthegreens/indicator
 	TRIS	4338 12
 ANIM_end
-
-# LIGHT_CUSTOM       0   2.0   0.0    1.0 1.0 1.0 1   1.0  0.0  0.42  0.86  0.2  UNUSED
+# ANIM_begin
+#    No indication (blank)
+#    ANIM_hide   1 3 XPPython3/followthegreens/indicator
+#    TRIS    4350 12
+# ANIM_end
 
 # Built with SketchUp 17.2.2555. Exported with SketchUp2XPlane 1.70.

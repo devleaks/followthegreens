@@ -2,7 +2,6 @@ import os
 from dataclasses import dataclass, fields
 from datetime import datetime
 from enum import StrEnum
-from weakref import ref
 
 from .oned import eq2
 
@@ -14,8 +13,6 @@ except ImportError:
 from .globals import MOVEMENT, logger
 from .geo import Point, Line, destination, distance
 from .lightstring import XPObject
-
-ABOVE_GROUND = 0.25  # xcsl objects offset, in meter
 
 
 class CURSOR_STATUS(StrEnum):
@@ -56,7 +53,10 @@ class CursorType:
     """Cursor detailed information with default values"""
 
     filename: str = "xcsl/FMC.obj"
-    above_ground: float = ABOVE_GROUND
+    above_ground: float = 0.0  # vertical offset for above object
+
+    indicator: bool = False  # use additionl indicator
+    indicator_shift: tuple = (0.0, 0.0)  # offset for indicator (height, forward), in meters
 
     slow_speed: float = 3.0  # turns, careful move, all speed m/s
     normal_speed: float = 7.0  # 25km/h
@@ -70,7 +70,7 @@ class CursorType:
     acceleration: float = 1.0  # m/s^2, same deceleration
     deceleration: float = -1.0  # m/s^2, same deceleration
 
-    indicator_warning_disttance: float = 50.0  # m
+    indicator_warning_distance: float = 50.0  # m
 
     def __str__(self):
         """Returns a string containing only the non-default field values."""
@@ -103,6 +103,10 @@ class CursorObject:
     @property
     def has_obj(self) -> bool:
         return self.obj is not None
+
+
+# Indicator = CursorType(filename="indicator/indicator.obj", above_ground=2.02, forward=-1.8)  # fmc2
+Indicator = CursorType(filename="indicator/indicator.obj", indicator_shift=(2.02, -1.8))
 
 
 class SimpleQueue:
@@ -203,9 +207,16 @@ class Cursor:
     def __init__(self, detail, route) -> None:
         self.detail = detail
         self.cursor_object = CursorObject(detail.filename)
-        self.indicator_object = CursorObject("indicator/indicator.obj")
+        # self.indicator_object = CursorObject("indicator/indicator.obj")
         self.cursor = XPObject(None, 0, 0, 0)
+
         self.indicator = 0
+        self.indicator_object = None
+        self.indicator_cursor = None
+        if detail.indicator:
+            indicator = CursorType(filename="indicator/indicator.obj", indicator_shift=self.detail.indicator_shift)
+            self.indicator_object = CursorObject(Indicator.filename)
+            self.indicator_cursor = XPObject(None, 0, 0, 0)
 
         self._status = CURSOR_STATUS.NEW
         self.active = False  # accepts futures if active
@@ -287,6 +298,11 @@ class Cursor:
         self.cursor.heading = self.current.heading
         self.cursor.place(lightType=self.cursor_object)
         self.cursor.on()
+        if self.indicator_cursor is not None:
+            self.indicator_cursor.position = self.current.position  # initial position where will appear
+            self.indicator_cursor.heading = self.current.heading
+            self.indicator_cursor.place(lightType=self.indicator_object)
+            self.indicator_cursor.on()
 
         self.active = True
         self.status = CURSOR_STATUS.READY
@@ -346,6 +362,13 @@ class Cursor:
 
     def adjustedSpeed(self, speed_type: str = "normal", reference: float = 0.0) -> float:
         # reference is a possibility to inout acf speed (i.e. the thing following fmcar)
+        if reference < 0.1:  # almost at rest
+            if speed_type == "slow":
+                return self.detail.slow_speed
+            elif speed_type == "fast":
+                return self.detail.fast_speed
+            else:
+                return self.detail.normal_speed
         if speed_type == "fast":
             s = reference + self.detail.fast_speed
             logger.debug(f"recommanded speed {sf(s, 'm/s')} ({speed_type}, {sf(reference, 'm/s')})")
@@ -866,6 +889,8 @@ class Cursor:
                 return 1.0  # no need to move cursor
         # logger.debug(f"move at {st(self.current.time)}: {self.current.route_index} {self.current.sr_position} {sf(self.current.heading, '')}")
         self.cursor.move(lat=self.current.position.lat, lon=self.current.position.lon, hdg=self.current.heading, elev=self.detail.above_ground)
+        if self.indicator_cursor is not None:
+            self.indicator_cursor.move(lat=self.current.position.lat, lon=self.current.position.lon, hdg=self.current.heading, elev=self.detail.indicator_shift[0], fwd=self.detail.indicator_shift[1])
         return -1
 
     # End of route elegance: End of route is reached and Cursor progress a little more then vanishes
@@ -914,6 +939,7 @@ class Cursor:
         end = self.route.vertices[-1]
         # Last point of route to "away"
         d1 = destination(src=end, brngDeg=hdg, d=LEAVE_DIST_AHEAD)
+        # self.returnToRamp(final_position=d1)
         spd = self.detail.leave_speed
         hdg1 = hdg
         hdg = hdg + 90 * rnd
@@ -934,6 +960,25 @@ class Cursor:
         self.active = False
         logger.debug("cursor inactive")
         logger.debug(f"cursor finish programmed ({message})")
+
+    def position(self):
+        # will be caled by Find()
+        return (self.final_position.lat, self.final_position.lon)
+
+    def returnToRamp(self, final_position: Point):
+        # Experimental, will add later
+        self.final_position = final_position
+        dst = self.route.route[0]
+        closest, dist = self.route.graph.findClosestVertex(point=final_position)
+        rwy = self.route.departure_runway
+        route = Route.Find(
+            graph=self.route.graph, aircraft=self, arrival_runway=rwy, dst_pos=dst, dst_type="ramp", move=MOVEMENT.ARRIVAL, use_strict_mode=True, use_threshold=False
+        )
+        self.changeRoute(route=route, ftg=None)
+        length = route.route[-1].getProp("srTotalDistance")
+        speed = self.adjustedSpeed()
+        tt = length / speed
+        self.future_index(edge=route.route[-1].getProp("srRevIndex"), dist=length, speed=0.0, t=tt)
 
     def nextTurnIndicator(self, edge: int):
         TURN_LIMIT = 30.0  # no indicator for turns below that
@@ -956,10 +1001,8 @@ class Cursor:
         dist_to_next_turn += dist_to_next_vertex
         # logger.debug(f"at edge {edge}, next turn at edge {idx}, turn={sf(turn, 'D')}, at d={sf(dist_to_next_turn, 'm')}")
         indicator = 0
-        if abs(turn) > TURN_LIMIT and dist_to_next_turn < self.detail.indicator_warning_disttance:
+        if abs(turn) > TURN_LIMIT and dist_to_next_turn < self.detail.indicator_warning_distance:
             indicator = 3 if turn < 0 else 2
-        # demo
-        indicator = int(self.current.time / 10) % 4
         if indicator != self.indicator:
             self.indicator = indicator
             logger.debug(f"indicator {self.indicator} (turn={sf(turn, 'D')}, d={sf(dist_to_next_turn, 'm')})")

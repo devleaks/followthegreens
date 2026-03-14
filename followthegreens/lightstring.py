@@ -229,12 +229,19 @@ class XPObject:
             xp.destroyInstance(self.instance)
             self.instance = None
 
-    def move(self, lat: float, lon: float, hdg: float, elev: float = 0.0):
+    def move(self, lat: float, lon: float, hdg: float, elev: float = 0.0, fwd: float = 0.0):
         if self.instance is None:
             return
-        pitch, roll, alt = (0, 0, elev)
+        if fwd != 0.0:
+            l_hdg = hdg if fwd > 0 else hdg + 180
+            p = destination(Point(lat=lat, lon=lon), brngDeg=l_hdg, d=abs(fwd))
+            lat = p.lat
+            lon = p.lon
+        pitch, roll, alt = (0, 0, 0)
         (x, y, z) = self.groundXYZ(lat, lon, alt)
-        xyz = (x, y, z, pitch, hdg, roll)
+        # if fwd != 0.0:
+        #     x, y = self.coordinates_of_adjusted_ref(x, z, fwd, 0, hdg)
+        xyz = (x, y + elev, z, pitch, hdg, roll)
         xp.instanceSetPosition(self.instance, xyz, self.params)
 
     def destroy(self):

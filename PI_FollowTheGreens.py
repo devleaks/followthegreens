@@ -29,7 +29,7 @@ from followthegreens import (
     FTG_CLEARANCE_COMMAND,
     FTG_CLEARANCE_COMMAND_DESC,
     FTG_IS_RUNNING,
-    FTG_SIGN_INDIC,
+    FTG_INDICATOR,
     FTG_OK_COMMAND_DESC,
     FTG_SPEED_COMMAND,
     FTG_SPEED_COMMAND_DESC,
@@ -65,7 +65,7 @@ class PythonInterface:
         self.enabled = False
 
         self.isRunningRef = None
-        self.getSignRef = None
+        self.getIndicatorRef = None
 
         # 1. Follow The Greens
         self.menuIdx = None
@@ -182,11 +182,11 @@ class PythonInterface:
             0,
             0,
         )  # Refcons not used
-        self.getSignRef = xp.registerDataAccessor(
-            FTG_SIGN_INDIC,
+        self.getIndicatorRef = xp.registerDataAccessor(
+            FTG_INDICATOR,
             xp.Type_Int,  # The types we support
             0,  # Read-Only
-            self.getSign,
+            self.getIndicator,
             0,  # Accessors for ints, read-only, no write.
             0,
             0,  # No accessors for floats
@@ -245,7 +245,7 @@ class PythonInterface:
 
         if self.isRunningRef is not None:  # and self.isRunningRef > 0?
             xp.unregisterDataAccessor(self.isRunningRef)
-            xp.unregisterDataAccessor(self.getSignRef)
+            xp.unregisterDataAccessor(self.getIndicatorRef)
             self.isRunningRef = None
             self.debug("XPluginStop: data accessor unregistered")
         else:
@@ -585,7 +585,7 @@ class PythonInterface:
         return 0
 
     # Data accessors
-    def getSign(self, inRefcon):
+    def getIndicator(self, inRefcon):
         # Returns 1 if actually running (lights blinking on taxiways). 0 otherwise.
         return self.followTheGreens.fmcar.indicator if self.followTheGreens is not None and self.followTheGreens.fmcar is not None else 0
 
