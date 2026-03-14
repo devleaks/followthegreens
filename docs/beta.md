@@ -75,5 +75,29 @@ turn_radius = 22.0  # m
 normal_speed = 10  # m/s
 ```
 
+# Some Info...
+
+
+Two spawn modes:
+
+Spawn mode 1: Departure at rest: Car goes at start of route and moves ahead sufficiently.
+
+Spawn mode 2: Arrival or on the move: Car starts in front of car and join route sufficiently ahead, taking into account aircraft movement.
+
+Disappearance:
+
+On departure, car drives on runway 200m,
+then turn towards where it is coming (towards origin of route) and carry on 100m.
+Then vanishes.
+(Plan is here to have the car go back to origin of route... code almost ready.)
+
+On arrival at ramp: continue 40m in the direction of the ramp, turn randomly left or right,
+continue 100m then disappear.
+
+
+If you ask for new greens (on the move), it starts like Spawn mode 2.
+
+
+
 
 Taxi safely
