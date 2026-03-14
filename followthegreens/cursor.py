@@ -214,8 +214,8 @@ class Cursor:
         self.indicator_object = None
         self.indicator_cursor = None
         if detail.indicator:
-            indicator = CursorType(filename="indicator/indicator.obj", indicator_shift=self.detail.indicator_shift)
-            self.indicator_object = CursorObject(Indicator.filename)
+            indicator = CursorType(filename="indicator/indicator.obj", indicator_shift=detail.indicator_shift)
+            self.indicator_object = CursorObject(indicator.filename)
             self.indicator_cursor = XPObject(None, 0, 0, 0)
 
         self._status = CURSOR_STATUS.NEW

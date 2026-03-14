@@ -41,6 +41,7 @@ To get a Follow Me Car you have to set preferences as follow:
 Either globally:
 
 ```
+RABBIT_SPEED = 0
 RABBIT_LENGTH = 0
 LIGHTS_AHEAD = 42
 ```
@@ -49,12 +50,15 @@ Or for a specific airport only:
 
 ```
 [Airports.EBLG]
+RABBIT_SPEED = 0
 RABBIT_LENGTH = 0
 LIGHTS_AHEAD = 42
+MOVEMENT = "arrival"
 ```
 
-It is not possible to get a follow me car for Arrival or Departure only.
-(Mmovement, Departure or Arrival is not an option in preference file. Thinking about it.)
+It is possible to get a follow me car for Arrival or Departure only with the MOVEMENT preference (default is both).
+When NOT using a FMC for both movement, the opposite movement (without the FM car) uses the global default
+for lights_ahead, rabbit length and speed. (since it is not possible to specify it otherwise)
 
 
 Taxi safely
