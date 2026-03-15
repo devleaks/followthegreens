@@ -921,6 +921,33 @@ class Cursor:
             )
         return -1
 
+    def nextTurnIndicator(self, edge: int) -> INDICATOR:
+        # returns a turn indicator to display if necessary
+        TURN_LIMIT = 30.0  # no indicator for turns below that
+
+        if edge == NOT_ON_ROUTE:
+            edge = -1
+        next_vertex = min(edge + 1, len(self.route.vertices) - 1)
+        nextvtx = self.route.vertices[next_vertex]
+        dist_to_next_vertex = distance(self.current.position, nextvtx)
+        if round(self.last_dist_to_next_vertex, 1) == round(dist_to_next_vertex, 1):  # not moved
+            return self._indicator
+        self.last_dist_to_next_vertex = dist_to_next_vertex
+        turn = self.route.turns[edge]
+        idx = next_vertex
+        while abs(turn) < TURN_LIMIT and idx < len(self.route.turns):
+            turn = self.route.turns[idx]
+            idx = idx + 1
+        if idx >= len(self.route.route):  # end of route
+            idx = len(self.route.route) - 1
+        dist_to_next_turn = 0 if abs(self.route.turns[next_vertex]) > TURN_LIMIT else self.route.dtb[next_vertex]
+        dist_to_next_turn += dist_to_next_vertex
+        # logger.debug(f"at edge {edge}, next turn at edge {idx}, turn={sf(turn, 'D')}, at d={sf(dist_to_next_turn, 'm')}")
+        indicator = INDICATOR.FOLLOW_ME
+        if abs(turn) > TURN_LIMIT and dist_to_next_turn < self.detail.indicator_warning_distance:
+            indicator = INDICATOR.LEFT if turn < 0 else INDICATOR.RIGHT
+        return indicator
+
     # End of route elegance: End of route is reached and Cursor progress a little more then vanishes
     #
     def isFinishing(self) -> bool:
@@ -1016,28 +1043,3 @@ class Cursor:
         tt = ts() + length / speed
         self.future_index(edge=route.route[-1].getProp("srRevIndex"), dist=length, speed=0.0, t=tt)
         logger.debug("return route programmed")
-
-    def nextTurnIndicator(self, edge: int) -> INDICATOR:
-        TURN_LIMIT = 30.0  # no indicator for turns below that
-        if edge == NOT_ON_ROUTE:
-            edge = -1
-        next_vertex = min(edge + 1, len(self.route.vertices) - 1)
-        nextvtx = self.route.vertices[next_vertex]
-        dist_to_next_vertex = distance(self.current.position, nextvtx)
-        if round(self.last_dist_to_next_vertex, 1) == round(dist_to_next_vertex, 1):  # not moved
-            return self._indicator
-        self.last_dist_to_next_vertex = dist_to_next_vertex
-        turn = self.route.turns[edge]
-        idx = next_vertex
-        while abs(turn) < TURN_LIMIT and idx < len(self.route.turns):
-            turn = self.route.turns[idx]
-            idx = idx + 1
-        if idx >= len(self.route.route):  # end of route
-            idx = len(self.route.route) - 1
-        dist_to_next_turn = 0 if abs(self.route.turns[next_vertex]) > TURN_LIMIT else self.route.dtb[next_vertex]
-        dist_to_next_turn += dist_to_next_vertex
-        # logger.debug(f"at edge {edge}, next turn at edge {idx}, turn={sf(turn, 'D')}, at d={sf(dist_to_next_turn, 'm')}")
-        indicator = INDICATOR.FOLLOW_ME
-        if abs(turn) > TURN_LIMIT and dist_to_next_turn < self.detail.indicator_warning_distance:
-            indicator = INDICATOR.LEFT if turn < 0 else INDICATOR.RIGHT
-        return indicator

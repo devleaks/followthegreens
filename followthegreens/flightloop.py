@@ -614,7 +614,6 @@ class FlightLoop:
         # logger.debug(
         #     f"control: last iter={self.lastIter}, elapsedSinceLastCall={elapsedSinceLastCall}, counter={counter}, elapsedTimeSinceLastFlightLoop={elapsedTimeSinceLastFlightLoop}"
         # )
-        closing_to_stop = False
         acf_move = acf_speed * self.lastIter
         self.total_time = self.total_time + self.lastIter
         self.total_dist = self.total_dist + acf_speed * self.lastIter
@@ -623,7 +622,6 @@ class FlightLoop:
         nextStop, warn = self.ftg.lights.toNextStop(pos)
         if nextStop and warn < aircraft.warningDistance():
             logger.debug(f"closing to stop (light={nextStop})")
-            closing_to_stop = True
             fmcar.indicator = INDICATOR.STOP
             if self.hasRabbit():
                 self.allowRabbitAutotune("close to stop, force update to SLOWEST")
@@ -679,6 +677,7 @@ class FlightLoop:
                         # logger.debug(f"light ahead={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
                         fmcar.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=fmc_speed, t=later)
                         logger.debug("..moved")
+                    # Checks for end of lights/end of trip
                     if light_index == (len(self.ftg.lights.lights) - 1) and not fmcar.isFinishing():  # reached last light
                         logger.debug("fmcar reached end of lights, initiating finish trip")
                         fmcar.finish("end of lights")
