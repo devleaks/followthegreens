@@ -2,8 +2,8 @@ LICENSE|3164972148
 PI_FollowTheGreens.py|2622358293
 README.md|1583372665
 followthegreens/__init__.py|2436218506
-followthegreens/aircraft.py|562711323
-followthegreens/airport.py|2912273155
+followthegreens/aircraft.py|3715990250
+followthegreens/airport.py|604875872
 followthegreens/cars/indicator/indicator.obj|526491206
 followthegreens/cars/indicator/indicator.png|3889088292
 followthegreens/cars/xcsl/FMC.obj|1659598004
@@ -18,11 +18,11 @@ followthegreens/cars/xcsl/FMCglass.png|4260338456
 followthegreens/cars/xcsl/credits.html|990426418
 followthegreens/cars/xcsl/x-csl-info.info|1772261579
 followthegreens/cars/xcsl/xsb_aircraft.txt|1351490319
-followthegreens/cursor.py|4015345249
-followthegreens/flightloop.py|2365130659
-followthegreens/followthegreens.py|1150792865
+followthegreens/cursor.py|137121367
+followthegreens/flightloop.py|1188668139
+followthegreens/followthegreens.py|2476379478
 followthegreens/geo.py|3824536083
-followthegreens/globals.py|4182212449
+followthegreens/globals.py|2731481818
 followthegreens/graph.py|4197023166
 followthegreens/lights/amber.obj|2281468011
 followthegreens/lights/green.obj|833283030
