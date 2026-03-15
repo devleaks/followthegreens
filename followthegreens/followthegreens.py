@@ -529,6 +529,9 @@ VERSION = "{__VERSION__}"
         # Info 15
         logger.info(f"segment {self.segment + 1}/{self.lights.segments + 1}")
 
+        if self.fmcar is not None:
+            self.fmcar.canContinue()
+
         if self.segment > self.lights.segments:
             # Info 16.a
             self.status = FTG_STATUS.FINISHED

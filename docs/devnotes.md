@@ -165,6 +165,73 @@ Keep it open, so we can add our fantasies to your world.
 
 Best regards.
 
+# Ahead RANGE
+
+Initial range for a given aircraft or aircraft class (A-F).
+
+First adjustment for aircraft speed:
+
+```
+if acf_speed > 10:
+    f = 1.5
+    r = [r[0] * f, r[1] * f]
+```
+
+Second adjustment for visibility (asymmetric):
+
+```
+f = 1
+if visibility < 500:
+    f = 0.5
+    r = [l[0], r[1] * f]
+if visibility < 1000:
+    f = 0.5
+    r = [r[0] * f, r[1] * f]
+elif visibility < 1500:
+    f = 0.75
+    r = [r[0] * f, r[1] * f]
+```
+
+Third adjustment for rabbit_mode (= acf speed monitor, invite to accelerate/brake):
+
+```
+RABBIT_FACTOR = {
+    RABBIT_MODE.SLOWEST: 0.50,  # invite to go slow
+    RABBIT_MODE.SLOWER: 0.70,
+    RABBIT_MODE.MED: 1.00,
+    RABBIT_MODE.FASTER: 1.25,
+    RABBIT_MODE.FASTEST: 1.5    # invite to go faster
+}
+r[0] *= RABBIT_FACTOR[rabbit_mode]
+r[1] *= RABBIT_FACTOR[rabbit_mode]
+
+```
+
+Each step is clipped to absolute max range [30, 200].
+
+```
+HARDCODED_AHEAD_LIMITS = [30, 200]
+r[0] = max(r[0], HARDCODED_AHEAD_LIMITS[0])
+r[1] = min(r[1], HARDCODED_AHEAD_LIMITS[1])
+
+```
+
+# Ahead
+
+```
+ahead = acf_length * 1.5 + acf_speed * 10.0  # in meters
+```
+
+Ahead clipped to above estimated range.
+
+Examples:
+
+- Aircraft slow, ahead small, but lower bound of clipping invite to go faster (or not!).
+- Aircraft normal, ahead normal, within range, no clipping.
+- Aircraft fast, ahead large, need to brake: small range, ahead clipped to lower value.
+
+
+
 # See Also
 
 [ATC Taxi Layouts](https://developer.x-plane.com/2012/01/atc-taxi-layouts/)

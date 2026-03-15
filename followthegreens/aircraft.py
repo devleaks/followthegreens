@@ -195,6 +195,7 @@ AIRCRAFT_TYPES = {
 }
 
 ACF_MIN_SPEED = 3  # m/s
+HARDCODED_AHEAD_LIMITS = [45, 250]
 
 
 class Aircraft:
@@ -366,10 +367,14 @@ class Aircraft:
         logger.debug(f"restricted to limits: {r}, {l})")
         # TO this estimated length we add 1.5 aircraft sizes,
         # because lights are counted almost from the back of the acf
-        acf_add = 1.0 * self.acflength
+        acf_add = 2.0 * self.acflength
         r[0] += acf_add
         r[1] += acf_add
         logger.debug(f"added {round(acf_add, 1)}m for acf: {r}, {l})")
+
+        r[0] = max(r[0], HARDCODED_AHEAD_LIMITS[0])
+        r[1] = min(r[1], HARDCODED_AHEAD_LIMITS[1])
+        logger.debug(f"restricted to limits: {r}, {HARDCODED_AHEAD_LIMITS})")
 
         logger.debug(
             f"ahead_range {r0} adjusted to {r} for acf speed and visibility (acf_speed={round(acf_speed, 1)}m/s, viz={round(viz, 1)}m, acf_length={round(self.acflength, 1)}m)"
@@ -389,6 +394,9 @@ class Aircraft:
             ahead_range[0] *= RABBIT_FACTOR[rabbit_mode]
             ahead_range[1] *= RABBIT_FACTOR[rabbit_mode]
             logger.debug(f"range adjusted for rabbit mode {rabbit_mode} {ahead_range0}")
+            ahead_range[0] = max(ahead_range[0], HARDCODED_AHEAD_LIMITS[0])
+            ahead_range[1] = min(ahead_range[1], HARDCODED_AHEAD_LIMITS[1])
+            logger.debug(f"restricted to limits: {ahead_range}, {HARDCODED_AHEAD_LIMITS})")
 
         acf_speed = self.speed()
         acflen = self.acflength if self.acflength is not None else 50

@@ -105,10 +105,6 @@ class CursorObject:
         return self.obj is not None
 
 
-# Indicator = CursorType(filename="indicator/indicator.obj", above_ground=2.02, forward=-1.8)  # fmc2
-Indicator = CursorType(filename="indicator/indicator.obj", indicator_shift=(2.02, -1.8))
-
-
 class SimpleQueue:
 
     def __init__(self) -> None:
@@ -177,6 +173,8 @@ class Situation:
     sr_position = OnRoute()  # position on sr_route equivalent to position
     sr_end = OnRoute()  # position on sr_route equivalent to forced end
 
+    last_time: float = 0  # time before update, to measure delta, could store last increment instead
+    last_inc_time: float = 0  # store last increment instead
     comment: str = ""
 
     def __str__(self):
@@ -268,7 +266,7 @@ class Cursor:
     def indicator(self, indicator: INDICATOR):
         if indicator != self._indicator:
             self._indicator = indicator
-            logger.info(f"{type(self).__name__} is now {indicator}")
+            logger.info(f"Indicator is now {indicator.name}")
 
     @property
     def usable(self) -> bool:
@@ -370,14 +368,21 @@ class Cursor:
     def speed(self) -> float:
         return self.current.speed
 
+    def canContinue(self):
+        if self.indicator == INDICATOR.STOP:
+            self.indicator = INDICATOR.FOLLOW_ME
+
     def adjustedSpeed(self, speed_type: str = "normal", reference: float = 0.0) -> float:
         # reference is a possibility to inout acf speed (i.e. the thing following fmcar)
-        if reference < 0.1:  # almost at rest
+        if reference < 3:  # almost at rest
             if speed_type == "slow":
+                logger.debug(f"recommanded speed {sf(self.detail.slow_speed, 'm/s')} ({speed_type}, {sf(reference, 'm/s')})")
                 return self.detail.slow_speed
             elif speed_type == "fast":
+                logger.debug(f"recommanded speed {sf(self.detail.fast_speed, 'm/s')} ({speed_type}, {sf(reference, 'm/s')})")
                 return self.detail.fast_speed
             else:
+                logger.debug(f"recommanded speed {sf(self.detail.normal_speed, 'm/s')} ({speed_type}, {sf(reference, 'm/s')})")
                 return self.detail.normal_speed
         if speed_type == "fast":
             s = reference + self.detail.fast_speed
@@ -394,6 +399,13 @@ class Cursor:
 
     # Abrupt change or route, reset
     #
+    def resetRoute(self):
+        # They won't be any valid route anymore.
+        # We have to stop the future
+        logger.log(8, "reseting cursor planned route..")
+        self._future.clear()
+        logger.log(8, "..reset")
+
     def changeRoute(self, ftg):
         if self.status != CURSOR_STATUS.ACTIVE:
             logger.warning(f"change route: Cursor is not active (is {self.status})")
@@ -452,13 +464,6 @@ class Cursor:
             logger.debug("..route changed, already taxiing")
         except:
             logger.error("error", exc_info=True)
-
-    def resetRoute(self):
-        # They won't be any valid route anymore.
-        # We have to stop the future
-        logger.log(8, "reseting cursor planned route..")
-        self._future.clear()
-        logger.log(8, "..reset")
 
     # Itinerary: Next positions (as requested from client)
     #
@@ -745,7 +750,7 @@ class Cursor:
         self.current.sr_end = self.target.sr_end
         logger.debug(f"set current sr_end={self.current.sr_end} from target")
         # self.current.heading = self.target.heading
-        # self.current.speed = self.target.speed
+        self.current.speed = self.target.speed
         self.current.comment = self.target.comment
         self._set_current = True
         logger.log(8, f"current position vs target after adjustments {sf(distance(self.current.position, self.target.position), 'm')}")
@@ -860,12 +865,18 @@ class Cursor:
         # test: self.indicator = int(self.current.time / 10) % 4
         if self.targetReached():
             return self.current.position, self.current.heading, self.current.sr_position, True
-        self.indicator = self.nextTurnIndicator(self.current.route_index)  # compute turn indicator code for turns
+        if self.indicator != INDICATOR.STOP:
+            self.indicator = self.nextTurnIndicator(self.current.route_index)  # compute turn indicator code for turns
         dt = self.current.time - self.start.time
         r = eq2(displacement=None, initial_velocity=self.start.speed, final_velocity=self.target.speed, time=dt)
         d = r[0]
         point, hdg, idx, dist = self.route.srAheadRoute(self.current.sr_route, i=self.start.sr_position.index, start=self.start.sr_position.distance, dist=d)
         sr_position = OnRoute(index=idx, distance=dist)
+        # debug
+        dc = distance(self.current.position, point)
+        if dc > 10.0:  # meters
+            logger.debug(f"apparent big jump d={sf(d, 'm')} t={round(self.current.last_inc_time, 3)}s")
+
         return point, hdg, sr_position, False
 
     def move(self, t: float) -> int | float:
@@ -877,11 +888,15 @@ class Cursor:
                 logger.debug(s)
 
         self.cnt += 1
+        self.current.last_time = self.current.time
+        self.current.last_inc_time = t
         self.current.time += t
 
         if self.cursor is None:
             slow_debug(self.cnt, "no cursor to move")
             return 2.0  # secs
+
+        # self.indicator = INDICATOR(int(self.current.time / 5) % 4)
 
         # debug, can be suppressed, ticker to control move is working
         now = ts()
@@ -927,7 +942,7 @@ class Cursor:
         self.status = CURSOR_STATUS.FINISHING
         LEAVE_DIST_AHEAD = 100  # m
         LEAVE_DIST_SIDE = 50  # m
-        LEAVE_WAIT_BEFORE = 10  # secs, will be dynamic later
+        LEAVE_WAIT_BEFORE = 30  # secs, will be dynamic later
 
         hdg = self.route.orientLastVertex()
         rnd = 1 if (int(ts()) % 2) == 0 else -1
@@ -962,6 +977,8 @@ class Cursor:
         logger.debug(f"carry forward {sf(LEAVE_DIST_AHEAD, 'm')} in {sf(td, 's')} heading {sf(hdg1, 'D')}, terminates heading {sf(hdg, 'D')}")
         self.future(position=d1, hdg=hdg, speed=spd, t=t, text=f"carry on forward (reason={message})")
 
+        # returnToRamp(final_position=d1)
+
         # "Away" to away and on the size
         final_dest = destination(src=d1, brngDeg=hdg, d=LEAVE_DIST_SIDE)
         spd = self.detail.leave_speed
@@ -975,7 +992,7 @@ class Cursor:
         logger.debug(f"cursor finish programmed ({message})")
 
     def position(self):
-        # will be caled by Find()
+        # will be caled by Find() to find the cursor position
         return (self.final_position.lat, self.final_position.lon)
 
     def returnToRamp(self, final_position: Point):
@@ -987,11 +1004,18 @@ class Cursor:
         route = Route.Find(
             graph=self.route.graph, aircraft=self, arrival_runway=rwy, dst_pos=dst, dst_type="ramp", move=MOVEMENT.ARRIVAL, use_strict_mode=True, use_threshold=False
         )
-        self.changeRoute(route=route, ftg=None)
+        self.status = CURSOR_STATUS.HOLD  # lock, prevents tick when changing routes
+        logger.debug("install return route..")
+        if self.route is not None:
+            self.resetRoute()
+        self.route = route
+        self.status = CURSOR_STATUS.ACTIVE
+        logger.debug("..return route installed..")
         length = route.route[-1].getProp("srTotalDistance")
         speed = self.adjustedSpeed()
-        tt = length / speed
+        tt = ts() + length / speed
         self.future_index(edge=route.route[-1].getProp("srRevIndex"), dist=length, speed=0.0, t=tt)
+        logger.debug("return route programmed")
 
     def nextTurnIndicator(self, edge: int) -> INDICATOR:
         TURN_LIMIT = 30.0  # no indicator for turns below that

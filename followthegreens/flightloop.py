@@ -614,6 +614,7 @@ class FlightLoop:
         # logger.debug(
         #     f"control: last iter={self.lastIter}, elapsedSinceLastCall={elapsedSinceLastCall}, counter={counter}, elapsedTimeSinceLastFlightLoop={elapsedTimeSinceLastFlightLoop}"
         # )
+        closing_to_stop = False
         acf_move = acf_speed * self.lastIter
         self.total_time = self.total_time + self.lastIter
         self.total_dist = self.total_dist + acf_speed * self.lastIter
@@ -621,9 +622,9 @@ class FlightLoop:
         # @todo: WARNING_DISTANCE should be computed from acf type (weigth, size) and speed
         nextStop, warn = self.ftg.lights.toNextStop(pos)
         if nextStop and warn < aircraft.warningDistance():
-            logger.debug("closing to stop")
-            if fmcar is not None:
-                fmcar.indicator = 1  # stop
+            logger.debug(f"closing to stop (light={nextStop})")
+            closing_to_stop = True
+            fmcar.indicator = INDICATOR.STOP
             if self.hasRabbit():
                 self.allowRabbitAutotune("close to stop, force update to SLOWEST")
                 self.rabbitMode = RABBIT_MODE.SLOWEST
@@ -646,18 +647,18 @@ class FlightLoop:
             return self.adjustedIter(acf_speed=acf_speed)
 
         self.closestLight_cnt = 0
+        nextIter = self.adjustedIter(acf_speed=acf_speed)
 
         if closestLight <= self.light_progress:
             logger.debug(f"backup detected, ignoring closestLight={closestLight}, using {self.light_progress}, no progress")
             closestLight = max(closestLight, self.light_progress)
         else:
             # MOVE
-            nextIter = self.adjustedIter(acf_speed=acf_speed)
             if fmcar is not None:
                 logger.debug("moving..")
                 try:
                     dist_check = fmcar.distance(position=Point(lat=pos[0], lon=pos[1]))
-                    logger.debug(f"check d={round(dist_check, 1)}m, acf_speed={round(acf_speed, 1)}m/s, fmc_speed={round(fmcar.speed(), 1)}m/s")
+                    logger.debug(f"check d(acf,fmc)={round(dist_check, 1)}m, acf_speed={round(acf_speed, 1)}m/s, fmc_speed={round(fmcar.speed(), 1)}m/s")
                     light = self.ftg.lights.lights[closestLight]
                     ahead = self.ftg.aircraft.adjustAhead(rabbit_mode=self.rabbitMode)
                     total_ahead = acf_move + ahead
@@ -669,9 +670,15 @@ class FlightLoop:
                     # So at next iteration (t=now + iterTime), car need to be (acf_move+ahead) in front
                     light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=closestLight, ahead=total_ahead)
                     logger.debug(f"should move to light={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
-                    # logger.debug(f"light ahead={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
-                    fmcar.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=fmc_speed, t=later)
-                    logger.debug("..moved")
+                    if light_index > nextStop:
+                        logger.debug(
+                            f"cannot move to light={light_index} because it is after stop at light {nextStop}, need to clear stop before (note: indicator={fmcar.indicator})"
+                        )
+                        logger.debug("..not moved")
+                    else:
+                        # logger.debug(f"light ahead={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
+                        fmcar.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=fmc_speed, t=later)
+                        logger.debug("..moved")
                     if light_index == (len(self.ftg.lights.lights) - 1) and not fmcar.isFinishing():  # reached last light
                         logger.debug("fmcar reached end of lights, initiating finish trip")
                         fmcar.finish("end of lights")
@@ -690,11 +697,11 @@ class FlightLoop:
             # logger.debug("moving %d %d", closestLight, self.lastLit)
             self.lastLit = closestLight
             self.distance = dist
-            return self.adjustedIter(acf_speed=acf_speed)
+            return nextIter
 
         if self.lastLit == closestLight and (abs(self.distance - dist) < DISTANCE_BETWEEN_GREEN_LIGHTS):  # not moved enought, may even be stopped
             # logger.debug("aircraft did not move")
-            return self.adjustedIter(acf_speed=acf_speed)
+            return nextIter
 
         # @todo
         # Need to send warning when pilot moves away from the green.

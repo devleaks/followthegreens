@@ -314,6 +314,9 @@ class INDICATOR(IntEnum):
     RIGHT = 2
     LEFT = 3
 
+
+#    EMPTY = 4
+
 # These are global default values, only used if no other value if found.
 LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
 RABBIT_LENGTH = 12  # number of lights that blink in front of aircraft
