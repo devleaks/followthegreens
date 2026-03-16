@@ -469,9 +469,6 @@ class FlightLoop:
         # pylint: disable=unused-argument
         # monitor progress of plane on the green. Turns lights off as it does no longer needs them.
         # logger.debug('%2f, %2f, %d', elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter)
-        def faster(s: float) -> float:
-            return s + 4
-
         if xp.getDatai(self.pause_dref) == 1:
             msg = "paused"
             if msg != self.old_msg:
@@ -559,7 +556,8 @@ class FlightLoop:
                             closestLight = 0
                         join_time = 20  # secs, reasonable time from spawn position to ahead of acf
                         # during join travel, aircraft will move forward, aircraft might still be running fast, we limit ot speed of car:
-                        fast = fmcar.adjustedSpeed(speed_type="fast", reference=faster(acf_speed))
+                        fast = fmcar.adjustedSpeed(speed_type="fast", reference=fmcar.faster(acf_speed))
+                        fmcar.set_aircraft_speed(acf_speed)
                         acf_ahead = min(acf_speed, fmcar.adjustedSpeed(speed_type="fast")) * join_time
                         ahead_at_join = acf_ahead + ahead
                         light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=closestLight, ahead=ahead_at_join)
@@ -622,7 +620,8 @@ class FlightLoop:
         nextStop, warn = self.ftg.lights.toNextStop(pos)
         if nextStop and warn < aircraft.warningDistance():
             logger.debug(f"closing to stop (light={nextStop})")
-            fmcar.indicator = INDICATOR.STOP
+            if fmcar is not None:
+                fmcar.indicator = INDICATOR.STOP
             if self.hasRabbit():
                 self.allowRabbitAutotune("close to stop, force update to SLOWEST")
                 self.rabbitMode = RABBIT_MODE.SLOWEST
@@ -662,6 +661,7 @@ class FlightLoop:
                     total_ahead = acf_move + ahead
                     later = ts_now + nextIter
                     fmc_speed = max(acf_speed, fmcar.adjustedSpeed(reference=acf_speed))
+                    fmcar.set_aircraft_speed(acf_speed)
                     logger.debug(f"aircraft closest light={closestLight} on edge index={light.edgeIndex}, distance from edge={round(light.distFromEdgeStart, 1)}m")
                     # logger.debug(f"ahead={round(total_ahead, 1)}m = {round(ahead, 1)}m + acf move={round(acf_move, 1)}m")
                     # At next iteration, acf will move acf_move, and fmcar need to be ahead
@@ -711,10 +711,9 @@ class FlightLoop:
         # if distance > (2*DRIFTING_DISTANCE) and AUTO_REROUTE:
         #     logger.debug(f"aircraft drifting away from track? (d={round(distance, 1)} > {DRIFTING_DISTANCE}), starting new greens")
         #     self.ftg.newGreen(destination=self.ftg.destination)
-
         self.distance = dist
 
-        return self.adjustedIter(acf_speed=acf_speed)
+        return nextIter
 
     def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument

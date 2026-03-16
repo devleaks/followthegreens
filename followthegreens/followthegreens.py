@@ -8,6 +8,10 @@ from random import randint
 from datetime import datetime, timedelta, timezone
 from textwrap import wrap
 
+from followthegreens import aircraft
+
+from followthegreens import airport
+
 try:
     import xp
 except ImportError:
@@ -42,10 +46,11 @@ class FollowTheGreens:
 
         self.airport_light_level = xp.findDataRef(AMBIANT_RWY_LIGHT_VALUE)  # [off, lo, med, hi] = [0, 0.25, 0.5, 0.75, 1]
         self.zuluTime = xp.findDataRef("sim/time/zulu_time_sec")
-        self.localTime = xp.findDataRef("sim/time/local_time_sec")
-        self.zuluHours = xp.findDataRef("sim/time/zulu_time_hours")
-        self.localHours = xp.findDataRef("sim/time/local_time_hours")
+        self.zuluHours = xp.findDataRef("sim/cockpit2/clock_timer/zulu_time_hours")
+
         self.localDay = xp.findDataRef("sim/time/local_date_days")
+        self.localTime = xp.findDataRef("sim/time/local_time_sec")
+        self.localHours = xp.findDataRef("sim/cockpit2/clock_timer/local_time_hours")
         self.session = None
         self.route = None
         self.stats = {}
@@ -523,6 +528,10 @@ VERSION = "{__VERSION__}"
         return self.ui.promptForClearance(intro=intro_arr, destination=self.destination)
         # return self.ui.sorry("Follow the greens is not completed yet.")  # development
 
+    def situation(self) -> str:
+        s = "runway" if self.move == MOVEMENT.DEPARTURE else "ramp"
+        return f"We are at {self.airport.icao}, taxiing to {s} {self.destination}."
+
     def nextLeg(self):
         # Called when cleared by TOWER
         self.segment += 1
@@ -636,7 +645,7 @@ VERSION = "{__VERSION__}"
         z = self.getSimulatorDatetime()
         l = self.getSimulatorDatetime(zulu=False)
         logger.info(f"BOOKMARK {datetime.utcnow().isoformat()} {message}")
-        logger.info(f"simulator zulu time is {z.isoformat()}, local time is {l.isoformat()}")
+        logger.info(f"simulator zulu time is {z.replace(microsecond=0).isoformat()}, local time is {l.replace(microsecond=0).isoformat()}")
         self.inc("bookmark")
 
     def enable(self):

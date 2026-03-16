@@ -223,11 +223,10 @@ class Aircraft:
         # These preferences are specific for an aircraft
         a = self.aircaftPreferences()
         r = self.rabbitPreferences()
-        self.acflength = a.get(AIRCRAFT.AVG_LENGTH, 50)  # meters
+        self.acf_length = a.get(AIRCRAFT.AVG_LENGTH, 50)  # meters
         self.lights_ahead = r.get(RABBIT.LIGHTS_AHEAD, 120)  # meters
         # self.lights_ahead = self.lights_ahead + acflength  # meters
         self.rabbit_length = r.get(RABBIT.LENGTH, 100)  # meters
-        self.rabbit_length = self.rabbit_length + self.acflength  # meters
         self.rabbit_speed = r.get(RABBIT.SPEED, 0.2)  # seconds
         self.lights_ahead_pref = False
         self.rabbit_length_pref = False
@@ -254,7 +253,7 @@ class Aircraft:
 
     def setPreferences(self):
         a = self.aircaftPreferences()
-        self.acflength = a.get(AIRCRAFT.AVG_LENGTH, 50)  # meters
+        self.acf_length = a.get(AIRCRAFT.AVG_LENGTH, 50)  # meters
         # note: light count starts at the center of the aircraft.
         #       if the aircraft is 40m in length, 16m between lights,
         #       2 or more lights are not visible since under the aircraft.
@@ -295,12 +294,12 @@ class Aircraft:
                 self.rabbit_speed_pref = True
 
         if self.rabbit_length > 0:  # == 0 = no rabbit
-            self.rabbit_length = self.rabbit_length + self.acflength  # meters
+            self.rabbit_length = self.rabbit_length + self.acf_length  # meters
         if self.lights_ahead > 0:  # == 0 = whole path
-            self.lights_ahead = self.lights_ahead + self.acflength  # meters
+            self.lights_ahead = self.lights_ahead + self.acf_length  # meters
         if self.hasPreferences():
             logger.debug(
-                f"aircraft rabbit preference (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={self.acflength}m)"
+                f"aircraft rabbit preference (physical): length={self.rabbit_length}m, speed={self.rabbit_speed}s, ahead={self.lights_ahead}m (avg acf length={self.acf_length}m)"
             )
         else:
             logger.debug("aircraft has no preference for class or type")
@@ -330,24 +329,23 @@ class Aircraft:
         # provides a reasonable range for this aircraft type
         # adjust for visibility and aircraft length (because measure starts under the aircraft)
         DEFAULT_HARDCODED_RANGE = [70, 150]
-        DEFAULT_HARDCODED_LIMIT = [70, 150]
         prefs = self.aircaftPreferences()
-        ranges = prefs.get(AIRCRAFT.VISUAL_RANGE.value, {"RANGE": DEFAULT_HARDCODED_RANGE, "LIMITS": DEFAULT_HARDCODED_LIMIT})
+        ranges = prefs.get(AIRCRAFT.VISUAL_RANGE.value, {"RANGE": DEFAULT_HARDCODED_RANGE, "LIMITS": HARDCODED_AHEAD_LIMITS})
         r = ranges.get("RANGE", DEFAULT_HARDCODED_RANGE)
         r0 = r
-        l = ranges.get("LIMITS", DEFAULT_HARDCODED_LIMIT)
-        logger.debug(f"raw {r}, {l})")
+        l = ranges.get("LIMITS", HARDCODED_AHEAD_LIMITS)
+        logger.debug(f"initial range={r}, limits={l})")
 
         # extends if acf speed is fast
         acf_speed = self.speed()
         if acf_speed > 10:
             f = 1.5
             r = [r[0] * f, r[1] * f]
-        logger.debug(f"corrected for speed ({round(self.speed(), 1)}m/s): {r}, {l})")
+            logger.debug(f"corrected for speed ({round(self.speed(), 1)}m/s, f={f}): {r}, {l})")
 
         # reduces if viz is low
         viz = self.visibility()
-        f = 1
+        f = 1.0
         if viz < 500:
             f = 0.5
             r = [l[0], r[1] * f]
@@ -357,27 +355,33 @@ class Aircraft:
         elif viz < 1500:
             f = 0.75
             r = [r[0] * f, r[1] * f]
-        logger.debug(f"corrected for visibility (f={f}, v={round(viz, 1)}m): {r}, {l})")
+        if f != 1.0:
+            logger.debug(f"corrected for visibility (v={round(viz, 1)}m, f={f}): {r}, {l})")
 
+        r = sorted(r)
+        a = r
         r[0] = max(r[0], l[0])
         r[0] = min(r[0], l[1])
         r[1] = max(r[1], l[0])
         r[1] = min(r[1], l[1])
-        r = sorted(r)
-        logger.debug(f"restricted to limits: {r}, {l})")
-        # TO this estimated length we add 1.5 aircraft sizes,
-        # because lights are counted almost from the back of the acf
-        acf_add = 2.0 * self.acflength
+        if r != a:
+            logger.debug(f"restricted to limits: {r}, {l})")
+
+        # we add some aircraft sizes, because lights are counted almost from the back of the acf
+        acf_length_factor = 2.0
+        acf_add = acf_length_factor * self.acf_length
         r[0] += acf_add
         r[1] += acf_add
-        logger.debug(f"added {round(acf_add, 1)}m for acf: {r}, {l})")
+        logger.debug(f"added {round(acf_add, 1)}m for aircraft length: {r}, {l})")
 
+        a = r
         r[0] = max(r[0], HARDCODED_AHEAD_LIMITS[0])
         r[1] = min(r[1], HARDCODED_AHEAD_LIMITS[1])
-        logger.debug(f"restricted to limits: {r}, {HARDCODED_AHEAD_LIMITS})")
+        if r != a:
+            logger.debug(f"restricted to limits: {r}, {HARDCODED_AHEAD_LIMITS})")
 
         logger.debug(
-            f"ahead_range {r0} adjusted to {r} for acf speed and visibility (acf_speed={round(acf_speed, 1)}m/s, viz={round(viz, 1)}m, acf_length={round(self.acflength, 1)}m)"
+            f"ahead_range {r0} adjusted to {r} for acf speed and visibility (acf_speed={round(acf_speed, 1)}m/s, viz={round(viz, 1)}m, acf_length={round(self.acf_length, 1)}m)"
         )
         return r
 
@@ -385,6 +389,8 @@ class Aircraft:
         # adjust aircraft/environment (visibility, daylight, etc.) range
         # for aircraft speed and rabbit mode (which is an invitation to adjust speed:
         # too fast->range smaller, too slow->range larger)
+        #
+        # ADJUSTED RANGE
         RABBIT_FACTOR = {RABBIT_MODE.SLOWEST: 0.50, RABBIT_MODE.SLOWER: 0.70, RABBIT_MODE.MED: 1.00, RABBIT_MODE.FASTER: 1.25, RABBIT_MODE.FASTEST: 1.50}
         ahead_range = self.aheadRange()  # already adjusted for visibility conditions
         ahead_range0 = ahead_range
@@ -394,23 +400,31 @@ class Aircraft:
             ahead_range[0] *= RABBIT_FACTOR[rabbit_mode]
             ahead_range[1] *= RABBIT_FACTOR[rabbit_mode]
             logger.debug(f"range adjusted for rabbit mode {rabbit_mode} {ahead_range0}")
+            a = ahead_range
             ahead_range[0] = max(ahead_range[0], HARDCODED_AHEAD_LIMITS[0])
             ahead_range[1] = min(ahead_range[1], HARDCODED_AHEAD_LIMITS[1])
-            logger.debug(f"restricted to limits: {ahead_range}, {HARDCODED_AHEAD_LIMITS})")
+            if a != ahead_range:
+                logger.debug(f"restricted to limits: {ahead_range}, {HARDCODED_AHEAD_LIMITS})")
 
+        #
+        # AHEAD
         acf_speed = self.speed()
-        acflen = self.acflength if self.acflength is not None else 50
-        ahead = acflen * 1.5 + acf_speed * 10.0  # acflen * 2.5 = "offset" to take into account lights under aircraft, flight loop iteration, etc.
+        acf_speed_factor = 10.0
+        acf_length = self.acf_length if self.acf_length is not None else 50
+        acf_length_factor = 2.0
+        ahead = acf_length * acf_length_factor + acf_speed * acf_speed_factor
         ahead0 = ahead
-        logger.debug(f"ahead proposition {round(ahead0, 1)}m ({round(acflen * 2.5, 1)}+{round(acf_speed * 12.0, 1)})")
+        logger.debug(
+            f"ahead estimation {round(ahead0, 1)}m ({round(acf_length * acf_length_factor, 1)} + {round(acf_speed * acf_speed_factor, 1)} (acf_speed={round(acf_speed, 1)}m/s))"
+        )
 
+        #
+        # AHEAD IN ADJUSTED RANGE
         if ahead < ahead_range[0]:
             ahead = ahead_range[0]
         if ahead > ahead_range[1]:
             ahead = ahead_range[1]
-        logger.debug(
-            f"ahead {round(ahead0, 1)}m adjusted to {round(ahead, 1)}m (acf_speed={round(acf_speed, 1)}m/s, range/viz/speed={ahead_range0}m, range/rabbit_mode={rabbit_mode}={ahead_range}m)"
-        )
+        logger.debug(f"ahead {round(ahead0, 1)}m adjusted to {round(ahead, 1)}m ({ahead_range}m)")
         return ahead
 
     def heading(self) -> float:
