@@ -302,5 +302,59 @@ If you wish to replace it with an alternate light object:
 Lights.OFF = "path/to/favourite-taxiway-light.obj"
 ```
 
+# Example Preference File
 
-Taxi safely
+Here is a typical preference file with some example of features.
+
+```
+# ###################################
+#
+VERSION = "2.2.0"
+#
+# ###################################
+#
+# GLOBALS
+#
+LOGGING_LEVEL = 20
+
+LIGHTS_AHEAD = 0
+
+MAINWINDOW_FROM_BOTTOM = 400
+
+# Prefer "taxiway" lights, with orientation
+Lights.FIRST = "taxi_gg.obj"
+Lights.LAST = "taxi_gg.obj"
+Lights.TAXIWAY = "taxi_gg.obj"
+Lights.TAXIWAY_ALT = "taxi_g.obj"  # unidirectional
+Lights.STOP = "taxi_r.obj"
+Lights.RUNWAY = "taxi_g.obj"  # unidirectional
+Lights.RUNWAY_ALT = "taxi_y.obj"
+Lights.RUNWAY_GUARD = "runway.obj"
+Lights.VERTEX = "green.obj"
+Lights.WARNING = "amber.obj"
+Lights.DEFAULT = "white.obj"
+Lights.ACTIVE = "green.obj"
+
+
+# ###################################
+#
+# AIRPORT SPECIFIC
+#
+# Test airport for Follow Me car, because there is one there...
+#
+[Airports.EBLG]
+RABBIT_SPEED = 0.0
+RABBIT_LENGTH = 0
+LIGHTS_AHEAD = 42
+
+[FollowMeCar]
+filename = "xcsl/FMC2.obj"
+indicator = true
+indicator_shift = [2.02, -1.8]
+turn_radius = 25.0  # m
+normal_speed = 10  # m/s
+
+taxi_safely = true
+
+# Please recall to use key words 'true' or 'false' for boolean value, all lower cases, no quote around the word.
+```
