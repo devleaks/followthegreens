@@ -341,6 +341,7 @@ class UIUtil:
         return self.window(
             intro
             + [
+                self.ftg.situation(),
                 f"Follow the greens{dst} until you encounter red stop lights across the taxiway.",
                 "At the stop lights, contact ATC for clearance. Press Clearance received when cleared.",
             ],
@@ -365,12 +366,17 @@ class UIUtil:
         logger.debug("prompt for departure")
         # In front of the last stopbar, ask to ask for clearance for departure and press continue when clearance obtained.
         self.waiting_for_clearance = True
+        btns = {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel}
+        if self.dest:
+            btns[IAMLOST_TEXT] = self.cbNewGreen
         return self.window(
             [
-                "Follow the greens until you encounter red stop lights across the taxiway before departure runway.",
+                self.ftg.situation(),
+                "Follow the greens until you encounter red stop lights across the taxiway",
+                "before departure runway.",
                 "Contact ATC, press Clearance received when cleared for runway.",
             ],
-            {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel},
+            btns,
         )
 
     def promptForParked(self, destination: str = ""):
@@ -381,6 +387,7 @@ class UIUtil:
         # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
         return self.window(
             [
+                self.ftg.situation(),
                 f"Follow the greens to the parking stand {destination}.",
                 "Press Continue when parked.",
             ],
@@ -389,7 +396,7 @@ class UIUtil:
 
     def bye(self):
         logger.debug("showing goodbye")
-        msgs = ["You are approaching your destination."]
+        msgs = [self.ftg.situation(), "You are approaching your destination."]
         if self.ftg.move == MOVEMENT.DEPARTURE:
             msgs += ["Contact ATC for takeoff clearance."]
         msgs += [self.greetings("Enjoy your %s.")]

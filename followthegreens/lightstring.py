@@ -862,17 +862,19 @@ class LightString:
             currVertex = nextVertex
         # END OF ROUTE
 
-        # PART 2: Lay green lights
+        # PART 2: Lay green lights on smooth route
         #
         # BEGIN OF ROUTE
-        logger.debug(f"placing lights, sr={len(route.smoothRoute)}, length={route.smoothRoute[-1].getProp(SMOOTH_ROUTE.TOTAL)}..")
+        tl = route.smoothRoute[-1].getProp(SMOOTH_ROUTE.TOTAL)
+        el = int(tl / self.distance_between_green_lights) + 1
+        logger.debug(f"placing about {el} green lights (sr={len(route.smoothRoute)} segments, total length={round(tl, 1)}m)..")
         srCurrPoint = (0, 0)
         currPoint = route.srDestination(i=srCurrPoint[0], dist=srCurrPoint[1])
         thisLights.append(Light(LIGHT_TYPE.FIRST, currPoint, 0, 0))
         logger.debug(f"at vertex 0, lights placed={len(thisLights)}")
         secure = len(route.smoothRoute) * 2
         i = 0
-        while srCurrPoint[0] < (len(route.smoothRoute)-2) and i < secure:
+        while srCurrPoint[0] < (len(route.smoothRoute) - 2) and i < secure:
             r_idx = route.smoothRoute[srCurrPoint[0]].getProp(SMOOTH_ROUTE.ROUTE_INDEX)
             thisEdge = route.edges[r_idx]
             nextLightPos, d_brng, d_idx, d_dist = route.srAhead(i=srCurrPoint[0], dist=self.distance_between_green_lights, start=srCurrPoint[1])
@@ -882,7 +884,7 @@ class LightString:
             # logger.debug(f"srCurrPoint={srCurrPoint} (i={i})")
             i += 1
         # END OF ROUTE
-        logger.debug(f"..placed lights={len(thisLights)}")
+        logger.debug(f"..placed {len(thisLights)} green lights")
 
         # LAST VERTEX
         if self.add_light_at_last_vertex:  # may be we insert a last light at the last vertex?
@@ -897,7 +899,6 @@ class LightString:
         last = 0
         for i in range(len(self.stopbars)):
             sb = self.stopbars[i]
-            logger.debug(f"stopbar {i}: position={sb.position.coords()}")
             l_idx, l_dist = self.closest(position=(sb.position.lat, sb.position.lon))
             sb.lightStringIndex = l_idx
             logger.debug(f"stopbar {i}: {last}-{sb.lightStringIndex} (d={round(l_dist, 1)}m)")
@@ -943,6 +944,9 @@ class LightString:
             end = sbend.lightStringIndex
             logger.debug(f"illuminated segment {segment} between {start} and {end}")
 
+        if start == end:
+            logger.warning(f"illuminated segment {segment} between {start} and {end}: no light to illuminate")
+
         if (self.num_lights_ahead is None or self.num_lights_ahead == 0) and self.hasLight:
             # Instanciate for each green light in segment and stop bar
             for i in range(start, end):
@@ -987,9 +991,12 @@ class LightString:
     @property
     def hasLight(self) -> bool:
         if self._hasLight is not None:
+            # logger.debug(f"haslLight1 {self._hasLight}")
             return self._hasLight
         # logger.debug(f"rabbit_speed={self.rabbit_speed}, rabbit_length={self.rabbit_length}, num_lights_ahead={self.num_lights_ahead} => {(self.rabbit_length > 0 and self.num_lights_ahead != HARDCODED_MAX_DISTANCE) or self.rabbit_speed > 0}")
-        return (self.rabbit_length > 0 and self.num_lights_ahead != HARDCODED_MAX_DISTANCE) or self.rabbit_speed > 0
+        r = (self.rabbit_length > 0 and self.num_lights_ahead != HARDCODED_MAX_DISTANCE) or self.rabbit_speed > 0
+        # logger.debug(f"haslLight {r}")
+        return r
 
     def hasRabbit(self) -> bool:
         return (abs(self.rabbit_duration) > 0 and self.num_rabbit_lights > 0) or self.lights_ahead > 0
@@ -1123,4 +1130,3 @@ class LightString:
             light.on()
 
         return lightcount
-

@@ -769,7 +769,6 @@ class Route:
 
     def srDistanceRoute(self, route, i1: int, dist1: float, i2: int, dist2: float) -> float:
         # distance between two points on smoothRoute
-        logger.debug(f"{len(route)}, {i1}, {dist1}, {i2}, {dist2}")
         total = route[i1].getProp(SMOOTH_ROUTE.DISTANCE) - dist1
         for i in range(i1 + 1, i2):
             total += route[i].getProp(SMOOTH_ROUTE.DISTANCE)

@@ -45,6 +45,11 @@ def sf(t: float, unit: str = "") -> str:
     return f"{round(t, 1)}{unit}"
 
 
+def slow_debug(c, s):
+    if c % 200 == 0:
+        logger.debug(s)
+
+
 NOT_ON_ROUTE = -1
 
 
@@ -177,6 +182,9 @@ class Situation:
     last_inc_time: float = 0  # store last increment instead
     comment: str = ""
 
+    path_length: float = 0.0
+    path_time: float = 0.0
+
     def __str__(self):
         """Returns a string containing only the non-default field values."""
         # https://stackoverflow.com/questions/71344648/how-to-define-str-for-dataclass-that-omits-default-values
@@ -241,6 +249,7 @@ class Cursor:
         self._set_current = False
         self.msg = ""
         self.last_dist_to_next_vertex = 0.0
+        self._acf_speed = 0.0
         logger.info(str(self.detail))
         logger.debug(f"route end: {self.route.move}, {self.route.departure_runway}, {self.route.arrival_runway}")
 
@@ -320,6 +329,12 @@ class Cursor:
 
     def destroy(self):
         self.stopFlightLoop()
+        if self.indicator_cursor is not None:
+            self.indicator_cursor.destroy()
+            self.indicator_cursor = None
+        if self.indicator_object is not None:
+            del self.indicator_object
+            self.indicator_object = None
         if self.cursor is not None:
             self.cursor.destroy()
             self.cursor = None
@@ -364,6 +379,12 @@ class Cursor:
     #
     def distance(self, position) -> float:
         return distance(self.current.position, position)
+
+    def set_aircraft_speed(self, speed: float):
+        self._acf_speed = speed
+
+    def faster(self, s: float) -> float:
+        return max(s + 2.0, s * 1.2)
 
     def speed(self) -> float:
         return self.current.speed
@@ -824,8 +845,11 @@ class Cursor:
         r = eq2(displacement=path_length, initial_velocity=current.speed, final_velocity=target.speed, time=None)
         path_time = r[3]
         time_end = self.start.time + path_time
-        logger.debug(f"control sr values: {sf(path_length, 'm')} in {sf(path_time, 's')}, end at {st(time_end)}")
+        logger.debug(f"control sr values: {sf(path_length, 'm')} in {sf(path_time, 's')}, end at {st(time_end)} ({sf(current.speed, 'm/s')} -> {sf(target.speed, 'm/s')})")
         self.target.time = time_end
+        #
+        self.current.path_length = path_length
+        self.current.path_time = path_time
         # if self.target.time < time_end:
         #     t = time_end - self.target.time
         #     self.target.time = time_end
@@ -868,6 +892,11 @@ class Cursor:
         if self.indicator != INDICATOR.STOP:
             self.indicator = self.nextTurnIndicator(self.current.route_index)  # compute turn indicator code for turns
         dt = self.current.time - self.start.time
+        if (self.current.path_length > 50.0 or self.current.path_time > 10) and not self.status != CURSOR_STATUS.FINISHING:  # adjust fmcar_speed
+            ots = self.target.speed  # orignal target speed
+            self.target.speed = faster((self.target.speed + self._acf_speed) / 2)
+            # logger.debug(f"new speeds: {sf(self.start.speed, 'm/s')} -> {sf(self.target.speed, 'm/s')} (was {sf(ots, 'm/s')})")
+        slow_debug(c=self.cnt, s=f"speeds: {sf(self.start.speed, 'm/s')} -> {sf(self.target.speed, 'm/s')}")
         r = eq2(displacement=None, initial_velocity=self.start.speed, final_velocity=self.target.speed, time=dt)
         d = r[0]
         point, hdg, idx, dist = self.route.srAheadRoute(self.current.sr_route, i=self.start.sr_position.index, start=self.start.sr_position.distance, dist=d)
