@@ -46,7 +46,7 @@ class SMOOTH_ROUTE(StrEnum):
 class Turn:
 
     SMALL_TURN_TANGENT = 10.0  # m
-    VALID_RANGE = [15, 150]  # for a smooth turn
+    VALID_RANGE = [15, 160]  # for a smooth turn
 
     def __init__(self, vertex: Point, l_in: float, l_out: float, radius: float, segments: int = NUM_SEGMENTS):
         self.bearing_start = l_in

@@ -874,14 +874,14 @@ class Cursor:
             r = True
         elif self.current.sr_position.index == self.target.sr_position.index and self.current.sr_position.distance >= self.target.sr_position.distance:
             r = True
-        if not r:
-            if self.current.time >= self.target.time and self.en_route:  # note: might turn bruptly or change speed instantaneously to catch up
-                # experimentally, we observed delay might occur if X-Plane activity introduces tiny delays (~ a few millisecs)
-                logger.debug(f"target not reached but time is out {round(self.current.time - self.target.time, 3)}, continuing..")
-                # r = True
-        else:
-            if self.current.time > self.target.time and self.en_route:  # note: might turn bruptly or change speed instantaneously to catch up
-                logger.debug(f"target reached late {round(self.current.time - self.target.time, 3)}s")
+        # if not r:
+        #     if self.current.time >= self.target.time and self.en_route:  # note: might turn bruptly or change speed instantaneously to catch up
+        #         # experimentally, we observed delay might occur if X-Plane activity introduces tiny delays (~ a few millisecs)
+        #         logger.debug(f"target not reached but time is out {round(self.current.time - self.target.time, 3)}, continuing..")
+        #         # r = True
+        # else:
+        if r and self.current.time > self.target.time and self.en_route:  # note: might turn bruptly or change speed instantaneously to catch up
+            logger.debug(f"target reached late {round(self.current.time - self.target.time, 3)}s")
         # logger.debug(f"{r}: {self.current.sr_position} {'>=' if r else '<'} {self.target.sr_position}")
         return r
 
@@ -896,7 +896,7 @@ class Cursor:
             ots = self.target.speed  # orignal target speed
             self.target.speed = faster((self.target.speed + self._acf_speed) / 2)
             # logger.debug(f"new speeds: {sf(self.start.speed, 'm/s')} -> {sf(self.target.speed, 'm/s')} (was {sf(ots, 'm/s')})")
-        slow_debug(c=self.cnt, s=f"speeds: {sf(self.start.speed, 'm/s')} -> {sf(self.target.speed, 'm/s')}")
+        # slow_debug(c=self.cnt, s=f"speeds: {sf(self.start.speed, 'm/s')} -> {sf(self.target.speed, 'm/s')}")
         r = eq2(displacement=None, initial_velocity=self.start.speed, final_velocity=self.target.speed, time=dt)
         d = r[0]
         point, hdg, idx, dist = self.route.srAheadRoute(self.current.sr_route, i=self.start.sr_position.index, start=self.start.sr_position.distance, dist=d)

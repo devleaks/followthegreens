@@ -302,6 +302,32 @@ If you wish to replace it with an alternate light object:
 Lights.OFF = "path/to/favourite-taxiway-light.obj"
 ```
 
+## Follow Me Car Preferences
+
+```
+[FollowMeCar]
+filename: str = "xcsl/FMC.obj"
+above_ground: float = 0.0  # vertical offset for above object
+
+indicator: bool = False  # use additionl indicator
+indicator_shift: tuple = (0.0, 0.0)  # offset for indicator (height, forward), in meters
+
+slow_speed: float = 3.0  # turns, careful move, all speed m/s
+normal_speed: float = 7.0  # 25km/h
+leave_speed: float = 10.0  # expedite speed to leave/clear an area
+fast_speed: float = 14.0  # running fast to a destination far away
+
+max_speed: float = 18.0
+
+turn_radius: float = 25.0  # m
+
+acceleration: float = 1.0  # m/s^2, same deceleration
+deceleration: float = -1.0  # m/s^2, same deceleration
+
+indicator_warning_distance: float = 50.0  # m
+```
+
+
 # Example Preference File
 
 Here is a typical preference file with some example of features.

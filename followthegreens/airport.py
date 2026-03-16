@@ -20,7 +20,7 @@ from .globals import (
     AIRPORT,
     MOVEMENT,
     RABBIT,
-    LIGHTS_AHEAD, # for default values if no fmcar
+    LIGHTS_AHEAD,  # for default values if no fmcar
     RABBIT_LENGTH,
     RABBIT_SPEED,
 )
