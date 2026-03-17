@@ -3,7 +3,7 @@ PI_FollowTheGreens.py|23246
 README.md|627
 followthegreens/__init__.py|712
 followthegreens/aircraft.py|20215
-followthegreens/airport.py|35170
+followthegreens/airport.py|35171
 followthegreens/cars/indicator/indicator.obj|158899
 followthegreens/cars/indicator/indicator.png|642862
 followthegreens/cars/xcsl/FMC.obj|913239
@@ -18,7 +18,7 @@ followthegreens/cars/xcsl/FMCglass.png|47836
 followthegreens/cars/xcsl/credits.html|590
 followthegreens/cars/xcsl/x-csl-info.info|101
 followthegreens/cars/xcsl/xsb_aircraft.txt|263
-followthegreens/cursor.py|51178
+followthegreens/cursor.py|51190
 followthegreens/flightloop.py|38001
 followthegreens/followthegreens.py|28308
 followthegreens/geo.py|16048
