@@ -423,8 +423,11 @@ class Cursor:
     def resetRoute(self):
         # They won't be any valid route anymore.
         # We have to stop the future
-        logger.log(8, "reseting cursor planned route..")
+        l = len(self._future.qsize())
+        logger.log(8, f"reseting cursor planned route ({l} entries will be lost)..")
         self._future.clear()
+        self._qout += l
+        logger.debug(f"reseting cursor planned route ({l} entries will be lost), adjusted qout={self._qout}")
         logger.log(8, "..reset")
 
     def changeRoute(self, ftg):
@@ -477,7 +480,7 @@ class Cursor:
                 edge=NOT_ON_ROUTE,  # not on route
                 tick=True,
                 text="go on route ahead of aircraft after new route",
-                end=(light_ahead.edgeIndex, light_ahead.distFromEdgeStart),
+                end=(light_ahead.edgeIndex, light_ahead.distFromEdgeStart),  # attempt of approximate target end
             )
             # finally, we have to tell future_index() where car is when it join route
             # so that when move() catches up with future_index() it will start from there
@@ -617,7 +620,7 @@ class Cursor:
         start_time += tt
         hdg = self.route.edges_orient[min(last_route_index + 1, len(self.route.edges) - 1)]
         txt = f"{round(d, 1)}m to end of current edge {last_route_index}"
-        if last_route_index < 0:
+        if last_route_index == NOT_ON_ROUTE:
             txt = f"{round(d, 1)}m to end of segment (not on route)"
 
         # RESET
@@ -719,6 +722,8 @@ class Cursor:
                     self.current.vertex = self.route.vertices[self.target.end[0]]
                     # we are a little bit further on the route
                     self.current.distance_on_edge = distance(self.current.vertex, self.current.position)
+                    # onridx, onrdist = self.route.closestOnRoute(self.current.position)
+                    # self.current.sr_position = OnRoute(onridx, onrdist)
                     self.current.sr_position = OnRoute(*self.route.srEquiv(i=self.current.route_index, dist=self.current.distance_on_edge))
                     logger.debug(f"adjustments because end of turn reached {sf(self.current.distance_on_edge, 'm')}")
                     # self.current.sr_position = self.target.sr_end  # should be the case...
@@ -784,12 +789,12 @@ class Cursor:
         logger.debug(f"setting target {target.comment}..")
         # logger.debug(f"target sr_position {target.sr_end}")
         # logger.debug(f"target sr_end {target.sr_end}")
-        if self.current.route_index < 0:  # direct route to target
+        if self.current.route_index == NOT_ON_ROUTE:  # direct route to target
             self.set_start()
             self.target = target
             logger.debug("..target set from future (current not on route)")
             return True
-        if target.route_index < 0:
+        if target.route_index == NOT_ON_ROUTE:
             self.set_start()
             self.target = target
             logger.debug("..target set from future (target not on route)")
@@ -816,7 +821,7 @@ class Cursor:
         # CASE 1: WE ARE NOT ON THE ROUTE:
         # If edge is -1, we are NOT on self.route and we travel from the current position which is not on route
         # to a position on route in a straight line. The straight line us first smmothed to terminate with a turn to align on the route.
-        if self.current.route_index < 0:  # not on route
+        if self.current.route_index == NOT_ON_ROUTE:  # not on route
             self.current.vertex = self.current.position
             self.current.distance_on_edge = 0
             # logger.debug(f"direct path, need to travel {round(self.path_length, 1)}m in {round(self.path_time, 1)}")
@@ -828,11 +833,12 @@ class Cursor:
         # If the position is on route, edge points at the edge on which we currently are sitting.
         # The position is converted into a pair (vertex index, distance from that vertex) on the smoothed route.
         else:
-            if self.target.route_index < 0:  # going off-route
+            if self.target.route_index == NOT_ON_ROUTE:  # going off-route
                 current.sr_route = self.route.srStraightRoute(start=current.position, end=target.position, heading=target.heading)
                 self.start.sr_position = OnRoute(index=0, distance=0.0)
                 current.sr_position = OnRoute(index=0, distance=0.0)  # we are at the start of the straightRoute
                 target.sr_position = OnRoute(index=len(current.sr_route) - 1, distance=0.0)  # end of straightRoute
+                # @todo BUT if target is on route, we have to find the equivalent of current.sr_route[-1] on smoothRoute
                 logger.debug(f"leaving route, srEquiv direct route on custom smooth route -> {target.sr_position} (end={target.sr_end})")
             else:
                 current.sr_route = self.route.smoothRoute
@@ -886,11 +892,21 @@ class Cursor:
         return r
 
     def _adjustSpeeds(self):
+        # On long legs, where typically the acf accelerates, there is a need to monitor the acf speed
+        # and adjust the car speed accordingly. Both accel/decel.
+        # Car (target) speed will permanently converge towards aircraft speed (avg(carspeed, acfspeed)).
+        # To adjust the car speed, the acf has to be moving a bit at least. (otherwise we converge towrds speed=0!)
+        # Please note: Only speed is adjusted, not target end time.
+        #
         MIN_ACF_SPEED = 3  # below that, we do not consider the acf moves significantly
         if (self.current.path_length > 50.0 or self.current.path_time > 10) and not self.status != CURSOR_STATUS.FINISHING:  # adjust fmcar_speed
             if self._acf_speed > MIN_ACF_SPEED:
-                ots = self.target.speed  # orignal target speed
-                self.target.speed = self.faster((self.target.speed + self._acf_speed) / 2)
+                # ots = self.target.speed  # orignal target speed, for debugging purpose
+                self.target.speed = self.faster((self.target.speed + self._acf_speed) / 2)  # speeds avg
+                # We could use this to update target time:
+                # r = eq2(displacement=self.current.path_length, initial_velocity=self.current.speed, final_velocity=self.target.speed, time=None)
+                # self.current.path_time = r[3]
+                # self.target.time = self.start.time + self.current.path_time
                 # logger.debug(f"new speeds: {sf(self.start.speed, 'm/s')} -> {sf(self.target.speed, 'm/s')} (was {sf(ots, 'm/s')})")
         # slow_debug(c=self.cnt, s=f"speeds: {sf(self.start.speed, 'm/s')} -> {sf(self.target.speed, 'm/s')}")
 

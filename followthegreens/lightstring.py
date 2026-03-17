@@ -332,7 +332,7 @@ class Stopbar:
     def place(self, lightTypes, lightTypeOff=None):
         for light in self.lights:
             light.place(lightTypes[light.lightType], lightTypeOff)
-        logger.debug(f"stop bar at {self.lightStringIndex} placed")
+        logger.debug(f"stop bar at {self.lightStringIndex} {len(self.lights)} lights placed")
 
     def on(self):
         for light in self.lights:
@@ -387,6 +387,7 @@ class LightString:
         self.taxiway_alt = 0
         self.use_wigwag = get_global("ADD_WIGWAG", preferences=self.prefs)
         self._hasLight = None
+        self._on_active = False
 
         # PREFERENCES
         #
@@ -633,9 +634,9 @@ class LightString:
             "texture": LightType.DEFAULT_TEXTURE_CODE,
         }
         self.lightTypes = {}
-        eggfn = LightType.create(name="egg.obj", color=(0.9, 0.1, 0.9), size=18, intensity=10, texture=LightType.DEFAULT_TEXTURE_CODE)
         for k, f in LIGHT_TYPE_OBJFILES.items():
             if self._days == 44 and k != LIGHT_TYPE.STOP:
+                eggfn = LightType.create(name="egg.obj", color=(0.9, 0.1, 0.9), size=18, intensity=10, texture=LightType.DEFAULT_TEXTURE_CODE)
                 self.lightTypes[k] = LightType(k, eggfn)
             elif type(f) is str:
                 self.lightTypes[k] = LightType(k, f)
@@ -728,9 +729,12 @@ class LightString:
         # if edge.has_active(TAXIWAY_ACTIVE.ILS):
         #     return LIGHT_TYPE.ACTIVE_ILS
         if edge.has_active():
-            logger.debug(f"edge is active ({edge.mkActives()})")
+            if not self._on_active:
+                logger.debug(f"edge is active ({edge.mkActives()})")
+                self._on_active = True
             return LIGHT_TYPE.ACTIVE
 
+        self._on_active = False
         directional = (
             LIGHT_TYPE.TAXIWAY
             if edge.direction in [TAXIWAY_DIRECTION.TWOWAY, TAXIWAY_DIRECTION.BOTH] or edge.usage2 in [TAXIWAY_DIRECTION.TWOWAY, TAXIWAY_DIRECTION.BOTH]
@@ -742,12 +746,14 @@ class LightString:
         loff = self.lightTypes[LIGHT_TYPE.OFF] if self.hasLight else None
         for light in self.lights:
             light.place(self.lightTypes[light.lightType], loff)
+        t = len(self.lights)
 
         for sb in self.stopbars:
             sb.place(self.lightTypes, loff)
+            t += len(sb.lights)
 
         self.xyzPlaced = True
-        logger.debug("lights placed")
+        logger.debug(f"{t} lights placed")
         return True
 
     def populate(self, route, move: MOVEMENT, onRunway: bool = False):

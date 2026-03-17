@@ -190,6 +190,7 @@ class Airport:
         self.icao = icao.upper()
         self.prefs = prefs
         self.name = ""
+        self.cursor_type = None  # keep track of meta data of current cursor (turn radius, speeds, etc.)
         self.atc_ground = None
         self.altitude = 0  # ASL, in meters
         self.loaded = False
@@ -204,7 +205,6 @@ class Airport:
         #
         # PREFERENCES - Fetched by LightString
         # Set sensible default value from global preferences
-        self.fmc = get_global("FMC", self.prefs)
         self.use_threshold = get_global("USE_THRESHOLD", self.prefs)
         if self.use_threshold is None:
             self.use_threshold = True
@@ -300,7 +300,7 @@ class Airport:
         #
         # DID WE ASK FOR FMCAR
         if self.lights_ahead != Airport.HARDCODED_MAX_DISTANCE or self.rabbit_length != 0 or self.rabbit_speed != 0:
-            logger.debug(f"no fmcar (t={self.prefs.get('DEVELOPER_PREFERENCE_ONLY', False)}, a={self.lights_ahead}, rl={self.rabbit_length}, rs={self.rabbit_speed})")
+            logger.debug(f"no fmcar (la={self.lights_ahead}, rl={self.rabbit_length}, rs={self.rabbit_speed})")
             return None
         # MAYBE, depends on movement
         # check at airport-level first...
@@ -313,7 +313,7 @@ class Airport:
         if route.move.value not in movement:
             logger.debug(f"no fmcar for {route.move} ({movement} only)")
             # Setting global default rather than HARDCODED_MAX_DISTANCE/0/0
-            logger.info(f"no fmcar on {route.move.value}, using global default for {self.icao} greens")
+            logger.info(f"no fmcar on {route.move.value} at {self.icao}")
             self.rabbit_speed = get_global(RABBIT.LIGHTS_AHEAD.value, self.prefs)
             if self.rabbit_speed == 0:
                 self.rabbit_speed = LIGHTS_AHEAD
@@ -326,6 +326,7 @@ class Airport:
             if self.rabbit_speed == 0:
                 self.rabbit_speed = RABBIT_SPEED
             self.rabbit_speed_pref = True
+            logger.info(f"using global default for greens (la={self.lights_ahead}, rl={self.rabbit_length}, rs={self.rabbit_speed})")
             return None
         # YES
         fmcar = self.prefs.get("FollowMeCar", {})
@@ -344,8 +345,8 @@ class Airport:
             self.rabbit_speed = 0.166
             self.rabbit_speed_pref = True
             logger.debug(f"and lights for development (forced rabbit_speed={self.rabbit_speed} != 0)")
-        details = CursorType(**fmcar)
-        return Cursor(details, route)
+        self.cursor_type = CursorType(**fmcar)
+        return Cursor(self.cursor_type, route)
 
     def load(self):
         APT_FILES = {}
@@ -764,7 +765,10 @@ class Airport:
             if dst_pos is not None and dst_type == "runway":
                 route.departure_runway = dst_pos
             logger.debug(f"route {route.text(destination=destination)}")
-            route.build(acf_speed=aircraft.avgTaxiSpeed())
+            r = None
+            if self.cursor_type is not None:
+                r = self.cursor_type.turn_radius
+            route.build(acf_speed=aircraft.avgTaxiSpeed(), radius=r)
             return (True, route)
 
         return (False, "We could not find a route to your destination.")

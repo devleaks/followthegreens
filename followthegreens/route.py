@@ -27,6 +27,8 @@ SYSTEM_DIRECTORY = "."
 TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line, no slow down
 SMALL_TURN_LIMIT = 15.0  # °, above this angle, it is recommended to slow down for the turn
 NUM_SEGMENTS = 36  # default number of segments for a smooth turn, will be adjusted for turn size, radius and speed
+TURN_RADIUS = 25.0
+TURN_SPEED = 10.0
 
 
 class SMOOTH_ROUTE(StrEnum):
@@ -48,7 +50,7 @@ class Turn:
     SMALL_TURN_TANGENT = 10.0  # m
     VALID_RANGE = [15, 160]  # for a smooth turn
 
-    def __init__(self, vertex: Point, l_in: float, l_out: float, radius: float, segments: int = NUM_SEGMENTS):
+    def __init__(self, vertex: Point, l_in: float, l_out: float, radius: float = TURN_RADIUS, segments: int = NUM_SEGMENTS):
         self.bearing_start = l_in
         self.bearing_end = l_out
         self.radius = radius
@@ -74,7 +76,7 @@ class Turn:
         numsegs = NUM_SEGMENTS if segments < 2 else int(segments * radius / 10)
         opposite = 180 - self.alpha
         a2 = abs(opposite) / 2
-        logger.debug(f"{round(l_in, 1)} -> {round(l_out, 1)}, alpha={round(self.alpha, 1)}, opposite={round(opposite, 1)}")
+        # logger.debug(f"{round(l_in, 1)} -> {round(l_out, 1)}, alpha={round(self.alpha, 1)}, opposite={round(opposite, 1)}")
         bissec = (l_in + self.alpha / 2 + (self.direction * 90)) % 360
         a2r = math.radians(a2)
         a2sin = math.sin(a2r)
@@ -104,7 +106,7 @@ class Turn:
             self.points.append((pt, l_in + i * step))
 
         logger.debug(
-            f"radius={round(radius, 1)}m, vtx to center={round(dist_center, 1)}m, tangent length={round(self.tangent_length, 1)}m, turn length={round(self.length, 1)}m, {len(self.points)} points"
+            f"alpha={round(self.alpha, 1)}, radius={round(radius, 1)}m, vtx to center={round(dist_center, 1)}m, tangent length={round(self.tangent_length, 1)}m, turn length={round(self.length, 1)}m, {len(self.points)} points"
         )
 
     @property
@@ -584,7 +586,7 @@ class Route:
 
         return self._find(src[0], dst[0])
 
-    def build(self, acf_speed: float):
+    def build(self, acf_speed: float, radius: float = TURN_RADIUS):
         # When route is selected, build a series of handy variables
         # to speedup calculations later
         # distance between edges, headings, distance remaning, etc.
@@ -594,7 +596,9 @@ class Route:
         self.mkTurns()  # compute turn angles at end of segment
         self.mkTiming(speed=acf_speed)  # compute total time left to reach destination
         self.mkDistToBrake()  # distance before significant turn
-        self.mkSmoothRoute()
+        if radius is None:
+            radius = TURN_RADIUS
+        self.mkSmoothRoute(radius=radius)
         # logger.debug(
         #     f"control: r={len(self.route)}, v={len(self.vertices)}, e={len(self.edges)}, turns={len(self.turns)}, brk={len(self.dtb)}, atbrk={len(self.dtb_at)}, d={len(self.dleft)}, t={len(self.tleft)}"
         # )
@@ -607,7 +611,7 @@ class Route:
     # SMOOTH ROUTE
     # Adds turns at vertices.
     #
-    def mkSmoothRoute(self, speed: float = 10):
+    def mkSmoothRoute(self, speed: float = TURN_SPEED, radius: float = TURN_RADIUS):
         # Idea for later: turn radius depends on vehicle speed, whether aircraft or car
         def copy(v):
             return Point(v.lat, v.lon)
@@ -621,7 +625,7 @@ class Route:
         route.append(v)
         vtx[0].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, 0)  # in original route, remember index in smooth route
         for i in range(1, len(vtx) - 1):
-            turn = Turn(vertex=vtx[i], l_in=self.edges_orient[i - 1], l_out=self.edges_orient[i], radius=22, segments=36)
+            turn = Turn(vertex=vtx[i], l_in=self.edges_orient[i - 1], l_out=self.edges_orient[i], radius=radius)
             if turn.valid:
                 pts = [p[0] for p in turn.points]
                 mid = int(len(pts) / 2)
@@ -730,6 +734,7 @@ class Route:
     def srClosest(self, point: Point, cache: bool = True) -> tuple:
         closest = None
         shortest = math.inf
+        i = 0
         for i in range(len(self.smoothRoute[self.idxcache :])):
             d = distance(self.smoothRoute[i], point)
             if d < shortest:
@@ -739,6 +744,17 @@ class Route:
         if cache:
             self.idxcache = i
         return [None if closest is None else self.smoothRoute[closest], shortest]
+
+    def srClosestOnRoute(self, point: Point) -> tuple:
+        closest = -9
+        shortest = math.inf
+        for i in range(len(self.smoothRoute)):
+            d = distance(self.smoothRoute[i], point)
+            if d < shortest and closest != i - 1:
+                shortest = d
+                closest = i
+        logger.debug(f"{closest} at {round(shortest, 1)}m")
+        return [None if closest == -9 else self.smoothRoute[closest], shortest]
 
     def srAheadRoute(self, route, i: int, dist: float, start: float = 0) -> tuple:
         # move dist after start after route[i]
@@ -809,12 +825,12 @@ class Route:
         # logger.debug(f"RETURN {i}, {dist} -> {j}, {d}")
         return j, d
 
-    def srStraightRoute(self, start: Point, end: Point, heading: float):
+    def srStraightRoute(self, start: Point, end: Point, heading: float):  # should pass fmcam.detail? to get radius, speed...
         # Direct segment to join route with turn at the end towards heading
         route = [start]
         line = Line(start, end)
 
-        turn = Turn(vertex=end, l_in=line.bearing(), l_out=heading, radius=22, segments=36)
+        turn = Turn(vertex=end, l_in=line.bearing(), l_out=heading)
         if turn.valid:
             pts = [p[0] for p in turn.points]
             mid = int(len(pts) / 2)
@@ -905,7 +921,7 @@ class Route:
 
         return route
 
-    def srEnd(self, leave: Point, vanish: Point):
+    def srEnd(self, leave: Point, vanish: Point):  # should pass fmcam.detail? to get radius, speed...
         # Additional segments to quit route at end of route
         def copy(v):
             return Point(v.lat, v.lon)
@@ -920,7 +936,7 @@ class Route:
         v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
         route.append(v)
         for i in range(1, len(vtx) - 1):  # [1, 2]!
-            turn = Turn(vertex=vtx[i], l_in=edges[i - 1].bearing(), l_out=edges[i].bearing(), radius=22, segments=36)
+            turn = Turn(vertex=vtx[i], l_in=edges[i - 1].bearing(), l_out=edges[i].bearing())
             if turn.valid:
                 pts = [p[0] for p in turn.points]
                 mid = int(len(pts) / 2)
