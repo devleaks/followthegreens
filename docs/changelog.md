@@ -1,7 +1,22 @@
 
 # Current, X-Plane 12 Only
 
-- [2.2.0](https://github.com/devleaks/followthegreens/releases) - XX-XXX-2026 - Follow the greens monitors aircraft taxi speed and advise to speed up or slow down.
+- [2.3.0](https://github.com/devleaks/followthegreens/releases) - XX-XXX-2026
+
+    - Preferences can be adjusted in a file, preferences are documented.
+    - Lights are laid on a path with smoother turns, no more sharp angles.
+    - When using no rabbit and exactly 42 lights ahead, a Follow Me car guides the pilot instead of green lights.
+
+
+- [2.2.0](https://github.com/devleaks/followthegreens/releases) - 10-FEB-2026
+
+    - Follow the greens rabbit light speed and length automagically adjusted to invite pilots to speed up or slow down taxi ride.
+    - Preferences can be adjusted in a file.
+    - Runway light intensity can be adjusted, even turned off while FtG4D is running.
+    - Improved routing algorithm attempt to respect taxiway network constraints (taxiway width, one ways...).
+    - New commands to interact with FtG4D.
+    - FtG4D specific log file created to help improve the plugin in case of misbehavior.
+    - A few more goodies to be discovered inside FtG4D.
 
 
 ## Releases 2.0.0 to 2.2.0 are internal development releases
@@ -14,6 +29,7 @@
 - 2.0.2 - 06-JAN-2026 - Added aircraft ground speed monitoring and comparison to static speed.
 - 2.0.1 - 02-JAN-2026 - Added 5 commands to speed up or slow down rabbit.
 - 2.0.0 - 29-DEC-2025 - Added hooks for 4D FtG, updated README.
+
 
 # Older releases, X-Plane 11, X-Plane 12
 

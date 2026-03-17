@@ -230,6 +230,16 @@ SAY_ROUTE = True  # Print route on pop up display and speak it orally.
 LEVEL4 = 0  # ASMGCS LEVEL 4 Compliance steps (highly experimental, DO NOT CHANGE.)
 
 
+# GeoJSON IO Marker and Stroke Styles
+class GEOJSON(StrEnum):
+    MARKER = "marker"
+    MARKER_COLOR = "marker-color"
+    MARKER_SIZE = "marker-size"
+    STROKE = "stroke"
+    STROKE_WIDTH = "stroke-width"
+    STROKE_OPACITY = "stroke-opacity"
+
+
 # ################################
 # INTERNALS CONTROL
 # of aircraft movements

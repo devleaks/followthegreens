@@ -457,6 +457,11 @@ Show taxiways is a command that will illuminate all taxiways at the current airp
 Press the `OK` button in the dialog box or select the menu entry again to dismiss all lights.
 
 
+# Follow Me Car
+
+[See dedicated section here](https://devleaks.github.io/followthegreens/fmcar/).
+
+
 # Notes on Performances
 
 When inactive, FtG uses no resources.

@@ -294,7 +294,7 @@ class Airport:
             if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in apt:
                 self.distance_between_green_lights = apt[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
 
-    def fmcar(self, route) -> Cursor | None:
+    def fmcar(self, route, alternate: bool = False) -> Cursor | None:
         # fmcar should be **created** before lights are placed because
         # if fmcar, distance_between_green_lights will be hardcoded to convenient value (~10m)
         #

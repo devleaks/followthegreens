@@ -36,6 +36,7 @@ class FollowTheGreens:
     def __init__(self, pi):
         self._status = FTG_STATUS.NEW
         self.pi = pi
+        self.alternate = False
         self.airport: Airport | None = None
         self.aircraft: Aircraft | None = None
         self.lights: LightString | None = None
@@ -261,7 +262,7 @@ VERSION = "{__VERSION__}"
         # with open(filename, "w") as fp:
         #     print(toml_dumps(self.prefs))
 
-    def start(self) -> int:
+    def start(self, alternate: bool = False) -> int:
         # Toggles visibility of main window.
         # If it was simply closed for hiding, show it again as it was.
         # If it does not exist, creates it from start of process.
@@ -302,6 +303,8 @@ VERSION = "{__VERSION__}"
 
         # Info 1
         # logger.info("starting..")
+        self.alternate = alternate
+
         self.status = FTG_STATUS.START
 
         logger.debug("..reloading preferences..")
@@ -449,7 +452,7 @@ VERSION = "{__VERSION__}"
         # sets a reduced distance between lights
         new_fmcar = False
         if self.fmcar is None:
-            self.fmcar = self.airport.fmcar(route=self.route)
+            self.fmcar = self.airport.fmcar(route=self.route, alternate=self.alternate)
             new_fmcar = True
 
         onRwy = False

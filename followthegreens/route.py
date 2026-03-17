@@ -735,7 +735,8 @@ class Route:
         closest = None
         shortest = math.inf
         i = 0
-        for i in range(len(self.smoothRoute[self.idxcache :])):
+        start = self.idxcache if cache else 0
+        for i in range(len(self.smoothRoute[start:])):
             d = distance(self.smoothRoute[i], point)
             if d < shortest:
                 shortest = d
@@ -743,18 +744,25 @@ class Route:
         logger.debug(f"{closest} at {round(shortest, 1)}m")
         if cache:
             self.idxcache = i
-        return [None if closest is None else self.smoothRoute[closest], shortest]
+        return None if closest is None else self.smoothRoute[closest], shortest
 
     def srClosestOnRoute(self, point: Point) -> tuple:
-        closest = -9
-        shortest = math.inf
-        for i in range(len(self.smoothRoute)):
-            d = distance(self.smoothRoute[i], point)
-            if d < shortest and closest != i - 1:
-                shortest = d
-                closest = i
-        logger.debug(f"{closest} at {round(shortest, 1)}m")
-        return [None if closest == -9 else self.smoothRoute[closest], shortest]
+        # 360 – maximum angle + minimum angle
+        closest, dist = self.srClosest(point=point, cache=False)
+        if closest is None:
+            return None, dist
+        idx = closest.getProp(SMOOTH_ROUTE.INDEX)
+        if idx == 0:  # first
+            return closest, dist
+        if idx == (len(self.smoothRoute) - 1):  # last
+            return self.smoothRoute[-2], distance(self.smoothRoute[-2], point)
+        b1 = bearing(closest, point)
+        b2 = bearing(closest, self.smoothRoute[idx + 1])
+        trn = turn(b1, b2)
+        if abs(trn) > 175:  # opposite
+            prv = self.smoothRoute[idx - 1]
+            return prv, distance(prv, point)
+        return closest, dist
 
     def srAheadRoute(self, route, i: int, dist: float, start: float = 0) -> tuple:
         # move dist after start after route[i]
