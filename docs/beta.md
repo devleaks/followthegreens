@@ -10,7 +10,23 @@ Please DO ALSO INCLUDE the `XPPython3Log.txt` file as well as it contains Python
 (that might not prevent FtG from working).
 
 
-# Developer Mode
+# Developer Preference File
+
+For development purpose, there is a supplementary preference file located in the source code
+at convenient location:
+
+```
+followthegreens/followthegreens.prf
+```
+
+It is called the _developer preference file_,
+opposed to the regular preference file called the _user preference file_.
+
+If present, the _developer preference file_ is loaded first and the user preference file is loaded after.
+There might therefore be developer preferences that are overwritten by user preferences.
+In this case, a warning message is logged in the `ftg_log.txt` file.
+
+## Developer Mode
 
 If preference
 
@@ -18,7 +34,7 @@ If preference
 DEVELOPER_PREFERENCE_ONLY = true
 ```
 
-is set, only the developer preference file is read and NOT the user one.
+is set in the _developer preference file_, only the developer preference file is read and NOT the user one.
 It also sets a few development features, see below.
 
 
@@ -32,8 +48,9 @@ If preference
 DEVELOPER_PREFERENCE_ONLY = true
 ```
 
-is set, the Follow Me Car is working TOGETHER WITH Follow the greens (i.e. green lights are visible.)
+is set in the _developer preference file_, the Follow Me Car is working TOGETHER WITH Follow the greens (i.e. green lights are visible.)
 If not set or false (default value), Follow me car has a normal behavior.
+
 
 ## Normal Behavior
 
@@ -82,22 +99,22 @@ Two spawn modes:
 
 Spawn mode 1: Departure at rest: Car goes at start of route and moves ahead sufficiently.
 
-Spawn mode 2: Arrival or on the move: Car starts in front of car and join route sufficiently ahead, taking into account aircraft movement.
+Spawn mode 2: Arrival or on the move: Car starts in front of the aircraft (left or right)
+and join route sufficiently ahead, taking into account aircraft progress movement.
 
-Disappearance:
+Two disappearance possibilities:
 
-On departure, car drives on runway 200m,
+On departure from a runway, car drives on runway 200m,
 then turn towards where it is coming (towards origin of route) and carry on 100m.
 Then vanishes.
 (Plan is here to have the car go back to origin of route... code almost ready.)
 
-On arrival at ramp: continue 40m in the direction of the ramp, turn randomly left or right,
-continue 100m then disappear.
+On arrival at ramp: continue 40m in the direction of the ramp (last edge, whereever it points to...),
+turn randomly left or right, continue 100m then disappear.
 
 
 If you ask for new greens (on the move), it starts like Spawn mode 2.
-
-
+The car changes its direction and heads for a few meters ahead of the aircraft.
 
 
 Taxi safely

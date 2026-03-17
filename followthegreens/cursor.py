@@ -885,6 +885,15 @@ class Cursor:
         # logger.debug(f"{r}: {self.current.sr_position} {'>=' if r else '<'} {self.target.sr_position}")
         return r
 
+    def _adjustSpeeds(self):
+        MIN_ACF_SPEED = 3  # below that, we do not consider the acf moves significantly
+        if (self.current.path_length > 50.0 or self.current.path_time > 10) and not self.status != CURSOR_STATUS.FINISHING:  # adjust fmcar_speed
+            if self._acf_speed > MIN_ACF_SPEED:
+                ots = self.target.speed  # orignal target speed
+                self.target.speed = self.faster((self.target.speed + self._acf_speed) / 2)
+                # logger.debug(f"new speeds: {sf(self.start.speed, 'm/s')} -> {sf(self.target.speed, 'm/s')} (was {sf(ots, 'm/s')})")
+        # slow_debug(c=self.cnt, s=f"speeds: {sf(self.start.speed, 'm/s')} -> {sf(self.target.speed, 'm/s')}")
+
     def nextPosition(self):
         # test: self.indicator = int(self.current.time / 10) % 4
         if self.targetReached():
@@ -892,11 +901,7 @@ class Cursor:
         if self.indicator != INDICATOR.STOP:
             self.indicator = self.nextTurnIndicator(self.current.route_index)  # compute turn indicator code for turns
         dt = self.current.time - self.start.time
-        if (self.current.path_length > 50.0 or self.current.path_time > 10) and not self.status != CURSOR_STATUS.FINISHING:  # adjust fmcar_speed
-            ots = self.target.speed  # orignal target speed
-            self.target.speed = faster((self.target.speed + self._acf_speed) / 2)
-            # logger.debug(f"new speeds: {sf(self.start.speed, 'm/s')} -> {sf(self.target.speed, 'm/s')} (was {sf(ots, 'm/s')})")
-        # slow_debug(c=self.cnt, s=f"speeds: {sf(self.start.speed, 'm/s')} -> {sf(self.target.speed, 'm/s')}")
+        self._adjustSpeeds()
         r = eq2(displacement=None, initial_velocity=self.start.speed, final_velocity=self.target.speed, time=dt)
         d = r[0]
         point, hdg, idx, dist = self.route.srAheadRoute(self.current.sr_route, i=self.start.sr_position.index, start=self.start.sr_position.distance, dist=d)

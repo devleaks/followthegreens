@@ -719,7 +719,7 @@ class Route:
         route[-1].setProp(SMOOTH_ROUTE.BEARING.value, b)  # repeat last
         self.smoothRoute = route
         logger.debug(f"smooth route is {round(dist, 1)}m, has {len(self.smoothRoute)} points")
-        if logger.level <= 10:
+        if logger.level < 10:
             fn = os.path.join(os.path.dirname(__file__), "..", "ftg_smooth_route.geojson")  # _{route.route[0]}-{route.route[-1]}, {datetime.now().strftime('%M%S%f')}
             fc = FeatureCollection(features=[r.feature() for r in route])
             fc.save(fn)
