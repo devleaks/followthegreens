@@ -294,6 +294,14 @@ class Airport:
             if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in apt:
                 self.distance_between_green_lights = apt[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
 
+    def resetPreferences(self):
+        self.lights_ahead_pref = False
+        self.rabbit_length_pref = False
+        self.rabbit_speed_pref = False
+        self.distance_between_green_lights_pref = False
+        self.distance_between_taxiway_lights_pref = False
+        self.setPreferences()
+
     def fmcar(self, route, alternate: bool = False) -> Cursor | None:
         # fmcar should be **created** before lights are placed because
         # if fmcar, distance_between_green_lights will be hardcoded to convenient value (~10m)
@@ -315,8 +323,8 @@ class Airport:
             # Setting global default rather than HARDCODED_MAX_DISTANCE/0/0
             logger.info(f"no fmcar on {route.move.value} at {self.icao}")
             self.rabbit_speed = get_global(RABBIT.LIGHTS_AHEAD.value, self.prefs)
-            if self.rabbit_speed == 0:
-                self.rabbit_speed = LIGHTS_AHEAD
+            if self.lights_ahead == 0:
+                self.lights_ahead = LIGHTS_AHEAD
             self.lights_ahead_pref = True
             self.rabbit_length = get_global(RABBIT.LENGTH.value, self.prefs)
             if self.rabbit_length == 0:
@@ -347,6 +355,17 @@ class Airport:
             logger.debug(f"and lights for development (forced rabbit_speed={self.rabbit_speed} != 0)")
         self.cursor_type = CursorType(**fmcar)
         return Cursor(self.cursor_type, route)
+
+    def ensureFmcar(self):
+        self.lights_ahead = Airport.HARDCODED_MAX_DISTANCE
+        self.lights_ahead_pref = True
+        self.rabbit_length = 0
+        self.rabbit_length_pref = True
+        self.rabbit_speed = 0
+        self.rabbit_speed_pref = True
+        self.distance_between_green_lights = self.MTWYLDWC
+        self.distance_between_green_lights_pref = True
+        logger.info("use of fmcar enforced")
 
     def load(self):
         APT_FILES = {}

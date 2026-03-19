@@ -1,56 +1,13 @@
 # Follow Me Car
 
-Surface movement guidance mainly requires
+Follow the greens plugin now offers a Follow Me car as an alternative
+to guide aircrafts on the ground.
 
-- Route finding to destination
-- Route indication
-- Monitoring of current route
-
-Follow the greens does all of the above,
-proposes to find a new route if an aircraft
-runs out of its initial recommanded route.
-
-Route indication is the green lights displayed in front of the aircraft.
-And monitoring of current route is performed by detecting the light closest to the aircraft.
-
-It is not difficult to place an alternate _object_
-at the very precise position of the light closest to the aircraft.
-Or a few lights ahead of this light closest to the aircraft.
-
-This is how Follow Me Car sub project is born.
-Placing a car instead of a light at the position a few lights ahead of the light closest to the aircraft.
-
-Same core algorithms to
-
-- Route finding to destination
-- Monitoring of current route
-
-but different route indication.
-In the case of Follow the greens, all lights are lit.
-In the case of Follow Me Car, there is just an indication of
-one light ahead of the aircraft, and we replace that light
-by .. a Follow Me car.
-
-Above additions to get a Follow Me Car on top of Follow the greens development
-took just a few minutes to complete.
-
-Then came the refinements.
-
-## Refinements
-
-- Car cannot simply jump from one light position to the next,
-- Car needs to turn smoothly, realistically,
-- Car needs to accelerate or brake realistically.
-
-Finally, for simulation, car has to somehow appears when requested
-and disappear when no longer needed.
-
-The above refinements took several hours to be added
-to the Follow the green core software,
-just for the smooth movement of the car.
+To get a Follow Me car rather than green taxiway lights indication
+select Follow the car... plugin menu entry.
 
 
-# How to Get a Follow Me Car
+# Follow Me Car Preferences
 
 Follow Me Car was always considered as a joke, a side project, an accident,
 a funny addition to the core, serious, hi-tech Follow the greens.
@@ -83,8 +40,6 @@ The car will not run over the stop red lines.
 It will also wait for clearance. Just like you.*
 
 *Antique is the new Advanced.*
-
-Taxi safely
 
 
 ## Global Follow Me Car

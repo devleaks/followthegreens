@@ -6,6 +6,7 @@
 #
 import math
 import json
+from enum import StrEnum
 
 # Geology constants
 R = 6371000  # Radius of third rock from the sun, in metres
@@ -14,6 +15,16 @@ EARTH = 39940653000  # Earth circumference, in meter :-)
 # Imperial units
 FT = 12 * 0.0254  # 1 FOOT = 12 INCHES
 NAUTICAL_MILE = 1.852  # Nautical mile in meters 6076.118ft=1nm
+
+
+# GeoJSON IO Marker and Stroke Styles
+class GEOJSON(StrEnum):
+    MARKER = "marker"
+    MARKER_COLOR = "marker-color"
+    MARKER_SIZE = "marker-size"
+    STROKE = "stroke"
+    STROKE_WIDTH = "stroke-width"
+    STROKE_OPACITY = "stroke-opacity"
 
 
 def toNm(m):
@@ -125,8 +136,8 @@ class Point(Feature):
         self.lon = float(lon)
         self.alt = float(alt)
         # self.properties["marker"] = None
-        self.properties["marker-color"] = "#aaaaaa"
-        self.properties["marker-size"] = "medium"
+        self.properties[GEOJSON.MARKER_COLOR.value] = "#aaaaaa"
+        self.properties[GEOJSON.MARKER_SIZE.value] = "medium"
 
     def coords(self, lonLat: bool = False) -> list:
         if lonLat:
@@ -145,7 +156,7 @@ class Line(Feature):
         self.end = end
         self._bearing = bearing(self.start, self.end)
         self._length = distance(self.start, self.end)
-        self.properties["stroke"] = "#aaaaaa"
+        self.properties[GEOJSON.STROKE.value] = "#aaaaaa"
         self.properties["strokeWidth"] = 1
         self.properties["strokeOpacity"] = 1
 
@@ -182,7 +193,7 @@ class LineString(Feature):
         Feature.__init__(self)
         self.geomType = "LineString"
         self.points = points
-        self.properties["stroke"] = "#aaaaaa"
+        self.properties[GEOJSON.STROKE.value] = "#aaaaaa"
         self.properties["strokeWidth"] = 1
         self.properties["strokeOpacity"] = 1
 
@@ -205,7 +216,7 @@ class Polygon(Feature):
         Feature.__init__(self)
         self.geomType = "Polygon"
         self.coordinates = p  # List[Point]
-        self.properties["stroke"] = "#aaaaaa"
+        self.properties[GEOJSON.STROKE.value] = "#aaaaaa"
         self.properties["strokeWidth"] = 1
         self.properties["strokeOpacity"] = 1
 
@@ -347,160 +358,8 @@ def pointInPolygon(point, polygon):
     return inside
 
 
-#
-# Functions to smooth turns
-#
-#
-debugFeature = []
-
-
-def debugF(f, n, c=None):
-    f.setProp("name", n)
-    if c:
-        f.setProp("stroke", c)
-        f.setProp("marker-color", c)
-    debugFeature.append(f)
-
-
-def extendLine(line, dist):
-    # Extends a line in each direction by distance meters
-    brng = bearing(line.start, line.end)
-    far0 = destination(line.end, brng, dist)
-    far1 = destination(line.start, brng + 180, dist)
-    return Line(Point(far0.lat, far0.lon), Point(far1.lat, far1.lon))
-
-
-def lineOffset(line, offset):
-    # Returns a line parallel to supplied line at offset meter distance.
-    # Offset should be small (< 10km). Negative offset puts the line
-    # on the other side.
-    brng = bearing(line.start, line.end)
-    if offset > 0:
-        brng -= 90
-    else:
-        brng += 90
-    d = abs(offset)
-    far0 = destination(line.start, brng, d)
-    far1 = destination(line.end, brng, d)
-    return Line(Point(far0.lat, far0.lon), Point(far1.lat, far1.lon))
-
-
-def lineArc(center, radius, bearing1, bearing2, steps=36):
-    # Make a linestring arc from bearing1 to bearing2, centered on center, of radius radius.
-    # Angle step size set to 360/steps.
-    # Label first half of arc with idx, second half with idx+1.
-    angle1 = convertAngleTo360(bearing1)
-    angle2 = convertAngleTo360(bearing2)
-
-    arcStartDegree = angle1
-    arcEndDegree = angle2 + 360
-    if angle1 < angle2:
-        arcEndDegree = angle2
-
-    coordinates = []
-    rot = 360 / steps
-    alfa = arcStartDegree
-    while alfa < arcEndDegree:
-        coordinates.append(destination(center, alfa, radius))
-        alfa += rot
-
-    if alfa > arcEndDegree:
-        coordinates.append(destination(center, arcEndDegree, radius))
-
-    return coordinates
-
-
-def arcCenter(l0, l1, radius):
-    # returns arc center, always "inside" both lines l0 and l1
-    b_in = bearing(l0.start, l0.end)
-    b_out = bearing(l1.start, l1.end)
-    turnAngle = turn(b_in, b_out)
-    oppositeTurnAngle = turn(b_out, b_in)
-    l0b = lineOffset(l0, sign(turnAngle) * radius)  # offset line is always on right side of line
-    l1b = lineOffset(l1, sign(oppositeTurnAngle) * radius)
-    return lineintersect(l0b, l1b)
-
-
-def mkTurn(l0, l1, radius, idx, step=36):
-    # returns a collection of point, from l0[0] to l1[1]
-    # with an arc to smoothly turn from l0 to l1.
-    b_in = bearing(l0.start, l0.end)
-    b_out = bearing(l1.start, l1.end)
-    turnAngle = turn(b_in, b_out)
-    oppositeTurnAngle = turn(b_out, b_in)
-
-    l0e = extendLine(l0, 500)  # meters
-    l1e = extendLine(l1, 500)
-    cross = lineintersect(l0e, l1e)
-    if not cross:
-        return None
-
-    if idx == 0:
-        debugF(l0, "l0:%d" % idx, "#000000")
-
-    debugF(l1, "l0:%d" % idx, "#000000")
-    # arc center
-    l0b = lineOffset(l0e, sign(oppositeTurnAngle) * radius)
-    # debugF(l0b, "l0b:%d"%idx, "#ff0000")
-    l1b = lineOffset(l1e, sign(oppositeTurnAngle) * radius)
-    # debugF(l1b, "l0e:%d"%idx, "#00ff00")
-    center = lineintersect(l0b, l1b)
-    if not center:
-        return None
-    # debugF(center, "intersect:%d"%idx, "#888800")
-
-    # arc
-    arc0, arc1 = (0, 0)
-    if turnAngle > 0:
-        arc0 = b_out + 90
-        arc1 = b_in + 90
-    else:
-        arc0 = b_in - 90
-        arc1 = b_out - 90
-    arc = lineArc(center, radius, arc0, arc1, step)  # steps
-
-    if turnAngle > 0:
-        # reverse coordinates order
-        arc.reverse()
-
-    # add reference to orignal line
-    mid = int(len(arc) / 2)
-    for i in range(len(arc)):
-        if i <= mid:
-            arc[i].setProp("lsidx", idx)
-        else:
-            arc[i].setProp("lsidx", idx + 1)
-
-    return arc
-
-
-def smoothTurns(ls, radius=60, steps=36):
-    # From line string (collection of Points), returns a new line string (collection of Points)
-    # with each turn smoothed.
-    # We _try_ to carry some properties over from original line string to smoothed one.
-    # @todo: should remove/ignore segments that are smaller than 2 * radius.
-    newls = []
-    ls[0].setProp("lsidx", 0)
-    newls.append(ls[0])  # first point
-
-    for i in range(1, len(ls) - 1):
-        l0 = Line(ls[i - 1], ls[i])
-        l0.setProp("lsidx", i - 1)
-        l1 = Line(ls[i], ls[i + 1])
-        l1.setProp("lsidx", i)
-        arc = mkTurn(l0, l1, radius, i - 1, steps)
-        if arc:
-            newls += arc
-        else:
-            newls.append(ls[i])
-
-    ls[-1].setProp("lsidx", len(ls) - 2)
-    newls.append(ls[-1])  # last point
-
-    return newls
-
-
 def dot(vector_1: list, vector_2: list) -> float:
+    # dot product 2 vectors
     return sum(x * y for x, y in zip(vector_1, vector_2))
 
 
@@ -518,15 +377,3 @@ def distanceToLine(point: Point, segment_start: Point, segment_end: Point):
     else:
         dist = distance(point, point_2)
     return dist
-
-
-def turnRadius(speed: float, radius: float = 10) -> float:
-    # supply a turn radius for a "regular" car, not an aircaft
-    # speed in m/s
-    if speed < 8:  # 30km/h
-        return radius
-    if speed < 15:  # 54km/h
-        return radius * 1.5
-    if speed < 25:  # 90km/h
-        return radius * 2
-    return radius * 3

@@ -18,7 +18,7 @@ FINISH_TEXT = "Finish"
 CLEARANCE_TEXT = "Clearance received"
 CANCELSHORT_TEXT = "Cancel"
 CONTINUE_TEXT = "Continue"
-IAMLOST_TEXT = "New green please"
+IAMLOST_TEXT = "New greens please"
 NEWDEST_TEXT = "New destination"
 
 
@@ -70,7 +70,7 @@ class UIUtil:
             self.wRight,
             self.wBottom,
             0,
-            "Follow the greens",
+            f"Follow the {self.ftg.thing}",
             1,
             0,
             xp.WidgetClass_MainWindow,
@@ -227,7 +227,7 @@ class UIUtil:
         prompt = "Please enter this airport ICAO code"
         widgetWindow = self.window(
             ["Welcome. We could not find the airport where you are located.", prompt],
-            {"Follow the greens": self.cbAirport, CANCELSHORT_TEXT: self.cbCancel},
+            {f"Follow the {self.ftg.thing}": self.cbAirport, CANCELSHORT_TEXT: self.cbCancel},
         )
 
         left = self.linetops[1][1] + 10
@@ -285,7 +285,7 @@ class UIUtil:
                 prompt,
                 "Click inside the text box and use UP and DOWN arrow to cycle through values.",
             ],
-            {"Follow the greens": self.cbDestination, CANCELSHORT_TEXT: self.cbCancel},
+            {f"Follow the {self.ftg.thing}": self.cbDestination, CANCELSHORT_TEXT: self.cbCancel},
         )
 
         left = self.linetops[1][1] + 10
@@ -319,12 +319,12 @@ class UIUtil:
 
     def followTheGreen(self):
         logger.debug("show follow the greens")
-        btns = {CANCEL_TEXT: self.cbCancel}
+        btns = {CANCEL_TEXT.replace("greens", self.ftg.thing): self.cbCancel}
         if self.dest:
-            btns[IAMLOST_TEXT] = self.cbNewGreen
+            btns[IAMLOST_TEXT.replace("greens", "route" if self.ftg.alternate else "route")] = self.cbNewGreen
         return self.window(
             [
-                "Follow the greens.",
+                f"Follow the {self.ftg.thing}.",
                 "(You can close this window with the little x in the above window title bar.)",
             ],
             btns,
@@ -335,14 +335,14 @@ class UIUtil:
         # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
         btns = {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel}
         if self.dest:
-            btns[IAMLOST_TEXT] = self.cbNewGreen
+            btns[IAMLOST_TEXT.replace("greens", "route" if self.ftg.alternate else "route")] = self.cbNewGreen
         self.waiting_for_clearance = True
         dst = f" to {destination}" if destination != "" else ""
         return self.window(
             intro
             + [
                 self.ftg.situation(),
-                f"Follow the greens{dst} until you encounter red stop lights across the taxiway.",
+                f"Follow the {self.ftg.thing}{dst} until you encounter red stop lights across the taxiway.",
                 "At the stop lights, contact ATC for clearance. Press Clearance received when cleared.",
             ],
             btns,
@@ -351,9 +351,9 @@ class UIUtil:
     def tryAgain(self, text):
         logger.debug("prompt to try again")
         # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
-        btns = {NEWDEST_TEXT: self.cbNewDestination, CANCEL_TEXT: self.cbCancel}
+        btns = {NEWDEST_TEXT: self.cbNewDestination, CANCEL_TEXT.replace("greens", self.ftg.thing): self.cbCancel}
         if self.dest:
-            btns[IAMLOST_TEXT] = self.cbNewGreen
+            btns[IAMLOST_TEXT.replace("greens", "route" if self.ftg.alternate else "route")] = self.cbNewGreen
         return self.window(
             [
                 "We could not find a route to your destination.",
@@ -368,11 +368,11 @@ class UIUtil:
         self.waiting_for_clearance = True
         btns = {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel}
         if self.dest:
-            btns[IAMLOST_TEXT] = self.cbNewGreen
+            btns[IAMLOST_TEXT.replace("greens", "route" if self.ftg.alternate else "route")] = self.cbNewGreen
         return self.window(
             [
                 self.ftg.situation(),
-                "Follow the greens until you encounter red stop lights across the taxiway",
+                f"Follow the {self.ftg.thing} until you encounter red stop lights across the taxiway",
                 "before departure runway.",
                 "Contact ATC, press Clearance received when cleared for runway.",
             ],
@@ -383,12 +383,12 @@ class UIUtil:
         logger.debug("invite to ftg to parking")
         btns = {CONTINUE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel}
         if self.dest:
-            btns[IAMLOST_TEXT] = self.cbNewGreen
+            btns[IAMLOST_TEXT.replace("greens", "route" if self.ftg.alternate else "route")] = self.cbNewGreen
         # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
         return self.window(
             [
                 self.ftg.situation(),
-                f"Follow the greens to the parking stand {destination}.",
+                f"Follow the {self.ftg.thing} to the parking stand {destination}.",
                 "Press Continue when parked.",
             ],
             btns,
@@ -420,7 +420,7 @@ class UIUtil:
         logger.info(f"showing sorry ({message})")
         return self.window(
             [
-                "We are sorry. We cannot provide Follow the greens service at this airport.",
+                f"We are sorry. We cannot provide Follow the {self.ftg.thing} service at this airport.",
                 message,
             ],
             {CLOSE_TEXT: self.cbClose},

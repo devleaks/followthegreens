@@ -3,6 +3,8 @@ from dataclasses import dataclass, fields
 from datetime import datetime
 from enum import StrEnum
 
+from followthegreens.route import SMOOTH_ROUTE
+
 from .oned import eq2
 
 try:
@@ -37,7 +39,7 @@ def st(t: float) -> float:
     d = datetime.fromtimestamp(t)
     d = d.replace(hour=d.hour - 2, minute=0, second=0, microsecond=0)
     t0 = d.timestamp()
-    return round(t - t0, 3)
+    return datetime.fromtimestamp(t).strftime("%M:%S.%f")  # round(t - t0, 3)
 
 
 def sf(t: float, unit: str = "") -> str:
@@ -75,7 +77,7 @@ class CursorType:
     acceleration: float = 1.0  # m/s^2, same deceleration
     deceleration: float = -1.0  # m/s^2, same deceleration
 
-    indicator_warning_distance: float = 50.0  # m
+    indicator_warning_distance: float = 70.0  # m
 
     def __str__(self):
         """Returns a string containing only the non-default field values."""
@@ -689,6 +691,7 @@ class Cursor:
 
     def set_start(self) -> bool:
         # copy start values from current at start of new future()
+        # we'll measure progress from start to current, up to target
         self.start.time = self.current.time
         self.start.position = self.current.position
         self.start.heading = self.current.heading
@@ -702,7 +705,9 @@ class Cursor:
         return True
 
     def set_current(self) -> bool:
-        # adjust current from target depending on "cases" (on route/off route, etc.)
+        # adjust current values from target depending on "cases" (on route/off route, etc.)
+        # that way we are sure we reached requested target
+        # this is called when we think we have reach the path target
         if self._set_current:
             return False
         logger.debug(f"setting current.. {self.current}")
@@ -722,9 +727,9 @@ class Cursor:
                     self.current.vertex = self.route.vertices[self.target.end[0]]
                     # we are a little bit further on the route
                     self.current.distance_on_edge = distance(self.current.vertex, self.current.position)
-                    # onridx, onrdist = self.route.closestOnRoute(self.current.position)
-                    # self.current.sr_position = OnRoute(onridx, onrdist)
-                    self.current.sr_position = OnRoute(*self.route.srEquiv(i=self.current.route_index, dist=self.current.distance_on_edge))
+                    onridx, onrdist = self.route.srClosestOnRoute(self.current.position)
+                    self.current.sr_position = OnRoute(onridx, onrdist)
+                    # self.current.sr_position = OnRoute(*self.route.srEquiv(i=self.current.route_index, dist=self.current.distance_on_edge))
                     logger.debug(f"adjustments because end of turn reached {sf(self.current.distance_on_edge, 'm')}")
                     # self.current.sr_position = self.target.sr_end  # should be the case...
                     logger.log(8, f"control: {sf(distance(self.current.position, self.route.srDestination(self.current.route_index, self.current.distance_on_edge)), 'm')}")
@@ -785,6 +790,7 @@ class Cursor:
 
     def set_target(self, target: Situation) -> bool:
         # set new target from future()
+        # perform a few checks before accepting target
         logger.log(8, f"current {self.current.comment}")
         logger.debug(f"setting target {target.comment}..")
         # logger.debug(f"target sr_position {target.sr_end}")
@@ -826,7 +832,7 @@ class Cursor:
             self.current.distance_on_edge = 0
             # logger.debug(f"direct path, need to travel {round(self.path_length, 1)}m in {round(self.path_time, 1)}")
             current.sr_route = self.route.srStraightRoute(start=current.position, end=target.position, heading=target.heading)
-            target.sr_position = OnRoute(len(current.sr_route) - 2, current.sr_route[-1].getProp("srDistance"))
+            target.sr_position = OnRoute(len(current.sr_route) - 2, current.sr_route[-1].getProp(SMOOTH_ROUTE.DISTANCE.value))
             # or target.sr_position = OnRoute(len(target.sr_route)-1, 0)
             logger.debug(f"not on route, srEquiv direct route on custom smooth route -> {target.sr_position} (end={target.sr_end})")
         # CASE 2: WE ARE ON THE ROUTE
@@ -899,15 +905,19 @@ class Cursor:
         # Please note: Only speed is adjusted, not target end time.
         #
         MIN_ACF_SPEED = 3  # below that, we do not consider the acf moves significantly
-        if (self.current.path_length > 50.0 or self.current.path_time > 10) and not self.status != CURSOR_STATUS.FINISHING:  # adjust fmcar_speed
+        if (self.current.path_length > 50.0 or self.current.path_time > 10) and self.status != CURSOR_STATUS.FINISHING:  # adjust fmcar_speed
             if self._acf_speed > MIN_ACF_SPEED:
-                # ots = self.target.speed  # orignal target speed, for debugging purpose
+                ots = self.target.speed  # orignal target speed, for debugging purpose
+                self.current.speed = self.faster((self.current.speed + self.target.speed) / 2)  # speeds avg
                 self.target.speed = self.faster((self.target.speed + self._acf_speed) / 2)  # speeds avg
                 # We could use this to update target time:
                 # r = eq2(displacement=self.current.path_length, initial_velocity=self.current.speed, final_velocity=self.target.speed, time=None)
                 # self.current.path_time = r[3]
                 # self.target.time = self.start.time + self.current.path_time
-                # logger.debug(f"new speeds: {sf(self.start.speed, 'm/s')} -> {sf(self.target.speed, 'm/s')} (was {sf(ots, 'm/s')})")
+                if abs(ots - self.target.speed) > 1:  # minimize logging
+                    logger.debug(
+                        f"new speeds: car={sf(self.current.speed, 'm/s')}, acf={sf(self._acf_speed, 'm/s')}: curr={sf(self.start.speed, 'm/s')} -> target={sf(self.target.speed, 'm/s')} (was {sf(ots, 'm/s')})"
+                    )
         # slow_debug(c=self.cnt, s=f"speeds: {sf(self.start.speed, 'm/s')} -> {sf(self.target.speed, 'm/s')}")
 
     def nextPosition(self):
@@ -1088,8 +1098,8 @@ class Cursor:
         self.route = route
         self.status = CURSOR_STATUS.ACTIVE
         logger.debug("..return route installed..")
-        length = route.route[-1].getProp("srTotalDistance")
+        length = route.route[-1].getProp(SMOOTH_ROUTE.TOTAL.value)
         speed = self.adjustedSpeed()
         tt = ts() + length / speed
-        self.future_index(edge=route.route[-1].getProp("srRevIndex"), dist=length, speed=0.0, t=tt)
+        self.future_index(edge=route.route[-1].getProp(SMOOTH_ROUTE.REVERSE_INDEX.value), dist=length, speed=0.0, t=tt)
         logger.debug("return route programmed")

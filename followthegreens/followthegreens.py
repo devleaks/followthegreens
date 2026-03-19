@@ -262,14 +262,20 @@ VERSION = "{__VERSION__}"
         # with open(filename, "w") as fp:
         #     print(toml_dumps(self.prefs))
 
+    @property
+    def thing(self) -> str:
+        # f"{ftg.things}"
+        return "car" if self.alternate else "greens"
+
     def start(self, alternate: bool = False) -> int:
         # Toggles visibility of main window.
         # If it was simply closed for hiding, show it again as it was.
         # If it does not exist, creates it from start of process.
         if self.status == FTG_STATUS.NEW:
             self.init()
+
         # if self.status = ACTIVE:
-        logger.debug(f"current status: {self.status}, ui={self.ui.mainWindowExists()}")
+        logger.debug(f"current status: {self.status}, ui={self.ui.mainWindowExists()}, alt={self.alternate}")
         if self.ui.mainWindowExists():
             logger.debug(f"mainWindow exists, changing visibility {self.ui.isMainWindowVisible()}")
             # @todo? Widget was hidden, it is popped up again;
@@ -449,6 +455,11 @@ VERSION = "{__VERSION__}"
         ahr = self.aircraft.aheadRange()
         logger.info(f"environment at {now}: day={day}, visibility={round(viz, 0)}m, brt={brt}, vra={ahr}m")
 
+        #
+        self.airport.resetPreferences()  # necessary if a previous session requested a car
+        if self.alternate:
+            self.airport.ensureFmcar()
+
         # sets a reduced distance between lights
         new_fmcar = False
         if self.fmcar is None:
@@ -493,8 +504,8 @@ VERSION = "{__VERSION__}"
         logger.info("flightloop started")
 
         # Hint: distance and heading to first light
-        intro = f"Follow the greens to {destination}"
-        speak = f"Follow the greens to {phonetic(destination)}"
+        intro = f"Follow the {self.thing} to {destination}"
+        speak = f"Follow the {self.thing} to {phonetic(destination)}"
         intro_arr = []
         if SAY_ROUTE:
             rt = self.route.text()
@@ -508,8 +519,12 @@ VERSION = "{__VERSION__}"
         if initdiff > 20 or initdist > 200:
             dist_str = " ".join(f"{int(initdist):d}")
             hdg_str = " ".join(f"{int(initbrgn):03d}")
-            intro_arr.append(f"Start is at about {int(initdist):d} meters heading {int(initbrgn):03d}.")
-            speak = speak + f" Start is at about {phonetic(dist_str)} meters heading {phonetic(hdg_str)}."
+            if self.alternate:
+                intro_arr.append("Follow me car is in front of you.")
+                speak = speak + "Follow me car is in front of you."
+            else:
+                intro_arr.append(f"Start is at about {int(initdist):d} meters heading {int(initbrgn):03d}.")
+                speak = speak + f" Start is at about {phonetic(dist_str)} meters heading {phonetic(hdg_str)}."
         logger.debug(" ".join(intro_arr))
         xp.speakString(speak)
 

@@ -8,6 +8,7 @@ import math
 from functools import reduce
 
 from .geo import (
+    GEOJSON,
     Point,
     Line,
     Polygon,
@@ -39,18 +40,18 @@ class Vertex(Point):  ## Vertex(Point)
         self.setProp("vid", node)  # vertex id
 
     def props(self):
-        self.setProp("marker-color", "#888888")  # “dest”, “init”, “both” or “junc”
+        self.setProp(GEOJSON.MARKER_COLOR.value, "#888888")  # “dest”, “init”, “both” or “junc”
         if self.usage == "dest":
-            self.setProp("marker-color", "#00aa00")
+            self.setProp(GEOJSON.MARKER_COLOR.value, "#00aa00")
         elif self.usage == "init":
-            self.setProp("marker-color", "#aa0000")
+            self.setProp(GEOJSON.MARKER_COLOR.value, "#aa0000")
         elif self.usage == "both":
-            self.setProp("marker-color", "#0000aa")
+            self.setProp(GEOJSON.MARKER_COLOR.value, "#0000aa")
 
         self.setProp("id", self.id)
         self.setProp("use", self.usage)
         self.setProp("name", self.name)
-        self.setProp("marker-size", "small")
+        self.setProp(GEOJSON.MARKER_SIZE.value, "small")
         return self.properties
 
     def add_neighbor(self, neighbor, weight=0):
@@ -117,23 +118,23 @@ class Edge(Line):
 
     def props(self):
         props = self.properties
-        props["stroke"] = "#000080"  # “taxiway”, “runway”, runway dark blue
-        props["stroke-width"] = 5
-        props["stroke-opacity"] = 1
+        props[GEOJSON.STROKE.value] = "#000080"  # “taxiway”, “runway”, runway dark blue
+        props[GEOJSON.STROKE_WIDTH.value] = 5
+        props[GEOJSON.STROKE_OPACITY.value] = 1
         if self.usage[0:4] == "taxi":
-            props["stroke-width"] = 3
-            props["stroke"] = "#f0f080"  # yellowish
+            props[GEOJSON.STROKE_WIDTH.value] = 3
+            props[GEOJSON.STROKE.value] = "#f0f080"  # yellowish
 
             if self.has_active(TAXIWAY_ACTIVE.ARRIVAL):
-                props["stroke"] = "#00f000"  # green
+                props[GEOJSON.STROKE.value] = "#00f000"  # green
             if self.has_active(TAXIWAY_ACTIVE.DEPARTURE):
-                props["stroke"] = "#0000F0"  # blue
+                props[GEOJSON.STROKE.value] = "#0000F0"  # blue
             if self.has_active(TAXIWAY_ACTIVE.ILS):
-                props["stroke"] = "#ff0000"  # red
+                props[GEOJSON.STROKE.value] = "#ff0000"  # red
 
         if self.direction == TAXIWAY_DIRECTION.ONEWAY:
-            props["stroke"] = "#00dd00"
-            props["stroke-width"] = 1
+            props[GEOJSON.STROKE.value] = "#00dd00"
+            props[GEOJSON.STROKE_WIDTH.value] = 1
             props["stroke-style"] = "dashed"
 
         # Meta

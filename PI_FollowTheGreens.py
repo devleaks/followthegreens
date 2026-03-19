@@ -21,8 +21,8 @@ from followthegreens import (
     ShowTaxiways,
     RABBIT_MODE,
     FTG_PLUGIN_ROOT_PATH,
-    FTG_HUD_DESC,
     FTG_HUD,
+    FTG_HUD_DESC,
     FTG_CANCEL_COMMAND,
     FTG_CANCEL_COMMAND_DESC,
     FTG_OK_COMMAND,
@@ -35,11 +35,14 @@ from followthegreens import (
     FTG_SPEED_COMMAND_DESC,
     FTG_COMMAND,
     FTG_COMMAND_DESC,
+    FTC_COMMAND,
+    FTC_COMMAND_DESC,
     FTG_BOOKMARK_COMMAND,
     FTG_BOOKMARK_COMMAND_DESC,
     FTG_NEWGREENS_COMMAND,
     FTG_NEWGREENS_COMMAND_DESC,
     FTG_MENU,
+    FTC_MENU,
     STW_COMMAND,
     STW_COMMAND_DESC,
     STW_MENU,
@@ -47,7 +50,6 @@ from followthegreens import (
 
 # Produces additional debugging information in XPPython3Log.txt file if set to True
 SHOW_TRACE = False
-USE_HUD = True
 
 
 class PythonInterface:
@@ -69,6 +71,7 @@ class PythonInterface:
 
         # 1. Follow The Greens
         self.menuIdx = None
+        self.menuIdx2 = None
         self.CmdRefs = {}
         self.followTheGreensCmdRef = None
         self.clearanceCmdRef = None
@@ -83,6 +86,7 @@ class PythonInterface:
 
         self.commands = {  # {cmd: desc, callback}
             FTG_COMMAND: [FTG_COMMAND_DESC, self.followTheGreensCmd],
+            FTC_COMMAND: [FTC_COMMAND_DESC, self.followTheCarCmd],
             FTG_CLEARANCE_COMMAND: [
                 FTG_CLEARANCE_COMMAND_DESC,
                 self.clearanceCmd,
@@ -109,7 +113,7 @@ class PythonInterface:
                 self.rabbitModeAuto,
             ]
         }
-        if USE_HUD:
+        if FTG_HUD is not None:
             self.commands = self.commands | {
                 FTG_HUD: [FTG_HUD_DESC, self.hudToggle],
             }
@@ -151,6 +155,12 @@ class PythonInterface:
             self.debug("XPluginStart: menu not added")
         else:
             self.debug(f"XPluginStart: menu item «{FTG_MENU}» added (index {self.menuIdx})")
+
+        self.menuIdx2 = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), FTC_MENU, self.CmdRefs[FTC_COMMAND])
+        if self.menuIdx is None or (self.menuIdx is not None and self.menuIdx < 0):
+            self.debug("XPluginStart: menu not added")
+        else:
+            self.debug(f"XPluginStart: menu item «{FTC_MENU}» added (index {self.menuIdx2})")
 
         if STW_MENU is not None:
             self.menuIdx_st = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), STW_MENU, self.CmdRefs[STW_COMMAND])
@@ -243,6 +253,14 @@ class PythonInterface:
         else:
             self.debug(f"XPluginStop: menu item «{FTG_MENU}» not removed (index {oldidx})")
 
+        oldidx = self.menuIdx2
+        if self.menuIdx2 is not None and self.menuIdx2 >= 0:
+            xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx2)
+            self.menuIdx2 = None
+            self.debug(f"XPluginStop: menu item «{FTC_MENU}» removed (index was {oldidx})")
+        else:
+            self.debug(f"XPluginStop: menu item «{FTC_MENU}» not removed (index {oldidx})")
+
         if self.isRunningRef is not None:  # and self.isRunningRef > 0?
             xp.unregisterDataAccessor(self.isRunningRef)
             xp.unregisterDataAccessor(self.getIndicatorRef)
@@ -266,7 +284,7 @@ class PythonInterface:
     def XPluginEnable(self):
         self.debug("XPluginEnable: enabling..", force=True)
 
-        if USE_HUD:
+        if FTG_HUD is not None:
             xp.registerDrawCallback(self.hud)
 
         try:
@@ -325,7 +343,7 @@ class PythonInterface:
 
         # 2. Follow The Greens
         try:
-            if USE_HUD:
+            if FTG_HUD is not None:
                 xp.unregisterDrawCallback(self.hud)
 
             if self.enabled and self.followTheGreens:
@@ -446,38 +464,44 @@ class PythonInterface:
 
         return 0
 
-    def followTheGreensCmd(self, commandRef, phase: int, refCon: Any):
+    def _followTheGreensCmd(self, commandRef, phase: int, refCon: Any, alternate: bool = False):
         # pylint: disable=unused-argument
         if not self.enabled:
-            self.debug("followTheGreensCmd: not enabled", force=True)
+            self.debug("_followTheGreensCmd: not enabled", force=True)
             return 0
 
         if not self.followTheGreens:
             try:
                 self.followTheGreens = FollowTheGreens(self)
-                self.debug("followTheGreensCmd: created")
+                self.debug("_followTheGreensCmd: created")
             except:
-                self.debug("followTheGreensCmd: exception at creation", force=True)
+                self.debug("_followTheGreensCmd: exception at creation", force=True)
                 print_exc()
                 return 0
 
         if self.followTheGreens and phase == 0:
-            self.debug("followTheGreensCmd: available")
+            self.debug("_followTheGreensCmd: available")
             try:
-                self.followTheGreens.start()
-                self.debug("followTheGreensCmd: started")
+                self.followTheGreens.start(alternate=alternate)
+                self.debug("_followTheGreensCmd: started")
                 return 1
             except:
-                self.debug("followTheGreensCmd: exception", force=True)
+                self.debug("_followTheGreensCmd: exception", force=True)
                 print_exc()
                 return 0
         elif not self.followTheGreens:
             self.debug(
-                "followTheGreensCmd: Error: could not create FollowTheGreens",
+                "_followTheGreensCmd: Error: could not create FollowTheGreens",
                 force=True,
             )
 
         return 0
+
+    def followTheGreensCmd(self, commandRef, phase: int, refCon: Any):
+        return self._followTheGreensCmd(commandRef=commandRef, phase=phase, refCon=refCon, alternate=False)
+
+    def followTheCarCmd(self, commandRef, phase: int, refCon: Any):
+        return self._followTheGreensCmd(commandRef=commandRef, phase=phase, refCon=refCon, alternate=True)
 
     def showTaxiwaysCmd(self, commandRef, phase: int, refCon: Any):
         # pylint: disable=unused-argument

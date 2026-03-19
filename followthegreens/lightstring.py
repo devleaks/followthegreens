@@ -12,7 +12,7 @@ try:
 except ImportError:
     print("X-Plane not loaded")
 
-from .geo import Point, FeatureCollection, distance, bearing, destination, convertAngleTo360, pointInPolygon
+from .geo import GEOJSON, FeatureCollection, Point, distance, bearing, destination, convertAngleTo360, pointInPolygon
 from .globals import (
     TAXIWAY_DIRECTION,
     logger,
@@ -523,8 +523,8 @@ class LightString:
         # Lights
         i = 0
         for light in self.lights:
-            light.position.setProp("marker-color", "#00ff00")
-            light.position.setProp("marker-size", "small")
+            light.position.setProp(GEOJSON.MARKER_COLOR.value, "#00ff00")
+            light.position.setProp(GEOJSON.MARKER_SIZE.value, "small")
             light.position.setProp("edgeIndex", light.edgeIndex)
             light.position.setProp("distFromEdgeStart", round(light.distFromEdgeStart, 2))
             light.position.setProp("distToEdgeEnd", round(light.distToEdgeEnd, 2))
@@ -535,8 +535,8 @@ class LightString:
         # Stop lights
         for sb in self.stopbars:
             for light in sb.lights:
-                light.position.setProp("marker-color", "#ff0000")
-                light.position.setProp("marker-size", "small")
+                light.position.setProp(GEOJSON.MARKER_COLOR.value, "#ff0000")
+                light.position.setProp(GEOJSON.MARKER_SIZE.value, "small")
                 light.position.setProp("lightStringIndex", sb.lightStringIndex)
                 light.position.setProp("lightBarIndex", light.edgeIndex)
                 fc.append(light.position.feature())

@@ -19,7 +19,7 @@ from .globals import (
     ROUTING_ALGORITHM,  # not open as a preference "yet"
     ROUTING_ALGORITHMS,
 )
-from .geo import FeatureCollection, Point, Line, destination, distance, bearing, turn
+from .geo import GEOJSON, FeatureCollection, Point, Line, destination, distance, bearing, turn
 
 SYSTEM_DIRECTORY = "."
 
@@ -212,11 +212,11 @@ class Route:
             v.setProp("tobrake", self.dtb[i])
             v.setProp("tobrake_index", self.dtb_at[i])
             f = v.feature()
-            f["properties"]["marker-size"] = "medium"
+            f["properties"][GEOJSON.MARKER_SIZE.value] = "medium"
             if abs(self.turns[i]) > TURN_LIMIT:
-                f["properties"]["marker-color"] = "#006600"  # dark green
+                f["properties"][GEOJSON.MARKER_COLOR.value] = "#006600"  # dark green
             else:
-                f["properties"]["marker-color"] = "#00AA00"  # green
+                f["properties"][GEOJSON.MARKER_COLOR.value] = "#00AA00"  # green
             features.append(f)
             e = self.graph.get_edge(self.route[i], self.route[i + 1])
             e.setProp("index", i)
@@ -632,7 +632,7 @@ class Route:
                 idx = len(route)
                 for p in pts[0:mid]:  # tag half turn with original route index
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i - 1)
-                    p.setProp("marker-color", "#DDDDDD")  # light grey
+                    p.setProp(GEOJSON.MARKER_COLOR.value, "#DDDDDD")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                     p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))  # also an indication that this point is part of the turn
                     p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
@@ -642,14 +642,14 @@ class Route:
                 vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
                 for p in pts[mid:]:  # tag second half turn with original next route index
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
-                    p.setProp("marker-color", "#DDDDDD")  # light grey
+                    p.setProp(GEOJSON.MARKER_COLOR.value, "#DDDDDD")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                     p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
                     p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
                     p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                     p.setProp(SMOOTH_ROUTE.REFERENCE_VERTEX.value, self.route[i])
                     idx += 1
-                pts[mid].setProp("marker-color", "#FFDDDD")  # light grey different
+                pts[mid].setProp(GEOJSON.MARKER_COLOR.value, "#FFDDDD")  # light grey different
                 route += pts
             else:
                 t = min(Turn.SMALL_TURN_TANGENT, self.edges[i - 1].cost, self.edges[i].cost)
@@ -660,7 +660,7 @@ class Route:
                     idx = len(route)
                     for p in pts[0:mid]:
                         p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i - 1)
-                        p.setProp("marker-color", "#AAAAAA")  # light grey
+                        p.setProp(GEOJSON.MARKER_COLOR.value, "#AAAAAA")  # light grey
                         p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                         p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
                         p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
@@ -670,19 +670,19 @@ class Route:
                     vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
                     for p in pts[mid:]:
                         p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
-                        p.setProp("marker-color", "#AAAAAA")  # light grey
+                        p.setProp(GEOJSON.MARKER_COLOR.value, "#AAAAAA")  # light grey
                         p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                         p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
                         p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
                         p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                         p.setProp(SMOOTH_ROUTE.REFERENCE_VERTEX.value, self.route[i])
                         idx += 1
-                    pts[mid].setProp("marker-color", "#FFAAAA")  # light grey different
+                    pts[mid].setProp(GEOJSON.MARKER_COLOR.value, "#FFAAAA")  # light grey different
                     route += pts
                 else:
                     v = copy(vtx[i])
                     v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
-                    v.setProp("marker-color", "#888888")  # medium grey
+                    v.setProp(GEOJSON.MARKER_COLOR.value, "#888888")  # medium grey
                     v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
                     v.setProp(SMOOTH_ROUTE.REFERENCE_VERTEX.value, self.route[i])
                     route.append(v)
@@ -743,26 +743,31 @@ class Route:
                 closest = i
         logger.debug(f"{closest} at {round(shortest, 1)}m")
         if cache:
-            self.idxcache = i
+            self.idxcache = closest.getProp(SMOOTH_ROUTE.INDEX)
         return None if closest is None else self.smoothRoute[closest], shortest
 
     def srClosestOnRoute(self, point: Point) -> tuple:
         # 360 – maximum angle + minimum angle
         closest, dist = self.srClosest(point=point, cache=False)
         if closest is None:
+            logger.debug("not found")
             return None, dist
         idx = closest.getProp(SMOOTH_ROUTE.INDEX)
         if idx == 0:  # first
-            return closest, dist
+            logger.debug("first segment")
+            return idx, dist
         if idx == (len(self.smoothRoute) - 1):  # last
-            return self.smoothRoute[-2], distance(self.smoothRoute[-2], point)
+            logger.debug("last segment")
+            return len(self.smoothRoute) - 2, distance(self.smoothRoute[-2], point)
         b1 = bearing(closest, point)
         b2 = bearing(closest, self.smoothRoute[idx + 1])
         trn = turn(b1, b2)
+        logger.debug(f"turn: {trn}")
         if abs(trn) > 175:  # opposite
-            prv = self.smoothRoute[idx - 1]
-            return prv, distance(prv, point)
-        return closest, dist
+            logger.debug("previous")
+            return idx - 1, distance(self.smoothRoute[idx - 1], point)
+        logger.debug("current")
+        return idx, dist
 
     def srAheadRoute(self, route, i: int, dist: float, start: float = 0) -> tuple:
         # move dist after start after route[i]
@@ -845,7 +850,7 @@ class Route:
             idx = len(route)
             for p in pts[0:mid]:  # tag half turn with original route index
                 p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
-                p.setProp("marker-color", "#DDDDDD")  # light grey
+                p.setProp(GEOJSON.MARKER_COLOR.value, "#DDDDDD")  # light grey
                 p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                 p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))  # also an indication that this point is part of the turn
                 p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
@@ -853,13 +858,13 @@ class Route:
                 idx += 1
             for p in pts[mid:]:  # tag second half turn with original next route index
                 p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
-                p.setProp("marker-color", "#DDDDDD")  # light grey
+                p.setProp(GEOJSON.MARKER_COLOR.value, "#DDDDDD")  # light grey
                 p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                 p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
                 p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
                 p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                 idx += 1
-            pts[mid].setProp("marker-color", "#FFDDDD")  # light grey different
+            pts[mid].setProp(GEOJSON.MARKER_COLOR.value, "#FFDDDD")  # light grey different
             route += pts
         else:
             t = min(Turn.SMALL_TURN_TANGENT, line.length())
@@ -871,7 +876,7 @@ class Route:
                 idx = len(route)
                 for p in pts[0:mid]:
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
-                    p.setProp("marker-color", "#AAAAAA")  # light grey
+                    p.setProp(GEOJSON.MARKER_COLOR.value, "#AAAAAA")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                     p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
                     p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
@@ -879,19 +884,19 @@ class Route:
                     idx += 1
                 for p in pts[mid:]:
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
-                    p.setProp("marker-color", "#AAAAAA")  # light grey
+                    p.setProp(GEOJSON.MARKER_COLOR.value, "#AAAAAA")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                     p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
                     p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
                     p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                     idx += 1
-                pts[mid].setProp("marker-color", "#FFAAAA")  # light grey different
+                pts[mid].setProp(GEOJSON.MARKER_COLOR.value, "#FFAAAA")  # light grey different
                 route += pts
             else:  # no turn
                 logger.debug(f"no turn (l_in={line.bearing()}, l_out={heading})")
                 v = end
                 v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
-                v.setProp("marker-color", "#888888")  # medium grey
+                v.setProp(GEOJSON.MARKER_COLOR.value, "#888888")  # medium grey
                 v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
                 route.append(v)
 
@@ -951,7 +956,7 @@ class Route:
                 idx = len(route)
                 for p in pts[0:mid]:  # tag half turn with original route index
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i - 1)
-                    p.setProp("marker-color", "#DDDDDD")  # light grey
+                    p.setProp(GEOJSON.MARKER_COLOR.value, "#DDDDDD")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                     p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))  # also an indication that this point is part of the turn
                     p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
@@ -960,13 +965,13 @@ class Route:
                 vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
                 for p in pts[mid:]:  # tag second half turn with original next route index
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
-                    p.setProp("marker-color", "#DDDDDD")  # light grey
+                    p.setProp(GEOJSON.MARKER_COLOR.value, "#DDDDDD")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                     p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
                     p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
                     p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                     idx += 1
-                pts[mid].setProp("marker-color", "#FFDDDD")  # light grey different
+                pts[mid].setProp(GEOJSON.MARKER_COLOR.value, "#FFDDDD")  # light grey different
                 route += pts
             else:
                 t = min(Turn.SMALL_TURN_TANGENT, edges[i - 1].cost, edges[i].cost)
@@ -977,7 +982,7 @@ class Route:
                     idx = len(route)
                     for p in pts[0:mid]:
                         p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i - 1)
-                        p.setProp("marker-color", "#AAAAAA")  # light grey
+                        p.setProp(GEOJSON.MARKER_COLOR.value, "#AAAAAA")  # light grey
                         p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                         p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
                         p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
@@ -986,18 +991,18 @@ class Route:
                     vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
                     for p in pts[mid:]:
                         p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
-                        p.setProp("marker-color", "#AAAAAA")  # light grey
+                        p.setProp(GEOJSON.MARKER_COLOR.value, "#AAAAAA")  # light grey
                         p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
                         p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
                         p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
                         p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                         idx += 1
-                    pts[mid].setProp("marker-color", "#FFAAAA")  # light grey different
+                    pts[mid].setProp(GEOJSON.MARKER_COLOR.value, "#FFAAAA")  # light grey different
                     route += pts
                 else:
                     v = copy(vtx[i])
                     v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
-                    v.setProp("marker-color", "#888888")  # medium grey
+                    v.setProp(GEOJSON.MARKER_COLOR.value, "#888888")  # medium grey
                     v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
                     route.append(v)
                     vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) - 1)  # to check

@@ -90,14 +90,17 @@ class TAXIWAY_ACTIVE(StrEnum):
 #
 # Menu entry texts
 FTG_MENU = "Follow the greens..."
+FTC_MENU = "Follow the car..."
 STW_MENU = None  # "Show taxiways"  # if None, do not show menu entry for Show Taxiways
 # mainly used for debugging. Equivalent to Developer Menu->Show airways.
 
 # Commands: Path and description
 FTG_COMMAND = FTG_PLUGIN_ROOT_PATH + "main_windown_toggle"
 FTG_COMMAND_DESC = "Open or close Follow the greens window"
+FTC_COMMAND = FTG_PLUGIN_ROOT_PATH + "main_windown_toggle_car"
+FTC_COMMAND_DESC = "Open or close Follow the car window"
 
-FTG_HUD = FTG_PLUGIN_ROOT_PATH + "taxihud"
+FTG_HUD = FTG_PLUGIN_ROOT_PATH + "taxihud"  # set it to None to not show hud
 FTG_HUD_DESC = "Show or hide Follow the greens hud"
 
 FTG_CLEARANCE_COMMAND = FTG_PLUGIN_ROOT_PATH + "send_clearance_ok"
@@ -230,14 +233,36 @@ SAY_ROUTE = True  # Print route on pop up display and speak it orally.
 LEVEL4 = 0  # ASMGCS LEVEL 4 Compliance steps (highly experimental, DO NOT CHANGE.)
 
 
-# GeoJSON IO Marker and Stroke Styles
-class GEOJSON(StrEnum):
-    MARKER = "marker"
-    MARKER_COLOR = "marker-color"
-    MARKER_SIZE = "marker-size"
-    STROKE = "stroke"
-    STROKE_WIDTH = "stroke-width"
-    STROKE_OPACITY = "stroke-opacity"
+# GeoJSON FtG Properties
+# Attempt to normalize them...
+class FTGJSON(StrEnum):
+    INDEX = "index"
+    NAME = "name"
+    DISTANCE = "dist"
+    TOTAL_DISTANCE = "total"
+    DISTANCE_BEFORE_TURN = "dist-before-turn"
+    # VERTICES
+    VID = "vid"  # vertex id
+    USE = "use"
+    USAGE = "use"
+    USAGE2 = "usage"
+    # LIGHTS
+    LIGHT = "light-type"
+    LS_INDEX = "lightStringIndex"
+    LB_INDEX = "lightBarIndex"
+
+
+# Also:
+# "edgeIndex"
+# "distFromEdgeStart"
+# "distToEdgeEnd"
+# "lightIndex"
+# "turn"
+# "remaining"
+# "remaining_time"
+# "tobrake"
+# "tobrake_index"
+# "taxiway-width"
 
 
 # ################################
