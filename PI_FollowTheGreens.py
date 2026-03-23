@@ -605,6 +605,7 @@ class PythonInterface:
             return 0
         if phase == 0:
             self._hud = not self._hud
+            self.followTheGreens.bookmark(f"hud set to {self._hud}")
             return 1
         return 0
 

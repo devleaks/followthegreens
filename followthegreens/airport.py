@@ -784,9 +784,7 @@ class Airport:
             if dst_pos is not None and dst_type == "runway":
                 route.departure_runway = dst_pos
             logger.debug(f"route {route.text(destination=destination)}")
-            r = None
-            if self.cursor_type is not None:
-                r = self.cursor_type.turn_radius
+            r = None if self.cursor_type is None else self.cursor_type.turn_radius
             route.build(acf_speed=aircraft.avgTaxiSpeed(), radius=r)
             return (True, route)
 

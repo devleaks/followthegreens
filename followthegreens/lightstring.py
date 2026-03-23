@@ -167,12 +167,16 @@ POINT_COUNTS    0 0 0 0
 
 class XPObject:
 
-    def __init__(self, position, heading, index, dist: float = 0.0, dist2: float = 0.0):
-        self.edgeIndex = index  # # of edge of route, starting from 0
-        self.distFromEdgeStart = dist
-        self.distToEdgeEnd = dist2
+    def __init__(self, position, heading, index: int, dist: float = 0.0, sr_index: int = 0, sr_dist: float = 0.0):
         self.position = position
         self.heading = heading  # this should be the heading to the previous light
+
+        self.edgeIndex = index  # # of edge of route, starting from 0
+        self.distFromEdgeStart = dist  # dist from start of above edge
+
+        self.srIndex = sr_index  # index on smooth route (last vertex, current edge), starting from 0
+        self.distFromsrIndex = sr_dist  # dist from above vertex/start of edge
+
         self.params = []  # LIGHT_PARAM_DEF       full_custom_halo        9   R   G   B   A   S       X   Y   Z   F
         self.drefs = []
         self.lightObject = None
@@ -260,9 +264,9 @@ class XPObject:
 class Light(XPObject):
     # A light to follow, or a stopbar light
     # Holds a referece to its instance
-    def __init__(self, lightType, position, heading, index, dist: float = 0, dist2: float = 0.0):
+    def __init__(self, lightType, position, heading, index, dist: float = 0, sr_index: int = 0, sr_dist: float = 0.0):
         self.lightType = lightType
-        XPObject.__init__(self, position, heading, index, dist, dist2)
+        XPObject.__init__(self, position, heading, index, dist, sr_index, sr_dist)
 
 
 class Stopbar:
@@ -525,10 +529,11 @@ class LightString:
         for light in self.lights:
             light.position.setProp(GEOJSON.MARKER_COLOR.value, "#00ff00")
             light.position.setProp(GEOJSON.MARKER_SIZE.value, "small")
+            light.position.setProp("lightIndex", i)
             light.position.setProp("edgeIndex", light.edgeIndex)
             light.position.setProp("distFromEdgeStart", round(light.distFromEdgeStart, 2))
-            light.position.setProp("distToEdgeEnd", round(light.distToEdgeEnd, 2))
-            light.position.setProp("lightIndex", i)
+            light.position.setProp("srIndex", light.srIndex)
+            light.position.setProp("distFromsrIndex", round(light.distFromsrIndex, 2))
             i = i + 1
             fc.append(light.position.feature())
         # logger.debug(f"added {len(self.lights)} lights")
@@ -884,8 +889,8 @@ class LightString:
             r_idx = route.smoothRoute[srCurrPoint[0]].getProp(SMOOTH_ROUTE.ROUTE_INDEX)
             thisEdge = route.edges[r_idx]
             nextLightPos, d_brng, d_idx, d_dist = route.srAhead(i=srCurrPoint[0], dist=self.distance_between_green_lights, start=srCurrPoint[1])
-            distToNextVertex = distance(nextLightPos, route.smoothRoute[d_idx + 1])
-            thisLights.append(Light(self.nextTaxiwayLight(nextLightPos, thisEdge), nextLightPos, d_brng, r_idx, d_dist, distToNextVertex))
+            distFromVertex = distance(nextLightPos, route.vertices[r_idx])
+            thisLights.append(Light(self.nextTaxiwayLight(nextLightPos, thisEdge), nextLightPos, d_brng, r_idx, distFromVertex, d_idx, d_dist))
             srCurrPoint = (d_idx, d_dist)
             # logger.debug(f"srCurrPoint={srCurrPoint} (i={i})")
             i += 1

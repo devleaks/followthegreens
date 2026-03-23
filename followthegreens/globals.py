@@ -293,6 +293,9 @@ DRIFTING_DISTANCE = 200  # When drifting away from "closest" light, after this d
 PLANE_MONITOR_DURATION = 5  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
 MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before getting potential stop bar
 
+AIRCRAFT_MIN_SPEED = 3.0  # m/s
+AIRCRAFT_MIN_DIST = 20  # m
+
 # ################################
 # FTG LIGHTS
 #

@@ -4,6 +4,7 @@ from datetime import datetime
 from enum import StrEnum
 
 from followthegreens.route import SMOOTH_ROUTE
+from sre_compile import dis
 
 from .oned import eq2
 
@@ -12,9 +13,10 @@ try:
 except ImportError:
     print("X-Plane not loaded")
 
-from .globals import logger, MOVEMENT, INDICATOR
-from .geo import Point, Line, destination, distance
+from .globals import RABBIT_MODE, logger, MOVEMENT, INDICATOR, AIRCRAFT_MIN_SPEED
+from .geo import Point, Line, bearing, destination, distance
 from .lightstring import XPObject
+from .route import SMOOTH_ROUTE
 
 
 class CURSOR_STATUS(StrEnum):
@@ -70,9 +72,9 @@ class CursorType:
     leave_speed: float = 10.0  # expedite speed to leave/clear an area
     fast_speed: float = 14.0  # running fast to a destination far away
 
-    max_speed: float = 18.0
+    max_speed: float = 18.0  # 18=60km/h, 25=90km/h, kind of a V-NES (never exceed speed)
 
-    turn_radius: float = 25.0  # m
+    turn_radius: float = 22.0  # m
 
     acceleration: float = 1.0  # m/s^2, same deceleration
     deceleration: float = -1.0  # m/s^2, same deceleration
@@ -251,7 +253,14 @@ class Cursor:
         self._set_current = False
         self.msg = ""
         self.last_dist_to_next_vertex = 0.0
-        self._acf_speed = 0.0
+
+        # monitoring
+        self.aim_speed = 0.0
+        self.current_distance = 0.0  # distance to acf
+        self.distance_range = [0.0, 0.0]
+        self.current_bearing = 0.0  # acf -> fmcar
+        self.uturned = False  # now fmcar -> acf!
+
         logger.info(str(self.detail))
         logger.debug(f"route end: {self.route.move}, {self.route.departure_runway}, {self.route.arrival_runway}")
 
@@ -377,55 +386,36 @@ class Cursor:
             logger.error("error", exc_info=True)
         return 5.0
 
-    # Information external interface
-    #
-    def distance(self, position) -> float:
-        return distance(self.current.position, position)
+    def canContinue(self, ftg):
+        if self.indicator != INDICATOR.STOP:
+            return
+        self.indicator = INDICATOR.FOLLOW_ME
+        # Need to add new future to restart without waiting for acf movement
+        logger.debug("continuing after stop..")
 
-    def set_aircraft_speed(self, speed: float):
-        self._acf_speed = speed
+        if ftg.lights is None:
+            logger.warning("..no light, cannot continue")
+            return
+        closestLight, dist = ftg.lights.closest(ftg.aircraft.position())
+        if closestLight is None:
+            logger.debug("..no close light? cannot continue")
+            return
 
-    def faster(self, s: float) -> float:
-        return max(s + 2.0, s * 1.2)
-
-    def speed(self) -> float:
-        return self.current.speed
-
-    def canContinue(self):
-        if self.indicator == INDICATOR.STOP:
-            self.indicator = INDICATOR.FOLLOW_ME
-
-    def adjustedSpeed(self, speed_type: str = "normal", reference: float = 0.0) -> float:
-        # reference is a possibility to inout acf speed (i.e. the thing following fmcar)
-        if reference < 3:  # almost at rest
-            if speed_type == "slow":
-                logger.debug(f"recommanded speed {sf(self.detail.slow_speed, 'm/s')} ({speed_type}, {sf(reference, 'm/s')})")
-                return self.detail.slow_speed
-            elif speed_type == "fast":
-                logger.debug(f"recommanded speed {sf(self.detail.fast_speed, 'm/s')} ({speed_type}, {sf(reference, 'm/s')})")
-                return self.detail.fast_speed
-            else:
-                logger.debug(f"recommanded speed {sf(self.detail.normal_speed, 'm/s')} ({speed_type}, {sf(reference, 'm/s')})")
-                return self.detail.normal_speed
-        if speed_type == "fast":
-            s = reference + self.detail.fast_speed
-            logger.debug(f"recommanded speed {sf(s, 'm/s')} ({speed_type}, {sf(reference, 'm/s')})")
-            return min(s, self.detail.max_speed)
-        if speed_type == "slow":
-            s = reference + self.detail.slow_speed
-            logger.debug(f"recommanded speed {sf(s, 'm/s')} ({speed_type}, {sf(reference, 'm/s')})")
-            return min(s, self.detail.max_speed)
-        # a little bit faster than reference if provided
-        s = (1.05 * reference) if reference > 0.0 else self.detail.normal_speed
-        logger.debug(f"recommanded speed {sf(s, 'm/s')} ({speed_type}, {sf(reference, 'm/s')})")
-        return min(s, self.detail.max_speed)
+        ahead = ftg.aircraft.adjustAhead(rabbit_mode=ftg.flightLoop.rabbitMode)
+        acf_speed = ftg.aircraft.speed()
+        fmc_speed = max(self.detail.normal_speed, self.current.speed, acf_speed)
+        join_time = ahead / fmc_speed
+        light_ahead, light_index, dist_left = ftg.lights.lightAhead(index_from=closestLight, ahead=ahead)
+        dt = ts() + join_time
+        self.future(position=light_ahead.position, hdg=light_ahead.heading, speed=fmc_speed, t=dt, edge=light_ahead.edgeIndex, tick=True, text="continue after stop")
+        logger.debug("..continuing")
 
     # Abrupt change or route, reset
     #
     def resetRoute(self):
         # They won't be any valid route anymore.
         # We have to stop the future
-        l = len(self._future.qsize())
+        l = self._future.qsize()
         logger.log(8, f"reseting cursor planned route ({l} entries will be lost)..")
         self._future.clear()
         self._qout += l
@@ -489,7 +479,23 @@ class Cursor:
             # (after above future)
             logger.debug("..route changed, already taxiing")
         except:
-            logger.error("error", exc_info=True)
+            self.status = CURSOR_STATUS.ACTIVE
+            logger.error("error while changing route", exc_info=True)
+
+    # Information external interface
+    #
+    def distance(self, position) -> float:
+        # compute and uses bearing to see if car in front of acf or behind
+        brng = bearing(self.current.position, position)
+        self.uturned = abs(self.current_bearing - brng) > 160
+        if self.uturned:
+            logger.debug("aircraft passed fmcar")
+        self.current_bearing = brng
+        self.current_distance = distance(self.current.position, position)
+        return self.current_distance
+
+    def speed(self) -> float:
+        return self.current.speed
 
     # Itinerary: Next positions (as requested from client)
     #
@@ -543,7 +549,7 @@ class Cursor:
             if ignore:
                 logger.debug("..ticked immediately")
 
-    def future_index(self, edge: int, dist: float, speed: float, t: float):
+    def future_index(self, edge: int, dist: float, speed: float, t: float, text: str = ""):
         # future_index() always travel on a route.
         # we assume WE ARE on a route curr_dist from start of curr_edge.
         # we will move on the route to dist from start of edge.
@@ -568,6 +574,7 @@ class Cursor:
         logger.log(8, f"last route index: {last_route_index}, last distance on edge: {round(last_distance_on_edge, 1)}m")
 
         # convert trip on the route into "future()" segements:
+        logger.debug(f"doing {text}..")
         if edge < last_route_index:
             logger.debug(f"cannot backup edges ({edge} < {last_route_index})")
             return
@@ -577,7 +584,7 @@ class Cursor:
             if dist > last_distance_on_edge:
                 dest = self.route.on_edge(edge, dist)  # destination(self.route.vertices[edge], self.route.edges_orient[edge], dist)
                 hdg = self.route.edges_orient[edge]
-                self.future(position=dest, hdg=hdg, speed=speed, t=t, edge=edge, text=f"go further on edge (d={sf(dist, 'm')})")
+                self.future(position=dest, hdg=hdg, speed=speed, t=t, edge=edge, text=f"go further on edge (d={sf(dist, 'm')}) (for {text})")
                 logger.log(8, f"progress on edge {edge} from {round(last_distance_on_edge, 1)}m to {round(dist, 1)}m, distance adjusted")
             else:
                 logger.log(8, f"no progress on edge {edge}, ({round(dist, 1)}m <= {round(last_distance_on_edge, 1)}m)")
@@ -621,9 +628,9 @@ class Cursor:
         control_time += tt
         start_time += tt
         hdg = self.route.edges_orient[min(last_route_index + 1, len(self.route.edges) - 1)]
-        txt = f"{round(d, 1)}m to end of current edge {last_route_index}"
+        txt = f"{round(d, 1)}m to end of current edge {last_route_index} (for {text})"
         if last_route_index == NOT_ON_ROUTE:
-            txt = f"{round(d, 1)}m to end of segment (not on route)"
+            txt = f"{round(d, 1)}m to end of segment (not on route) (for {text})"
 
         # RESET
         last_index = last_route_index + 1
@@ -647,7 +654,7 @@ class Cursor:
                 speed=local_speed,
                 t=start_time,
                 edge=last_index,
-                text=f"{round(e.cost, 1)}m to end of edge {last_index}",
+                text=f"{round(e.cost, 1)}m to end of edge {last_index} (for {text})",
                 end=(last_index + 1, 0),
             )
             logger.log(8, f"progress on edge {last_index} (whole length {round(e.cost, 1)}m, in {round(tt, 1)}s)")
@@ -655,7 +662,7 @@ class Cursor:
 
         # travel on new current edge
         newpos = self.route.on_edge(edge, dist)
-        self.future(position=newpos, hdg=self.route.edges_orient[edge], speed=speed, t=t, edge=edge, text=f"{round(dist, 1)}m on edge {edge}")
+        self.future(position=newpos, hdg=self.route.edges_orient[edge], speed=speed, t=t, edge=edge, text=f"{round(dist, 1)}m on edge {edge} (for {text})")
         last_index = edge
         control_dist += dist
         tt = dist / local_speed
@@ -663,6 +670,7 @@ class Cursor:
         start_time += tt
         logger.log(8, f"progress on edge {edge} (length {round(dist, 1)}m, in {round(tt, 1)}s)")
         logger.log(8, f"control distance travelled {round(control_dist, 1)}m, in {round(control_time, 1)}s")
+        logger.debug(f"..done {text}")
 
     # Movement: Computation of next position
     #
@@ -897,45 +905,113 @@ class Cursor:
         # logger.debug(f"{r}: {self.current.sr_position} {'>=' if r else '<'} {self.target.sr_position}")
         return r
 
-    def _adjustSpeeds(self):
-        # On long legs, where typically the acf accelerates, there is a need to monitor the acf speed
-        # and adjust the car speed accordingly. Both accel/decel.
-        # Car (target) speed will permanently converge towards aircraft speed (avg(carspeed, acfspeed)).
-        # To adjust the car speed, the acf has to be moving a bit at least. (otherwise we converge towrds speed=0!)
-        # Please note: Only speed is adjusted, not target end time.
-        #
-        MIN_ACF_SPEED = 3  # below that, we do not consider the acf moves significantly
-        if (self.current.path_length > 50.0 or self.current.path_time > 10) and self.status != CURSOR_STATUS.FINISHING:  # adjust fmcar_speed
-            if self._acf_speed > MIN_ACF_SPEED:
-                ots = self.target.speed  # orignal target speed, for debugging purpose
-                self.current.speed = self.faster((self.current.speed + self.target.speed) / 2)  # speeds avg
-                self.target.speed = self.faster((self.target.speed + self._acf_speed) / 2)  # speeds avg
-                # We could use this to update target time:
-                # r = eq2(displacement=self.current.path_length, initial_velocity=self.current.speed, final_velocity=self.target.speed, time=None)
-                # self.current.path_time = r[3]
-                # self.target.time = self.start.time + self.current.path_time
-                if abs(ots - self.target.speed) > 1:  # minimize logging
-                    logger.debug(
-                        f"new speeds: car={sf(self.current.speed, 'm/s')}, acf={sf(self._acf_speed, 'm/s')}: curr={sf(self.start.speed, 'm/s')} -> target={sf(self.target.speed, 'm/s')} (was {sf(ots, 'm/s')})"
-                    )
-        # slow_debug(c=self.cnt, s=f"speeds: {sf(self.start.speed, 'm/s')} -> {sf(self.target.speed, 'm/s')}")
+    # Speed control
+    #
+    def smoothConverge(self, s1: float, s2: float) -> float:
+        # smoothly accelerate or decelerate from s1 to s2
+        SMOOTH = 0.1
+        return s1 + SMOOTH * (s2 - s1)
 
+    def adjustSpeed(self, aircraft, rabbit_mode, speed_type: str = "normal") -> float:  # speed_type = {normal, fast, slow, max!}
+        # "Slow" speed adjustment procedure, called by flightloop when aircraft has moved
+        # Sets target_speed
+        #
+        default_speed = getattr(self.detail, speed_type + "_speed")
+        acf_speed = aircraft.speed()
+        if acf_speed < AIRCRAFT_MIN_SPEED:  # almost at rest
+            self.aim_speed = default_speed
+            logger.debug(f"recommended speed {sf(default_speed, 'm/s')} (rabbit mode={rabbit_mode}, target={sf(acf_speed, 'm/s')})")
+            return self.aim_speed
+        #
+        # Adjust the car speed according to requests and acf speed
+        fmcar_speed = acf_speed  # initial value
+        dist = self.distance(aircraft.position_point())
+        drange = aircraft.aheadRange(rabbit_mode=rabbit_mode)
+        f = aircraft.RABBIT_FACTOR_SPEED[rabbit_mode]
+
+        if dist > drange[1]:  # does the car need to slow down because too far?
+            f2 = 0.9
+            logger.debug(f"fmcar too far, need to slow down (factor={f2}, {sf(dist, 'm')} > {sf(drange[1], 'm')})")
+            fmcar_speed = self.smoothConverge(fmcar_speed, fmcar_speed * f)
+        elif dist < drange[0]:  # does the car need to accelerate because too close?
+            logger.debug(f"fmcar too close.. ({sf(dist, 'm')} < {sf(drange[0], 'm')})")
+            if rabbit_mode in [RABBIT_MODE.SLOWER, RABBIT_MODE.SLOWEST]:  # does the car need to slow down because nearing a turn, stop, etc. (rabbit slower, slowest)
+                logger.debug(f".. but it is ok because we need to go slow (rabbit factor={f})")
+                fmcar_speed = self.smoothConverge(fmcar_speed, acf_speed * f)
+            else:  # does the car need to accelerate because long straight line? (rabbit faster, fastest)
+                f2 = max(f, 1.4)
+                logger.debug(f".. need to accelerate (factor={f2})")
+                fmcar_speed = self.smoothConverge(fmcar_speed, acf_speed * f2)
+        else:  # we are within range, we keepup with the aircraft but we might need to show something with rabbit...
+            logger.debug(f"fmcar on target (rabbit factor={f})")
+            fmcar_speed = self.smoothConverge(fmcar_speed, fmcar_speed * f)
+
+        self.aim_speed = min(fmcar_speed, self.detail.max_speed)
+        speed_type = "" if speed_type == "normal" else speed_type + " "
+        logger.debug(f"acf={sf(acf_speed, 'm/s')}: {speed_type}aim={sf(self.aim_speed, 'm/s')} (rabbit mode={rabbit_mode}, d={sf(dist, 'm/s')}, range={drange})")
+        return self.aim_speed
+
+    def _adjustLocalSpeeds(self):
+        # Internal ("fast") speed adjustment process, while car is moving on long path.
+        # On smaller path, adjustment is done on start and there is no need of re-adjustment during the path.
+        #
+        # Car current.speed converges towards target.speed.
+        # Target.speed converges towards target_speed.
+        # Target_speed has to be moving a bit at least, otherwise we converge towards speed=0.
+        # Please note: Only speed is adjusted, not target time.
+        if (self.current.path_length > 50.0 or self.current.path_time > 10) and self.status != CURSOR_STATUS.FINISHING and self.aim_speed > AIRCRAFT_MIN_SPEED:
+            ots = self.target.speed  # orignal target speed, for debugging purpose
+            ocs = self.current.speed
+            self.target.speed = self.smoothConverge(self.target.speed, self.aim_speed)  # self.faster((self.target.speed + self.aim_speed) / 2)  # speeds avg
+            self.current.speed = self.smoothConverge(self.current.speed, self.target.speed)  # self.faster((self.current.speed + self.target.speed) / 2)  # speeds avg
+            # We could use this to update target time:
+            # r = eq2(displacement=self.current.path_length, initial_velocity=self.current.speed, final_velocity=self.target.speed, time=None)
+            # self.current.path_time = r[3]
+            # self.target.time = self.start.time + self.current.path_time
+            if self.cnt % 10 == 0:  # minimize logging
+                logger.debug(f"aim={sf(self.aim_speed, 'm/s')}: curr={sf(ocs, 'm/s')}->{sf(self.start.speed, 'm/s')}, target={sf(ots, 'm/s')}->{sf(self.target.speed, 'm/s')}")
+
+    def nextTurnIndicator(self, edge: int) -> INDICATOR:
+        # returns a turn indicator to display if necessary
+        # Only comes here if indicator is not STOP.
+        #
+        if edge == NOT_ON_ROUTE:
+            logger.log(8, "currently not on route, no indicator necessary/possible")
+            return INDICATOR.FOLLOW_ME
+
+        self.current.distance_on_edge = distance(self.current.vertex, self.current.position)  # roughly
+        if round(self.last_dist_to_next_vertex, 1) == round(self.current.distance_on_edge, 1):  # not moved
+            logger.log(8, f"car is not moving, no change {self._indicator.name}")
+            return self._indicator
+        self.last_dist_to_next_vertex = self.current.distance_on_edge
+
+        dist_to_next_turn_at_start_vtx = self.route.dtb[edge]
+        dist_to_next_turn = dist_to_next_turn_at_start_vtx - self.current.distance_on_edge
+        turn_vertex = self.current.vertex.getProp("tobrake_index")
+        turn = self.route.turns[turn_vertex]
+        logger.log(8, f"after vertex {edge}, d={sf(self.current.distance_on_edge, 'm')}, next turn at {sf(dist_to_next_turn, 'm')}, {sf(turn, 'D')}")
+        if dist_to_next_turn < self.detail.indicator_warning_distance:  # and abs(turn) > TURN_LIMIT
+            return INDICATOR.LEFT if turn < 0 else INDICATOR.RIGHT
+        return INDICATOR.FOLLOW_ME
+
+    # Move
+    #
     def nextPosition(self):
-        # test: self.indicator = int(self.current.time / 10) % 4
         if self.targetReached():
             return self.current.position, self.current.heading, self.current.sr_position, True
         if self.indicator != INDICATOR.STOP:
             self.indicator = self.nextTurnIndicator(self.current.route_index)  # compute turn indicator code for turns
         dt = self.current.time - self.start.time
-        self._adjustSpeeds()
-        r = eq2(displacement=None, initial_velocity=self.start.speed, final_velocity=self.target.speed, time=dt)
+        self._adjustLocalSpeeds()
+        r = eq2(displacement=None, initial_velocity=self.current.speed, final_velocity=self.target.speed, time=dt)
         d = r[0]
         point, hdg, idx, dist = self.route.srAheadRoute(self.current.sr_route, i=self.start.sr_position.index, start=self.start.sr_position.distance, dist=d)
         sr_position = OnRoute(index=idx, distance=dist)
-        # debug
+        # debug:begin
         dc = distance(self.current.position, point)
         if dc > 10.0:  # meters
             logger.debug(f"apparent big jump d={sf(d, 'm')} t={round(self.current.last_inc_time, 3)}s")
+        # debug:end
 
         return point, hdg, sr_position, False
 
@@ -980,33 +1056,6 @@ class Cursor:
                 lat=self.current.position.lat, lon=self.current.position.lon, hdg=self.current.heading, elev=self.detail.indicator_shift[0], fwd=self.detail.indicator_shift[1]
             )
         return -1
-
-    def nextTurnIndicator(self, edge: int) -> INDICATOR:
-        # returns a turn indicator to display if necessary
-        TURN_LIMIT = 30.0  # no indicator for turns below that
-
-        if edge == NOT_ON_ROUTE:
-            edge = -1
-        next_vertex = min(edge + 1, len(self.route.vertices) - 1)
-        nextvtx = self.route.vertices[next_vertex]
-        dist_to_next_vertex = distance(self.current.position, nextvtx)
-        if round(self.last_dist_to_next_vertex, 1) == round(dist_to_next_vertex, 1):  # not moved
-            return self._indicator
-        self.last_dist_to_next_vertex = dist_to_next_vertex
-        turn = self.route.turns[edge]
-        idx = next_vertex
-        while abs(turn) < TURN_LIMIT and idx < len(self.route.turns):
-            turn = self.route.turns[idx]
-            idx = idx + 1
-        if idx >= len(self.route.route):  # end of route
-            idx = len(self.route.route) - 1
-        dist_to_next_turn = 0 if abs(self.route.turns[next_vertex]) > TURN_LIMIT else self.route.dtb[next_vertex]
-        dist_to_next_turn += dist_to_next_vertex
-        # logger.debug(f"at edge {edge}, next turn at edge {idx}, turn={sf(turn, 'D')}, at d={sf(dist_to_next_turn, 'm')}")
-        indicator = INDICATOR.FOLLOW_ME
-        if abs(turn) > TURN_LIMIT and dist_to_next_turn < self.detail.indicator_warning_distance:
-            indicator = INDICATOR.LEFT if turn < 0 else INDICATOR.RIGHT
-        return indicator
 
     # End of route elegance: End of route is reached and Cursor progress a little more then vanishes
     #
@@ -1099,7 +1148,7 @@ class Cursor:
         self.status = CURSOR_STATUS.ACTIVE
         logger.debug("..return route installed..")
         length = route.route[-1].getProp(SMOOTH_ROUTE.TOTAL.value)
-        speed = self.adjustedSpeed()
+        speed = self.adjustSpeed(reference=0.0)
         tt = ts() + length / speed
         self.future_index(edge=route.route[-1].getProp(SMOOTH_ROUTE.REVERSE_INDEX.value), dist=length, speed=0.0, t=tt)
         logger.debug("return route programmed")

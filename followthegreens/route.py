@@ -321,8 +321,8 @@ class Route:
         logger.debug(f"turns at vertex: {[round(t, 0) for t in self.turns]}")
 
     def mkDistToBrake(self):
-        # for each vertex, write the distance to the next vertex
-        # where there is a reason to slow down at that vertex: Either a sharp turn (> SMALL_TURN_LIMIT), or a stop bar (later).
+        # for each vertex, write the distance to the next vertex where there is a reason to slow down at that vertex:
+        # Either a sharp turn (> SMALL_TURN_LIMIT), or a stop bar (later).
         # note: at vertices[k], there is self.dtb[k] distance left to turn at self.dtb_at[k]
         #       (there may be a turn at vertices[k] itself, in turns[k])
         if self.turns is None or len(self.turns) == 0:
@@ -586,7 +586,7 @@ class Route:
 
         return self._find(src[0], dst[0])
 
-    def build(self, acf_speed: float, radius: float = TURN_RADIUS):
+    def build(self, acf_speed: float, radius: float | None):
         # When route is selected, build a series of handy variables
         # to speedup calculations later
         # distance between edges, headings, distance remaning, etc.
@@ -602,7 +602,7 @@ class Route:
         # logger.debug(
         #     f"control: r={len(self.route)}, v={len(self.vertices)}, e={len(self.edges)}, turns={len(self.turns)}, brk={len(self.dtb)}, atbrk={len(self.dtb_at)}, d={len(self.dleft)}, t={len(self.tleft)}"
         # )
-        if logger.level < 10:
+        if logger.level <= 10:
             fn = os.path.join(os.path.dirname(__file__), "..", "ftg_route.geojson")  # _{self.route[0]}-{self.route[-1]}
             fc = FeatureCollection(features=self.features())
             fc.save(fn)
@@ -611,7 +611,7 @@ class Route:
     # SMOOTH ROUTE
     # Adds turns at vertices.
     #
-    def mkSmoothRoute(self, speed: float = TURN_SPEED, radius: float = TURN_RADIUS):
+    def mkSmoothRoute(self, radius: float):
         # Idea for later: turn radius depends on vehicle speed, whether aircraft or car
         def copy(v):
             return Point(v.lat, v.lon)
@@ -723,7 +723,7 @@ class Route:
         route[-1].setProp(SMOOTH_ROUTE.BEARING.value, b)  # repeat last
         self.smoothRoute = route
         logger.debug(f"smooth route is {round(dist, 1)}m, has {len(self.smoothRoute)} points")
-        if logger.level < 10:
+        if logger.level <= 10:
             fn = os.path.join(os.path.dirname(__file__), "..", "ftg_smooth_route.geojson")  # _{route.route[0]}-{route.route[-1]}, {datetime.now().strftime('%M%S%f')}
             fc = FeatureCollection(features=[r.feature() for r in route])
             fc.save(fn)

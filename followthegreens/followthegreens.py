@@ -521,7 +521,7 @@ VERSION = "{__VERSION__}"
             hdg_str = " ".join(f"{int(initbrgn):03d}")
             if self.alternate:
                 intro_arr.append("Follow me car is in front of you.")
-                speak = speak + "Follow me car is in front of you."
+                speak = speak + " Follow me car is in front of you."
             else:
                 intro_arr.append(f"Start is at about {int(initdist):d} meters heading {int(initbrgn):03d}.")
                 speak = speak + f" Start is at about {phonetic(dist_str)} meters heading {phonetic(hdg_str)}."
@@ -557,7 +557,7 @@ VERSION = "{__VERSION__}"
         logger.info(f"segment {self.segment + 1}/{self.lights.segments + 1}")
 
         if self.fmcar is not None:
-            self.fmcar.canContinue()
+            self.fmcar.canContinue(ftg=self)
 
         if self.segment > self.lights.segments:
             # Info 16.a
