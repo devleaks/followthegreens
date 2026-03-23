@@ -2,8 +2,6 @@ import os
 from dataclasses import dataclass, fields
 from datetime import datetime
 from enum import StrEnum
-
-from followthegreens.route import SMOOTH_ROUTE
 from sre_compile import dis
 
 from .oned import eq2
