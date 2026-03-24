@@ -345,14 +345,7 @@ class Airport:
             self.distance_between_green_lights_pref = True
         logger.debug(f"using fmcar {fmcar}{adj}")
         # If developer mode, show lights as well
-        if self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False) and self.rabbit_length == 0 and self.rabbit_speed == 0:
-            self.lights_ahead = 0
-            self.lights_ahead_pref = True
-            self.rabbit_length = 10
-            self.rabbit_length_pref = True
-            self.rabbit_speed = 0.166
-            self.rabbit_speed_pref = True
-            logger.debug(f"and lights for development (forced rabbit_speed={self.rabbit_speed} != 0)")
+        self.ensureDev()
         self.cursor_type = CursorType(**fmcar)
         return Cursor(self.cursor_type, route)
 
@@ -365,7 +358,16 @@ class Airport:
         self.rabbit_speed_pref = True
         self.distance_between_green_lights = self.MTWYLDWC
         self.distance_between_green_lights_pref = True
-        logger.info("use of fmcar enforced")
+
+    def ensureDev(self):
+        if self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False) and self.rabbit_length == 0 and self.rabbit_speed == 0:
+            self.lights_ahead = 0
+            self.lights_ahead_pref = True
+            self.rabbit_length = 10
+            self.rabbit_length_pref = True
+            self.rabbit_speed = 0.166
+            self.rabbit_speed_pref = True
+            logger.debug(f"and lights for development (forced rabbit_speed={self.rabbit_speed} != 0)")
 
     def load(self):
         APT_FILES = {}

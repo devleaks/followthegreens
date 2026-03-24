@@ -925,6 +925,10 @@ class Route:
         route[-1].setProp(SMOOTH_ROUTE.DISTANCE.value, 0)  # [-1]
         route[-1].setProp(SMOOTH_ROUTE.TOTAL.value, dist)  # total length or route
         route[-1].setProp(SMOOTH_ROUTE.BEARING.value, b)  # repeat last
+        # Convention: On Straight line, we indicate the turn at the end in these two variables
+        # This allows to set turn indicator at the end of Straight lines
+        route[-1].setProp("END_TURN_VALID", turn.valid)
+        route[-1].setProp("END_TURN_ALPHA", turn.alpha)
 
         if logger.level < 10:
             fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_straight{datetime.now().strftime('%M%S%f')}.geojson")  # _{self.route[0]}-{self.route[-1]}

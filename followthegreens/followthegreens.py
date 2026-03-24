@@ -465,6 +465,8 @@ VERSION = "{__VERSION__}"
         if self.fmcar is None:
             self.fmcar = self.airport.fmcar(route=self.route, alternate=self.alternate)
             new_fmcar = True
+        else:
+            self.airport.ensureDev()
 
         onRwy = False
         if self.move == MOVEMENT.ARRIVAL:
