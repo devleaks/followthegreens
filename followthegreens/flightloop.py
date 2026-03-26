@@ -80,6 +80,8 @@ class FlightLoop:
 
     def startFlightLoop(self):
         self.lastLit = 0
+        self.acf_light_progress = 0
+        self.fmc_light_progress = 0
 
         if self.hasRabbit():
             if not self.rabbitRunning:
@@ -518,12 +520,14 @@ class FlightLoop:
                         logger.debug("\n\n")
                         logger.debug(f"spawning at rest at {rnd} {fmcar.SPAWN_SIDE_DISTANCE}m side of precise start position..")
                         fmcar.init(position=join_route.start, heading=join_route.bearing(), speed=0.0)  # @todo always spawned at rest?
+                        fmcar.aircraft = aircraft
                         #
                         # 2. Movement from where the car is spawned to first vertex of route, car joint the route and will stay on it
                         #    @todo: first vertex of route might not be the closest vertex in front.
                         # logger.debug("..move to begining of route..")
                         edge = 0
-                        fmc_speed = fmcar.adjustSpeed(aircraft=self.ftg.aircraft, rabbit_mode=self.rabbitMode)
+                        ahead = self.ftg.aircraft.adjustAhead(rabbit_mode=self.rabbitMode)
+                        fmc_speed = fmcar.adjustSpeed(aircraft=self.ftg.aircraft, rabbit_mode=self.rabbitMode, ahead=ahead)
                         tj = join_route.length() / fmc_speed
                         dt = ts_now + tj
                         target_heading = self.ftg.route.edges[edge].bearing(orig=self.ftg.route.vertices[edge])
@@ -532,7 +536,6 @@ class FlightLoop:
                         #
                         # 3. Movement (on route) from above vertex of route to ahead of aircraft
                         #
-                        ahead = self.ftg.aircraft.adjustAhead(rabbit_mode=self.rabbitMode)
                         tahead = ahead / fmc_speed  # secs.
                         ref_light = 0
                         closestLight, dist = self.ftg.lights.closest(pos)
@@ -562,7 +565,7 @@ class FlightLoop:
                             closestLight = 0
                         join_time = 20  # secs, reasonable time from spawn position to ahead of acf
                         # during join travel, aircraft will move forward, aircraft might still be running fast, we limit ot speed of car:
-                        fast = fmcar.adjustSpeed(aircraft=self.ftg.aircraft, rabbit_mode=self.rabbitMode, speed_type="fast")
+                        fast = fmcar.adjustSpeed(aircraft=self.ftg.aircraft, rabbit_mode=self.rabbitMode, ahead=ahead, speed_type="fast")
                         acf_ahead = fast * join_time
                         ahead_at_join = acf_ahead + ahead
                         light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=closestLight, ahead=ahead_at_join)
@@ -573,6 +576,7 @@ class FlightLoop:
                         )
                         # we spawn the car at aircraft speed + speed to travel in front of acf.
                         fmcar.init(position=join_route.start, heading=join_route.bearing(), speed=initial_speed)  # @todo always spawned at rest?
+                        fmcar.aircraft = aircraft
                         #
                         # 2. Movement from where the car is spawned to ahead of acf on route, goes in a straight line
                         dt = ts_now + join_time
@@ -612,12 +616,6 @@ class FlightLoop:
                     self.old_msg = msg
                 return self.adjustedIter(acf_speed=acf_speed)
 
-        # @todo: If FtG is finished, car need to disappear nicely
-
-        # should use elapsedSinceLastCall
-        # logger.debug(
-        #     f"control: last iter={self.lastIter}, elapsedSinceLastCall={elapsedSinceLastCall}, counter={counter}, elapsedTimeSinceLastFlightLoop={elapsedTimeSinceLastFlightLoop}"
-        # )
         acf_move = acf_speed * self.lastIter
         self.total_time = self.total_time + self.lastIter
         self.total_dist = self.total_dist + acf_speed * self.lastIter
@@ -661,7 +659,7 @@ class FlightLoop:
                 logger.debug("moving..")
                 try:
                     ahead = self.ftg.aircraft.adjustAhead(rabbit_mode=self.rabbitMode)
-                    fast = fmcar.adjustSpeed(aircraft=self.ftg.aircraft, rabbit_mode=self.rabbitMode)
+                    fast = fmcar.adjustSpeed(aircraft=self.ftg.aircraft, ahead=ahead, rabbit_mode=self.rabbitMode)
                     total_ahead = acf_move + ahead
                     later = ts_now + nextIter
                     fmc_speed = max(acf_speed, fast)  # for calculation, not effectively
@@ -670,7 +668,7 @@ class FlightLoop:
                     # logger.debug(f"ahead={round(total_ahead, 1)}m = {round(ahead, 1)}m + acf move={round(acf_move, 1)}m")
                     # At next iteration, acf will move acf_move, and fmcar need to be ahead
                     # So at next iteration (t=now + iterTime), car need to be (acf_move+ahead) in front
-                    logger.debug(f"should move {total_ahead} (ahead={round(ahead, 1)}m + acf={round(acf_move, 1)}m)")
+                    logger.debug(f"should move {round(total_ahead, 1)}m (ahead={round(ahead, 1)}m + acf={round(acf_move, 1)}m)")
                     light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=closestLight, ahead=total_ahead)
                     logger.debug(f"should move to light={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
                     if light_index > nextStop:
@@ -720,6 +718,8 @@ class FlightLoop:
 
         if self.hasRabbit():
             self.adjustRabbit(position=pos, closestLight=closestLight, acf_speed=acf_speed)  # Here is the 4D!
+
+        self.acf_light_progress = closestLight
 
         # logger.debug("closest %d %f", closestLight, distance)
         if closestLight > self.lastLit and dist < self.diftingLimit:  # Progress OK

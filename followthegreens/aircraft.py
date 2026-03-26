@@ -405,7 +405,7 @@ class Aircraft:
             if a != r:
                 logger.log(8, f"restricted to limits: {r}, {HARDCODED_AHEAD_LIMITS})")
         logger.debug(
-            f"ahead_range {r} adjusted from {r0} for visibility, aircraft speed, and rabbit_mode (viz={round(viz, 1)}m, acf_speed={round(acf_speed, 1)}m/s, acf_length={round(self.acf_length, 1)}m, rabbit mode={rabbit_mode}, hard limits={HARDCODED_AHEAD_LIMITS})"
+            f"ahead_range {r} adjusted from {r0} for visibility={round(viz, 1)}m, aircraft speed={round(acf_speed, 1)}m/s, and rabbit_mode={rabbit_mode}, hard limits={HARDCODED_AHEAD_LIMITS})"
         )
         return r
 
@@ -426,11 +426,12 @@ class Aircraft:
         )
 
         #
-        # AHEAD IN ADJUSTED RANGE
+        # AHEAD IN ADJUSTED RANGE, if not, invites to got to middle range
+        mid_range = sum(ahead_range) / len(ahead_range)
         if ahead < ahead_range[0]:
-            ahead = ahead_range[0]
+            ahead = mid_range
         if ahead > ahead_range[1]:
-            ahead = ahead_range[1]
+            ahead = mid_range
         adjusted = " ("
         if ahead != ahead0:
             adjusted = f" (adjusted from {round(ahead0, 1)}m to range {ahead_range}, "
