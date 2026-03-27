@@ -498,7 +498,7 @@ class FlightLoop:
         if not self.taxiStarted():
             if fmcar is not None and not fmcar.inited:
                 try:
-                    self.fmc_light_progress, self.acf_light_progress = fmcar.spawn(ftg=self.ftg, ts_now=ts_now)
+                    self.fmc_light_progress, self.acf_light_progress = fmcar.spawn(ftg=self.ftg)
                 except:
                     logger.debug("error spawning fmcar", exc_info=True)
             if aircraft.moved() > AIRCRAFT_MIN_DIST or aircraft.moving():
@@ -550,67 +550,27 @@ class FlightLoop:
         else:
             # MOVE
             if fmcar is not None:
-                logger.debug("moving..")
                 try:
-                    ahead = self.ftg.aircraft.adjustAhead(rabbit_mode=self.rabbitMode)
-                    fast = fmcar.adjustSpeed(aircraft=self.ftg.aircraft, ahead=ahead, rabbit_mode=self.rabbitMode)
-                    total_ahead = acf_move + ahead
-                    later = ts_now + nextIter
-                    fmc_speed = max(acf_speed, fast)  # for calculation, not effectively
-                    light = self.ftg.lights.lights[closestLight]
-                    logger.debug(f"aircraft closest light={closestLight} on edge index={light.edgeIndex}, distance from edge={round(light.distFromEdgeStart, 1)}m")
-                    # logger.debug(f"ahead={round(total_ahead, 1)}m = {round(ahead, 1)}m + acf move={round(acf_move, 1)}m")
-                    # At next iteration, acf will move acf_move, and fmcar need to be ahead
-                    # So at next iteration (t=now + iterTime), car need to be (acf_move+ahead) in front
-                    logger.debug(f"should move {round(total_ahead, 1)}m (ahead={round(ahead, 1)}m + acf={round(acf_move, 1)}m)")
-                    light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=closestLight, ahead=total_ahead)
-                    logger.debug(f"should move to light={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
-                    if light_index > nextStop:
-                        logger.debug(
-                            f"car is at light={self.fmc_light_progress}, cannot move to light={light_index} because it is after stop at light {nextStop}, need to clear stop before (note: indicator={fmcar.indicator})"
-                        )
-                        # logger.debug("..not moved")
-                        if self.fmc_light_progress < nextStop:
-                            dist = (nextStop - self.fmc_light_progress) * self.ftg.lights.distance_between_green_lights
-                            t = dist / fmc_speed
-                            dt = ts_now + t
-                            light_at_stop = self.ftg.lights.lights[nextStop]
-                            # logger.debug(f"future_index to i={light_at_stop.edgeIndex}, d={round(light_at_stop.distFromEdgeStart,1)}m, spd={round(fmc_speed,1)}m/s")
-                            fmcar.future_index(
-                                edge=light_at_stop.edgeIndex,
-                                dist=light_at_stop.distFromEdgeStart,
-                                speed=fmc_speed,
-                                t=dt,
-                                text=f"moving to next stop at light {self.fmc_light_progress}",
-                            )
-                            self.fmc_light_progress = nextStop
-                            logger.debug(f"..moved to next stop (car at light {self.fmc_light_progress})")
-                        else:
-                            logger.debug(f"..not moved: car is at light={self.fmc_light_progress}, next  stop at light {nextStop}")
-                    else:
-                        # logger.debug(f"light ahead={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
-                        # logger.debug(f"future_index to i={light_ahead.edgeIndex}, d={round(light_ahead.distFromEdgeStart,1)}m, spd={round(fmc_speed,1)}m/s")
-                        fmcar.future_index(
-                            edge=light_ahead.edgeIndex,
-                            dist=light_ahead.distFromEdgeStart,
-                            speed=fmc_speed,
-                            t=later,
-                            text=f"moving on route (i={light_ahead.edgeIndex}, d={round(light_ahead.distFromEdgeStart,1)}m)",
-                        )
-                        self.fmc_light_progress = light_index
-                        logger.debug(f"..moved  (car at light {self.fmc_light_progress})")
-                    # Checks for end of lights/end of trip
-                    if light_index == (len(self.ftg.lights.lights) - 1) and not fmcar.isFinishing():  # reached last light
-                        logger.debug(f"fmcar reached end of lights (car at light={light_index}/{len(self.ftg.lights.lights) - 1}), initiating finish trip")
-                        fmcar.finish("end of lights")
+                    self.fmc_light_progress, self.acf_light_progress = fmcar.move(
+                        ftg=self.ftg,
+                        acf_speed=acf_speed,
+                        acf_move=acf_move,
+                        closestLight=closestLight,
+                        nextStop=nextStop,
+                        fmc_light_progress=self.fmc_light_progress,
+                        acf_light_progress=self.acf_light_progress,
+                    )
+                except:
+                    logger.debug("error moving fmcar", exc_info=True)
 
+                try:
                     if fmcar.isFinished() and fmcar.canDelete():
                         logger.debug("fmcar done, removing..")
                         self.ftg.fmcar.destroy()
                         self.ftg.fmcar = None  # ready to create a new one
                         logger.debug("..removed")
                 except:
-                    logger.debug("..error", exc_info=True)
+                    logger.debug("error removing fmcar", exc_info=True)
 
         if self.hasRabbit():
             self.adjustRabbit(position=pos, closestLight=closestLight, acf_speed=acf_speed)  # Here is the 4D!
