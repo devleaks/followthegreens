@@ -467,6 +467,18 @@ class FlightLoop:
         except:
             logger.error("set rabbitMode", exc_info=True)
 
+    def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
+        # pylint: disable=unused-argument
+        # show rabbit in front of plane.
+        # plane is supposed to Follow the greens and it close to green light index self.lastLit.
+        # We cannot use XP's counter because it does not increment by 1 just for us.
+        if self.ftg is not None and self.ftg.lights is not None:
+            try:
+                return self.ftg.lights.rabbit(self.lastLit)
+            except:
+                logger.debug("error", exc_info=True)
+        return 5.0
+
     def planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
         # monitor progress of plane on the green. Turns lights off as it does no longer needs them.
@@ -492,7 +504,6 @@ class FlightLoop:
             logger.debug("no speed")
             return self.nextIter
 
-        ts_now = datetime.now().timestamp()
         fmcar = self.ftg.fmcar
 
         if not self.taxiStarted():
@@ -560,17 +571,10 @@ class FlightLoop:
                         fmc_light_progress=self.fmc_light_progress,
                         acf_light_progress=self.acf_light_progress,
                     )
+                    if fmcar.isDeleted():
+                        self.ftg.fmcar = None  # ready to create a new one
                 except:
                     logger.debug("error moving fmcar", exc_info=True)
-
-                try:
-                    if fmcar.isFinished() and fmcar.canDelete():
-                        logger.debug("fmcar done, removing..")
-                        self.ftg.fmcar.destroy()
-                        self.ftg.fmcar = None  # ready to create a new one
-                        logger.debug("..removed")
-                except:
-                    logger.debug("error removing fmcar", exc_info=True)
 
         if self.hasRabbit():
             self.adjustRabbit(position=pos, closestLight=closestLight, acf_speed=acf_speed)  # Here is the 4D!
@@ -600,15 +604,3 @@ class FlightLoop:
         self.distance = dist
 
         return nextIter
-
-    def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
-        # pylint: disable=unused-argument
-        # show rabbit in front of plane.
-        # plane is supposed to Follow the greens and it close to green light index self.lastLit.
-        # We cannot use XP's counter because it does not increment by 1 just for us.
-        if self.ftg is not None and self.ftg.lights is not None:
-            try:
-                return self.ftg.lights.rabbit(self.lastLit)
-            except:
-                logger.debug("error", exc_info=True)
-        return 5.0

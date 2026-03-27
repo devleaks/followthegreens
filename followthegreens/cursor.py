@@ -213,8 +213,6 @@ class Situation:
 class Cursor:
     # Linear interpolator
 
-    SPAWN_SIDE_DISTANCE = 20
-
     def __init__(self, detail, route) -> None:
         self.detail = detail
         self.cursor_object = CursorObject(detail.filename)
@@ -355,12 +353,11 @@ class Cursor:
             self.cursor_object = None
         self.status = CURSOR_STATUS.DESTROYED
 
-    def canDelete(self) -> bool:
-        if self.status != CURSOR_STATUS.FINISHED:
-            logger.debug("not finished, cannot delete")
-            return False
-        self.destroy()
-        return True
+    def isDeleted(self) -> bool:
+        if self.status == CURSOR_STATUS.FINISHED:
+            self.destroy()
+            return True
+        return False
 
     # Movement execution
     #
@@ -1110,9 +1107,6 @@ class Cursor:
     def isFinishing(self) -> bool:
         return self.status == CURSOR_STATUS.FINISHING
 
-    def isFinished(self) -> bool:
-        return self.status == CURSOR_STATUS.FINISHED
-
     def finish(self, message: str = ""):
         # @todo: Do better move, especially on runways
         # Add a last move, ahead and sideway, wait a few seconds and vanishes
@@ -1202,6 +1196,8 @@ class Cursor:
         logger.debug("return route programmed")
 
     def spawn(self, ftg) -> tuple:
+        SPAWN_SIDE_DISTANCE = 50
+
         self.aircraft = ftg.aircraft
         pos = self.aircraft.position()
 
@@ -1209,10 +1205,10 @@ class Cursor:
             # we haven't started our taxi
             #
             # 1. Spawn the car next to (random) side of aircraft
-            rnd = -1  # 1 if (int(pos[0]*10000) % 2) == 0 else -1
+            rnd = 1 if (int(pos[0] * 10000) % 2) == 0 else -1
             fs = ftg.route.before_route()
             # spawn at spot randomly left or right of current aircraft position
-            spawn = destination(fs.start, fs.bearing() + rnd * 90, self.SPAWN_SIDE_DISTANCE)  # use acf.heading()?
+            spawn = destination(fs.start, fs.bearing() + rnd * 90, SPAWN_SIDE_DISTANCE)  # use acf.heading()?
             # s1 = destination(fs.start, fs.bearing() + rnd * 90, self.SPAWN_SIDE_DISTANCE)  # use acf.heading()?
             # spawn = destination(s1, fs.bearing(), self.SPAWN_SIDE_DISTANCE)  # use acf.heading()?
             # from spot to begining of route
@@ -1220,7 +1216,7 @@ class Cursor:
             # logger.debug(f"lines: before route={fs}, route to start={join_route}")
             # Speed at which we'll do that move is speed of aircraft + more
             logger.debug("\n\n")
-            logger.debug(f"spawning at rest at {rnd} {self.SPAWN_SIDE_DISTANCE}m side of precise start position..")
+            logger.debug(f"spawning at rest at {rnd} {SPAWN_SIDE_DISTANCE}m side of precise start position..")
             self.init(position=join_route.start, heading=join_route.bearing(), speed=0.0)  # @todo always spawned at rest?
             #
             # 2. Movement from where the car is spawned to first vertex of route, car joint the route and will stay on it
@@ -1259,7 +1255,7 @@ class Cursor:
         rnd = 1 if (int(join_route.length()) % 2) == 0 else -1
         ahead = self.aircraft.adjustAhead(rabbit_mode=ftg.lights.rabbit_mode)
         spawn = destination(ftg.route.precise_start, self.aircraft.heading(), ahead / 2)  # ahead/2 ahead
-        spawn = destination(spawn, self.aircraft.heading() + rnd * 90, self.SPAWN_SIDE_DISTANCE)
+        spawn = destination(spawn, self.aircraft.heading() + rnd * 90, SPAWN_SIDE_DISTANCE)
         closestLight, dist = ftg.lights.closest(pos)
         if closestLight is None:
             logger.debug("no close light to start")
@@ -1272,7 +1268,7 @@ class Cursor:
         light_ahead, light_index, dist_left = ftg.lights.lightAhead(index_from=closestLight, ahead=ahead_at_join)
         join_route = Line(start=spawn, end=light_ahead.position)
         initial_speed = join_route.length() / join_time
-        logger.debug(f"spawning ahead {round(ahead / 2, 1)}m at {rnd} {self.SPAWN_SIDE_DISTANCE}m side of precise start position, speed is {round(initial_speed,1)}m/s..")
+        logger.debug(f"spawning ahead {round(ahead / 2, 1)}m at {rnd} {SPAWN_SIDE_DISTANCE}m side of precise start position, speed is {round(initial_speed,1)}m/s..")
         # we spawn the car at aircraft speed + speed to travel in front of acf.
         self.init(position=join_route.start, heading=join_route.bearing(), speed=initial_speed)  # @todo always spawned at rest?
         #
@@ -1304,8 +1300,8 @@ class Cursor:
 
     def move(self, ftg, acf_speed, acf_move, closestLight, nextStop, fmc_light_progress, acf_light_progress) -> tuple:
         logger.debug("moving..")
-        ahead = ftg.aircraft.adjustAhead(rabbit_mode=ftp.lights.rabbit_mode)
-        fast = self.adjustSpeed(aircraft=ftg.aircraft, ahead=ahead, rabbit_mode=ftp.lights.rabbit_mode)
+        ahead = ftg.aircraft.adjustAhead(rabbit_mode=ftg.lights.rabbit_mode)
+        fast = self.adjustSpeed(aircraft=ftg.aircraft, ahead=ahead, rabbit_mode=ftg.lights.rabbit_mode)
         total_ahead = acf_move + ahead
         fmc_speed = max(acf_speed, fast)  # for calculation, not effectively
         light = ftg.lights.lights[closestLight]
@@ -1353,3 +1349,6 @@ class Cursor:
             self.finish("end of lights")
 
         return fmc_light_progress, acf_light_progress
+
+
+# Double finish part 2, probably because sr_position wrongly set
