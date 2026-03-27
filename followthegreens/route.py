@@ -608,6 +608,19 @@ class Route:
             fc.save(fn)
             logger.debug(f"taxi route saved in {os.path.abspath(fn)}")
 
+    def destination(self, i: int, dist: float) -> tuple:
+        if i >= len(self.vertices) - 1:  # end of route, end of recursion, return last point
+            return self.vertices[-1], self.edges_orient[-1], i, 0
+        if dist == 0:
+            return self.vertices[i], self.edges_orient[i], i, 0
+        self._srrecurr += 1
+        d = self.edges[i].cost
+        if dist < d:  # there is enough room on the current edge, recursion ends
+            b = self.edges_orient[i]
+            pt = destination(self.vertices[i], b, dist)
+            return pt, b, i, dist
+        return self.destination(i=i + 1, dist=dist - d)
+
     # SMOOTH ROUTE
     # Adds turns at vertices.
     #

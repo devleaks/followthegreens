@@ -497,116 +497,10 @@ class FlightLoop:
 
         if not self.taxiStarted():
             if fmcar is not None and not fmcar.inited:
-                # this is ok if aircraft at rest
-                # need more dynamic reaction if aircraft moving (like "new green requested")
-                # To be tested on arrival medium speed on runway or low speed on taxiway
-                # may be make AIRCRAFT_MIN_DIST/AIRCRAFT_MIN_SPEED dynamic.
-                #
                 try:
-                    if not aircraft.moving() and self.ftg.move == MOVEMENT.DEPARTURE:
-                        # we haven't started our taxi
-                        #
-                        # 1. Spawn the car next to (random) side of aircraft
-                        rnd = 1 if (int(ts_now) % 2) == 0 else -1
-                        fs = self.ftg.route.before_route()
-                        # spawn at spot randomly left or right of current aircraft position
-                        spawn = destination(fs.start, fs.bearing() + rnd * 90, fmcar.SPAWN_SIDE_DISTANCE)  # use acf.heading()?
-                        # s1 = destination(fs.start, fs.bearing() + rnd * 90, fmcar.SPAWN_SIDE_DISTANCE)  # use acf.heading()?
-                        # spawn = destination(s1, fs.bearing(), fmcar.SPAWN_SIDE_DISTANCE)  # use acf.heading()?
-                        # from spot to begining of route
-                        join_route = Line(start=spawn, end=self.ftg.route.vertices[0])
-                        # logger.debug(f"lines: before route={fs}, route to start={join_route}")
-                        # Speed at which we'll do that move is speed of aircraft + more
-                        logger.debug("\n\n")
-                        logger.debug(f"spawning at rest at {rnd} {fmcar.SPAWN_SIDE_DISTANCE}m side of precise start position..")
-                        fmcar.init(position=join_route.start, heading=join_route.bearing(), speed=0.0)  # @todo always spawned at rest?
-                        fmcar.aircraft = aircraft
-                        #
-                        # 2. Movement from where the car is spawned to first vertex of route, car joint the route and will stay on it
-                        #    @todo: first vertex of route might not be the closest vertex in front.
-                        # logger.debug("..move to begining of route..")
-                        edge = 0
-                        ahead = self.ftg.aircraft.adjustAhead(rabbit_mode=self.rabbitMode)
-                        fmc_speed = fmcar.adjustSpeed(aircraft=self.ftg.aircraft, rabbit_mode=self.rabbitMode, ahead=ahead)
-                        tj = join_route.length() / fmc_speed
-                        dt = ts_now + tj
-                        target_heading = self.ftg.route.edges[edge].bearing(orig=self.ftg.route.vertices[edge])
-                        logger.debug(f"..move to begining of route: distance={round(join_route.length(), 1)}, heading={round(join_route.bearing(), 0)}, in {round(tj, 1)}s..")
-                        fmcar.future(position=join_route.end, hdg=target_heading, speed=fmc_speed, t=dt, tick=True, text="go to begining of route", end=(0, 0))
-                        #
-                        # 3. Movement (on route) from above vertex of route to ahead of aircraft
-                        #
-                        tahead = ahead / fmc_speed  # secs.
-                        ref_light = 0
-                        closestLight, dist = self.ftg.lights.closest(pos)
-                        if closestLight is None or dist > 20:  # m
-                            logger.debug("aircraft not close to a light")
-                        else:
-                            logger.debug(f"aircraft close to light {closestLight} ({round(dist, 1)}m)")
-                            ref_light = closestLight
-                        light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=ref_light, ahead=ahead)
-                        logger.debug(f"..move on route {round(ahead, 1)}m ahead in {round(tahead, 1)}secs... (on light {light_index}, {round(dist_left, 1)}m neglected)..")
-                        # we know aircraft is not moving (in this case), so at the end of route, target speed is 0.
-                        # logger.debug(f"future_index to i={light_ahead.edgeIndex}, d={round(light_ahead.distFromEdgeStart,1)}m, spd={round(0.0,1)}m/s")
-                        fmcar.future_index(edge=light_ahead.edgeIndex, dist=light_ahead.distFromEdgeStart, speed=0.0, t=dt + tahead, text="moving on route ahead of aircraft")
-                        self.fmc_light_progress = light_index
-                        logger.debug(f"..ready to taxi (car at light {self.fmc_light_progress})")
-                    else:
-                        # Aircraft is moving (example if new green request) or we are on arrival (or both)
-                        #
-                        # 1. Spawn the car next to (random) side of aircraft, half way "ahead" so that pilot can see the car on the side
-                        rnd = 1 if (int(ts_now) % 2) == 0 else -1
-                        ahead = self.ftg.aircraft.adjustAhead(rabbit_mode=self.rabbitMode)
-                        spawn = destination(self.ftg.route.precise_start, aircraft.heading(), ahead / 2)  # ahead/2 ahead
-                        spawn = destination(spawn, aircraft.heading() + rnd * 90, fmcar.SPAWN_SIDE_DISTANCE)
-                        closestLight, dist = self.ftg.lights.closest(pos)
-                        if closestLight is None:
-                            logger.debug("no close light to start")
-                            closestLight = 0
-                        join_time = 20  # secs, reasonable time from spawn position to ahead of acf
-                        # during join travel, aircraft will move forward, aircraft might still be running fast, we limit ot speed of car:
-                        fast = fmcar.adjustSpeed(aircraft=self.ftg.aircraft, rabbit_mode=self.rabbitMode, ahead=ahead, speed_type="fast")
-                        acf_ahead = fast * join_time
-                        ahead_at_join = acf_ahead + ahead
-                        light_ahead, light_index, dist_left = self.ftg.lights.lightAhead(index_from=closestLight, ahead=ahead_at_join)
-                        join_route = Line(start=spawn, end=light_ahead.position)
-                        initial_speed = join_route.length() / join_time
-                        logger.debug(
-                            f"spawning ahead {round(ahead / 2, 1)}m at {rnd} {fmcar.SPAWN_SIDE_DISTANCE}m side of precise start position, speed is {round(initial_speed,1)}m/s.."
-                        )
-                        # we spawn the car at aircraft speed + speed to travel in front of acf.
-                        fmcar.init(position=join_route.start, heading=join_route.bearing(), speed=initial_speed)  # @todo always spawned at rest?
-                        fmcar.aircraft = aircraft
-                        #
-                        # 2. Movement from where the car is spawned to ahead of acf on route, goes in a straight line
-                        dt = ts_now + join_time
-                        target_heading = light_ahead.heading
-                        # we will move the car well ahead, the car should not backup
-                        # aircraft will move acf_ahead ahead of closestLight, or acf_ahead/lights.distance_between_green_lights lights
-                        # we can expect "cannot backup on route" while aircraft catches up with its supposed position
-                        # and the fmcar already in position
-                        self.acf_light_progress = min(closestLight + int(acf_ahead / self.ftg.lights.distance_between_green_lights), len(self.ftg.lights.lights) - 1)
-                        self.fmc_light_progress = light_index
-                        logger.debug(
-                            f"..move on route at {round(ahead_at_join, 1)}m ahead, heading={round(join_route.bearing(), 0)}, in {round(join_time, 1)}s (aircraft will be at light index {self.acf_light_progress} when fmcar join route).."
-                        )
-                        # we move the car in front of acf, and progress at same speed as acf.
-                        fmcar.future(
-                            position=join_route.end,
-                            hdg=target_heading,
-                            speed=fast,
-                            t=dt,
-                            tick=True,
-                            text="go on route ahead of aircraft",
-                            end=(light_ahead.edgeIndex, light_ahead.distFromEdgeStart),
-                        )
-                        # finally, we have to tell future_index() where car is when it join route
-                        # so that when move() catches up with future_index() it will start from there
-                        # (after above future)
-                        logger.debug(f"..already taxiing (car at light {self.fmc_light_progress})")
+                    self.fmc_light_progress, self.acf_light_progress = fmcar.spawn(ftg=self.ftg, ts_now=ts_now)
                 except:
-                    logger.debug("..error", exc_info=True)
-
+                    logger.debug("error spawning fmcar", exc_info=True)
             if aircraft.moved() > AIRCRAFT_MIN_DIST or aircraft.moving():
                 self.taxiStart()
             else:
@@ -709,10 +603,12 @@ class FlightLoop:
                     if light_index == (len(self.ftg.lights.lights) - 1) and not fmcar.isFinishing():  # reached last light
                         logger.debug(f"fmcar reached end of lights (car at light={light_index}/{len(self.ftg.lights.lights) - 1}), initiating finish trip")
                         fmcar.finish("end of lights")
+
                     if fmcar.isFinished() and fmcar.canDelete():
-                        logger.debug("fmcar done, removing")
+                        logger.debug("fmcar done, removing..")
                         self.ftg.fmcar.destroy()
                         self.ftg.fmcar = None  # ready to create a new one
+                        logger.debug("..removed")
                 except:
                     logger.debug("..error", exc_info=True)
 
