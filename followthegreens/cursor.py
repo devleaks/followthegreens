@@ -1104,9 +1104,6 @@ class Cursor:
 
     # End of route elegance: End of route is reached and Cursor progress a little more then vanishes
     #
-    def isFinishing(self) -> bool:
-        return self.status == CURSOR_STATUS.FINISHING
-
     def finish(self, message: str = ""):
         # @todo: Do better move, especially on runways
         # Add a last move, ahead and sideway, wait a few seconds and vanishes
@@ -1195,6 +1192,8 @@ class Cursor:
         self.future_index(edge=route.route[-1].getProp(SMOOTH_ROUTE.REVERSE_INDEX.value), dist=length, speed=0.0)
         logger.debug("return route programmed")
 
+    # Interface to flight loop
+    #
     def spawn(self, ftg) -> tuple:
         SPAWN_SIDE_DISTANCE = 50
 
@@ -1252,8 +1251,8 @@ class Cursor:
         # Aircraft is moving (example if new green request) or we are on arrival (or both)
         #
         # 1. Spawn the car next to (random) side of aircraft, half way "ahead" so that pilot can see the car on the side
-        rnd = 1 if (int(join_route.length()) % 2) == 0 else -1
         ahead = self.aircraft.adjustAhead(rabbit_mode=ftg.lights.rabbit_mode)
+        rnd = 1 if (int(ahead) % 2) == 0 else -1
         spawn = destination(ftg.route.precise_start, self.aircraft.heading(), ahead / 2)  # ahead/2 ahead
         spawn = destination(spawn, self.aircraft.heading() + rnd * 90, SPAWN_SIDE_DISTANCE)
         closestLight, dist = ftg.lights.closest(pos)
@@ -1262,7 +1261,7 @@ class Cursor:
             closestLight = 0
         join_time = 20  # secs, reasonable time from spawn position to ahead of acf
         # during join travel, aircraft will move forward, aircraft might still be running fast, we limit ot speed of car:
-        fast = self.adjustSpeed(aircraft=ftg.aircraft, rabbit_mode=ftg.lights.rabbit_modeftg.lights.rabbit_mode, ahead=ahead, speed_type="fast")
+        fast = self.adjustSpeed(aircraft=ftg.aircraft, rabbit_mode=ftg.lights.rabbit_mode, ahead=ahead, speed_type="fast")
         acf_ahead = fast * join_time
         ahead_at_join = acf_ahead + ahead
         light_ahead, light_index, dist_left = ftg.lights.lightAhead(index_from=closestLight, ahead=ahead_at_join)
@@ -1344,7 +1343,7 @@ class Cursor:
             fmc_light_progress = light_index
             logger.debug(f"..moved  (car at light {fmc_light_progress})")
         # Checks for end of lights/end of trip
-        if light_index == (len(ftg.lights.lights) - 1) and not self.isFinishing():  # reached last light
+        if light_index == (len(ftg.lights.lights) - 1) and self.status != CURSOR_STATUS.FINISHING:  # reached last light
             logger.debug(f"fmcar reached end of lights (car at light={light_index}/{len(ftg.lights.lights) - 1}), initiating finish trip")
             self.finish("end of lights")
 

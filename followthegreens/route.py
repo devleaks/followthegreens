@@ -942,6 +942,7 @@ class Route:
         # This allows to set turn indicator at the end of Straight lines
         route[-1].setProp("END_TURN_VALID", turn.valid)
         route[-1].setProp("END_TURN_ALPHA", turn.alpha)
+        route[-1].setProp("END_TURN_TANGENT", turn.tangent_length)  # has already moved that much on edge after vertex
 
         if logger.level < 10:
             fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_straight{datetime.now().strftime('%M%S%f')}.geojson")  # _{self.route[0]}-{self.route[-1]}
