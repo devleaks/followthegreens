@@ -229,10 +229,9 @@ class UIUtil:
             ["Welcome. We could not find the airport where you are located.", prompt],
             {f"Follow the {self.ftg.thing}": self.cbAirport, CANCELSHORT_TEXT: self.cbCancel},
         )
-
         left = self.linetops[1][1] + 10
         right = int(left + 100)
-        top = self.linetops[2][0]
+        top = self.linetops[1][0]
         bottom = int(top - self.strHeight)
         widget = xp.createWidget(
             left,

@@ -345,11 +345,7 @@ VERSION = "{__VERSION__}"
         self.aircraft = Aircraft(prefs=self.prefs)
 
         pos = self.aircraft.position()
-        if pos is None:
-            logger.debug("no aircraft position")
-            return self.ui.sorry("We could not locate your aircraft.")
-
-        if pos[0] == 0 and pos[1] == 0:
+        if pos is None or (pos[0] == 0 and pos[1] == 0):
             logger.debug("no aircraft position")
             return self.ui.sorry("We could not locate your aircraft.")
 
@@ -368,6 +364,20 @@ VERSION = "{__VERSION__}"
             logger.debug("no airport (not found)")
             return self.ui.promptForAirport()  # prompt for airport will continue with getDestination(airport)
 
+        airport_name = airport.navAidID
+        if not self.airport or (self.airport.icao != airport_name):  # we may have changed airport since last call
+            airport_data = Airport(icao=airport_name, prefs=self.prefs)
+            # Info 4 to 9 in airport.prepare()
+            status = airport_data.prepare()  # [ok, errmsg]
+            if not status[0]:
+                logger.warning(f"airport not ready: {status[1]}")
+                return self.ui.promptForAirport()
+            self.airport = airport_data
+            self.inc(self.airport.icao)
+        else:
+            logger.debug(f"airport {self.airport.icao} already loaded")
+
+        logger.info(f"airport {self.airport.icao} ready")
         # Info 3
         logger.info(f"at {airport.name}")
         self.status = FTG_STATUS.AIRPORT
@@ -385,7 +395,7 @@ VERSION = "{__VERSION__}"
             status = airport.prepare()  # [ok, errmsg]
             if not status[0]:
                 logger.warning(f"airport not ready: {status[1]}")
-                return self.ui.sorry(status[1])
+                return self.ui.sorry(status[1])  # could loop on getAirport? return self.getAirport()
             self.airport = airport
             self.inc(self.airport.icao)
         else:
