@@ -507,11 +507,13 @@ class FlightLoop:
         fmcar = self.ftg.fmcar
 
         if not self.taxiStarted():
+            # FM Car hooks 1
             if fmcar is not None and not fmcar.inited:
                 try:
                     self.fmc_light_progress, self.acf_light_progress = fmcar.spawn(ftg=self.ftg)
                 except:
                     logger.debug("error spawning fmcar", exc_info=True)
+            #
             if aircraft.moved() > AIRCRAFT_MIN_DIST or aircraft.moving():
                 self.taxiStart()
             else:
@@ -559,7 +561,7 @@ class FlightLoop:
             logger.debug(f"backup detected, ignoring closestLight={closestLight}, using {self.acf_light_progress}, no progress")
             closestLight = max(closestLight, self.acf_light_progress)
         else:
-            # MOVE
+            # FM Car hooks 2
             if fmcar is not None:
                 try:
                     self.fmc_light_progress, self.acf_light_progress = fmcar.move(
@@ -575,6 +577,7 @@ class FlightLoop:
                         self.ftg.fmcar = None  # ready to create a new one
                 except:
                     logger.debug("error moving fmcar", exc_info=True)
+            #
 
         if self.hasRabbit():
             self.adjustRabbit(position=pos, closestLight=closestLight, acf_speed=acf_speed)  # Here is the 4D!
