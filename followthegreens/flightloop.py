@@ -505,12 +505,13 @@ class FlightLoop:
             return self.nextIter
 
         fmcar = self.ftg.fmcar
+        nextStop, warn = self.ftg.lights.toNextStop(pos)
 
         if not self.taxiStarted():
             # FM Car hooks 1
             if fmcar is not None and not fmcar.inited:
                 try:
-                    self.fmc_light_progress, self.acf_light_progress = fmcar.spawn(ftg=self.ftg)
+                    self.fmc_light_progress, self.acf_light_progress = fmcar.spawn(ftg=self.ftg, nextStop=nextStop)
                 except:
                     logger.debug("error spawning fmcar", exc_info=True)
             #
@@ -528,7 +529,6 @@ class FlightLoop:
         self.total_dist = self.total_dist + acf_move
 
         # @todo: WARNING_DISTANCE should be computed from acf type (weigth, size) and speed
-        nextStop, warn = self.ftg.lights.toNextStop(pos)
         if nextStop and warn < aircraft.warningDistance():
             logger.debug(f"closing to stop (light={nextStop})")
             if fmcar is not None:

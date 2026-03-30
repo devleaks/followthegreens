@@ -557,7 +557,7 @@ class Route:
                     dst = self.graph.findClosestVertex(dst_pos.threshold)
                     self.precise_end = dst_pos.threshold
                 else:
-                    logger.debug("departure destination: using end of runway")
+                    logger.debug(f"departure destination: using end of runway {dst_pos.start.coords()}")
                     dst = self.graph.findClosestVertex(dst_pos.start)
                     self.precise_end = dst_pos.start
             elif dst_type == "hold":

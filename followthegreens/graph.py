@@ -246,11 +246,15 @@ class Graph:  # Graph(FeatureCollection)?
             mi = min(mi, v.cost)
             ma = max(ma, v.cost)
         logger.debug(f"{len(self.edges_arr)} edges: {s}, cost=[{round(mi, 2)}, {round(ma, 2)}]")
-        if logger.level < 10:
+        if logger.level <= 10:
             fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_tn_{self.name}.geojson")
             fc = FeatureCollection(features=self.features())
             fc.save(filename=fn)
             logger.debug(f"taxiway network saved in {os.path.abspath(fn)}")
+            fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_vx_{self.name}.geojson")
+            fc = FeatureCollection(features=self.features_vertex())
+            fc.save(filename=fn)
+            logger.debug(f"taxiway vertices saved in {os.path.abspath(fn)}")
 
     def features(self):
         def add(arr, v):
@@ -258,6 +262,15 @@ class Graph:  # Graph(FeatureCollection)?
             return arr
 
         fc = reduce(add, self.edges_arr, [])
+        logger.debug(f"{len(fc)} features")
+        return fc
+
+    def features_vertex(self):
+        def add(arr, v):
+            arr.append(v.feature())
+            return arr
+
+        fc = reduce(add, self.vert_dict.values(), [])
         logger.debug(f"{len(fc)} features")
         return fc
 

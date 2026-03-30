@@ -546,7 +546,7 @@ class LightString:
                 light.position.setProp("lightBarIndex", light.edgeIndex)
                 fc.append(light.position.feature())
         # logger.debug(f"added {len(self.stopbars)} stopbars")
-        logger.debug(f"{len(fc)} features")
+        # logger.debug(f"{len(fc)} features")
         return fc
 
     def printSegments(self):
@@ -558,7 +558,7 @@ class LightString:
             for i in range(len(self.stopbars)):
                 segs.append(f"#{i}:{last}-{self.stopbars[i].lightStringIndex - 1}")
                 last = self.stopbars[i].lightStringIndex
-            segs.append(f"#{i}:{last}-{len(self.lights) - 1}")
+            segs.append(f"#{len(self.stopbars)}:{last}-{len(self.lights) - 1}")
             logger.debug("segments: " + ", ".join(segs))
 
         logger.debug(f"distance between taxiway center lights: {self.distance_between_green_lights} m")
@@ -885,7 +885,7 @@ class LightString:
         logger.debug(f"at vertex 0, lights placed={len(thisLights)}")
         secure = len(route.smoothRoute) * 2
         i = 0
-        while srCurrPoint[0] < (len(route.smoothRoute) - 2) and i < secure:
+        while srCurrPoint[0] < (len(route.smoothRoute) - 1) and i < secure:
             r_idx = route.smoothRoute[srCurrPoint[0]].getProp(SMOOTH_ROUTE.ROUTE_INDEX)
             thisEdge = route.edges[r_idx]
             nextLightPos, d_brng, d_idx, d_dist = route.srAhead(i=srCurrPoint[0], dist=self.distance_between_green_lights, start=srCurrPoint[1])

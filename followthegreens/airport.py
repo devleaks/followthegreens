@@ -207,7 +207,7 @@ class Airport:
         # Set sensible default value from global preferences
         self.use_threshold = get_global("USE_THRESHOLD", self.prefs)
         if self.use_threshold is None:
-            self.use_threshold = True
+            self.use_threshold = False
 
         self.distance_between_green_lights = get_global(AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value, self.prefs)  # meters for follow_the_greens()
         self.distance_between_taxiway_lights = get_global(AIRPORT.DISTANCE_BETWEEN_LIGHTS.value, self.prefs)  # meters, for show_taxiways()
