@@ -525,7 +525,7 @@ class FlightLoop:
 
         acf_move = acf_speed * self.lastIter
         self.total_time = self.total_time + self.lastIter
-        self.total_dist = self.total_dist + acf_speed * self.lastIter
+        self.total_dist = self.total_dist + acf_move
 
         # @todo: WARNING_DISTANCE should be computed from acf type (weigth, size) and speed
         nextStop, warn = self.ftg.lights.toNextStop(pos)
