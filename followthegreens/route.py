@@ -744,24 +744,24 @@ class Route:
             fc = FeatureCollection(features=[r.feature() for r in self.srVertices])
             fc.save(fn)
 
-    def srClosest(self, point: Point, cache: bool = True) -> tuple:
+    def srClosest(self, route: tuple, point: Point, cache: bool = False) -> tuple:
         closest = None
         shortest = math.inf
         i = 0
         start = self.idxcache if cache else 0
-        for i in range(len(self.smoothRoute[start:])):
-            d = distance(self.smoothRoute[i], point)
+        for i in range(len(route[start:])):
+            d = distance(route[i], point)
             if d < shortest:
                 shortest = d
                 closest = i
         logger.debug(f"{closest} at {round(shortest, 1)}m")
         if cache:
             self.idxcache = closest.getProp(SMOOTH_ROUTE.INDEX)
-        return None if closest is None else self.smoothRoute[closest], shortest
+        return None if closest is None else route[closest], shortest
 
-    def srClosestOnRoute(self, point: Point) -> tuple:
+    def srClosestOnRoute(self, route: tuple, point: Point) -> tuple:
         # 360 – maximum angle + minimum angle
-        closest, dist = self.srClosest(point=point, cache=False)
+        closest, dist = self.srClosest(route=route, point=point)
         if closest is None:
             logger.debug("not found")
             return None, dist
@@ -769,16 +769,16 @@ class Route:
         if idx == 0:  # first
             logger.debug("first segment")
             return idx, dist
-        if idx == (len(self.smoothRoute) - 1):  # last
+        if idx == (len(route) - 1):  # last
             logger.debug("last segment")
-            return len(self.smoothRoute) - 2, distance(self.smoothRoute[-2], point)
+            return len(route) - 2, distance(route[-2], point)
         b1 = bearing(closest, point)
-        b2 = bearing(closest, self.smoothRoute[idx + 1])
+        b2 = bearing(closest, route[idx + 1])
         trn = turn(b1, b2)
         logger.debug(f"turn: {trn}")
         if abs(trn) > 175:  # opposite
             logger.debug("previous")
-            return idx - 1, distance(self.smoothRoute[idx - 1], point)
+            return idx - 1, distance(route[idx - 1], point)
         logger.debug("current")
         return idx, dist
 
