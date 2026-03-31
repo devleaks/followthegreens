@@ -211,7 +211,7 @@ class Cursor:
         self.cursor = XPObject(None, 0, 0, 0)
 
         self._indicator = INDICATOR.FOLLOW_ME
-        self.hud_text = INDICATOR.FOLLOW_ME.name
+        self.hudText = INDICATOR.FOLLOW_ME.name
         self.indicator_object = None
         self.indicator_cursor = None
         if detail.indicator:
@@ -277,16 +277,16 @@ class Cursor:
 
     def setHudText(self, text: str = ""):
         if text != "":
-            self.hud_text = text
+            self.hudText = text
             return
         if self._indicator == INDICATOR.STOP:
-            self.hud_text = "S T O P"
+            self.hudText = "S T O P"
         elif self._indicator == INDICATOR.LEFT:
-            self.hud_text = "<<<  LEFT"
+            self.hudText = "<<<  LEFT"
         elif self._indicator == INDICATOR.RIGHT:
-            self.hud_text = "RIGHT >>>"
+            self.hudText = "RIGHT >>>"
         else:
-            self.hud_text = "FOLLOW CAR"
+            self.hudText = "FOLLOW CAR"
 
     @property
     def aim_speed(self) -> float:
@@ -582,9 +582,13 @@ class Cursor:
         dist = self.distance(aircraft.position_point())
         drange = aircraft.aheadRange(rabbit_mode=rabbit_mode)
 
+        # Express range into min/max targets: [range] -> [sr_min, sr_max]
+        DISTANCE_MARGIN = 10.0  # meters
         pt, brg, idx, dist = self.route.srAheadRoute(self.current.sr_route, self.current.sr_position.index, self.current.sr_position.distance, start=drange[0])
-        self.current.sr_min = OnRoute(index=idx, distance=dist)
+        self.current.sr_min = OnRoute(index=idx, distance=dist + DISTANCE_MARGIN)
         pt, brg, idx, dist = self.route.srAheadRoute(self.current.sr_route, self.current.sr_position.index, self.current.sr_position.distance, start=drange[1])
+        if dist > DISTANCE_MARGIN:
+            dist -= DISTANCE_MARGIN
         self.current.sr_max = OnRoute(index=idx, distance=dist)
 
         rf = aircraft.RABBIT_FACTOR_SPEED[rabbit_mode]  # official rabbit factor
@@ -720,6 +724,8 @@ class Cursor:
 
             if self._targetReached(target=self.current.sr_max):
                 logger.debug("reached maximal distance, need to slow down")
+        # else:
+        #     logger.debug("no target range")
 
         self._adjustLocalSpeeds()
 

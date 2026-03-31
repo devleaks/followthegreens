@@ -166,8 +166,8 @@ MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from spac
 # Reference point is top left corner of HUD.
 # First number is distance of reference point from left of screen,
 # Second number is distance of reference point is distance from bottom of screen.
-# Second number must be larger than 45 to leave room for 3 lines of text
-HUD_POSITION = [220, 50]
+# Second number must be larger than 15 * number of lines of text
+HUD_POSITION = [220, 90]
 
 SHOW_CLEARANCE_POPUP = True
 

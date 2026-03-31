@@ -225,6 +225,19 @@ class FlightLoop:
         self.last_updated = now
         logger.debug(f"rabbit mode set to {mode}")
 
+    @property
+    def rabbitText(self):
+        if self.rabbitMode in RABBIT_MODE.FASTER:
+            return "ACCELERATE"
+        elif self.rabbitMode in RABBIT_MODE.FASTEST:
+            return "ACCELERATE"
+        elif self.rabbitMode in RABBIT_MODE.SLOWER:
+            return "BRAKE"
+        elif self.rabbitMode in RABBIT_MODE.SLOWEST:
+            return "SLOW"
+        else:
+            return "ACTIVE"
+
     def late(self, t0: float = 0.0) -> bool:
         # when taxi is started, we determine an ETA at destination
         # compare now + time remaining vs ETA

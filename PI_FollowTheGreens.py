@@ -654,6 +654,9 @@ class PythonInterface:
         xp.drawString(color, LEFT, TOP - LINE, fl.remaining)  # 1234m, 12:45   indication
         xp.drawString(color, LEFT, TOP - 2 * LINE, f"! {round(fl.dist_to_next_turn):4d}m")  # 1234m
         color = (1.0, 0.0, 0.0) if fl.rabbitRunning else (0.7, 0.7, 0.0)
-        xp.drawString((0.0, 1.0, 0.0), LEFT, TOP - 3 * LINE, self.followTheGreens.status.value)  # status
+        if self.followTheGreens.status.value == "ACTIVE":
+            xp.drawString((0.0, 1.0, 0.0), LEFT, TOP - 3 * LINE, fl.rabbitText)  # status
+        else:
+            xp.drawString((0.0, 1.0, 0.0), LEFT, TOP - 3 * LINE, self.followTheGreens.status.value)  # status
         if fc is not None:
-            xp.drawString((0.0, 1.0, 0.0), LEFT, TOP - MAX_LINES * LINE, fc.hud_text)  # status
+            xp.drawString((0.0, 1.0, 0.0), LEFT, TOP - MAX_LINES * LINE, fc.hudText)  # status
