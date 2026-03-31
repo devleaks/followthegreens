@@ -55,7 +55,9 @@ class TURN_TYPE(StrEnum):
 class Turn:
 
     SMALL_TURN_TANGENT = 10.0  # m
-    VALID_RANGE = [15, 160]  # for a smooth turn
+    VALID_RANGE = [15, 140]  # for a smooth turn
+    REDUCED_RADIUS = 7.0  # m
+    MAX_TANGENT = 35.0  # m
 
     def __init__(self, vertex: Point, l_in: float, l_out: float, radius: float = TURN_RADIUS, segments: int = NUM_SEGMENTS):
         self.bearing_start = l_in
@@ -67,18 +69,17 @@ class Turn:
         self.center = None
         self.points = []
         self.edges = []
-        self._err = ""
 
         self.tangent_length = 0
 
         if abs(self.alpha) < self.VALID_RANGE[0]:
-            self._err = f"turn is too shallow {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={self.tangent_length}m"
-            logger.debug(self._err)
+            logger.debug(f"turn is too shallow {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={self.tangent_length}m")
             return
         if abs(self.alpha) > self.VALID_RANGE[1]:
-            self._err = f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={self.tangent_length}m"
-            logger.debug(self._err)
-            return
+            logger.debug(f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={self.tangent_length}m")
+            radius = 7
+            NUM_SEGMENTS = 10
+            logger.debug(f"will try with reduce radius {radius}m")
 
         numsegs = NUM_SEGMENTS if segments < 2 else int(segments * radius / 10)
         opposite = 180 - self.alpha
@@ -88,16 +89,18 @@ class Turn:
         a2r = math.radians(a2)
         a2sin = math.sin(a2r)
         if a2sin == 0:
-            self._err = "turn is 0D (no turn) or 180D (U turn), ignored"
-            logger.debug(self._err)
+            logger.debug("turn is 0D (no turn) or 180D (U turn), ignored")
             return
 
         dist_center = radius / a2sin
         self.tangent_length = abs(dist_center * math.cos(a2r))  # cos may be < 0
 
-        if self.tangent_length > (3 * radius):
-            self._err = f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={round(self.tangent_length, 1)}m"
-            logger.debug(self._err)
+        if radius == self.REDUCED_RADIUS:
+            if self.tangent_length > self.MAX_TANGENT:
+                logger.debug(f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={round(self.tangent_length, 1)}m, radius={round(radius,1)}m")
+                return
+        elif self.tangent_length > (3 * radius):
+            logger.debug(f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={round(self.tangent_length, 1)}m, radius={round(radius,1)}m")
             return
 
         self.center = destination(vertex, bissec, dist_center)
@@ -119,10 +122,6 @@ class Turn:
     @property
     def valid(self) -> bool:
         return len(self.points) > 0
-
-    @property
-    def error(self) -> str:
-        return self._err if type(self._err) is str else ""
 
     @property
     def start(self) -> Point:
@@ -978,7 +977,7 @@ class Route:
         route[-1].setProp("END_TURN_ALPHA", turn.alpha)
         route[-1].setProp("END_TURN_TANGENT", turn.tangent_length)  # has already moved that much on edge after vertex
 
-        if logger.level < 10:
+        if logger.level <= 10:
             fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_straight{datetime.now().strftime('%M%S%f')}.geojson")  # _{self.route[0]}-{self.route[-1]}
             fc = FeatureCollection(features=[r.feature() for r in route])
             fc.save(fn)
