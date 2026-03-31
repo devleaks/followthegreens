@@ -42,7 +42,14 @@ class SMOOTH_ROUTE(StrEnum):
     SEGMENT_LENGTH = "srSegLen"  # length of route segment on smooth route
     TURN_START = "srTurnStart"
     TURN_MIDDLE = "srTurnMid"
+    TURN_TYPE = "turn-type"  # smooth, progressive, or immediate
     TURN_END = "srTurnEnd"
+
+
+class TURN_TYPE(StrEnum):
+    SMOOTH = "smooth"  # smooth route index
+    PROGRESSIVE = "progressive"  # corresponding route index
+    IMMEDIATE = "immediate"
 
 
 class Turn:
@@ -137,6 +144,7 @@ class Turn:
     def progressiveTurn(self, length: float, segments: int = NUM_SEGMENTS, min_turn: float = 3.0) -> list:
         # Build alternate list of (points, heading) without a turn (stay on edge(s), progressive heading changes, appears to be turning)
         if abs(self.alpha) < min_turn:
+            logger.debug(f"turn {round(self.alpha, 1)}D too small")
             return []
         numsegs = int(segments / 2)
         part = length / numsegs
@@ -644,6 +652,7 @@ class Route:
                 mid = int(len(pts) / 2)
                 idx = len(route)
                 for p in pts[0:mid]:  # tag half turn with original route index
+                    p.setProp(SMOOTH_ROUTE.TURN_TYPE.value, TURN_TYPE.SMOOTH.value)
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i - 1)
                     p.setProp(GEOJSON.MARKER_COLOR.value, "#DDDDDD")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
@@ -654,6 +663,7 @@ class Route:
                     idx += 1
                 vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
                 for p in pts[mid:]:  # tag second half turn with original next route index
+                    p.setProp(SMOOTH_ROUTE.TURN_TYPE.value, TURN_TYPE.SMOOTH.value)
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
                     p.setProp(GEOJSON.MARKER_COLOR.value, "#DDDDDD")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
@@ -668,10 +678,13 @@ class Route:
                 t = min(Turn.SMALL_TURN_TANGENT, self.edges[i - 1].cost, self.edges[i].cost)
                 pt = turn.progressiveTurn(length=t, segments=min(max(int(2 * t), 7), 21))
                 if len(pt) > 0:
+                    for p in pt:
+                        p[0].setProp(SMOOTH_ROUTE.BEARING.value, p[1])
                     pts = [p[0] for p in pt]
                     mid = int(len(pts) / 2)
                     idx = len(route)
                     for p in pts[0:mid]:
+                        p.setProp(SMOOTH_ROUTE.TURN_TYPE.value, TURN_TYPE.PROGRESSIVE.value)
                         p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i - 1)
                         p.setProp(GEOJSON.MARKER_COLOR.value, "#AAAAAA")  # light grey
                         p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
@@ -682,6 +695,7 @@ class Route:
                         idx += 1
                     vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
                     for p in pts[mid:]:
+                        p.setProp(SMOOTH_ROUTE.TURN_TYPE.value, TURN_TYPE.PROGRESSIVE.value)
                         p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
                         p.setProp(GEOJSON.MARKER_COLOR.value, "#AAAAAA")  # light grey
                         p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
@@ -694,6 +708,7 @@ class Route:
                     route += pts
                 else:
                     v = copy(vtx[i])
+                    v.setProp(SMOOTH_ROUTE.TURN_TYPE.value, TURN_TYPE.IMMEDIATE.value)
                     v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
                     v.setProp(GEOJSON.MARKER_COLOR.value, "#888888")  # medium grey
                     v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
@@ -722,7 +737,10 @@ class Route:
             b = bearing(route[i], route[i + 1])
             route[i].setProp(SMOOTH_ROUTE.DISTANCE.value, d)  # length to next vertex
             route[i].setProp(SMOOTH_ROUTE.TOTAL.value, dist)  # total distance since start
-            route[i].setProp(SMOOTH_ROUTE.BEARING.value, b)  # bearing to next vertex
+            ty = route[i].getProp(SMOOTH_ROUTE.TURN_TYPE.value)
+            if ty is None or ty != TURN_TYPE.PROGRESSIVE.value:
+                route[i].setProp(SMOOTH_ROUTE.BEARING.value, b)  # bearing to next vertex
+            # else: bearing has been set in progressive turn
             rtidx = route[i].getProp(SMOOTH_ROUTE.ROUTE_INDEX.value)
             if rtidx != last_rtidx:  # write previous route segment length for smooth route
                 route[last_idx].setProp(SMOOTH_ROUTE.SEGMENT_LENGTH.value, seglen)
@@ -766,6 +784,7 @@ class Route:
             logger.debug("not found")
             return None, dist
         idx = closest.getProp(SMOOTH_ROUTE.INDEX)
+        logger.debug(f"closest: {idx} {closest.properties}, l={len(route)}")
         if idx == 0:  # first
             logger.debug("first segment")
             return idx, dist
@@ -853,15 +872,21 @@ class Route:
 
     def srStraightRoute(self, start: Point, end: Point, heading: float):  # should pass fmcam.detail? to get radius, speed...
         # Direct segment to join route with turn at the end towards heading
-        route = [start]
-        line = Line(start, end)
+        route = []
+        v = Point(start.lat, start.lon)
+        v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
+        v.setProp(GEOJSON.MARKER_COLOR.value, "#888888")  # medium grey
+        v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
+        route.append(v)
 
+        line = Line(start, end)
         turn = Turn(vertex=end, l_in=line.bearing(), l_out=heading)
         if turn.valid:
             pts = [p[0] for p in turn.points]
             mid = int(len(pts) / 2)
             idx = len(route)
             for p in pts[0:mid]:  # tag half turn with original route index
+                p.setProp(SMOOTH_ROUTE.TURN_TYPE.value, TURN_TYPE.SMOOTH.value)
                 p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
                 p.setProp(GEOJSON.MARKER_COLOR.value, "#DDDDDD")  # light grey
                 p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
@@ -870,6 +895,7 @@ class Route:
                 p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                 idx += 1
             for p in pts[mid:]:  # tag second half turn with original next route index
+                p.setProp(SMOOTH_ROUTE.TURN_TYPE.value, TURN_TYPE.SMOOTH.value)
                 p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
                 p.setProp(GEOJSON.MARKER_COLOR.value, "#DDDDDD")  # light grey
                 p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
@@ -884,10 +910,13 @@ class Route:
             pt = turn.progressiveTurn(length=t, segments=min(max(int(2 * t), 7), 21))
             if len(pt) > 0:
                 logger.debug(f"adding progressive turn ({len(pt)})")
+                for p in pt:
+                    p[0].setProp(SMOOTH_ROUTE.BEARING.value, p[1])
                 pts = [p[0] for p in pt]
                 mid = int(len(pts) / 2)
                 idx = len(route)
                 for p in pts[0:mid]:
+                    p.setProp(SMOOTH_ROUTE.TURN_TYPE.value, TURN_TYPE.PROGRESSIVE.value)
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
                     p.setProp(GEOJSON.MARKER_COLOR.value, "#AAAAAA")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
@@ -896,6 +925,7 @@ class Route:
                     p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                     idx += 1
                 for p in pts[mid:]:
+                    p.setProp(SMOOTH_ROUTE.TURN_TYPE.value, TURN_TYPE.PROGRESSIVE.value)
                     p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
                     p.setProp(GEOJSON.MARKER_COLOR.value, "#AAAAAA")  # light grey
                     p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
@@ -908,6 +938,7 @@ class Route:
             else:  # no turn
                 logger.debug(f"no turn (l_in={line.bearing()}, l_out={heading})")
                 v = end
+                v.setProp(SMOOTH_ROUTE.TURN_TYPE.value, TURN_TYPE.IMMEDIATE.value)
                 v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
                 v.setProp(GEOJSON.MARKER_COLOR.value, "#888888")  # medium grey
                 v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
@@ -926,7 +957,10 @@ class Route:
             b = bearing(route[i], route[i + 1])
             route[i].setProp(SMOOTH_ROUTE.DISTANCE.value, d)  # length to next vertex
             route[i].setProp(SMOOTH_ROUTE.TOTAL.value, dist)  # total distance since start
-            route[i].setProp(SMOOTH_ROUTE.BEARING.value, b)  # bearing to next vertex
+            ty = route[i].getProp(SMOOTH_ROUTE.TURN_TYPE.value)
+            if ty is None or ty != TURN_TYPE.PROGRESSIVE.value:
+                route[i].setProp(SMOOTH_ROUTE.BEARING.value, b)  # bearing to next vertex
+            # else: bearing has been set in progressive turn
             rtidx = route[i].getProp(SMOOTH_ROUTE.ROUTE_INDEX.value)
             if rtidx != last_rtidx:  # write previous route segment length for smooth route
                 route[last_idx].setProp(SMOOTH_ROUTE.SEGMENT_LENGTH.value, seglen)
@@ -952,87 +986,5 @@ class Route:
 
         return route
 
-    def srEnd(self, leave: Point, vanish: Point):  # should pass fmcam.detail? to get radius, speed...
-        # Additional segments to quit route at end of route
-        def copy(v):
-            return Point(v.lat, v.lon)
-
-        vtx = [self.vertices[-2], self.vertices[-1], leave, vanish]
-        line1 = Line(self.vertices[-1], leave)
-        line2 = Line(leave, vanish)
-        edges = [self.edges[-1], line1, line2]
-        route = []
-        v = copy(vtx[0])
-        v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, 0)  # tag with original route index
-        v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
-        route.append(v)
-        for i in range(1, len(vtx) - 1):  # [1, 2]!
-            turn = Turn(vertex=vtx[i], l_in=edges[i - 1].bearing(), l_out=edges[i].bearing())
-            if turn.valid:
-                pts = [p[0] for p in turn.points]
-                mid = int(len(pts) / 2)
-                idx = len(route)
-                for p in pts[0:mid]:  # tag half turn with original route index
-                    p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i - 1)
-                    p.setProp(GEOJSON.MARKER_COLOR.value, "#DDDDDD")  # light grey
-                    p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
-                    p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))  # also an indication that this point is part of the turn
-                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
-                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
-                    idx += 1
-                vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
-                for p in pts[mid:]:  # tag second half turn with original next route index
-                    p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
-                    p.setProp(GEOJSON.MARKER_COLOR.value, "#DDDDDD")  # light grey
-                    p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
-                    p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
-                    p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
-                    p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
-                    idx += 1
-                pts[mid].setProp(GEOJSON.MARKER_COLOR.value, "#FFDDDD")  # light grey different
-                route += pts
-            else:
-                t = min(Turn.SMALL_TURN_TANGENT, edges[i - 1].cost, edges[i].cost)
-                pt = turn.progressiveTurn(length=t, segments=min(max(int(2 * t), 7), 21))
-                if len(pt) > 0:
-                    pts = [p[0] for p in pt]
-                    mid = int(len(pts) / 2)
-                    idx = len(route)
-                    for p in pts[0:mid]:
-                        p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i - 1)
-                        p.setProp(GEOJSON.MARKER_COLOR.value, "#AAAAAA")  # light grey
-                        p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
-                        p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
-                        p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
-                        p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
-                        idx += 1
-                    vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) + mid)
-                    for p in pts[mid:]:
-                        p.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
-                        p.setProp(GEOJSON.MARKER_COLOR.value, "#AAAAAA")  # light grey
-                        p.setProp(SMOOTH_ROUTE.INDEX.value, idx)
-                        p.setProp(SMOOTH_ROUTE.TURN_START.value, len(route))
-                        p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
-                        p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
-                        idx += 1
-                    pts[mid].setProp(GEOJSON.MARKER_COLOR.value, "#FFAAAA")  # light grey different
-                    route += pts
-                else:
-                    v = copy(vtx[i])
-                    v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, i)
-                    v.setProp(GEOJSON.MARKER_COLOR.value, "#888888")  # medium grey
-                    v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
-                    route.append(v)
-                    vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) - 1)  # to check
-        v = copy(vtx[-1])
-        v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, len(vtx) - 1)
-        v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
-        route.append(v)
-        vtx[-1].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) - 1)
-        return route
-
-    def srFinished(self, position) -> bool:
-        return self.smoothRoute[-1] == position
-
     def stats(self):
-        logger.debug(f"equiv {selft._srcnt}, scan={self._srscan}, ahead recur={self._srrecurr}")
+        logger.debug(f"equiv {self._srcnt}, scan={self._srscan}, ahead recur={self._srrecurr}")

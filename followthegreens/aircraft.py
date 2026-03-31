@@ -404,6 +404,7 @@ class Aircraft:
             r[1] = min(r[1], HARDCODED_AHEAD_LIMITS[1])
             if a != r:
                 logger.log(8, f"restricted to limits: {r}, {HARDCODED_AHEAD_LIMITS})")
+        r = [round(d, 1) for d in r]
         logger.debug(
             f"ahead_range {r} adjusted from {r0} for visibility={round(viz, 1)}m, aircraft speed={round(acf_speed, 1)}m/s, and rabbit_mode={rabbit_mode}, hard limits={HARDCODED_AHEAD_LIMITS})"
         )
