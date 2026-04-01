@@ -339,19 +339,29 @@ class Aircraft:
     def aheadRange(self, rabbit_mode: RABBIT_MODE | None = None) -> list:
         # provides a reasonable range for this aircraft type
         # adjust for visibility and aircraft length (because measure starts under the aircraft)
+        MIN_BRACKET = 40.0  # m
         r = self.acf_vizrange.get("RANGE", DEFAULT_HARDCODED_RANGE)
         r0 = r
         l = self.acf_vizrange.get("LIMITS", HARDCODED_AHEAD_LIMITS)
         logger.log(8, f"initial range={r}, limits={l})")
 
-        # extends if acf speed is fast
+        # extends for acf speed (to allow for braking)
         acf_speed = self.speed()
-        if acf_speed > 10:
-            f = 1.3
-            r = [r[0] * f, r[1] * f]
+        f = 1.0
+        if acf_speed > 12:
+            f = 1.5
+        elif acf_speed > 10:
+            f = 1.4
+        elif acf_speed > 6:
+            f = 1.2
+        elif acf_speed > 3:
+            f = 1.1
+
+        r = [r[0] * f, r[1] * f]
+        if f > 1.0:
             logger.log(8, f"corrected for speed ({round(self.speed(), 1)}m/s, f={f}): {r}, {l})")
 
-        # reduces if viz is low
+        # reduces if viz is low (do no extend if viz is good, just reduce if limited viz)
         viz = self.visibility()
         f = 1.0
         if viz < 500:
@@ -374,6 +384,10 @@ class Aircraft:
         r[1] = min(r[1], l[1])
         if r != a:
             logger.log(8, f"restricted to limits: {r}, {l})")
+
+        if r[1] - r[0] < MIN_BRACKET:
+            r[1] = r[0] + MIN_BRACKET
+            logger.log(8, f"extended to min bracket {MIN_BRACKET}: {r})")
 
         # we add some aircraft sizes, because lights are counted almost from the back of the acf
         acf_length_factor = 1.0
@@ -416,27 +430,8 @@ class Aircraft:
         # too fast->range smaller, too slow->range larger)
         #
         ahead_range = self.aheadRange(rabbit_mode=rabbit_mode)  # already adjusted for visibility conditions
-        acf_speed = self.speed()
-        acf_speed_factor = 10.0
-        acf_length = self.acf_length if self.acf_length is not None else 50
-        acf_length_factor = 2.0
-        ahead = acf_length * acf_length_factor + acf_speed * acf_speed_factor
-        ahead0 = ahead
-        logger.log(
-            8, f"ahead estimation {round(ahead0, 1)}m ({round(acf_length * acf_length_factor, 1)} + {round(acf_speed * acf_speed_factor, 1)} (acf_speed={round(acf_speed, 1)}m/s))"
-        )
-
-        #
-        # AHEAD IN ADJUSTED RANGE, if not, invites to got to middle range
-        mid_range = sum(ahead_range) / len(ahead_range)
-        if ahead < ahead_range[0]:
-            ahead = mid_range
-        if ahead > ahead_range[1]:
-            ahead = mid_range
-        adjusted = " ("
-        if ahead != ahead0:
-            adjusted = f" (adjusted from {round(ahead0, 1)}m to range {ahead_range}, "
-        logger.debug(f"ahead {round(ahead, 1)}m{adjusted}rabbit mode={rabbit_mode})")
+        ahead = min(ahead_range) + (max(ahead_range) - min(ahead_range)) * 0.4  # 0.4 inside the braket values
+        logger.debug(f"ahead={round(ahead, 1)}m")
         return ahead
 
     def heading(self) -> float:

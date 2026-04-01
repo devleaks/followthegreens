@@ -149,3 +149,6 @@ ftg_srvertices.geojson
 ftg_straight.geojson
 ftg_straight*.geojson
 *.geojson
+followthegreens/lights/lmax.obj
+followthegreens/lights/lmin.obj
+followthegreens/lights/lmid.obj

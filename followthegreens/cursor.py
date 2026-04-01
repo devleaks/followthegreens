@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 from dataclasses import dataclass, fields
 from datetime import datetime
@@ -11,7 +12,7 @@ except ImportError:
 
 from .globals import RABBIT_MODE, logger, MOVEMENT, INDICATOR, AIRCRAFT_MIN_SPEED
 from .geo import Point, Line, bearing, destination, distance
-from .lightstring import XPObject
+from .lightstring import XPObject, LightType
 from .route import SMOOTH_ROUTE
 
 
@@ -36,7 +37,7 @@ def st(t: float) -> float:
         return 0.0
     d = datetime.fromtimestamp(t)
     d = d.replace(hour=d.hour - 2, minute=0, second=0, microsecond=0)
-    t0 = d.timestamp()
+    # t0 = d.timestamp()
     return datetime.fromtimestamp(t).strftime("%M:%S.%f")  # round(t - t0, 3)
 
 
@@ -155,6 +156,18 @@ class OnRoute:
         s = ", ".join(f"{field.name}={f(getattr(self, field.name))!r}" for field in fields(self))
         return f"{type(self).__name__}({s})"
 
+    def reached(self, target: OnRoute) -> bool:
+        if target.index == NOT_ON_ROUTE:
+            logger.debug(f"target not on route {target}")
+            return False
+        r = False
+        if self.index > target.index:
+            r = True
+        elif self.index == target.index and self.distance >= target.distance:
+            r = True
+        # logger.debug(f"{r}: {self.current.sr_position} {'>=' if r else '<'} {self.target.sr_position}")
+        return r
+
 
 @dataclass
 class Situation:
@@ -209,6 +222,10 @@ class Cursor:
         self.cursor_object = CursorObject(detail.filename)
         # self.indicator_object = CursorObject("indicator/indicator.obj")
         self.cursor = XPObject(None, 0, 0, 0)
+
+        self.cursor_min = XPObject(None, 0, 0, 0)
+        self.cursor_max = XPObject(None, 0, 0, 0)
+        self.cursor_mid = XPObject(None, 0, 0, 0)
 
         self._indicator = INDICATOR.FOLLOW_ME
         self.hudText = INDICATOR.FOLLOW_ME.name
@@ -324,6 +341,23 @@ class Cursor:
         self.cursor.heading = self.current.heading
         self.cursor.place(lightType=self.cursor_object)
         self.cursor.on()
+
+        min_light = LightType.create(name="lmin.obj", color=(0, 1, 0), size=40, intensity=60, texture=3)
+        self.cursor_min.position = self.current.position  # initial position where will appear
+        self.cursor_min.heading = self.current.heading
+        self.cursor_min.place(lightType=LightType("min_light", min_light))
+        self.cursor_min.on()
+        max_light = LightType.create(name="lmax.obj", color=(1, 0, 0), size=40, intensity=40, texture=3)
+        self.cursor_max.position = self.current.position  # initial position where will appear
+        self.cursor_max.heading = self.current.heading
+        self.cursor_max.place(lightType=LightType("max_light", max_light))
+        self.cursor_max.on()
+        mid_light = LightType.create(name="lmid.obj", color=(0, 0, 1), size=40, intensity=40, texture=3)
+        self.cursor_mid.position = self.current.position  # initial position where will appear
+        self.cursor_mid.heading = self.current.heading
+        self.cursor_mid.place(lightType=LightType("mid_light", mid_light))
+        self.cursor_mid.on()
+
         if self.indicator_cursor is not None:
             self.indicator_cursor.position = self.current.position  # initial position where will appear
             self.indicator_cursor.heading = self.current.heading
@@ -405,14 +439,15 @@ class Cursor:
         ahead = ftg.aircraft.adjustAhead(rabbit_mode=ftg.flightLoop.rabbitMode)
         light_ahead, light_index, dist_left = ftg.lights.lightAhead(index_from=closestLight, ahead=ahead)
         self.target.sr_position = OnRoute(index=light_ahead.srIndex, distance=light_ahead.distFromsrIndex)
-        self.adjustSpeed(aircraft=ftg.aircraft, rabbit_mode=ftg.lights.rabbit_mode, ahead=ahead)
+        self.cursor_mid.move(lat=light_ahead.position.lat, lon=light_ahead.position.lon, hdg=0, elev=1.0)
+        self.adjustSpeed(ftg=ftg, rabbit_mode=ftg.lights.rabbit_mode, ahead=ahead)
         logger.debug("..continuing")
 
     # Abrupt change or route, reset
     #
-    def addRoute(self, route, index: int | None = None, distance: float | None = None, tick: bool = False) -> bool:
+    def addRoute(self, route, index: int | None = None, distance: float | None = None, speed: float | None = None, tick: bool = False) -> bool:
         # Returns whether ticked
-        self._future.put((route, index, distance))
+        self._future.put((route, index, distance, speed))
         if index is not None and distance is not None:
             logger.debug("added new route with target")
         if tick:
@@ -438,6 +473,10 @@ class Cursor:
         else:
             self.target.sr_position = OnRoute(index=len(self.current.sr_route) - 1, distance=0)
             logger.debug("new target set end of route")
+        if route_data[3] is not None:
+            self.aim_speed = route_data[3]
+        target_pos = self.route.srDestinationRoute(route=self.current.sr_route, i=self.target.sr_position.index, dist=self.target.sr_position.distance)
+        self.cursor_mid.move(lat=target_pos.lat, lon=target_pos.lon, hdg=0, elev=1.0)
         return True
 
     def resetRoute(self):
@@ -452,6 +491,8 @@ class Cursor:
             logger.warning(f"change route: Cursor is not active (is {self.status})")
             return
         try:
+            NEW_ROUTE_JOIN_TIME = 20  # secs, reasonable time from spawn position to ahead of acf, aircraft will speed up
+
             self.status = CURSOR_STATUS.HOLD  # lock, prevents tick when changing routes
             logger.debug("change route..")
             self.route = ftg.route
@@ -470,8 +511,7 @@ class Cursor:
             logger.log(8, "..estimate new position ahead of aircraft..")
             # if route changed we assume aircraft is moving and this.inited
             ahead = ftg.aircraft.adjustAhead(rabbit_mode=ftg.flightLoop.rabbitMode)
-            join_time = 20  # secs, reasonable time from spawn position to ahead of acf, aircraft will speed up
-            acf_ahead = min(acf_speed, self.detail.fast_speed) * (join_time * 1.5)
+            acf_ahead = min(acf_speed, self.detail.fast_speed) * (NEW_ROUTE_JOIN_TIME * 1.5)
             ahead_at_join = acf_ahead + ahead
             light_ahead, light_index, dist_left = ftg.lights.lightAhead(index_from=closestLight, ahead=ahead_at_join)
 
@@ -479,7 +519,7 @@ class Cursor:
             self.resetRoute()
             self.addRoute(join_route)
             self.addRoute(self.route.smoothRoute, index=light_ahead.srIndex, distance=light_ahead.distFromsrIndex)
-            self.adjustSpeed(aircraft=ftg.aircraft, rabbit_mode=ftg.lights.rabbit_mode, ahead=ahead)
+            self.adjustSpeed(ftg=ftg, rabbit_mode=ftg.lights.rabbit_mode, ahead=ahead)
             # self.current.sr_position = OnRoute(index=0, distance=0.0)
             #
             # Turn from here to
@@ -491,7 +531,7 @@ class Cursor:
             # aircraft will move acf_ahead ahead of closestLight, or acf_ahead/lights.distance_between_green_lights lights
             light_progress = closestLight + int(acf_ahead / ftg.lights.distance_between_green_lights)
             logger.debug(
-                f"..move on route at {sf(ahead_at_join, 'm')} ahead, heading={round(join_route.bearing(), 0)}, in {round(join_time, 1)}s (aircraft will be at light index {light_progress}).."
+                f"..move on route at {sf(ahead_at_join, 'm')} ahead, heading={round(join_route.bearing(), 0)}, in {round(NEW_ROUTE_JOIN_TIME, 1)}s (aircraft will be at light index {light_progress}).."
             )
             # we move the car in front of acf, and progress at same speed as acf.
             self.status = CURSOR_STATUS.ACTIVE  # ! possible chance of tick attempt between this and process future() below
@@ -561,9 +601,10 @@ class Cursor:
         SMOOTH = 0.1
         return s1 + SMOOTH * (s2 - s1)
 
-    def adjustSpeed(self, aircraft, rabbit_mode: RABBIT_MODE, ahead: float, speed_type: str = "normal") -> float:  # speed_type = {normal, fast, slow, max!}
+    def adjustSpeed(self, ftg, rabbit_mode: RABBIT_MODE, ahead: float, speed_type: str = "normal") -> float:  # speed_type = {normal, fast, slow, max!}
         # "Slow" speed adjustment procedure, called by flightloop when aircraft has moved; sets aim_speed
         #
+        aircraft = ftg.aircraft
         if self.status in [CURSOR_STATUS.FINISHING, CURSOR_STATUS.FINISHED]:
             logger.debug("cursor finishing, no more speed adjustment")
             if self.aim_speed != self.detail.normal_speed:
@@ -571,26 +612,38 @@ class Cursor:
             return self.detail.normal_speed
         default_speed = getattr(self.detail, speed_type + "_speed")
         speed_str = "" if speed_type == "normal" else speed_type + " "
+
+        #
+        # Express range into min/max targets: [range] -> [sr_min, sr_max]
+        DISTANCE_MARGIN = 10.0  # meters
         acf_speed = aircraft.speed()
+        pos_pt = aircraft.position_point()
+        dist = self.distance(pos_pt)
+        closestLight, dist = ftg.lights.closest((pos_pt.lat, pos_pt.lon))
+        if closestLight is None:
+            logger.debug("no close light to start")
+            closestLight = 0
+        closest_light = ftg.lights.lights[closestLight]
+        drange = aircraft.aheadRange(rabbit_mode=rabbit_mode)
+        pt, brg, idx, dist = self.route.srAheadRoute(route=self.current.sr_route, i=closest_light.srIndex, dist=closest_light.distFromsrIndex, start=drange[0])
+        self.current.sr_min = OnRoute(index=idx, distance=dist + DISTANCE_MARGIN)
+        self.cursor_min.move(lat=pt.lat, lon=pt.lon, hdg=0, elev=1.0)
+        pt, brg, idx, dist = self.route.srAheadRoute(route=self.current.sr_route, i=closest_light.srIndex, dist=closest_light.distFromsrIndex, start=drange[1])
+        if dist > DISTANCE_MARGIN:
+            dist -= DISTANCE_MARGIN
+        self.current.sr_max = OnRoute(index=idx, distance=dist)
+        self.cursor_max.move(lat=pt.lat, lon=pt.lon, hdg=0, elev=1.0)
+
+        #
+        # Aircraft too slow, cannot recommend speed from acf speed, returns standard speed
         if acf_speed < AIRCRAFT_MIN_SPEED or self.current.position is None:  # almost at rest
             self.aim_speed = default_speed
             logger.debug(f"{speed_str}aim={sf(default_speed, 'm/s')} (rabbit mode={rabbit_mode}, target={sf(acf_speed, 'm/s')})")
             return self.aim_speed
+
         #
         # Adjust the car speed according to requests and acf speed
         fmcar_speed = acf_speed  # initial value
-        dist = self.distance(aircraft.position_point())
-        drange = aircraft.aheadRange(rabbit_mode=rabbit_mode)
-
-        # Express range into min/max targets: [range] -> [sr_min, sr_max]
-        DISTANCE_MARGIN = 10.0  # meters
-        pt, brg, idx, dist = self.route.srAheadRoute(self.current.sr_route, self.current.sr_position.index, self.current.sr_position.distance, start=drange[0])
-        self.current.sr_min = OnRoute(index=idx, distance=dist + DISTANCE_MARGIN)
-        pt, brg, idx, dist = self.route.srAheadRoute(self.current.sr_route, self.current.sr_position.index, self.current.sr_position.distance, start=drange[1])
-        if dist > DISTANCE_MARGIN:
-            dist -= DISTANCE_MARGIN
-        self.current.sr_max = OnRoute(index=idx, distance=dist)
-
         rf = aircraft.RABBIT_FACTOR_SPEED[rabbit_mode]  # official rabbit factor
         f2 = 1.0  # alternate factor
 
@@ -687,7 +740,7 @@ class Cursor:
     def nextPosition(self, t: float):
         if self.status == CURSOR_STATUS.HOLD:
             logger.debug("probably changing route....cannot move")
-            return self.current.position, self.current.heading, self.current.sr_position, 0.0 # speed = 0.0 is wrong...
+            return self.current.position, self.current.heading, self.current.sr_position, 0.0  # speed = 0.0 is wrong...
         if self.destinationReached():
             logger.debug("destination reached")  # need to continue on finishing route
         if self.endOfRoute():
@@ -761,7 +814,7 @@ class Cursor:
 
         if not self.aircraft.moving() and ftg.move == MOVEMENT.DEPARTURE:
             # 1. Spawn the car next to (random) side of aircraft
-            rnd = 1 if (int(pos[0] * 10000) % 2) == 0 else -1
+            rnd = 1  # 1 if (int(pos[0] * 10000) % 2) == 0 else -1
             fs = ftg.route.before_route()
             # spawn at spot randomly left or right of current aircraft position
             spawn = destination(fs.start, fs.bearing() + rnd * 90, SPAWN_SIDE_DISTANCE)  # use acf.heading()?
@@ -797,7 +850,7 @@ class Cursor:
             logger.debug("no close light to start")
             closestLight = 0
         # during join travel, aircraft will move forward, aircraft might still be running fast, we limit ot speed of car:
-        fast = self.adjustSpeed(aircraft=ftg.aircraft, rabbit_mode=ftg.lights.rabbit_mode, ahead=ahead, speed_type="fast")
+        fast = self.adjustSpeed(ftg=ftg, rabbit_mode=ftg.lights.rabbit_mode, ahead=ahead, speed_type="fast")
         acf_ahead = fast * ROUTE_JOIN_TIME
         ahead_at_join = acf_ahead + ahead
         light_ahead, light_index, dist_left = ftg.lights.lightAhead(index_from=closestLight, ahead=ahead_at_join)
@@ -815,10 +868,11 @@ class Cursor:
         acf_light_progress = min(closestLight + int(acf_ahead / ftg.lights.distance_between_green_lights), len(ftg.lights.lights) - 1)
         fmc_light_progress = light_index
         logger.debug(
-            f"..move on route at {round(ahead_at_join, 1)}m ahead, heading={sf(join_route[0].getProp(SMOOTH_ROUTE.BEARING), 'D')}, in {round(join_time, 1)}s (aircraft will be at light index {acf_light_progress} when fmcar join route).."
+            f"..move on route at {round(ahead_at_join, 1)}m ahead, heading={sf(join_route[0].getProp(SMOOTH_ROUTE.BEARING), 'D')}, in {round(ROUTE_JOIN_TIME, 1)}s (aircraft will be at light index {acf_light_progress} when fmcar join route).."
         )
         # we move the car in front of acf, and progress at same speed as acf.
-        self.addRoute(self.route.smoothRoute)
+        medspeed = self.adjustSpeed(ftg=ftg, rabbit_mode=ftg.lights.rabbit_mode, ahead=ahead)
+        self.addRoute(self.route.smoothRoute, speed=medspeed)
         self.aim_speed = initial_speed  # go!
         # finally, we have to tell future_index() where car is when it join route
         # so that when move() catches up with future_index() it will start from there
@@ -907,7 +961,8 @@ class Cursor:
             if fmc_light_progress < nextStop:
                 light_at_stop = ftg.lights.lights[nextStop]
                 self.target.sr_position = OnRoute(index=light_at_stop.srIndex, distance=light_at_stop.distFromsrIndex)
-                self.adjustSpeed(aircraft=ftg.aircraft, rabbit_mode=ftg.lights.rabbit_mode, ahead=total_ahead)
+                self.cursor_mid.move(lat=light_at_stop.position.lat, lon=light_at_stop.position.lon, hdg=0, elev=1.0)
+                self.adjustSpeed(ftg=ftg, rabbit_mode=ftg.lights.rabbit_mode, ahead=total_ahead)
                 fmc_light_progress = nextStop
                 logger.debug(f"..moved to next stop (car at light {fmc_light_progress}/{len(ftg.lights.lights) - 1})")
             else:
@@ -916,7 +971,8 @@ class Cursor:
             # logger.debug(f"light ahead={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
             # logger.debug(f"future_index to i={light_ahead.edgeIndex}, d={round(light_ahead.distFromEdgeStart,1)}m, spd={round(fmc_speed,1)}m/s")
             self.target.sr_position = OnRoute(index=light_ahead.srIndex, distance=light_ahead.distFromsrIndex)
-            self.adjustSpeed(aircraft=ftg.aircraft, rabbit_mode=ftg.lights.rabbit_mode, ahead=total_ahead)
+            self.cursor_mid.move(lat=light_ahead.position.lat, lon=light_ahead.position.lon, hdg=0, elev=1.0)
+            self.adjustSpeed(ftg=ftg, rabbit_mode=ftg.lights.rabbit_mode, ahead=total_ahead)
             fmc_light_progress = light_index
             logger.debug(f"..moved  (car at light {fmc_light_progress}/{len(ftg.lights.lights) - 1})")
         # Checks for end of lights/end of trip

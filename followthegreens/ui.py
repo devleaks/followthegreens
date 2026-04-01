@@ -462,7 +462,7 @@ class UIUtil:
                 return 1
             if param1[2] >= xp.VK_NUMPAD0 and param1[2] <= xp.VK_NUMPAD9:
                 # thanks for the hint: https://forums.x-plane.org/index.php?/forums/topic/238447-best-ui-for-list-of-value/&tab=comments#comment-2130991
-                c = chr(param1[2]-48).upper()
+                c = chr(param1[2] - 48).upper()
                 idx = -1
                 try:
                     idx = self.validDestIdxs.index(c)

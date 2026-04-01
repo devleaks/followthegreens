@@ -95,12 +95,28 @@ class Turn:
         dist_center = radius / a2sin
         self.tangent_length = abs(dist_center * math.cos(a2r))  # cos may be < 0
 
+        # TEST
+        # Estimate a radius for a maximum tangent length
+        if abs(self.alpha) > self.VALID_RANGE[1]:
+            logger.debug(f"turn is {round(self.alpha, 1)}:")
+            r = abs(self.MAX_TANGENT * a2sin / math.cos(a2r))
+            logger.debug(f"max tangent={round(self.MAX_TANGENT,1)}m requires radius={round(r,1)}m")
+            for t in [25.0, 20.0, 10.0, 8.0]:
+                r = abs(t * a2sin / math.cos(a2r))
+                logger.debug(f"radius={round(r,1)}m has tangent={round(t,1)}m")
+            # TEST
+            logger.debug(f"radius={round(radius,1)}m has tangent={round(self.tangent_length,1)}m")
+
         if radius == self.REDUCED_RADIUS:
             if self.tangent_length > self.MAX_TANGENT:
-                logger.debug(f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={round(self.tangent_length, 1)}m, radius={round(radius,1)}m")
+                logger.debug(
+                    f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={round(self.tangent_length, 1)}m, radius={round(radius,1)}m"
+                )
                 return
         elif self.tangent_length > (3 * radius):
-            logger.debug(f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={round(self.tangent_length, 1)}m, radius={round(radius,1)}m")
+            logger.debug(
+                f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={round(self.tangent_length, 1)}m, radius={round(radius,1)}m"
+            )
             return
 
         self.center = destination(vertex, bissec, dist_center)
@@ -822,9 +838,14 @@ class Route:
         # return point, bearing, index, distance on edge(index) from start of edge(index)
         return self.srAheadRoute(route=self.smoothRoute, i=i, dist=dist, start=start)
 
-    def srDestination(self, i: int, dist: float) -> tuple:
+    def srDestination(self, i: int, dist: float) -> Point:
         # point at dist of start of edge i on smoothRoute
         r = self.srAhead(i=i, dist=dist)
+        return r[0]
+
+    def srDestinationRoute(self, route, i: int, dist: float) -> Point:
+        # point at dist of start of edge i on smoothRoute
+        r = self.srAheadRoute(route=route, i=i, dist=dist)
         return r[0]
 
     def srDistanceRoute(self, route, i1: int, dist1: float, i2: int, dist2: float) -> float:
@@ -977,7 +998,7 @@ class Route:
         route[-1].setProp("END_TURN_ALPHA", turn.alpha)
         route[-1].setProp("END_TURN_TANGENT", turn.tangent_length)  # has already moved that much on edge after vertex
 
-        if logger.level <= 10:
+        if logger.level < 10:
             fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_straight{datetime.now().strftime('%M%S%f')}.geojson")  # _{self.route[0]}-{self.route[-1]}
             fc = FeatureCollection(features=[r.feature() for r in route])
             fc.save(fn)
