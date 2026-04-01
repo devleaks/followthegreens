@@ -452,13 +452,25 @@ class UIUtil:
     def cbUpDown(self, message, widgetID, param1, param2):
         # We intercept some keypress we are interested in _first_
         if message == xp.Msg_KeyPress and not (param1[1] & xp.UpFlag):
-            if param1[2] == xp.VK_DOWN or (param1[2] == xp.VK_N and param1[1] & xp.ControlFlag):
+            if param1[2] == xp.VK_DOWN or param1[2] == xp.VK_SUBTRACT or (param1[2] == xp.VK_N and param1[1] & xp.ControlFlag):
                 self.destinationIdx = (self.destinationIdx + 1) % len(self.validDestinations)
                 xp.setWidgetDescriptor(widgetID, self.validDestinations[self.destinationIdx])
                 return 1
-            if param1[2] == xp.VK_UP or (param1[2] == xp.VK_P and param1[1] & xp.ControlFlag):
+            if param1[2] == xp.VK_UP or param1[2] == xp.VK_ADD or (param1[2] == xp.VK_P and param1[1] & xp.ControlFlag):
                 xp.setWidgetDescriptor(widgetID, self.validDestinations[self.destinationIdx])
                 self.destinationIdx = (self.destinationIdx - 1) % len(self.validDestinations)
+                return 1
+            if param1[2] >= xp.VK_NUMPAD0 and param1[2] <= xp.VK_NUMPAD9:
+                # thanks for the hint: https://forums.x-plane.org/index.php?/forums/topic/238447-best-ui-for-list-of-value/&tab=comments#comment-2130991
+                c = chr(param1[2]-48).upper()
+                idx = -1
+                try:
+                    idx = self.validDestIdxs.index(c)
+                except ValueError:
+                    idx = -1
+                if idx > -1:
+                    self.destinationIdx = idx
+                    xp.setWidgetDescriptor(widgetID, self.validDestinations[self.destinationIdx])
                 return 1
             if param1[2] >= xp.VK_0 and param1[2] <= xp.VK_Z:
                 # thanks for the hint: https://forums.x-plane.org/index.php?/forums/topic/238447-best-ui-for-list-of-value/&tab=comments#comment-2130991
