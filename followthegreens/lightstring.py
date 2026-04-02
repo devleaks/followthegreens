@@ -610,6 +610,15 @@ class LightString:
 
         return [idx, dist]
 
+    def nextStopCleared(self, nextStop: int) -> bool:
+        s = None
+        i = 0
+        while s is None and i < len(self.stopbars):
+            if self.stopbars[i].lightStringIndex <= nextStop:
+                s = self.stopbars[i]
+            i += 1
+        return s is None or s.cleared
+
     def toNextStop(self, position):
         # light index of next stop position and distance to it
         ns = self.nextStop()

@@ -56,7 +56,6 @@ class Turn:
 
     SMALL_TURN_TANGENT = 10.0  # m
     VALID_RANGE = [15, 140]  # for a smooth turn
-    REDUCED_RADIUS = 7.0  # m
     MAX_TANGENT = 35.0  # m
 
     def __init__(self, vertex: Point, l_in: float, l_out: float, radius: float = TURN_RADIUS, segments: int = NUM_SEGMENTS):
@@ -75,11 +74,6 @@ class Turn:
         if abs(self.alpha) < self.VALID_RANGE[0]:
             logger.debug(f"turn is too shallow {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={self.tangent_length}m")
             return
-        if abs(self.alpha) > self.VALID_RANGE[1]:
-            logger.debug(f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={self.tangent_length}m")
-            radius = 7
-            NUM_SEGMENTS = 10
-            logger.debug(f"will try with reduce radius {radius}m")
 
         numsegs = NUM_SEGMENTS if segments < 2 else int(segments * radius / 10)
         opposite = 180 - self.alpha
@@ -92,31 +86,24 @@ class Turn:
             logger.debug("turn is 0D (no turn) or 180D (U turn), ignored")
             return
 
-        dist_center = radius / a2sin
-        self.tangent_length = abs(dist_center * math.cos(a2r))  # cos may be < 0
-
-        # TEST
-        # Estimate a radius for a maximum tangent length
+        exception = False
         if abs(self.alpha) > self.VALID_RANGE[1]:
-            logger.debug(f"turn is {round(self.alpha, 1)}:")
+            logger.debug(f"turn is sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D")
             r = abs(self.MAX_TANGENT * a2sin / math.cos(a2r))
             logger.debug(f"max tangent={round(self.MAX_TANGENT,1)}m requires radius={round(r,1)}m")
-            for t in [25.0, 20.0, 10.0, 8.0]:
-                r = abs(t * a2sin / math.cos(a2r))
-                logger.debug(f"radius={round(r,1)}m has tangent={round(t,1)}m")
-            # TEST
-            logger.debug(f"radius={round(radius,1)}m has tangent={round(self.tangent_length,1)}m")
+            radius = r
+            exception = True
 
-        if radius == self.REDUCED_RADIUS:
-            if self.tangent_length > self.MAX_TANGENT:
-                logger.debug(
-                    f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={round(self.tangent_length, 1)}m, radius={round(radius,1)}m"
-                )
-                return
-        elif self.tangent_length > (3 * radius):
+        dist_center = radius / a2sin
+        self.tangent_length = abs(dist_center * math.cos(a2r))  # cos may be < 0
+        if not exception and self.tangent_length > (3 * radius): # or self.tangent_length > MAX_TANGENT
             logger.debug(
                 f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={round(self.tangent_length, 1)}m, radius={round(radius,1)}m"
             )
+            # LATER: Try to reduce radius
+            # radius = abs(self.MAX_TANGENT * a2sin / math.cos(a2r))
+            # dist_center = radius / a2sin
+            # self.tangent_length = self.MAX_TANGENT
             return
 
         self.center = destination(vertex, bissec, dist_center)
