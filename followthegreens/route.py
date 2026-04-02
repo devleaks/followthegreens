@@ -774,7 +774,7 @@ class Route:
             if d < shortest:
                 shortest = d
                 closest = i
-        logger.debug(f"{closest} at {round(shortest, 1)}m")
+        logger.log(8, f"{closest} at {round(shortest, 1)}m")
         if cache:
             self.idxcache = closest.getProp(SMOOTH_ROUTE.INDEX)
         return None if closest is None else route[closest], shortest
@@ -783,24 +783,23 @@ class Route:
         # 360 – maximum angle + minimum angle
         closest, dist = self.srClosest(route=route, point=point)
         if closest is None:
-            logger.debug("not found")
+            logger.log(8, "not found")
             return None, dist
         idx = closest.getProp(SMOOTH_ROUTE.INDEX)
-        logger.debug(f"closest: {idx} {closest.properties}, l={len(route)}")
         if idx == 0:  # first
-            logger.debug("first segment")
+            logger.log(8, "first segment")
             return idx, dist
         if idx == (len(route) - 1):  # last
-            logger.debug("last segment")
+            logger.log(8, "last segment")
             return len(route) - 2, distance(route[-2], point)
         b1 = bearing(closest, point)
         b2 = bearing(closest, route[idx + 1])
         trn = turn(b1, b2)
-        logger.debug(f"turn: {trn}")
+        logger.log(8, f"turn: {trn}")
         if abs(trn) > 175:  # opposite
-            logger.debug("previous")
+            logger.log(8, "previous")
             return idx - 1, distance(route[idx - 1], point)
-        logger.debug("current")
+        logger.log(8, "current")
         return idx, dist
 
     def srAheadRoute(self, route, i: int, dist: float, start: float = 0) -> tuple:
