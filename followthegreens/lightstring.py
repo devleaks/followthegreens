@@ -582,7 +582,7 @@ class LightString:
             abs(brng - convertAngleTo360(heading)),
         ]
 
-    def nextStop(self):
+    def nextStop(self) -> int:
         # index of light where should stop next
         # skipping stopbar that are cleared
         i = self.currentSegment
@@ -614,7 +614,7 @@ class LightString:
         s = None
         i = 0
         while s is None and i < len(self.stopbars):
-            if self.stopbars[i].lightStringIndex <= nextStop:
+            if self.stopbars[i].lightStringIndex <= nextStop:  # if nextStop provided by nextStop(), must be lightStringIndex == nextStop
                 s = self.stopbars[i]
             i += 1
         return s is None or s.cleared

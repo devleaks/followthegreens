@@ -302,11 +302,12 @@ class Airport:
         self.distance_between_taxiway_lights_pref = False
         self.setPreferences()
 
-    def fmcar(self, route, alternate: bool = False) -> Cursor | None:
+    def fmcar(self, ftg) -> Cursor | None:
         # fmcar should be **created** before lights are placed because
         # if fmcar, distance_between_green_lights will be hardcoded to convenient value (~10m)
         #
         # DID WE ASK FOR FMCAR
+
         if self.lights_ahead != Airport.HARDCODED_MAX_DISTANCE or self.rabbit_length != 0 or self.rabbit_speed != 0:
             logger.debug(f"no fmcar (la={self.lights_ahead}, rl={self.rabbit_length}, rs={self.rabbit_speed})")
             return None
@@ -318,10 +319,10 @@ class Airport:
         # if no value, check at global level, if no value, all movements are OK
         if movement is None:
             movement = self.prefs.get("MOVEMENT", ",".join([m.value for m in MOVEMENT]))
-        if route.move.value not in movement:
-            logger.debug(f"no fmcar for {route.move} ({movement} only)")
+        if ftg.move.value not in movement:
+            logger.debug(f"no fmcar for {ftg.move} ({movement} only)")
             # Setting global default rather than HARDCODED_MAX_DISTANCE/0/0
-            logger.info(f"no fmcar on {route.move.value} at {self.icao}")
+            logger.info(f"no fmcar on {ftg.move.value} at {self.icao}")
             self.rabbit_speed = get_global(RABBIT.LIGHTS_AHEAD.value, self.prefs)
             if self.lights_ahead == 0:
                 self.lights_ahead = LIGHTS_AHEAD
@@ -347,7 +348,7 @@ class Airport:
         # If developer mode, show lights as well
         self.ensureDev()
         self.cursor_type = CursorType(**fmcar)
-        return Cursor(self.cursor_type, route)
+        return Cursor(self.cursor_type, ftg)
 
     def ensureFmcar(self):
         self.lights_ahead = Airport.HARDCODED_MAX_DISTANCE

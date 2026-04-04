@@ -96,16 +96,19 @@ class Turn:
 
         dist_center = radius / a2sin
         self.tangent_length = abs(dist_center * math.cos(a2r))  # cos may be < 0
-        if not exception and self.tangent_length > (3 * radius): # or self.tangent_length > MAX_TANGENT
+        if not exception and self.tangent_length > (2 * radius): # or self.tangent_length > MAX_TANGENT
             logger.debug(
                 f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={round(self.tangent_length, 1)}m, radius={round(radius,1)}m"
             )
-            # LATER: Try to reduce radius
-            # radius = abs(self.MAX_TANGENT * a2sin / math.cos(a2r))
-            # dist_center = radius / a2sin
-            # self.tangent_length = self.MAX_TANGENT
-            return
+            # Try to reduce radius
+            radius = abs(self.MAX_TANGENT * a2sin / math.cos(a2r))
+            dist_center = radius / a2sin
+            self.tangent_length = self.MAX_TANGENT
+            logger.debug(
+                f"turn is too sharp attempt to reduce to tangent_length={round(self.tangent_length, 1)}m, radius={round(radius,1)}m"
+            )
 
+        self.radius = radius
         self.center = destination(vertex, bissec, dist_center)
         self.length = 2 * math.pi * radius * (abs(self.alpha) / 360)  # turn length
 
@@ -876,7 +879,7 @@ class Route:
         # logger.debug(f"RETURN {i}, {dist} -> {j}, {d}")
         return j, d
 
-    def srStraightRoute(self, start: Point, end: Point, heading: float):  # should pass fmcam.detail? to get radius, speed...
+    def srStraightRoute(self, start: Point, end: Point, heading: float, text: str = ""):  # should pass fmcam.detail? to get radius, speed...
         # Direct segment to join route with turn at the end towards heading
         route = []
         v = Point(start.lat, start.lon)
@@ -989,6 +992,7 @@ class Route:
             fc = FeatureCollection(features=[r.feature() for r in route])
             fc.save(fn)
             logger.debug(f"straight line to route saved in {os.path.abspath(fn)}")
+        logger.info(f"straight route {len(route)} points, turn at end {round(turn.alpha)}D")
 
         return route
 

@@ -292,10 +292,12 @@ class FlightLoop:
         try:
             if acf_speed is None or acf_speed < AIRCRAFT_STOPPED_SPEED:
                 return self.nextIter
-            SPEEDS = [  # [speed=m/s, iter=s], to keep about 10 meter acf movement
-                [12, 0.8],
-                [10, 1],
-                [7, 1.2],
+            SPEEDS = [  # [speed=m/s, iter=s], to keep about 10 meter acf movement, or less if slow at beginning
+                [12.0, 0.8],
+                [10.0, 1],
+                [7.0, 1.2],
+                [3.0, 2.0],
+                [2.2, 3.0],
             ]
             i = 0
             while i < len(SPEEDS):
@@ -524,7 +526,7 @@ class FlightLoop:
             # FM Car hooks 1
             if fmcar is not None and not fmcar.inited:
                 try:
-                    self.fmc_light_progress, self.acf_light_progress = fmcar.spawn(ftg=self.ftg, nextStop=nextStop)
+                    self.fmc_light_progress, self.acf_light_progress = fmcar.spawn(nextStop=nextStop)
                 except:
                     logger.debug("error spawning fmcar", exc_info=True)
             #
@@ -570,7 +572,7 @@ class FlightLoop:
         self.closestLight_cnt = 0
         nextIter = self.adjustedIter(acf_speed=acf_speed)
 
-        if closestLight <= self.acf_light_progress:
+        if closestLight < self.acf_light_progress:
             logger.debug(f"backup detected, ignoring closestLight={closestLight}, using {self.acf_light_progress}, no progress")
             closestLight = max(closestLight, self.acf_light_progress)
         else:
@@ -578,7 +580,6 @@ class FlightLoop:
             if fmcar is not None:
                 try:
                     self.fmc_light_progress, self.acf_light_progress = fmcar.move(
-                        ftg=self.ftg,
                         acf_speed=acf_speed,
                         acf_move=acf_move,
                         closestLight=closestLight,

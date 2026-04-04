@@ -473,7 +473,7 @@ VERSION = "{__VERSION__}"
         # sets a reduced distance between lights
         new_fmcar = False
         if self.fmcar is None:
-            self.fmcar = self.airport.fmcar(route=self.route, alternate=self.alternate)
+            self.fmcar = self.airport.fmcar(ftg=self)
             new_fmcar = True
         else:
             self.airport.ensureDev()
@@ -495,7 +495,7 @@ VERSION = "{__VERSION__}"
         self.status = FTG_STATUS.ROUTE
 
         if self.fmcar is not None and not new_fmcar:
-            self.fmcar.changeRoute(ftg=self)
+            self.fmcar.changeRoute()
 
         self.segment = 0
         logger.info(f"current segment {self.segment + 1}/{self.lights.segments + 1}")
@@ -569,7 +569,7 @@ VERSION = "{__VERSION__}"
         logger.info(f"segment {self.segment + 1}/{self.lights.segments + 1}")
 
         if self.fmcar is not None:
-            self.fmcar.canContinue(ftg=self)
+            self.fmcar.canContinue()
 
         if self.segment > self.lights.segments:
             # Info 16.a
