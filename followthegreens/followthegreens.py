@@ -203,9 +203,13 @@ class FollowTheGreens:
 # See documentation at https://devleaks.github.io/followthegreens/.
 #
 # {PREFERENCE_FILE_NAME} (this file) is a TOML (https://toml.io/en/) formatted file.
+# Its file extension is .prf to conform to X-Plane usage.
 # Please adhere to the TOML formatting/standard when adding preferences.
-# For example, boolean values are true and false, lower case.
-# If True or False is used, an error will be issued and the preference file ignored.
+# For example, boolean values are true and false, lower case, not quoted.
+# If True or False is used, an error will be issued and the whole preference file ignored.
+# Please refer to the log file ftg_log.txt located in
+#    <X-Plane Folder> -> Resources -> plugins -> PythonPlugins -> followthegreens
+# It is a human readable plain text file.
 #
 # Do not touch the following lines.
 #
@@ -231,6 +235,7 @@ VERSION = "{__VERSION__}"
 #
 #
 # Taxi safely.
+#
 """,
                     file=fp,
                 )
@@ -266,6 +271,30 @@ VERSION = "{__VERSION__}"
     def thing(self) -> str:
         # f"{ftg.things}"
         return "car" if self.alternate else "greens"
+
+    def rabbitMode(self, mode: RABBIT_MODE):
+        self.flightLoop.manualRabbitMode(mode)
+
+    def rabbitModeAuto(self):
+        self.flightLoop.automaticRabbitMode()
+
+    def newLocation(self):
+        # called when
+        # XPLM_MSG_SCENERY_LOADED = 104
+        # XPLM_MSG_AIRPORT_LOADED = 107
+        # plugin message received
+        if self.lights is not None:
+            self.lights.destroy()
+            self.lights = None
+            logger.debug("light instances destroyed")
+        # reset airport
+
+    def newAircraft(self):
+        # called when
+        # XPLM_MSG_AIRPORT_LOADED = 107
+        # plugin message received
+        pass
+        # reset aircraft
 
     def start(self, alternate: bool = False) -> int:
         # Toggles visibility of main window.
@@ -326,12 +355,6 @@ VERSION = "{__VERSION__}"
         self.status = FTG_STATUS.READY
         logger.info("..started.")
         return 1  # window displayed
-
-    def rabbitMode(self, mode: RABBIT_MODE):
-        self.flightLoop.manualRabbitMode(mode)
-
-    def rabbitModeAuto(self):
-        self.flightLoop.automaticRabbitMode()
 
     def getAirport(self):
         # Search for airport or prompt for one.
@@ -411,7 +434,7 @@ VERSION = "{__VERSION__}"
         # What is we had a green, and now we don't?!
         # so we first make sur we find a new green, and if we do, we cancel the previous one.
         self.inc("new_greens")
-        return self.followTheGreen(destination, True)
+        return self.followTheGreen(destination=destination, newGreen=True)
 
     def followTheGreen(self, destination, newGreen: bool = False):
         # Destination is either
@@ -494,8 +517,12 @@ VERSION = "{__VERSION__}"
         self.lights.printSegments()
         self.status = FTG_STATUS.ROUTE
 
-        if self.fmcar is not None and not new_fmcar:
-            self.fmcar.changeRoute()
+        if not new_fmcar and self.fmcar is not None:
+            if self.fmcar is not None:
+                try:
+                    self.fmcar.changeRoute()
+                except:
+                    logger.error("change route", exc_info=True)
 
         self.segment = 0
         logger.info(f"current segment {self.segment + 1}/{self.lights.segments + 1}")
@@ -569,7 +596,10 @@ VERSION = "{__VERSION__}"
         logger.info(f"segment {self.segment + 1}/{self.lights.segments + 1}")
 
         if self.fmcar is not None:
-            self.fmcar.canContinue()
+            try:
+                self.fmcar.canContinue()
+            except:
+                logger.error("can continue", exc_info=True)
 
         if self.segment > self.lights.segments:
             # Info 16.a

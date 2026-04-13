@@ -70,7 +70,6 @@ class FlightLoop:
         self.total_dist = 0  # total taxi distance
         self.total_time = 0  # total taxi distance
         self.acf_light_progress = 0  # most recent light where the acf is. Can only grow.
-        self.fmc_light_progress = 0  # most recent light where the car is. Can only grow.
         # less verbose debug
         self.closestLight_cnt = 0
         self.old_msg = ""
@@ -81,7 +80,6 @@ class FlightLoop:
     def startFlightLoop(self):
         self.lastLit = 0
         self.acf_light_progress = 0
-        self.fmc_light_progress = 0
 
         if self.hasRabbit():
             if not self.rabbitRunning:
@@ -289,11 +287,19 @@ class FlightLoop:
 
     def adjustedIter(self, acf_speed) -> float:
         # If aircraft move fast, we check/update FtG more often
+        FASTEST = 0.8  # fastest "frequency" in secs.
         try:
             if acf_speed is None or acf_speed < AIRCRAFT_STOPPED_SPEED:
+                # logger.debug(f"stopped, iter {self.nextIter}s")
                 return self.nextIter
+
+            if self.rabbitMode == RABBIT_MODE.SLOWEST:  # probably closing stop or turn, must monitor/adjust speed frequently
+                self.lastIter = FASTEST
+                logger.debug(f"close to stop, iter {self.nextIter}s")
+                return self.lastIter
+
             SPEEDS = [  # [speed=m/s, iter=s], to keep about 10 meter acf movement, or less if slow at beginning
-                [12.0, 0.8],
+                [12.0, FASTEST],
                 [10.0, 1],
                 [7.0, 1.2],
                 [3.0, 2.0],
@@ -450,19 +456,19 @@ class FlightLoop:
         advise = "on target"  # ..within range, mode = normal/medium
         mode = RABBIT_MODE.MED
 
-        srange = target
+        speed_range = target
         if acf_speed < AIRCRAFT_STOPPED_SPEED:  # m/s
             advise = f"probably stopped ({round(acf_speed, 1)}m/s < {AIRCRAFT_STOPPED_SPEED})"
-        elif acf_speed < srange[0]:
-            delta = srange[0] - acf_speed
+        elif acf_speed < speed_range[0]:
+            delta = speed_range[0] - acf_speed
             if delta > SPEED_DELTA:
                 mode = RABBIT_MODE.FASTEST
                 advise = "really too slow, accelerate"
             else:
                 mode = RABBIT_MODE.FASTER
                 advise = "too slow, accelerate"
-        elif acf_speed > srange[1]:
-            delta = acf_speed - srange[1]
+        elif acf_speed > speed_range[1]:
+            delta = acf_speed - speed_range[1]
             if delta > SPEED_DELTA:
                 mode = RABBIT_MODE.SLOWEST
                 advise = "really too fast, brake"
@@ -523,10 +529,10 @@ class FlightLoop:
         nextStop, warn = self.ftg.lights.toNextStop(pos)
 
         if not self.taxiStarted():
-            # FM Car hooks 1
+            # FM Car hook #1
             if fmcar is not None and not fmcar.inited:
                 try:
-                    self.fmc_light_progress, self.acf_light_progress = fmcar.spawn(nextStop=nextStop)
+                    fmcar.spawn(nextStop=nextStop)
                 except:
                     logger.debug("error spawning fmcar", exc_info=True)
             #
@@ -539,15 +545,16 @@ class FlightLoop:
                     self.old_msg = msg
                 return self.adjustedIter(acf_speed=acf_speed)
 
-        acf_move = acf_speed * self.lastIter
+        # track progress for hud and 4D
+        acf_move = acf_speed * self.lastIter  # * elapsedSinceLastCall
         self.total_time = self.total_time + self.lastIter
         self.total_dist = self.total_dist + acf_move
 
         # @todo: WARNING_DISTANCE should be computed from acf type (weigth, size) and speed
         if nextStop and warn < aircraft.warningDistance():
-            logger.debug(f"closing to stop (light={nextStop})")
+            logger.debug(f"closing to stop (at light index={nextStop}, d={round(warn, 1)}m)")
             if fmcar is not None:
-                fmcar.indicator = INDICATOR.STOP
+                fmcar.mustStopAt(nextStop=nextStop)
             if self.hasRabbit():
                 self.allowRabbitAutotune("close to stop, force update to SLOWEST")
                 self.rabbitMode = RABBIT_MODE.SLOWEST
@@ -576,16 +583,13 @@ class FlightLoop:
             logger.debug(f"backup detected, ignoring closestLight={closestLight}, using {self.acf_light_progress}, no progress")
             closestLight = max(closestLight, self.acf_light_progress)
         else:
-            # FM Car hooks 2
+            # FM Car hook #2
             if fmcar is not None:
                 try:
-                    self.fmc_light_progress, self.acf_light_progress = fmcar.move(
-                        acf_speed=acf_speed,
-                        acf_move=acf_move,
+                    fmcar.move(
+                        elapsedSinceLastCall=elapsedSinceLastCall,
                         closestLight=closestLight,
                         nextStop=nextStop,
-                        fmc_light_progress=self.fmc_light_progress,
-                        acf_light_progress=self.acf_light_progress,
                     )
                     if fmcar.isDeleted():
                         self.ftg.fmcar = None  # ready to create a new one

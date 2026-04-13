@@ -6,6 +6,8 @@ import math
 from enum import StrEnum
 from datetime import datetime
 
+from followthegreens.graph import Vertex
+
 try:
     import xp
 except ImportError:
@@ -44,6 +46,9 @@ class SMOOTH_ROUTE(StrEnum):
     TURN_MIDDLE = "srTurnMid"
     TURN_TYPE = "turn-type"  # smooth, progressive, or immediate
     TURN_END = "srTurnEnd"
+    TURN_ALPHA = "turn-alpha"
+    TURN_TANGENT = "turn-tangent"
+    TURN_VALID = "turn-valid"
 
 
 class TURN_TYPE(StrEnum):
@@ -96,7 +101,7 @@ class Turn:
 
         dist_center = radius / a2sin
         self.tangent_length = abs(dist_center * math.cos(a2r))  # cos may be < 0
-        if not exception and self.tangent_length > (2 * radius): # or self.tangent_length > MAX_TANGENT
+        if not exception and self.tangent_length > (2 * radius):  # or self.tangent_length > MAX_TANGENT
             logger.debug(
                 f"turn is too sharp {round(l_in, 1)} -> {round(l_out, 1)} : {round(self.alpha, 1)}D, tangent_length={round(self.tangent_length, 1)}m, radius={round(radius,1)}m"
             )
@@ -104,9 +109,7 @@ class Turn:
             radius = abs(self.MAX_TANGENT * a2sin / math.cos(a2r))
             dist_center = radius / a2sin
             self.tangent_length = self.MAX_TANGENT
-            logger.debug(
-                f"turn is too sharp attempt to reduce to tangent_length={round(self.tangent_length, 1)}m, radius={round(radius,1)}m"
-            )
+            logger.debug(f"turn is too sharp attempt to reduce to tangent_length={round(self.tangent_length, 1)}m, radius={round(radius,1)}m")
 
         self.radius = radius
         self.center = destination(vertex, bissec, dist_center)
@@ -201,8 +204,14 @@ class Route:
         self.dleft = []
         self.tleft = []
 
-        self.smoothRoute = []
-        self.srVertices = []
+        self.smoothRoute = []  # === vertices
+        # smooth route equivalents: fetch with getProp()
+        # edges === no equivalent, but distance to next = DISTANCE, bearing to next = BEARING
+        # turns ===
+        # dtb ===
+        # dtb_at ===
+        # dleft ===
+        # tleft ===
 
         self.idxcache = 0  # progress on smooth route, cannot backup
         self._srcnt = 0
@@ -677,6 +686,9 @@ class Route:
                     p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                     p.setProp(SMOOTH_ROUTE.REFERENCE_VERTEX.value, self.route[i])
                     idx += 1
+                pts[mid].setProp(SMOOTH_ROUTE.TURN_VALID.value, turn.valid)
+                pts[mid].setProp(SMOOTH_ROUTE.TURN_ALPHA.value, turn.alpha)
+                pts[mid].setProp(SMOOTH_ROUTE.TURN_TANGENT.value, turn.tangent_length)
                 pts[mid].setProp(GEOJSON.MARKER_COLOR.value, "#FFDDDD")  # light grey different
                 route += pts
             else:
@@ -710,6 +722,9 @@ class Route:
                         p.setProp(SMOOTH_ROUTE.REFERENCE_VERTEX.value, self.route[i])
                         idx += 1
                     pts[mid].setProp(GEOJSON.MARKER_COLOR.value, "#FFAAAA")  # light grey different
+                    pts[mid].setProp(SMOOTH_ROUTE.TURN_VALID.value, turn.valid)
+                    pts[mid].setProp(SMOOTH_ROUTE.TURN_ALPHA.value, turn.alpha)
+                    pts[mid].setProp(SMOOTH_ROUTE.TURN_TANGENT.value, turn.tangent_length)
                     route += pts
                 else:
                     v = copy(vtx[i])
@@ -718,6 +733,9 @@ class Route:
                     v.setProp(GEOJSON.MARKER_COLOR.value, "#888888")  # medium grey
                     v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
                     v.setProp(SMOOTH_ROUTE.REFERENCE_VERTEX.value, self.route[i])
+                    v.setProp(SMOOTH_ROUTE.TURN_VALID.value, turn.valid)
+                    v.setProp(SMOOTH_ROUTE.TURN_ALPHA.value, turn.alpha)
+                    v.setProp(SMOOTH_ROUTE.TURN_TANGENT.value, turn.tangent_length)
                     route.append(v)
                     vtx[i].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) - 1)  # to check
         v = copy(vtx[-1])
@@ -727,7 +745,7 @@ class Route:
         route.append(v)
         vtx[-1].setProp(SMOOTH_ROUTE.REVERSE_INDEX.value, len(route) - 1)
 
-        self.srVertices = [route[v.getProp(SMOOTH_ROUTE.REVERSE_INDEX.value)] for v in self.vertices]
+        srVertices = [route[v.getProp(SMOOTH_ROUTE.REVERSE_INDEX.value)] for v in self.vertices]
 
         # Add props: distance from start, heading
         dist = 0
@@ -764,8 +782,16 @@ class Route:
             fc = FeatureCollection(features=[r.feature() for r in route])
             fc.save(fn)
             fn = os.path.join(os.path.dirname(__file__), "..", "ftg_srvertices.geojson")  # _{route.route[0]}-{route.route[-1]}
-            fc = FeatureCollection(features=[r.feature() for r in self.srVertices])
+            fc = FeatureCollection(features=[r.feature() for r in srVertices])
             fc.save(fn)
+
+    def srMetaRouteVertex(self, sr_vertex) -> Point:
+        i = sr_vertex.getProp(SMOOTH_ROUTE.ROUTE_INDEX.value)
+        return self.vertices[i]
+
+    def srMetaRouteEdge(self, sr_vertex) -> Line:
+        i = sr_vertex.getProp(SMOOTH_ROUTE.ROUTE_INDEX.value)
+        return self.edges[i]
 
     def srClosest(self, route: tuple, point: Point, cache: bool = False) -> tuple:
         closest = None
@@ -912,6 +938,9 @@ class Route:
                 p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
                 p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                 idx += 1
+            pts[mid].setProp(SMOOTH_ROUTE.TURN_VALID.value, turn.valid)
+            pts[mid].setProp(SMOOTH_ROUTE.TURN_ALPHA.value, turn.alpha)
+            pts[mid].setProp(SMOOTH_ROUTE.TURN_TANGENT.value, turn.tangent_length)
             pts[mid].setProp(GEOJSON.MARKER_COLOR.value, "#FFDDDD")  # light grey different
             route += pts
         else:
@@ -942,6 +971,9 @@ class Route:
                     p.setProp(SMOOTH_ROUTE.TURN_MIDDLE.value, len(route) + mid)  # also an indication that this point is part of the turn
                     p.setProp(SMOOTH_ROUTE.TURN_END.value, len(route) + len(pts))  # also an indication that this point is part of the turn
                     idx += 1
+                pts[mid].setProp(SMOOTH_ROUTE.TURN_VALID.value, turn.valid)
+                pts[mid].setProp(SMOOTH_ROUTE.TURN_ALPHA.value, turn.alpha)
+                pts[mid].setProp(SMOOTH_ROUTE.TURN_TANGENT.value, turn.tangent_length)
                 pts[mid].setProp(GEOJSON.MARKER_COLOR.value, "#FFAAAA")  # light grey different
                 route += pts
             else:  # no turn
@@ -951,6 +983,9 @@ class Route:
                 v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
                 v.setProp(GEOJSON.MARKER_COLOR.value, "#888888")  # medium grey
                 v.setProp(SMOOTH_ROUTE.INDEX.value, len(route))
+                v.setProp(SMOOTH_ROUTE.TURN_VALID.value, turn.valid)
+                v.setProp(SMOOTH_ROUTE.TURN_ALPHA.value, turn.alpha)
+                v.setProp(SMOOTH_ROUTE.TURN_TANGENT.value, turn.tangent_length)
                 route.append(v)
 
         # Add props: distance from start, heading
@@ -981,11 +1016,11 @@ class Route:
         route[-1].setProp(SMOOTH_ROUTE.DISTANCE.value, 0)  # [-1]
         route[-1].setProp(SMOOTH_ROUTE.TOTAL.value, dist)  # total length or route
         route[-1].setProp(SMOOTH_ROUTE.BEARING.value, b)  # repeat last
-        # Convention: On Straight line, we indicate the turn at the end in these two variables
+        # Convention: On Straight line, we indicate key turn data at the end in these three variables
         # This allows to set turn indicator at the end of Straight lines
-        route[-1].setProp("END_TURN_VALID", turn.valid)
-        route[-1].setProp("END_TURN_ALPHA", turn.alpha)
-        route[-1].setProp("END_TURN_TANGENT", turn.tangent_length)  # has already moved that much on edge after vertex
+        route[-1].setProp(SMOOTH_ROUTE.TURN_VALID.value, turn.valid)
+        route[-1].setProp(SMOOTH_ROUTE.TURN_ALPHA.value, turn.alpha)
+        route[-1].setProp(SMOOTH_ROUTE.TURN_TANGENT.value, turn.tangent_length)
 
         if logger.level < 10:
             fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_straight{datetime.now().strftime('%M%S%f')}.geojson")  # _{self.route[0]}-{self.route[-1]}

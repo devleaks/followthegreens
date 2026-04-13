@@ -56,24 +56,7 @@ thereby restoring precious resources to X-Plane.
 
 I appreciate some help for the following refinements.
 
-1. Adjustment of lights. (I could not create LIGHT_PARAM with datarefs.)
-Adjust brightness and/or on-off through datarefs. (I currenlty use very bright red and green lights.)
-I could not create a "rabbit beacon" of lights in front of the plane.
-I currently program the rabbitby turning lights on and off in a flightloop.
-Making a beacon light managed by x-plane will probably be more durable and efficient (?).
-
-I'd love to place the lights on decorated lines (where X-Plane places its taxiway lights)
-rather than on taxiway routing network (more "gross"). I'm busy smoothing this network of lines
-to make smoother turns.
-
-
-BTW: With a little hiccup on start (to find your airport and load its network of taxiway)
-and for route computation and light instanciation, Follow the greens is FPS friendly.
-Rabbit runs about 2 to 10 times a second, and plane position is adjusted every 10 seconds or so.
-All these parameters are globals and can be adjusted to your need, preferences, or requirements.
-You usually taxi at reasonably slow speed, FPS is not as critical as when approaching.
-
-2. Routing: Sometimes, the "closest" taxiway leg is behind you. It is not acceptable for plane to U-Turn to reach it.
+1. Routing: Sometimes, the "closest" taxiway leg is behind you. It is not acceptable for plane to U-Turn to reach it.
 Plugin uses naive Dijkstra, taking very limited things into account. There is definitively room for improvement there.
 For exemple, find a route without crossing any runway, rather than the shortest path.
 The plugin search a connection to taxiways in front of the plane, but if none can be found, you may have to U-turn.
@@ -81,7 +64,7 @@ The plugin search a connection to taxiways in front of the plane, but if none ca
 Airport time, wind, and other approach constraints are not taken into consideration.
 You must tell your desired destination manually.
 
-3. Interaction with ATC.
+2. Interaction with ATC.
 I'd love to interact with an ATC of some sort, to light or clear stop bars when necessary.
 Currently, it's all done manually.
 
@@ -89,12 +72,7 @@ Currently, it's all done manually.
 Code is on github. Feel free to bring your own enhancements.
 
 
-I hope you will enjoy the eye candy Follow the greens.
-
-
-Taxi safely.
-
-## Lights
+# Lights
 
 I struggle with X-Plane lights.
 
@@ -165,70 +143,27 @@ Keep it open, so we can add our fantasies to your world.
 
 Best regards.
 
-# Ahead RANGE
 
-Initial range for a given aircraft or aircraft class (A-F).
+# Flight Loops
 
-First adjustment for aircraft speed:
+There is no flight loop running if Follow the greens is not active
+(which can be checked by looking at the dataref `XPPython3/followthegreens/is_running`).
 
-```
-if acf_speed > 10:
-    f = 1.5
-    r = [r[0] * f, r[1] * f]
-```
 
-Second adjustment for visibility (asymmetric):
+The "main" flight loop monitors the position of the aircraft.
+The frequency of the monitoring depends on the speed of the aircraft,
+and whether it approaches a stop bar.
+If the aircraft is stopped, the flight loop runs infrequently (about every 3-5 seconds).
+If the aircraft is mooving fast, or moving slow but close to a stop bar,
+the main flight loop can be run as fast as up to 2 to 4 times per second.
 
-```
-f = 1
-if visibility < 500:
-    f = 0.5
-    r = [l[0], r[1] * f]
-if visibility < 1000:
-    f = 0.5
-    r = [r[0] * f, r[1] * f]
-elif visibility < 1500:
-    f = 0.75
-    r = [r[0] * f, r[1] * f]
-```
+There is a flight loop to turn rabbit light on/off.
+It is only started if a rabbit is present.
+Its speed/frequency depends on the speed/frequency of the rabbit.
 
-Third adjustment for rabbit_mode (= acf speed monitor, invite to accelerate/brake):
-
-```
-RABBIT_FACTOR = {
-    RABBIT_MODE.SLOWEST: 0.50,  # invite to go slow
-    RABBIT_MODE.SLOWER: 0.70,
-    RABBIT_MODE.MED: 1.00,
-    RABBIT_MODE.FASTER: 1.25,
-    RABBIT_MODE.FASTEST: 1.5    # invite to go faster
-}
-r[0] *= RABBIT_FACTOR[rabbit_mode]
-r[1] *= RABBIT_FACTOR[rabbit_mode]
-
-```
-
-Each step is clipped to absolute max range [30, 200].
-
-```
-HARDCODED_AHEAD_LIMITS = [30, 200]
-r[0] = max(r[0], HARDCODED_AHEAD_LIMITS[0])
-r[1] = min(r[1], HARDCODED_AHEAD_LIMITS[1])
-
-```
-
-# Ahead
-
-```
-ahead = acf_length * 1.5 + acf_speed * 10.0  # in meters
-```
-
-Ahead clipped to above estimated range.
-
-Examples:
-
-- Aircraft slow, ahead small, but lower bound of clipping invite to go faster (or not!).
-- Aircraft normal, ahead normal, within range, no clipping.
-- Aircraft fast, ahead large, need to brake: small range, ahead clipped to lower value.
+There is a flight loop to move the follow me car, adjust its speed and direction.
+It is only started if a follow me car is present.
+It runs every frame.
 
 
 

@@ -4,6 +4,8 @@
 # Enjoy.
 #
 #
+import sys
+import os
 import re
 from traceback import print_exc
 from typing import Any
@@ -13,6 +15,23 @@ try:
 except ImportError:
     print("X-Plane not loaded")
 
+PLUGIN_FOLDER_NAME = "followthegreens"
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))  # .../PythonPlugins
+
+# Ensure PythonPlugins root is importable so package imports work
+if _THIS_DIR not in sys.path:
+    sys.path.insert(0, _THIS_DIR)
+
+# Optional safety: ensure folder exists
+_PLUGIN_DIR = os.path.join(_THIS_DIR, PLUGIN_FOLDER_NAME)
+if not os.path.isdir(_PLUGIN_DIR):
+    raise ImportError(f"Missing plugin folder: {_PLUGIN_DIR}")
+
+# ---------------------------------------------------------------------
+# IMPORTANT:
+# We must import followthegreens as a PACKAGE to allow relative imports
+# inside followthegreens.py (e.g. from .version import __VERSION__).
+# Therefore, we add the PythonPlugins root to sys.path and import
 from followthegreens import (
     __VERSION__,
     __NAME__,
@@ -360,8 +379,51 @@ class PythonInterface:
         return None
 
     def XPluginReceiveMessage(self, inFromWho, inMessage, inParam):
-        # Should may be handle change of location/airport?
-        pass
+        # Both messages invalidate all previously-loaded XPLMObjectRef and
+        # XPLMInstanceRef capsules.  If FTG still holds stale capsules and then
+        # tries to call xp.createInstance() it raises:
+        #   TypeError: mismatch in requested capsule type
+        # which freezes / crashes the plugin.
+        #
+        # Fix: on either message we tear down every live light instance and
+        # unload every cached object reference so that the next illumination
+        # cycle re-loads everything from scratch with fresh capsules.
+
+        if inMessage in (xp.MSG_SCENERY_LOADED, xp.MSG_AIRPORT_LOADED):
+            msg_name = "SCENERY_LOADED" if inMessage == xp.MSG_SCENERY_LOADED else "AIRPORT_LOADED"
+            self.debug(f"XPluginReceiveMessage: {msg_name} — invalidating all light capsules", force=True)
+
+            if not self.enabled:
+                return
+
+            try:
+                if self.followTheGreens is not None:
+                    # Destroy all live XPLMInstanceRef objects (turns lights off
+                    # and sets every Light.instance back to None).
+                    self.followTheGreens.newLocation()
+                    self.debug("XPluginReceiveMessage: light instances destroyed", force=True)
+            except Exception:
+                # Never let a message handler crash XP.
+                print_exc()
+                self.debug("XPluginReceiveMessage: exception while destroying lights", force=True)
+
+        if inMessage == xp.MSG_PLANE_LOADED:
+            msg_name = "PLANE_LOADED"
+            self.debug(f"XPluginReceiveMessage: {msg_name} — changing aircraft", force=True)
+
+            if not self.enabled:
+                return
+
+            try:
+                if self.followTheGreens is not None:
+                    # Destroy all live XPLMInstanceRef objects (turns lights off
+                    # and sets every Light.instance back to None).
+                    self.followTheGreens.newAircraft()
+                    self.debug("XPluginReceiveMessage: changing aircraft", force=True)
+            except Exception:
+                # Never let a message handler crash XP.
+                print_exc()
+                self.debug("XPluginReceiveMessage: exception while changing aircraft", force=True)
 
     # Commands
     def clearanceCmd(self, commandRef, phase: int, refCon: Any):

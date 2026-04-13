@@ -523,11 +523,20 @@ class LightString:
     # INFO
     #
     def features(self):
+        """Return GeoJSON features for debugging.
+
+        NOTE: This only affects exported marker colours (e.g. ftg_ls.geojson).
+        In-sim light colours are controlled by the OBJ lights created/loaded in loadObjects().
+        """
+        # Colour-blind friendly markers (route cyan, stopbars magenta)
+        route_hex = "#00d9ff"  # before "#00ff00"
+        stop_hex = "#ff00ff"  # before "#ff0000"
+
         fc = []
         # Lights
         i = 0
         for light in self.lights:
-            light.position.setProp(GEOJSON.MARKER_COLOR.value, "#00ff00")
+            light.position.setProp(GEOJSON.MARKER_COLOR.value, route_hex)
             light.position.setProp(GEOJSON.MARKER_SIZE.value, "small")
             light.position.setProp("lightIndex", i)
             light.position.setProp("edgeIndex", light.edgeIndex)
@@ -540,7 +549,7 @@ class LightString:
         # Stop lights
         for sb in self.stopbars:
             for light in sb.lights:
-                light.position.setProp(GEOJSON.MARKER_COLOR.value, "#ff0000")
+                light.position.setProp(GEOJSON.MARKER_COLOR.value, stop_hex)
                 light.position.setProp(GEOJSON.MARKER_SIZE.value, "small")
                 light.position.setProp("lightStringIndex", sb.lightStringIndex)
                 light.position.setProp("lightBarIndex", light.edgeIndex)

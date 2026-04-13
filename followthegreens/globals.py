@@ -351,9 +351,9 @@ class INDICATOR(IntEnum):
     STOP = 1
     RIGHT = 2
     LEFT = 3
+    SLOW = 4
+    EMPTY = 5
 
-
-#    EMPTY = 4
 
 # These are global default values, only used if no other value if found.
 LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
