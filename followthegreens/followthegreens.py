@@ -485,7 +485,7 @@ VERSION = "{__VERSION__}"
         day = self.aircraft.daylight(now=now)
         viz = self.aircraft.visibility()
         brt = self.aircraft.brightness()
-        ahr = self.aircraft.aheadRange()
+        ahr = self.aircraft.aheadRangeBase()
         logger.info(f"environment at {now}: day={day}, visibility={round(viz, 0)}m, brt={brt}, vra={ahr}m")
 
         #
