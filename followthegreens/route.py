@@ -907,6 +907,7 @@ class Route:
 
     def srStraightRoute(self, start: Point, end: Point, heading: float, text: str = ""):  # should pass fmcam.detail? to get radius, speed...
         # Direct segment to join route with turn at the end towards heading
+        # To Do: Add initial turn from a starting heading towards end point
         route = []
         v = Point(start.lat, start.lon)
         v.setProp(SMOOTH_ROUTE.ROUTE_INDEX.value, -1)
