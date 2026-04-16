@@ -248,9 +248,12 @@ class PythonInterface:
         if STW_MENU is not None:
             oldidx = self.menuIdx_st
             if self.menuIdx_st is not None and self.menuIdx_st >= 0:
-                xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx_st)
-                self.menuIdx_st = None
-                self.debug(f"XPluginStop: menu item «{STW_MENU}» removed (index was {oldidx})")
+                try:
+                    xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx_st)
+                    self.menuIdx_st = None
+                    self.debug(f"XPluginStop: menu item «{STW_MENU}» removed (index was {oldidx})")
+                except:
+                    self.debug(f"XPluginStop: removeMenuItem «{STW_MENU}» error", force=True)
             else:
                 self.debug(f"XPluginStop: menu item «{STW_MENU}» not removed (index {oldidx})")
 
@@ -266,17 +269,23 @@ class PythonInterface:
         # Follow the Greens
         oldidx = self.menuIdx
         if self.menuIdx is not None and self.menuIdx >= 0:
-            xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx)
-            self.menuIdx = None
-            self.debug(f"XPluginStop: menu item «{FTG_MENU}» removed (index was {oldidx})")
+            try:
+                xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx)
+                self.menuIdx = None
+                self.debug(f"XPluginStop: menu item «{FTG_MENU}» removed (index was {oldidx})")
+            except:
+                self.debug(f"XPluginStop: removeMenuItem «{FTG_MENU}» error", force=True)
         else:
             self.debug(f"XPluginStop: menu item «{FTG_MENU}» not removed (index {oldidx})")
 
         oldidx = self.menuIdx2
         if self.menuIdx2 is not None and self.menuIdx2 >= 0:
-            xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx2)
-            self.menuIdx2 = None
-            self.debug(f"XPluginStop: menu item «{FTC_MENU}» removed (index was {oldidx})")
+            try:
+                xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx2)
+                self.menuIdx2 = None
+                self.debug(f"XPluginStop: menu item «{FTC_MENU}» removed (index was {oldidx})")
+            except:
+                self.debug(f"XPluginStop: removeMenuItem «{FTC_MENU}» error", force=True)
         else:
             self.debug(f"XPluginStop: menu item «{FTC_MENU}» not removed (index {oldidx})")
 

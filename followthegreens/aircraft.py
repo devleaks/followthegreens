@@ -411,7 +411,7 @@ class Aircraft:
 
     def adjustAheadRange(self, rabbit_mode: RABBIT_MODE) -> list:
         # adjust for rabbit mode (slower=closer/faster=further)
-        r = self._ahead_range_base
+        r = self._ahead_range_base.copy()
         l = self.acf_vizrange.get("LIMITS", HARDCODED_AHEAD_LIMITS)
 
         # correction of valid range for rabbit speed/mode
@@ -425,9 +425,7 @@ class Aircraft:
             if a != r:
                 logger.log(8, f"restricted to limits: {r}, {HARDCODED_AHEAD_LIMITS})")
         r = [round(d, 1) for d in r]
-        logger.debug(
-            f"ahead range {r} adjusted from {self._ahead_range_base} for rabbit_mode={rabbit_mode}, hard limits={HARDCODED_AHEAD_LIMITS})"
-        )
+        logger.debug(f"ahead range {r} adjusted from {self._ahead_range_base} for rabbit_mode={rabbit_mode}, hard limits={HARDCODED_AHEAD_LIMITS})")
         return r
 
     def adjustAhead(self, rabbit_mode: RABBIT_MODE) -> float:
