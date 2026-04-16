@@ -272,6 +272,8 @@ class Airport:
         if len(prefs) > 0:
             logger.debug(f"airport {self.icao} preferences: {prefs}")
             if prefs is not None:
+                if "USE_THRESHOLD" in prefs:
+                    self.use_threshold = prefs["USE_THRESHOLD"]
                 if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in prefs:
                     self.distance_between_green_lights = prefs[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
                     self.distance_between_green_lights_pref = True
