@@ -237,6 +237,7 @@ class Aircraft:
         self.rabbit_speed_pref = False
         # If modified in preference file
         self.setPreferences()
+        self._ahead_range_base = []
 
         self.positions = [self.position()]
         self.speeds = [self.speed()]
@@ -336,7 +337,7 @@ class Aircraft:
     def visibility(self) -> float:
         return xp.getDataf(self.visibility_dref)
 
-    def aheadRange(self, rabbit_mode: RABBIT_MODE | None = None) -> list:
+    def aheadRangeBase(self) -> list:
         # provides a reasonable range for this aircraft type
         # adjust for visibility and aircraft length (because measure starts under the aircraft)
         MIN_BRACKET = 40.0  # m
@@ -402,11 +403,16 @@ class Aircraft:
         if r != a:
             logger.log(8, f"restricted to limits: {r}, {HARDCODED_AHEAD_LIMITS})")
 
-        if rabbit_mode is None:
-            logger.debug(
-                f"ahead_range {r} adjusted from {r0} for visibility and aircraft speed (viz={round(viz, 1)}m, acf_speed={round(acf_speed, 1)}m/s, acf_length={round(self.acf_length, 1)}m, hard limits={HARDCODED_AHEAD_LIMITS}, no rabbit mode)"
-            )
-            return r
+        logger.debug(
+            f"ahead range base {r} adjusted from {r0} for visibility and aircraft speed (viz={round(viz, 1)}m, acf_speed={round(acf_speed, 1)}m/s, acf_length={round(self.acf_length, 1)}m, hard limits={HARDCODED_AHEAD_LIMITS}, no rabbit mode)"
+        )
+        self._ahead_range_base = r
+        return self._ahead_range_base
+
+    def adjustAheadRange(self, rabbit_mode: RABBIT_MODE) -> list:
+        # adjust for rabbit mode (slower=closer/faster=further)
+        r = self._ahead_range_base
+        l = self.acf_vizrange.get("LIMITS", HARDCODED_AHEAD_LIMITS)
 
         # correction of valid range for rabbit speed/mode
         if rabbit_mode != RABBIT_MODE.MED:
@@ -420,7 +426,7 @@ class Aircraft:
                 logger.log(8, f"restricted to limits: {r}, {HARDCODED_AHEAD_LIMITS})")
         r = [round(d, 1) for d in r]
         logger.debug(
-            f"ahead_range {r} adjusted from {r0} for visibility={round(viz, 1)}m, aircraft speed={round(acf_speed, 1)}m/s, and rabbit_mode={rabbit_mode}, hard limits={HARDCODED_AHEAD_LIMITS})"
+            f"ahead range {r} adjusted from {self._ahead_range_base} for rabbit_mode={rabbit_mode}, hard limits={HARDCODED_AHEAD_LIMITS})"
         )
         return r
 
@@ -429,7 +435,7 @@ class Aircraft:
         # for aircraft speed and rabbit mode (which is an invitation to adjust speed:
         # too fast->range smaller, too slow->range larger)
         #
-        ahead_range = self.aheadRange(rabbit_mode=rabbit_mode)  # already adjusted for visibility conditions
+        ahead_range = self.adjustAheadRange(rabbit_mode=rabbit_mode)  # already adjusted for visibility conditions
         ahead = min(ahead_range) + (max(ahead_range) - min(ahead_range)) * 0.4  # 0.4 inside the braket values
         logger.debug(f"ahead={round(ahead, 1)}m")
         return ahead
