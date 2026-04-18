@@ -605,6 +605,14 @@ class LightString:
         # no more stop bar? return last light
         return len(self.lights) - 1
 
+    def nextStopIsEndWithNoStopbar(self, nextStop: int) -> bool:
+        # Return true if nextStop is last light and there is no stop bar at the last light
+        limit = len(self.lights) - 1
+        if len(self.stopbars) > 0:
+            lastStopBar = self.stopbars[-1]
+            return lastStopBar.lightStringIndex != limit
+        return False
+
     def closest(self, position, after: int = 0):
         # Find closest light to position (often aircraft)
         dist = math.inf
