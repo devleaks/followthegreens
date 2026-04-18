@@ -284,17 +284,17 @@ class MOVEMENT(StrEnum):
     DEPARTURE = "departure"
 
 
+RUNWAY_BUFFER_WIDTH = 100  # meters. When no runway surface available, imaging a runway that wide
+
 DISTANCE_TO_RAMPS = 100  # meters, if closer that this to a ramp, assume departure, otherwise, assume arrival
 TOO_FAR = 500  # meters, if further than this from a taxiway, does not kick in.
-RUNWAY_BUFFER_WIDTH = 100  # meters. When no runway surface available, imaging a runway that wide
 WARNING_DISTANCE = 150  # When getting close to a STOP BAR, show main window.
 DRIFTING_LIMIT = 5  # times DISTANCE_BETWEEN_GREEN_LIGHTS, after this limit, we consider data unreliable.
 DRIFTING_DISTANCE = 200  # When drifting away from "closest" light, after this distance, we send a warning
 
-PLANE_MONITOR_DURATION = 5  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
-MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before getting potential stop bar
+PLANE_MONITOR_DURATION = 3  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
 
-AIRCRAFT_MIN_SPEED = 3.0  # m/s, aircraft minimum movement detection
+AIRCRAFT_MIN_SPEED = 2.0  # m/s, aircraft minimum movement detection
 AIRCRAFT_MIN_DIST = 20  # m, aircraft minimum movement detection
 
 
@@ -309,6 +309,8 @@ ADD_LIGHT_AT_VERTEX = False  # Add a light at each taxiway network vertex on the
 ADD_LIGHT_AT_LAST_VERTEX = False  # Add a light at the last vertex, even if it is closer than DISTANCE_BETWEEN_GREEN_LIGHTS
 
 LEAD_OFF_RUNWAY_DISTANCE = 160  # meters, will determine number of alterning green/amber lights after leaving the runway
+
+MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before getting potential stop bar
 
 
 # ################################

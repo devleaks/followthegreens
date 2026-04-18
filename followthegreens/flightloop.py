@@ -21,10 +21,9 @@ from .globals import (
     DRIFTING_LIMIT,
     AMBIANT_RWY_LIGHT_CMDROOT,
     AMBIANT_RWY_LIGHT,
-    INDICATOR,
     AIRCRAFT_MIN_DIST,
 )
-from .geo import EARTH, Point, Line, destination, distance
+from .geo import EARTH, Point, distance
 
 
 # Hardcaded here, not preferences
@@ -46,7 +45,7 @@ class FlightLoop:
         self.lastIter = PLANE_MONITOR_DURATION  # seconds, because it is dynamic
         self.nextStop = NO_STOP_AHEAD
         self.lastLit = 0
-        self.distance = EARTH
+        self.distance_to_closest_light = EARTH
         self.diftingLimit = DRIFTING_LIMIT * DISTANCE_BETWEEN_GREEN_LIGHTS  # After that, we send a warning, and we may cancel FTG.
         self.last_updated = datetime.now() - timedelta(seconds=MAX_UPDATE_FREQUENCY)
         self._rabbit_mode = RABBIT_MODE.MED
@@ -307,6 +306,7 @@ class FlightLoop:
 
     def adjustedIter(self, acf_speed) -> float:
         # If aircraft move fast, we check/update FtG more often
+        # nextIter never changes, lastIter does
         FASTEST_PLANE_MONITOR_DURATION = 0.8  # fastest "frequency" in secs.
         try:
             if acf_speed is None or acf_speed < AIRCRAFT_STOPPED_SPEED:
@@ -324,20 +324,22 @@ class FlightLoop:
                 [10.0, 1.0],
                 [7.0, 1.2],
                 [3.0, 2.0],
-                [2.2, PLANE_MONITOR_DURATION],
+                [2.2, 3.0],
+                [0.0, PLANE_MONITOR_DURATION],
             ]
             i = 0
             while i < len(SPEEDS):
                 if acf_speed > SPEEDS[i][0]:
                     j = SPEEDS[i][1]
+                    logger.debug(f"speed {round(acf_speed, 1)}, iter set to {j}s")
                     if j != self.lastIter:
                         logger.debug(f"speed {round(acf_speed, 1)}, iter set to {j}s")
                         self.lastIter = j
-                        return self.lastIter
+                    return self.lastIter
                 i = i + 1
         except:
             logger.error("adjustedIter", exc_info=True)
-        logger.debug(f"regular iter {self.nextIter}s")
+        logger.debug(f"regular iter {self.nextIter}s (acf={round(acf_speed, 1)}m/s)")
         return self.nextIter
 
     def adjustRabbit(self, position, closestLight, acf_speed):
@@ -558,7 +560,7 @@ class FlightLoop:
                 try:
                     fmcar.spawn(nextStop=nextStop)
                 except:
-                    logger.debug("error spawning fmcar", exc_info=True)
+                    logger.error("error spawning fmcar", exc_info=True)
             #
             if aircraft.moved() > AIRCRAFT_MIN_DIST or aircraft.moving():
                 self.taxiStart()
@@ -579,12 +581,16 @@ class FlightLoop:
             logger.debug(f"closing to stop (at light index={nextStop}, d={round(warn, 1)}m)")
             self.nextStop = nextStop
             if fmcar is not None:
-                fmcar.mustStopAt(nextStop=nextStop)
+                try:
+                    fmcar.mustStopAt(nextStop=nextStop)
+                except:
+                    logger.error("fmcar mustStopAt", exc_info=True)
             if self.hasRabbit():
-                self.allowRabbitAutotune("close to stop, force update to SLOWEST")
-                self.rabbitMode = RABBIT_MODE.SLOWEST
-                # prevent rabbit auto-tuning, must remain slow until stop bar cleared
-                self.disallowRabbitAutotune("close to stop")
+                if self.rabbitMode != RABBIT_MODE.SLOWEST:
+                    self.allowRabbitAutotune("close to stop, allow autotune to force update to SLOWEST..")
+                    self.rabbitMode = RABBIT_MODE.SLOWEST
+                    # prevent rabbit auto-tuning, must remain slow until stop bar cleared
+                    self.disallowRabbitAutotune("..close to stop, autotune forced to SLOWEST")
             if not self.ftg.ui.isMainWindowVisible() and self.show_clearance_popup:
                 # logger.debug("showing UI")
                 self.ftg.ui.showMainWindow(False)
@@ -620,7 +626,7 @@ class FlightLoop:
                     if fmcar.isDeleted():
                         self.ftg.fmcar = None  # ready to create a new one
                 except:
-                    logger.debug("error moving fmcar", exc_info=True)
+                    logger.error("error moving fmcar", exc_info=True)
             #
 
         if closestLight == (len(self.ftg.lights.lights) - 1):  # at end
@@ -635,10 +641,10 @@ class FlightLoop:
         if closestLight > self.lastLit and dist < self.diftingLimit:  # Progress OK
             # logger.debug("moving %d %d", closestLight, self.lastLit)
             self.lastLit = closestLight
-            self.distance = dist
+            self.distance_to_closest_light = dist
             return nextIter
 
-        if self.lastLit == closestLight and (abs(self.distance - dist) < DISTANCE_BETWEEN_GREEN_LIGHTS):  # not moved enought, may even be stopped
+        if self.lastLit == closestLight and (abs(self.distance_to_closest_light - dist) < DISTANCE_BETWEEN_GREEN_LIGHTS):  # not moved enought, may even be stopped
             # logger.debug("aircraft did not move")
             return nextIter
 
@@ -651,6 +657,6 @@ class FlightLoop:
         # if distance > (2*DRIFTING_DISTANCE) and AUTO_REROUTE:
         #     logger.debug(f"aircraft drifting away from track? (d={round(distance, 1)} > {DRIFTING_DISTANCE}), starting new greens")
         #     self.ftg.newGreen(destination=self.ftg.destination)
-        self.distance = dist
+        self.distance_to_closest_light = dist
 
         return nextIter

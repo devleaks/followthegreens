@@ -111,8 +111,8 @@ AIRCRAFT_TYPES = {
             RABBIT.SPEED: 0.20,  # SECONDS
         },
         AIRCRAFT.VISUAL_RANGE: {
-            "RANGE": [70, 150],
-            "LIMITS": [70, 150],
+            "RANGE": [50, 100],
+            "LIMITS": [40, 130],
         },
     },
     TAXIWAY_WIDTH_CODE.D: {  # Large narrow body, small wide body
@@ -138,8 +138,8 @@ AIRCRAFT_TYPES = {
             RABBIT.SPEED: 0.20,  # SECONDS
         },
         AIRCRAFT.VISUAL_RANGE: {
-            "RANGE": [70, 150],
-            "LIMITS": [70, 150],
+            "RANGE": [60, 120],
+            "LIMITS": [50, 150],
         },
     },
     TAXIWAY_WIDTH_CODE.E: {  # Large wide body
@@ -164,8 +164,8 @@ AIRCRAFT_TYPES = {
             RABBIT.SPEED: 0.20,  # SECONDS
         },
         AIRCRAFT.VISUAL_RANGE: {
-            "RANGE": [70, 150],
-            "LIMITS": [70, 150],
+            "RANGE": [60, 130],
+            "LIMITS": [60, 150],
         },
     },
     TAXIWAY_WIDTH_CODE.F: {  # Jumbo jets
@@ -411,6 +411,7 @@ class Aircraft:
 
     def adjustAheadRange(self, rabbit_mode: RABBIT_MODE) -> list:
         # adjust for rabbit mode (slower=closer/faster=further)
+        MIN_BRACKET = 40  # m
         r = self._ahead_range_base.copy()
         l = self.acf_vizrange.get("LIMITS", HARDCODED_AHEAD_LIMITS)
 
@@ -418,6 +419,10 @@ class Aircraft:
         if rabbit_mode != RABBIT_MODE.MED:
             r[0] *= self.RABBIT_FACTOR_DISTANCE[rabbit_mode]
             r[1] *= self.RABBIT_FACTOR_DISTANCE[rabbit_mode]
+            b = r[1] - r[0]
+            if b < MIN_BRACKET:
+                logger.log(8, f"bracket too small ({b})")
+                r[1] = r[0] + MIN_BRACKET
             logger.log(8, f"range adjusted for rabbit mode {rabbit_mode} {r}")
             a = r
             r[0] = max(r[0], HARDCODED_AHEAD_LIMITS[0])
@@ -425,7 +430,8 @@ class Aircraft:
             if a != r:
                 logger.log(8, f"restricted to limits: {r}, {HARDCODED_AHEAD_LIMITS})")
         r = [round(d, 1) for d in r]
-        logger.debug(f"ahead range {r} adjusted from {self._ahead_range_base} for rabbit_mode={rabbit_mode}, hard limits={HARDCODED_AHEAD_LIMITS})")
+        logger.debug(f"ahead range {r}")
+        # logger.debug(f"ahead range {r} adjusted from {self._ahead_range_base} for rabbit_mode={rabbit_mode}, hard limits={HARDCODED_AHEAD_LIMITS})")
         return r
 
     def adjustAhead(self, rabbit_mode: RABBIT_MODE) -> float:

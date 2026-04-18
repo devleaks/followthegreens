@@ -558,13 +558,15 @@ class Airport:
                     logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}")
             elif aptline.linecode() == 1206:  # edge
                 args = aptline.content().split()
-                if len(args) == 3:
+                if len(args) >= 3:
                     src = self.roads.get_vertex(args[0])
                     dst = self.roads.get_vertex(args[1])
                     cost = distance(src, dst)
                     # src, dst, cost, direction, usage, name
                     edge = Edge(src=src, dst=dst, cost=cost, direction=args[2], usage="road", name="")
                     self.roads.add_edge(edge)
+                    if len(args) > 3:
+                        logger.debug(f"extra params: {args[3:]}")
                     roadEdgeCount += 1
                 else:
                     logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}")

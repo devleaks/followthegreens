@@ -876,10 +876,12 @@ class Route:
 
     def srDistanceRoute(self, route, i1: int, dist1: float, i2: int, dist2: float) -> float:
         # distance between two points on smoothRoute
-        total = route[i1].getProp(SMOOTH_ROUTE.DISTANCE) - dist1
+        if i1 == i2:
+            return dist2 - dist1
+        total = route[i1].getProp(SMOOTH_ROUTE.DISTANCE) - dist1  # left on i1
         for i in range(i1 + 1, i2):
-            total += route[i].getProp(SMOOTH_ROUTE.DISTANCE)
-        total += dist2
+            total += route[i].getProp(SMOOTH_ROUTE.DISTANCE)  # length of followings (if any)
+        total += dist2  # left on i2
         return total
 
     def srDistance(self, i1: int, dist1: float, i2: int, dist2: float) -> float:
