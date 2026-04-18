@@ -168,6 +168,7 @@ MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from spac
 # Second number is distance of reference point is distance from bottom of screen.
 # Second number must be larger than 15 * number of lines of text
 HUD_POSITION = [220, 90]
+HUD_COLORS = (0.0, 1.0, 0.0)  # default to greens, of course
 
 SHOW_CLEARANCE_POPUP = True
 
@@ -293,8 +294,9 @@ DRIFTING_DISTANCE = 200  # When drifting away from "closest" light, after this d
 PLANE_MONITOR_DURATION = 5  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
 MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before getting potential stop bar
 
-AIRCRAFT_MIN_SPEED = 3.0  # m/s
-AIRCRAFT_MIN_DIST = 20  # m
+AIRCRAFT_MIN_SPEED = 3.0  # m/s, aircraft minimum movement detection
+AIRCRAFT_MIN_DIST = 20  # m, aircraft minimum movement detection
+
 
 # ################################
 # FTG LIGHTS
@@ -447,6 +449,8 @@ INTERNAL_CONSTANTS = [
     "RUNWAY_LIGHT_LEVEL_WHILE_FTG",
     "TOO_FAR",
     "WARNING_DISTANCE",
+    "HUD_POSITION",
+    "HUD_COLORS",
     "MAINWINDOW_FROM_BOTTOM",
     "MAINWINDOW_FROM_LEFT",
     "MAINWINDOW_HEIGHT",
