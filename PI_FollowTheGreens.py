@@ -708,26 +708,29 @@ class PythonInterface:
         if not self.followTheGreens.flightLoop.rabbitRunning:
             return
         MAX_LINES = 3
+        text_color = (0.0, 1.0, 0.0)
 
         fl = self.followTheGreens.flightLoop
         fc = self.followTheGreens.fmcar
         if fc is not None:
             MAX_LINES += 1
-        hp = fl.hudPosition()
+        if fl is not None:
+            hp = fl.hudPosition()
+            text_color = fl.hudColors()  # may be we'll pass other colors after
         LINE = 15 if len(hp) < 3 else hp[2]
         LEFT = max(hp[0], 1)
         TOP = max(hp[1], MAX_LINES * LINE + 1)
 
         xp.setGraphicsState(0, 1, 0, 0, 0, 0, 0)
-        xp.drawString((0.0, 1.0, 0.0), LEFT - 3, TOP, "GREENS")  # Title/header
-        xp.drawString((0.0, 1.0, 1.0), LEFT + 65, TOP, self.vu)
-        color = (1.0, 0.0, 0.0) if fl.is_late else (0.0, 1.0, 0.0)
+        xp.drawString(text_color, LEFT - 3, TOP, "TAXI")  # Title/header
+        xp.drawString((0.0, 1.0, 1.0), LEFT + 65, TOP, self.vu)  # cannot change color of VU identifier (standard)
+        color = (1.0, 0.0, 0.0) if fl.is_late else (0.0, 1.0, 0.0)  # cannot change color of timing status (meaningful)
         xp.drawString(color, LEFT, TOP - LINE, fl.remaining)  # 1234m, 12:45   indication
         xp.drawString(color, LEFT, TOP - 2 * LINE, f"! {round(fl.dist_to_next_turn):4d}m")  # 1234m
-        color = (1.0, 0.0, 0.0) if fl.rabbitRunning else (0.7, 0.7, 0.0)
+        color = (1.0, 0.0, 0.0) if fl.rabbitRunning else (0.7, 0.7, 0.0)  # cannot change color of rabbit status (meaningful)
         if self.followTheGreens.status.value == "ACTIVE":
-            xp.drawString((0.0, 1.0, 0.0), LEFT, TOP - 3 * LINE, fl.rabbitText)  # status
+            xp.drawString(text_color, LEFT, TOP - 3 * LINE, fl.rabbitText)  # Rabbit status
         else:
-            xp.drawString((0.0, 1.0, 0.0), LEFT, TOP - 3 * LINE, self.followTheGreens.status.value)  # status
+            xp.drawString(color, LEFT, TOP - 3 * LINE, self.followTheGreens.status.value)  # FtG status
         if fc is not None:
-            xp.drawString((0.0, 1.0, 0.0), LEFT, TOP - MAX_LINES * LINE, fc.hudText)  # status
+            xp.drawString(text_color, LEFT, TOP - MAX_LINES * LINE, fc.hudText)  # Global status
