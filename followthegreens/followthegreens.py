@@ -287,14 +287,15 @@ VERSION = "{__VERSION__}"
             self.lights.destroy()
             self.lights = None
             logger.debug("light instances destroyed")
-        # reset airport
+        self.getAirport(after=False)
 
     def newAircraft(self):
         # called when
         # XPLM_MSG_AIRPORT_LOADED = 107
         # plugin message received
-        pass
-        # reset aircraft
+        self.aircraft = Aircraft(prefs=self.prefs)
+        self.status = FTG_STATUS.AIRCRAFT
+        self.inc(self.aircraft.icao)
 
     def start(self, alternate: bool = False) -> int:
         # Toggles visibility of main window.
@@ -356,7 +357,7 @@ VERSION = "{__VERSION__}"
         logger.info("..started.")
         return 1  # window displayed
 
-    def getAirport(self):
+    def getAirport(self, after: bool = True):
         # Search for airport or prompt for one.
         # If airport is not equiped, we loop here until we get a suitable airport.
         # When one is given and satisfies the condition for FTG
@@ -404,7 +405,8 @@ VERSION = "{__VERSION__}"
         # Info 3
         logger.info(f"at {airport.name}")
         self.status = FTG_STATUS.AIRPORT
-        return self.afterAirport(airport.navAidID)
+        if after:
+            return self.afterAirport(airport.navAidID)
 
     def afterAirport(self, airport):
         return self.getDestination(airport)
@@ -606,7 +608,6 @@ VERSION = "{__VERSION__}"
             self.status = FTG_STATUS.FINISHED
             logger.info("done")
             self.segment = 0  # reset
-            self.flightLoop.taxiEnd()
             return self.ui.bye()
 
         self.status = FTG_STATUS.GREENS
@@ -628,7 +629,6 @@ VERSION = "{__VERSION__}"
             self.status = FTG_STATUS.FINISHED
             logger.info("ready for take-off")
             self.segment = 0  # reset
-            self.flightLoop.taxiEnd()
             return self.ui.bye()
 
         if self.move == MOVEMENT.ARRIVAL and self.segment == self.lights.segments:
