@@ -848,6 +848,17 @@ class Route:
             return pt, b, i, (start + dist)
         return self.srAheadRoute(route=route, i=i + 1, dist=start + dist - d)
 
+    def srBackRoute(self, route, i: int, dist: float, back: float = 0.0) -> tuple:
+        b = route[i].getProp(SMOOTH_ROUTE.BEARING.value)
+        if back == 0.0:
+            return route[i], b, i, dist
+        if back <= dist:
+            return route[i], b, i, dist - back
+        if i == 0 or back < 0.0:  # security
+            return route[0], b, 0, 0.0
+        d = route[i - 1].getProp(SMOOTH_ROUTE.DISTANCE.value)
+        return self.srBackRoute(route=route, i=i - 1, dist=d, back=back - dist)
+
     def srAhead(self, i: int, dist: float, start: float = 0) -> tuple:
         # move dist after start after self.smoothRoute[i]
         # return point, bearing, index, distance on edge(index) from start of edge(index)
