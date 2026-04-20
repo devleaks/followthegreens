@@ -31,6 +31,7 @@ MAX_UPDATE_FREQUENCY = 10  # seconds, rabbit cannot change again more that 10 se
 AIRCRAFT_STOPPED_SPEED = 0.01  # m/s, under that speed, things are considered stopped, not moving.
 NO_STOP_AHEAD = -1
 
+
 class FlightLoop:
 
     def __init__(self, ftg):
@@ -523,10 +524,18 @@ class FlightLoop:
             try:
                 return self.ftg.lights.rabbit(self.lastLit)
             except:
-                logger.debug("error", exc_info=True)
+                logger.error("issue in rabbit flight loop, retrying in 5 seconds", exc_info=True)
         return 5.0
 
     def planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
+        try:
+            if self.ftg is not None:
+                return self._planeFLCB(elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon)
+        except:
+            logger.error("issue in the main flight loop, retrying in 5 seconds", exc_info=True)
+        return 5.0 # seconds
+
+    def _planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
         # monitor progress of plane on the green. Turns lights off as it does no longer needs them.
         # logger.debug('%2f, %2f, %d', elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter)
@@ -598,6 +607,11 @@ class FlightLoop:
                 logger.debug(f"show_clearance_popup = {self.show_clearance_popup}")
         else:
             self.nextStop = NO_STOP_AHEAD
+            if fmcar is not None:
+                try:
+                    fmcar.canContinue()
+                except:
+                    logger.error("fmcar canContinue", exc_info=True)
             if not self.may_rabbit_autotune:
                 self.allowRabbitAutotune("no longer close to stop")
 

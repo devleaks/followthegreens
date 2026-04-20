@@ -292,6 +292,8 @@ class Route:
         for i in range(len(self.route) - 1):
             e = self.graph.get_edge(self.route[i], self.route[i + 1])
             v = self.graph.get_vertex(self.route[i])
+            if v is None:
+                logger.debug(f"{self.route[i]} not in {self.graph.vert_dict.keys()}")
             v.setProp("taxiway-width", e.width_code.value if e.width_code is not None else "-")
             v.setProp("ls", i)
             self.edges.append(e)

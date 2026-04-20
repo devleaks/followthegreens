@@ -63,6 +63,7 @@ def slow_debug(c, s):
 
 
 NOT_ON_ROUTE = -1
+NO_STOP_AHEAD = -1
 SHOW_BRACKET = True  # debugging stuff
 
 
@@ -208,7 +209,7 @@ class Situation:
 
     sr_min = OnRoute()  # braket or buffer values from best distance range
     sr_max = OnRoute()  # sr_route should remain between those two values
-    sr_stop = OnRoute(index=NOT_ON_ROUTE, distance=-1, name="no stop")  # sr_route cannot drive beyond this point, distance < 0 is sign there is no stop
+    sr_stop = OnRoute(index=NOT_ON_ROUTE, distance=NO_STOP_AHEAD, name="no stop")  # sr_route cannot drive beyond this point, distance < 0 is sign there is no stop
 
     position: Point | None = None  # position at sr_position(index, distance)
     speed: float = 0.0
@@ -229,7 +230,7 @@ class Situation:
         return self.sr_position.reached(target=self.sr_end)
 
     def hasStop(self) -> bool:
-        return self.sr_stop.distance >= 0
+        return self.sr_stop.distance != NO_STOP_AHEAD
 
     def __str__(self):
         """Returns a string containing only the non-default field values."""
@@ -293,6 +294,7 @@ class Cursor:
         self.route = ftg.route  # route that the cursor must follow
         self.en_route = False
         self.fmc_light_progress = 0
+        self.nextStop = NO_STOP_AHEAD
 
         self._future = SimpleQueue()
 
@@ -517,7 +519,7 @@ class Cursor:
             r = self._move(t=elapsedSinceLastCall)
             return r if type(r) in [int, float] else -1
         except:
-            logger.error("error", exc_info=True)
+            logger.error("issue in move flight loop, retrying in 5 seconds", exc_info=True)
         return 5.0
 
     # Abrupt change or route, reset
@@ -724,17 +726,21 @@ class Cursor:
             return INDICATOR.LEFT if turn < 0 else INDICATOR.RIGHT
         return INDICATOR.FOLLOW_ME
 
-    def mustStop(self) -> bool:
-        # should not stop on straightRoutes. Only onRoute().
-        return self.onRoute() and self.indicator == INDICATOR.STOP  # Kinda a side effect to notify fm car must stop, dedicated status var would be cleaner
-
+    # Stop bar handling from aircraft position
+    #
     def mustStopAt(self, nextStop: int):
         # Aim is to block until canContinue()
-        BRAKE_DISTANCE = 15.0  # m
         self.indicator = INDICATOR.STOP
-        if self.onRoute():
-            light = self.lights.lights[nextStop]
-            self.current.sr_stop = OnRoute(index=light.srIndex, distance=light.distFromsrIndex, route=self.route.smoothRoute, name=f"stop at light {nextStop}")
+        if not self.onRoute():
+            logger.warning(f"got next stop {nextStop} and not on route")
+
+        BRAKE_DISTANCE = 20.0  # m
+
+        self.nextStop = nextStop
+        light = self.lights.lights[nextStop]
+        self.current.sr_stop = OnRoute(index=light.srIndex, distance=light.distFromsrIndex, route=self.route.smoothRoute, name=f"stop at light {nextStop}")
+
+        if True:
             # TEST
             t = self.route.srBackRoute(route=self.route.smoothRoute, i=light.srIndex, dist=light.distFromsrIndex, back=BRAKE_DISTANCE)
             tor = OnRoute(index=t[2], distance=t[3], route=self.route.smoothRoute)
@@ -742,18 +748,25 @@ class Cursor:
             # Must check that backup is NOT "before" current car position
             ok = self.current.sr_position.reached(tor)
             logger.debug(f"backup on route: {self.current.sr_stop} - {BRAKE_DISTANCE} -> {tor} (ok={ok}, dc={sf(dc, 'm')})")
+            self.current.sr_stop = tor  # BRAKE_DISTANCE before nextStop light position
             # TEST
-        # If nextStop reached, self.aim_speed = 0.0
+
+        if self.nextStopReached():
+            self.setAimSpeed(speed=0.0, reason=f"next stop {nextStop} reached")
+
+    def mustStop(self) -> bool:
+        return self.nextStop != NO_STOP_AHEAD
 
     def canContinue(self):
         # Aim is to restart after mustStopAt()
         if not self.mustStop():
-            logger.debug("can continue, must not stop")
+            logger.debug("no stop, can continue")
             return
-        self.indicator = INDICATOR.FOLLOW_ME
         # Need to add new future to restart without waiting for acf movement
         logger.debug("continuing after stop..")
-        self.current.sr_stop = OnRoute(index=NOT_ON_ROUTE, distance=-1, name="no stop")
+        self.indicator = INDICATOR.FOLLOW_ME
+        self.nextStop = NO_STOP_AHEAD
+        self.current.sr_stop = OnRoute(index=NOT_ON_ROUTE, distance=NO_STOP_AHEAD, name="no stop")
 
         if self.lights is None:
             logger.warning("..no light, cannot continue")
@@ -857,7 +870,7 @@ class Cursor:
             if self.mustStop():
                 work_msg += ", must stop"
                 self.setHudText(HUD_TEXT.STOP.value)
-                if fmcar_speed != 0.0:
+                if fmcar_speed != 0.0:  # if not already stopped, move at slow speed towards stop
                     fmcar_speed = self.detail.slow_speed
             elif rabbit_mode in [RABBIT_MODE.SLOWER, RABBIT_MODE.SLOWEST]:
                 work_msg += f" but it is ok because we need to go slow (rabbit mode={rabbit_mode}, rabbit factor={rabbit_factor})"

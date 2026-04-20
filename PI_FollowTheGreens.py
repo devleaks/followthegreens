@@ -137,6 +137,9 @@ class PythonInterface:
                 FTG_HUD: [FTG_HUD_DESC, self.hudToggle],
             }
         self._hud = False  # now shown by default
+        self._speed = 0.0
+        self._speed_color = (1, 1, 1)
+        self._speed_cnt = 0
 
     def debug(self, message, force: bool = False):
         if self.trace or force:
@@ -707,30 +710,59 @@ class PythonInterface:
             return
         if not self.followTheGreens.flightLoop.rabbitRunning:
             return
-        MAX_LINES = 3
-        text_color = (0.0, 1.0, 0.0)
+        try:
+            AMBER = (1.0, 0.85, 0.0)
+            RED = (1.0, 0.0, 0.0)
+            GREEN = (0, 1, 0)
+            CYAN = (0.0, 1.0, 1.0)
+            WHITE = (1.0, 1.0, 1.0)
 
-        fl = self.followTheGreens.flightLoop
-        fc = self.followTheGreens.fmcar
-        if fc is not None:
-            MAX_LINES += 1
-        if fl is not None:
-            hp = fl.hudPosition()
-            text_color = fl.hudColors()  # may be we'll pass other colors after
-        LINE = 15 if len(hp) < 3 else hp[2]
-        LEFT = max(hp[0], 1)
-        TOP = max(hp[1], MAX_LINES * LINE + 1)
+            text_color = GREEN  # default
+            MAX_LINES = 4
 
-        xp.setGraphicsState(0, 1, 0, 0, 0, 0, 0)
-        xp.drawString(text_color, LEFT - 3, TOP, "TAXI")  # Title/header
-        xp.drawString((0.0, 1.0, 1.0), LEFT + 65, TOP, self.vu)  # cannot change color of VU identifier (standard)
-        color = (1.0, 0.0, 0.0) if fl.is_late else (0.0, 1.0, 0.0)  # cannot change color of timing status (meaningful)
-        xp.drawString(color, LEFT, TOP - LINE, fl.remaining)  # 1234m, 12:45   indication
-        xp.drawString(color, LEFT, TOP - 2 * LINE, f"! {round(fl.dist_to_next_turn):4d}m")  # 1234m
-        color = (1.0, 0.0, 0.0) if fl.rabbitRunning else (0.7, 0.7, 0.0)  # cannot change color of rabbit status (meaningful)
-        if self.followTheGreens.status.value == "ACTIVE":
-            xp.drawString(text_color, LEFT, TOP - 3 * LINE, fl.rabbitText)  # Rabbit status
-        else:
-            xp.drawString(color, LEFT, TOP - 3 * LINE, self.followTheGreens.status.value)  # FtG status
-        if fc is not None:
-            xp.drawString(text_color, LEFT, TOP - MAX_LINES * LINE, fc.hudText)  # Global status
+            fl = self.followTheGreens.flightLoop
+            fc = self.followTheGreens.fmcar
+            if fc is not None:
+                MAX_LINES += 1
+            if fl is not None:
+                hp = fl.hudPosition()
+                text_color = fl.hudColors()  # may be we'll pass other colors after
+            LINE = 15 if len(hp) < 3 else hp[2]
+            LEFT = max(hp[0], 1)
+            TOP = max(hp[1], MAX_LINES * LINE + 1)
+
+            xp.setGraphicsState(0, 1, 0, 0, 0, 0, 0)
+            xp.drawString(text_color, LEFT - 3, TOP, "TAXI")  # Title/header
+            xp.drawString(CYAN, LEFT + 65, TOP, self.vu)  # cannot change color of VU identifier (standard)
+            color = RED if fl.is_late else GREEN  # cannot change color of timing status (meaningful)
+            xp.drawString(color, LEFT, TOP - LINE, fl.remaining)  # 1234m, 12:45   indication
+            xp.drawString(color, LEFT, TOP - 2 * LINE, f"! {round(fl.dist_to_next_turn):4d}m")  # 1234m
+            color = RED if fl.rabbitRunning else AMBER  # cannot change color of rabbit status (meaningful)
+            if self.followTheGreens.status.value == "ACTIVE":
+                xp.drawString(text_color, LEFT, TOP - 3 * LINE, fl.rabbitText)  # Rabbit status
+            else:
+                xp.drawString(color, LEFT, TOP - 3 * LINE, self.followTheGreens.status.value)  # FtG status
+            if fc is not None:
+                xp.drawString(text_color, LEFT, TOP - 4 * LINE, fc.hudText)  # Global status
+            dist_speed = self.followTheGreens.aircraft.speed()
+            curr_speed = dist_speed
+            speed_color = self._speed_color
+            if curr_speed > 15.0:
+                speed_color = RED
+            elif curr_speed > self._speed:
+                speed_color = GREEN
+            elif curr_speed < self._speed:
+                speed_color = AMBER
+            elif curr_speed == self._speed or round(curr_speed, 1) == 0.0:
+                speed_color = text_color
+            self._speed_cnt -= 1
+            if self._speed_cnt < 0:
+                self._speed = curr_speed
+                self._speed_color = speed_color
+                self._speed_cnt = 100
+            xp.drawString(speed_color, LEFT, TOP - MAX_LINES * LINE, f"SPEED {round(dist_speed, 1)} m/s")  # Aircraft speed
+        except:
+            xp.drawString((1, 0, 0), 287, 90, "TAXI HUD ERROR")  # almost everything hardcoded..;
+            xp.drawString((0.0, 1.0, 1.0), 400, 90, self.vu)
+            self.debug("hud: exception", force=True)
+            print_exc()

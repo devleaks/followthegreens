@@ -4,9 +4,11 @@
 import os
 import re
 import tomllib
+import json
 from random import randint
 from datetime import datetime, timedelta, timezone
 from textwrap import wrap
+from pprint import pformat
 
 from followthegreens import aircraft
 
@@ -18,7 +20,7 @@ except ImportError:
     print("X-Plane not loaded")
 
 from .version import __VERSION__
-from .globals import logger, get_global, INTERNAL_CONSTANTS, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE
+from .globals import logger, get_global, INTERNAL_CONSTANTS, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE, DISTANCE_TO_RAMPS
 from .aircraft import Aircraft
 from .airport import Airport
 from .flightloop import FlightLoop
@@ -56,6 +58,7 @@ class FollowTheGreens:
         self.route = None
         self.stats = {}
         self.prefs = {}
+        self.extconfig = {}
         self.ui = None
         self._last_ui_shown = None
         self.flightLoop = None
@@ -139,7 +142,7 @@ class FollowTheGreens:
                         logger.warning(f"file:\n{ferr.readlines()}\n")
 
             logger.info(f"developer preferences file {filename} {loading}ed")
-            logger.debug(f"preferences: {self.prefs}")
+            logger.debug(f"preferences:\n{pformat(self.prefs)}")
         else:
             logger.debug("no developer preference")
 
@@ -171,7 +174,7 @@ class FollowTheGreens:
         else:
             logger.info("DEVELOPER_PREFERENCE_ONLY = true, user preferences ignored")
 
-        logger.info(f"preferences: {self.prefs}")
+        logger.info(f"preferences:\n{pformat(self.prefs)}")
 
         ll = get_global("LOGGING_LEVEL", self.prefs)
         if type(ll) is int:
@@ -188,6 +191,97 @@ class FollowTheGreens:
             logger.debug(f"internal:\n{ '\n'.join([f'{g}: {get_global(g, preferences=self.prefs)}' for g in INTERNAL_CONSTANTS]) }\n=====")
         except:  # in case str(value) fails
             logger.debug("internal: some internals preference values don't print", exc_info=True)
+
+    def init_external(self, reloading: bool = False) -> bool:
+        # checks for external file, if found, build from there
+        # return False if failed to build route or prompt to continue
+        loading = "reload" if reloading else "load"
+        here = os.path.dirname(__file__)
+        filename = os.path.join("Output", "x-dispatch", "route.json")
+        if self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False):
+            filename = os.path.join(here, "route.json")
+        if os.path.exists(filename):
+            with open(filename, "rb") as fp:
+                try:
+                    self.extconfig = json.load(fp)
+                    logger.info(f"external configuration file {filename} {loading}ed")
+                    logger.debug(f"external configuration file:\n{self.extconfig}")
+                except:
+                    logger.warning(f"external configuration file {filename} not {loading}ed", exc_info=True)
+                    with open(filename, "rb") as ferr:
+                        logger.warning(f"file:\n{ferr.readlines()}\n")
+        else:
+            logger.debug(f"no external configuration file {filename}")
+            return False
+
+        destination = self.extconfig["dest"]
+        logger.info(f"external configuration file {filename} read")
+        logger.info(f"route exported with X-Dispatch {self.extconfig.get('x-dispatch-version')} on {self.extconfig.get('timestamp')}")
+        logger.info(f"From {self.extconfig.get('apt')}/{self.extconfig.get('start')} to runway {destination}")
+        logger.info(f"Route {" ".join(self.extconfig.get('taxiway_names'))}")
+        # logger.info("external configuration not implemented yet, ignored")
+        # return False
+
+        # Checks for file date
+        TOO_OLD = 1800  # secs
+        dt = self.extconfig.get("timestamp")
+        if dt is None:
+            logger.info("external configuration file has no date, assuming ethernal validity")
+        else:
+            config_date = datetime.fromisoformat(dt)
+            if (datetime.now(tz=timezone.utc) - config_date).seconds > TOO_OLD:  # 1800 secs = 1/2h
+                logger.warning(f"external configuration file created too long ago (created at {dt}, more than {TOO_OLD}s ago")
+                return False
+
+        # 1. Create aircraft (+ set start position)
+        self.aircraft = Aircraft(prefs=self.prefs)
+        self.status = FTG_STATUS.AIRCRAFT
+        self.inc(self.aircraft.icao)
+
+        # 2. Create airport from apt.dat (+ set destination)
+        self.airport = None
+        pos = self.aircraft.position()
+        airport_navaid = self.aircraft.airport(pos)
+        if airport_navaid is None:
+            logger.warning("cannot find airport")
+            return False
+
+        if airport_navaid.name == "NOT FOUND":
+            logger.warning("no airport (not found)")
+            return False
+
+        current_airport = airport_navaid.navAidID
+
+        airport_name = self.extconfig["apt"]
+        if current_airport != airport_name:
+            logger.info(f"not the same airport, external configuration file ignored ({current_airport} vs. {airport_name})")
+            return False
+
+        airport_data = Airport(icao=airport_name, prefs=self.prefs)
+        apt_dat = self.extconfig["apt.dat"]
+        status = airport_data.prepare(filename=apt_dat)  # [ok, errmsg]
+        if not status[0]:
+            logger.warning(f"airport not ready: {status[1]}")
+            return False
+        self.airport = airport_data
+        self.status = FTG_STATUS.AIRPORT
+
+        # 2.1 Check runway
+        if destination not in self.airport.getDestinations(move=MOVEMENT.DEPARTURE):
+            logger.warning(f"destination runway {destination} not in airport list {self.airport.getDestinations(move=MOVEMENT.DEPARTURE)}")
+
+        # 2.2 Check stand
+        closest_stand = self.airport.findClosestRamp(pos)
+        if closest_stand[1] < DISTANCE_TO_RAMPS:  # meters, we are close to a ramp.
+            closest_stand_str = closest_stand[0] if type(closest_stand[0]) is str else ""
+            stand = self.extconfig.get("start")
+            if stand is not None and closest_stand_str != "" and closest_stand_str != stand:
+                logger.warning(f"stand in external configuration file {stand} does not match stand closest to aircraft {closest_stand_str}")
+
+        # 3. Start FtG (create lights, light them, etc.)
+        self.move = MOVEMENT.DEPARTURE
+        logger.info(f"external config going to {destination}")
+        return self.followTheGreen(destination, external=True)
 
     def create_empty_prefs(self):
         # Once, on first use, to help user
@@ -347,7 +441,9 @@ VERSION = "{__VERSION__}"
         self.init_preferences(reloading=True)
         logger.debug("..reloaded..")
 
-        mainWindow = self.getAirport()
+        mainWindow = self.init_external()
+        if not mainWindow:
+            mainWindow = self.getAirport()
         logger.debug("mainWindow created")
         if mainWindow and not xp.isWidgetVisible(mainWindow):
             xp.showWidget(mainWindow)
@@ -438,7 +534,7 @@ VERSION = "{__VERSION__}"
         self.inc("new_greens")
         return self.followTheGreen(destination=destination, newGreen=True)
 
-    def followTheGreen(self, destination, newGreen: bool = False):
+    def followTheGreen(self, destination, newGreen: bool = False, external: bool = False):
         # Destination is either
         #   the name of a runway for departure, or
         #   the name of a parking ramp for arrival.
@@ -447,7 +543,7 @@ VERSION = "{__VERSION__}"
         if newGreen:
             logger.info("new green requested")
 
-        if destination not in self.airport.getDestinations(self.move):
+        if destination not in self.airport.getDestinations(move=self.move):
             logger.debug(f"destination not valid {destination} for {self.move}")
             return self.ui.promptForDestination(status=f"Destination {destination} not valid for {self.move}.")
 
@@ -457,8 +553,23 @@ VERSION = "{__VERSION__}"
             logger.info(f"estimated frame rate {round(self.fr, 1)} fps")
 
         # Info 11
-        logger.info(f"trying route to destination {destination}..")
-        rerr, self.route = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("RESPECT_CONSTRAINTS", preferences=self.prefs))
+        intro_arr = []
+        rerr = False
+        stand = self.extconfig.get("start", "the stand")
+        if external:
+            route = self.extconfig.get("route")
+            if route is not None and len(route) > 0:
+                logger.info("using route from external source..")
+                rerr, self.route = self.airport.mkRouteExternalDeparture(self.aircraft, stand, destination, route)
+                if rerr:
+                    intro_arr.append(f"X-Dispatch kindly provided sufficient information to follow the {self.thing}.")
+                else:
+                    logger.info("could not create route from external configuration file")
+            # if no route provided or creation failed, we try through mkRoute()
+
+        if not rerr:
+            logger.info(f"trying route to destination {destination}..")
+            rerr, self.route = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("RESPECT_CONSTRAINTS", preferences=self.prefs))
 
         if not rerr:
             logger.info(f"..no route to destination {destination} (route {self.route})")
@@ -547,7 +658,6 @@ VERSION = "{__VERSION__}"
         # Hint: distance and heading to first light
         intro = f"Follow the {self.thing} to {destination}"
         speak = f"Follow the {self.thing} to {phonetic(destination)}"
-        intro_arr = []
         if SAY_ROUTE:
             rt = self.route.text()
             if len(rt) > 0:
@@ -723,3 +833,10 @@ VERSION = "{__VERSION__}"
         # alias to cancel
         self.inc("stopped")
         return self.terminate("stopped")
+
+    def toExit(self):
+        logger.error(f"""If error from FollowTheGreens persist, in X-Plane, select Plugin -> XPPython3 -> Reload scripts
+to stop and reload python scripts and effectively stop FollowTheGreens (this will also stop other python scripts.).
+FollowTheGreens will not restart unless you reactivate it.
+Please send file {os.path.join(os.path.dirname(__file__), '..', 'ftg_log.txt')} along with log.txt and XPPython3Log.txt
+to the author of the plugin to investigate the issue and fix it. Sorry for the inconvenience. Thank you.""")
