@@ -533,7 +533,7 @@ class FlightLoop:
                 return self._planeFLCB(elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon)
         except:
             logger.error("issue in the main flight loop, retrying in 5 seconds", exc_info=True)
-        return 5.0 # seconds
+        return 5.0  # seconds
 
     def _planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument

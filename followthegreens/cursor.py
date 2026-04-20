@@ -861,7 +861,9 @@ class Cursor:
         fmcar_speed = self.current.speed
 
         if acf_dist > drange[1]:  # does the car need to slow down because too far?
-            acc_factor = min(rabbit_factor, 0.8)
+            if acf_dist != 0:  # if far, we accelerate a lot, if not too far, we accelerate slowly
+                range_factor = 1 - ((acf_dist - drange[1]) / acf_dist)
+            acc_factor = min(rabbit_factor, range_factor, 0.8)
             work_msg = f"fmcar too far, need to slow down (factor={acc_factor}, rabbit_factor={round(rabbit_factor, 2)}, {sf(acf_dist, 'm')} > {sf(drange[1], 'm')})"
             fmcar_speed = self.smoothConverge(self.current.speed, acf_speed * acc_factor)
         elif acf_dist < drange[0]:  # does the car need to accelerate because too close?
@@ -987,7 +989,7 @@ class Cursor:
 
         if self.onRoute():
             if self.destinationReached():
-                logger.debug("destination reached")  # need to continue on finishing route
+                logger.debug("destination reached")  # need to continue on finishing route, do not change speed
 
             if self.current.sr_min.index != NOT_ON_ROUTE and self.current.sr_max.index != NOT_ON_ROUTE:
                 if self.nextStopReached():
@@ -1012,7 +1014,12 @@ class Cursor:
             #     logger.debug("on route, but no sr_min/sr_max yet, will check target")
 
         if self.targetReached():
-            if not self.onRoute():
+            if self.onRoute():
+                if self.current.sr_min.index == NOT_ON_ROUTE or self.current.sr_max.index == NOT_ON_ROUTE:
+                    if self.current.speed > 0 and self.aim_speed != 0.0:
+                        # logger.debug("on route, target reached, no sr_min/sr_max, matches aircraft speed")
+                        self.setAimSpeed(speed=round(self.aircraft.speed(), 1), reason="on route, target reached, no sr_min/sr_max, matches aircraft speed")
+            else:  # not onRoute
                 if self.aim_speed > 0:
                     self.setAimSpeed(speed=0.0, reason="not on route, target reached, stopping")
                 else:
@@ -1020,17 +1027,12 @@ class Cursor:
                         logger.debug("not on route, target reached, slowing down to stop")
                     # else:
                     #     logger.debug("target reached, stopped")
-            else:  # onRoute
-                if self.current.sr_min.index == NOT_ON_ROUTE or self.current.sr_max.index == NOT_ON_ROUTE:
-                    if self.current.speed > 0 and self.aim_speed != 0.0:
-                        # logger.debug("on route, target reached, no sr_min/sr_max, matches aircraft speed")
-                        self.setAimSpeed(speed=round(self.aircraft.speed(), 1), reason="on route, target reached, no sr_min/sr_max, matches aircraft speed")
 
         # self.cnt += 1
         # if self.cnt % 3 == 0:
         self._adjustLocalSpeeds()
 
-        if not self.mustStop():
+        if self.indicator != INDICATOR.STOP:  # STOP/FOLLOW CAR is set in mustStopAt()/canContinue()
             self.indicator = self.nextTurnIndicator()  # compute turn indicator code for turns
 
         d = t * self.current.speed
