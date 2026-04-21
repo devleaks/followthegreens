@@ -1,11 +1,8 @@
 from __future__ import annotations
 import os
 from dataclasses import dataclass, fields
+from enum import StrEnum
 from datetime import datetime
-from enum import IntEnum, StrEnum
-from sre_compile import IN
-
-from followthegreens import route
 
 try:
     import xp
@@ -15,7 +12,7 @@ except ImportError:
 from .globals import RABBIT_MODE, logger, MOVEMENT, INDICATOR, AIRCRAFT_MIN_SPEED
 from .geo import Point, bearing, destination, distance, turn
 from .lightstring import XPObject, LightType
-from .route import SMOOTH_ROUTE
+from .route import SMOOTH_ROUTE, OnRoute, NOT_ON_ROUTE
 
 
 class CURSOR_STATUS(StrEnum):
@@ -62,7 +59,6 @@ def slow_debug(c, s):
         logger.debug(s)
 
 
-NOT_ON_ROUTE = -1
 NO_STOP_AHEAD = -1
 SHOW_BRACKET = True  # debugging stuff
 
@@ -153,54 +149,6 @@ class SimpleQueue:
 
 
 @dataclass
-class OnRoute:
-    """4 position with other information"""
-
-    index: int = NOT_ON_ROUTE
-    distance: float = 0.0  # distance "forward" from above index
-    route: tuple | None = None  # pointer to route
-    name: str = ""
-
-    def __str__(self):
-        """Returns a string containing only the non-default field values."""
-        # https://stackoverflow.com/questions/71344648/how-to-define-str-for-dataclass-that-omits-default-values
-
-        def f(i):
-            if type(i) in [list, tuple] and len(i) > 0 and isinstance(i[0], Point):
-                return f"[ route[{len(i)}] ]"
-            return sf(i, "m") if type(i) is float else i
-
-        s = ", ".join(f"{field.name}={f(getattr(self, field.name))!r}" for field in fields(self))
-        return f"{type(self).__name__}({s})"
-
-    def reached(self, target: OnRoute) -> bool:
-        # Means self is at or after target
-        if self.route is None:
-            logger.warning(f"no route")
-            return False
-
-        if target.route is None:
-            logger.warning(f"no target route")
-            return False
-
-        if self.route != target.route:
-            logger.warning(f"not on same route {len(self.route)} vs {len(target.route)}")
-            return False
-
-        if target.index == NOT_ON_ROUTE:
-            logger.debug(f"target not on route {target}")
-            return False
-
-        r = False
-        if self.index > target.index:
-            r = True
-        elif self.index == target.index and self.distance >= target.distance:
-            r = True
-        # logger.debug(f"{r}: {self.current.sr_position} {'>=' if r else '<'} {self.target.sr_position}")
-        return r
-
-
-@dataclass
 class Situation:
     """4 position with other information"""
 
@@ -266,6 +214,9 @@ class RoutePart:
         return self.comment
 
 
+BRAKE_DISTANCE = 20.0  # m, static fallback value: Distance necessary to brake from current speed
+
+
 class Cursor:
 
     def __init__(self, detail, ftg) -> None:
@@ -278,6 +229,7 @@ class Cursor:
         self.cursor_min = XPObject(None, 0, 0, 0)
         self.cursor_max = XPObject(None, 0, 0, 0)
         self.cursor_mid = XPObject(None, 0, 0, 0)
+        self.cursor_stop = XPObject(None, 0, 0, 0)
 
         self._indicator = INDICATOR.FOLLOW_ME
         self.hudText = INDICATOR.FOLLOW_ME.name
@@ -380,11 +332,11 @@ class Cursor:
             self.hudText = HUD_TEXT.FOLLOW_ME.value
 
     def setAimSpeed(self, speed, reason: str = "") -> float:
-        if reason != "":
+        if reason != "" and reason[0] != ",":
             reason = ", " + reason
         if self._aim_speed != speed:
             self.speed_reached = False
-            logger.debug(f"new aim speed={self.aim_speed} -> {speed}{reason}")
+            logger.debug(f"new aim speed={sf(self.aim_speed, 'm/s')} -> {sf(speed, 'm/s')}{reason}")
             self._aim_speed = speed
         # else:
         #     logger.debug(f"aim speed already set at {speed}{reason}")
@@ -430,21 +382,25 @@ class Cursor:
         self.cursor.on()
 
         if SHOW_BRACKET:
-            min_light = LightType.create(name="lmin.obj", color=(0, 1, 0), size=40, intensity=60, texture=3)
+            min_light = LightType.create(name="lmin.obj", color=(0, 1, 0), size=40, intensity=60, texture=3)  # green
             self.cursor_min.position = self.current.position  # initial position where will appear
             self.cursor_min.heading = self.current.heading
             self.cursor_min.place(lightType=LightType("min_light", min_light))
             self.cursor_min.on()
-            max_light = LightType.create(name="lmax.obj", color=(1, 0, 0), size=40, intensity=40, texture=3)
+            max_light = LightType.create(name="lmax.obj", color=(1, 0, 1), size=40, intensity=40, texture=3)  # magenta
             self.cursor_max.position = self.current.position  # initial position where will appear
             self.cursor_max.heading = self.current.heading
             self.cursor_max.place(lightType=LightType("max_light", max_light))
             self.cursor_max.on()
-            mid_light = LightType.create(name="lmid.obj", color=(0, 0, 1), size=40, intensity=40, texture=3)
+            mid_light = LightType.create(name="lmid.obj", color=(0, 0, 1), size=40, intensity=40, texture=3)  # blue, ideal
             self.cursor_mid.position = self.current.position  # initial position where will appear
             self.cursor_mid.heading = self.current.heading
             self.cursor_mid.place(lightType=LightType("mid_light", mid_light))
             self.cursor_mid.on()
+            stop_light = LightType.create(name="lstop.obj", color=(1, 0, 0), size=40, intensity=80, texture=3)  # red, stop
+            self.cursor_stop.position = self.current.position  # initial position where will appear
+            self.cursor_stop.heading = self.current.heading
+            self.cursor_stop.place(lightType=LightType("stop_light", stop_light))
             logger.debug("added bracket visualizer")
 
         if self.indicator_cursor is not None:
@@ -477,6 +433,9 @@ class Cursor:
             if self.cursor_mid is not None:
                 self.cursor_mid.destroy()
                 self.cursor_mid = None
+            if self.cursor_stop is not None:
+                self.cursor_stop.destroy()
+                self.cursor_stop = None
             # NOTE: min_light, max_light, and mid_light objects not destroyed (we're in debug mode...)
         if self.cursor is not None:
             self.cursor.destroy()
@@ -679,26 +638,15 @@ class Cursor:
         self.current_bearing = brng
         return self.current_distance
 
-    def route_distance(self, sr_position) -> float:
-        # This is the distance between two points on the same sr_route
-        # following the path, turns, etc.
-        #
-        c = self.current
-        return self.route.srDistanceRoute(route=c.sr_route, i1=c.sr_position.index, dist1=c.sr_position.distance, i2=sr_position.index, dist2=sr_position.distance)
-
-    # @property
-    # def speed(self) -> float:
-    #     return self.current.speed
-
-    # @speed.setter
-    # def speed(self, speed):
-    #     self.current.speed = speed
-
     def at_rest(self) -> bool:
         return self.current.speed == 0  # please note "at_rest()" is different from "not moving()"
 
     def moving(self) -> bool:
         return self.current.speed > 0.1  # 10cm/sec is moving. please note "at_rest()" is different from "not moving()"
+
+    def brakingDistance(self) -> float:
+        # this is a good estimate of the distance necessary to stop the fmcar
+        return 2 * self.current.speed
 
     def nextTurnIndicator(self) -> INDICATOR:
         # returns a turn indicator to display if necessary
@@ -734,11 +682,11 @@ class Cursor:
         if not self.onRoute():
             logger.warning(f"got next stop {nextStop} and not on route")
 
-        BRAKE_DISTANCE = 20.0  # m
-
         self.nextStop = nextStop
         light = self.lights.lights[nextStop]
         self.current.sr_stop = OnRoute(index=light.srIndex, distance=light.distFromsrIndex, route=self.route.smoothRoute, name=f"stop at light {nextStop}")
+        self.cursor_stop.move(lat=light.position.lat, lon=light.position.lon, hdg=0, elev=1.0)
+        self.cursor_stop.on()
 
         if True:
             # TEST
@@ -757,6 +705,9 @@ class Cursor:
     def mustStop(self) -> bool:
         return self.nextStop != NO_STOP_AHEAD
 
+    def distanceToStop(self) -> bool:
+        return self.current.sr_position.distanceOnRoute(target=self.current.sr_stop)
+
     def canContinue(self):
         # Aim is to restart after mustStopAt()
         if not self.mustStop():
@@ -767,6 +718,7 @@ class Cursor:
         self.indicator = INDICATOR.FOLLOW_ME
         self.nextStop = NO_STOP_AHEAD
         self.current.sr_stop = OnRoute(index=NOT_ON_ROUTE, distance=NO_STOP_AHEAD, name="no stop")
+        self.cursor_stop.off()
 
         if self.lights is None:
             logger.warning("..no light, cannot continue")
@@ -861,10 +813,11 @@ class Cursor:
         fmcar_speed = self.current.speed
 
         if acf_dist > drange[1]:  # does the car need to slow down because too far?
-            if acf_dist != 0:  # if far, we accelerate a lot, if not too far, we accelerate slowly
+            range_factor = 1
+            if acf_dist != 0:  # if too far, we decelerate a lot, if not too far, we decelerate slowly
                 range_factor = 1 - ((acf_dist - drange[1]) / acf_dist)
             acc_factor = min(rabbit_factor, range_factor, 0.8)
-            work_msg = f"fmcar too far, need to slow down (factor={acc_factor}, rabbit_factor={round(rabbit_factor, 2)}, {sf(acf_dist, 'm')} > {sf(drange[1], 'm')})"
+            work_msg = f"fmcar too far, need to slow down (factor={acc_factor}, rabbit_factor={round(rabbit_factor, 2)}, range_factor={round(range_factor, 2)}, {sf(acf_dist, 'm')} > {sf(drange[1], 'm')})"
             fmcar_speed = self.smoothConverge(self.current.speed, acf_speed * acc_factor)
         elif acf_dist < drange[0]:  # does the car need to accelerate because too close?
             work_msg = f"fmcar too close ({sf(acf_dist, 'm')} < {sf(drange[0], 'm')})"
@@ -872,8 +825,19 @@ class Cursor:
             if self.mustStop():
                 work_msg += ", must stop"
                 self.setHudText(HUD_TEXT.STOP.value)
-                if fmcar_speed != 0.0:  # if not already stopped, move at slow speed towards stop
-                    fmcar_speed = self.detail.slow_speed
+                dts = self.distanceToStop()
+                bds = self.brakingDistance()
+                if dts > bds:
+                    if fmcar_speed != 0.0:  # if not already stopped, move at slow speed towards stop
+                        work_msg += ", slowing down"
+                        fmcar_speed = self.detail.slow_speed
+                    else:
+                        work_msg += ", already stopped"
+                else:
+                    fmcar_speed = 0.0
+                logger.debug(
+                    f"car at {sf(self.current.speed, 'm/s')}, at {sf(dts, 'm')} from stop, needs {sf(bds, 'm')} to brake -> new speed={sf(fmcar_speed, 'm/s')} (acf_speed={sf(acf_speed, 'm/s')})"
+                )
             elif rabbit_mode in [RABBIT_MODE.SLOWER, RABBIT_MODE.SLOWEST]:
                 work_msg += f" but it is ok because we need to go slow (rabbit mode={rabbit_mode}, rabbit factor={rabbit_factor})"
                 self.setHudText(HUD_TEXT.SLOW.value)

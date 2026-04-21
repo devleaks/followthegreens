@@ -67,7 +67,7 @@ class FollowTheGreens:
         self.fr = 1.0
         self.xp_log_dir = os.path.join(".", "Output", "caches", "followthegreens")  # relative to X-Plane "root/home" folder, needs to be created first
         logger.info(f"created {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
-        logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}\n")
+        # logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}")
 
     def __del__(self):
         # alias to cancel
@@ -229,7 +229,9 @@ class FollowTheGreens:
             logger.info("external configuration file has no date, assuming ethernal validity")
         else:
             config_date = datetime.fromisoformat(dt)
-            if (datetime.now(tz=timezone.utc) - config_date).seconds > TOO_OLD:  # 1800 secs = 1/2h
+            long_ago = (datetime.now(tz=timezone.utc) - config_date).total_seconds()
+            logger.debug(f"external configuration file {long_ago}s ago ({config_date}, {datetime.now(tz=timezone.utc)})")
+            if long_ago > TOO_OLD:  # 1800 secs = 1/2h
                 logger.warning(f"external configuration file created too long ago (created at {dt}, more than {TOO_OLD}s ago")
                 return False
 
@@ -557,15 +559,24 @@ VERSION = "{__VERSION__}"
         rerr = False
         stand = self.extconfig.get("start", "the stand")
         if external:
-            route = self.extconfig.get("route")
-            if route is not None and len(route) > 0:
-                logger.info("using route from external source..")
-                rerr, self.route = self.airport.mkRouteExternalDeparture(self.aircraft, stand, destination, route)
+            route_free = self.extconfig.get("route-free")
+            if route_free is not None and len(route_free) > 0:
+                logger.info("creating adhoc route from external source..")
+                rerr, self.route = self.airport.mkAdhocRouteExternalDeparture(self.aircraft, stand, destination, route_free)
                 if rerr:
                     intro_arr.append(f"X-Dispatch kindly provided sufficient information to follow the {self.thing}.")
                 else:
-                    logger.info("could not create route from external configuration file")
-            # if no route provided or creation failed, we try through mkRoute()
+                    logger.info("could not create adhoc route from external configuration file")
+            if not rerr:
+                route = self.extconfig.get("route")
+                if route is not None and len(route) > 0:
+                    logger.info("using route from external source..")
+                    rerr, self.route = self.airport.mkRouteExternalDeparture(self.aircraft, stand, destination, route)
+                    if rerr:
+                        intro_arr.append(f"X-Dispatch kindly provided sufficient information to follow the {self.thing}.")
+                    else:
+                        logger.info("could not create route from external configuration file")
+                # if no route provided or creation failed, we try through mkRoute()
 
         if not rerr:
             logger.info(f"trying route to destination {destination}..")
@@ -757,15 +768,15 @@ VERSION = "{__VERSION__}"
 
         self.status = FTG_STATUS.INACTIVE
 
-        if self.flightLoop:
+        if self.flightLoop is not None:
             self.flightLoop.stopFlightLoop()
             logger.info("flightloop stopped")
 
-        if self.lights:
+        if self.lights is not None:
             self.lights.destroy()
             self.lights = None
 
-        if self.ui.mainWindowExists():
+        if self.ui is not None and self.ui.mainWindowExists():
             self.ui.destroyMainWindow()
 
         self.status = FTG_STATUS.TERMINATED

@@ -5,6 +5,7 @@
 #
 import os
 import math
+from pprint import pformat
 from functools import reduce
 
 from .geo import (
@@ -245,7 +246,7 @@ class Graph:  # Graph(FeatureCollection)?
                 s["active"] = s["active"] + 1
             mi = min(mi, v.cost)
             ma = max(ma, v.cost)
-        logger.debug(f"{len(self.edges_arr)} edges: {s}, cost=[{round(mi, 2)}, {round(ma, 2)}]")
+        logger.debug(f"{len(self.edges_arr)} edges, cost=[{round(mi, 2)}, {round(ma, 2)}]\n{pformat(s)}")
         if logger.level < 10:
             fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_tn_{self.name}.geojson")
             fc = FeatureCollection(features=self.features())

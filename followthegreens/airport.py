@@ -4,6 +4,7 @@
 import os
 import re
 import math
+from sre_compile import dis
 from typing import Tuple
 
 try:
@@ -11,7 +12,16 @@ try:
 except ImportError:
     print("X-Plane not loaded")
 
+has_xplane_airports = False
+try:
+    from xplane_airports.AptDat import AptDat, Airport
+    has_xplane_airports = True
+except ImportError:
+    print("xplane_airports not loaded")
+
+
 from .globals import (
+    TAXIWAY_DIRECTION,
     logger,
     get_global,
     DISTANCE_TO_RAMPS,
@@ -33,6 +43,9 @@ SYSTEM_DIRECTORY = "."
 
 
 class Runway(Line):
+
+    INSIDE = 50  # m
+
     # A place to be. But not too long.
     def __init__(self, name, width, lat, lon, dt, dbo, lat2, lon2, pol):
         Line.__init__(self, Point(lat, lon), Point(lat2, lon2))
@@ -46,8 +59,10 @@ class Runway(Line):
         else:
             self.polygon = pol
         self.threshold = self.start
+        self.threshold_lat = self.start
         self.first_exit = self.threshold
         self.mkThreshold()
+        self.mkThresholdAlt()
 
     def onRunway(self, point):
         if self.polygon is None:
@@ -62,6 +77,11 @@ class Runway(Line):
         self.threshold = destination(src=self.start, brngDeg=self.bearing(), d=move)
         self.first_exit = self.threshold
         logger.debug(f"displaced threshold at {round(move,1)}m")
+
+    def mkThresholdAlt(self):
+        # If no displaced threshold, the threshold is the start
+        self.threshold_alt = destination(src=self.start, brngDeg=self.bearing(), d=self.INSIDE)
+        logger.debug(f"inside alternate threshold at {round(self.INSIDE,1)}m")
 
     def runwayExits(self, graph: Graph) -> set:
         # return vertex that this on taxiway network, that is NOT a on a runway edge
@@ -190,6 +210,7 @@ class Airport:
         self.icao = icao.upper()
         self.prefs = prefs
         self.name = ""
+        self.apt_data = None
         self.cursor_type = None  # keep track of meta data of current cursor (turn radius, speeds, etc.)
         self.atc_ground = None
         self.altitude = 0  # ASL, in meters
@@ -425,6 +446,18 @@ class Airport:
 
         return self.loaded
 
+    def loadXplaneAirport(self, filename):
+        if has_xplane_airports:
+            try:
+                apt_dat = AptDat(path_to_file=filename)
+                apt_data = apt_dat[self.icao]
+                logger.info(f"xplane_airports read {self.icao}: {apt_data.from_file} {apt_data.name} {apt_data.id}")
+                self.apt_data = apt_data
+            except:
+                logger.error(f"could not load {self.icao} from {filename}", exc_info=True)
+        else:
+            logger.warning("xplane_airports not installed")
+
     def loadFile(self, filename) -> bool:
         apt_dat = open(filename, "r", encoding="utf-8", errors="ignore")
         line = apt_dat.readline()
@@ -434,6 +467,7 @@ class Airport:
                 newparam = line.split()  # if no characters supplied to split(), multiple space characters as one
                 # logger.debug(f"airport: {newparam[4]}")
                 if newparam[4] == self.icao:  # it is the airport we are looking for
+                    self.loadXplaneAirport(filename=filename)
                     self.name = " ".join(newparam[5:])
                     self.altitude = newparam[1]
                     # Info 4.a
@@ -516,7 +550,7 @@ class Airport:
         # 1201  25.29549372  051.60759816 both 16 unnamed entity(split)
         def addVertex(aptline):  # same for both taxiways and service roads
             args = aptline.content().split()
-            return self.graph.add_vertex(args[3], Point(args[0], args[1]), args[2], " ".join(args[3:]))
+            return self.graph.add_vertex(node=args[3], point=Point(args[0], args[1]), usage=args[2], name=" ".join(args[3:]))
 
         def addRoads(aptline):  # same for both taxiways and service roads
             args = aptline.content().split()
@@ -853,6 +887,59 @@ class Airport:
         route_ext.build(acf_speed=aircraft.avgTaxiSpeed(), radius=r)
 
         logger.info(f"external route built from {stand} to {destination}")
+        return (True, route_ext)
+
+    def mkAdhocRouteExternalDeparture(self, aircraft, stand, destination, route: list | dict) -> tuple:
+        #
+        g = Graph(name="adhoc")
+        # Make vertices
+        local_route = []
+        if type(route) is dict:
+            i = 0
+            for f in route.features:
+                if f["geometry"]["type"] == "Point":
+                    c = f["geometry"]["coordinates"]
+                    g.add_vertex(node=str(i), point=Point(lat=c[1], lon=c[0]), usage="", name="")
+                    local_route.append(str(i))
+                    i += 1
+                elif f["geometry"]["type"] == "LineString":
+                    last = None
+                    for c in f["geometry"]["coordinates"]:
+                        this = g.add_vertex(node=str(i), point=Point(lat=c[1], lon=c[0]), usage="", name="")
+                        local_route.append(str(i))
+                        i += 1
+                        if last is not None:
+                            d = distance(last, this)
+                            e = Edge(src=last, dst=this, cost=d, direction=TAXIWAY_DIRECTION.BOTH, usage="taxiway_C", name="T")
+                        last = this
+                else:
+                    logger.info(f"geojson feature {f} ignored")
+        else:
+            i = 0
+            for c in route:
+                g.add_vertex(node=str(i), point=Point(lat=c[0], lon=c[1]), usage="", name="")
+                i += 1
+            # Make edges
+            last = g.get_vertex(n="0")
+            for c in g.vert_dict.values():
+                d = distance(last, c)
+                e = Edge(src=last, dst=c, cost=d, direction=TAXIWAY_DIRECTION.BOTH, usage="taxiway_C", name="T")
+                g.add_edge(e)
+                last = c
+            # Make route
+            local_route = [str(i) for i in range(len(g.vert_dict))]
+
+        # Create Adhoc Route
+        route_ext = Route(graph=g)
+        route_ext.route = local_route
+        # Add meta-data
+        route_ext.precise_start = g.get_vertex(n="0")
+        route_ext.precise_end = g.get_vertex(n=str(len(g.vert_dict)-1))
+        #
+        r = None if self.cursor_type is None else self.cursor_type.turn_radius
+        route_ext.build(acf_speed=aircraft.avgTaxiSpeed(), radius=r)
+
+        logger.info(f"external adhoc route built from {stand} to {destination}")
         return (True, route_ext)
 
     def hasATC(self):

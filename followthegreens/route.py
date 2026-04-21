@@ -1,12 +1,12 @@
 # Airport Utility Class
 # Airport information container: name, taxi routes, runways, ramps, holding positions, etc.
 #
+from __future__ import annotations
 import os
 import math
 from enum import StrEnum
 from datetime import datetime
-
-from followthegreens.graph import Vertex
+from dataclasses import dataclass, fields
 
 try:
     import xp
@@ -55,6 +55,75 @@ class TURN_TYPE(StrEnum):
     SMOOTH = "smooth"  # smooth route index
     PROGRESSIVE = "progressive"  # corresponding route index
     IMMEDIATE = "immediate"
+
+
+NOT_ON_ROUTE = -1
+
+
+@dataclass
+class OnRoute:
+    """4 position with other information"""
+
+    index: int = NOT_ON_ROUTE
+    distance: float = 0.0  # distance "forward" from above index
+    route: tuple | None = None  # pointer to route
+    name: str = ""
+
+    def __str__(self):
+        """Returns a string containing only the non-default field values."""
+        # https://stackoverflow.com/questions/71344648/how-to-define-str-for-dataclass-that-omits-default-values
+
+        def f(i):
+            if type(i) in [list, tuple] and len(i) > 0 and isinstance(i[0], Point):
+                return f"[ route[{len(i)}] ]"
+            return f"{round(i, 1)}m" if type(i) is float else i
+
+        s = ", ".join(f"{field.name}={f(getattr(self, field.name))!r}" for field in fields(self))
+        return f"{type(self).__name__}({s})"
+
+    def reached(self, target: OnRoute) -> bool:
+        # Means self is at or after target
+        if self.route is None:
+            logger.warning("no route")
+            return False
+
+        if target.route is None:
+            logger.warning("no target route")
+            return False
+
+        if self.route != target.route:
+            logger.warning(f"not on same route {self.name} vs {len(target.name)}")
+            return False
+
+        if target.index == NOT_ON_ROUTE:
+            logger.debug(f"target not on route {target}")
+            return False
+
+        r = False
+        if self.index > target.index:
+            r = True
+        elif self.index == target.index and self.distance >= target.distance:
+            r = True
+        # logger.debug(f"{r}: {self.current.sr_position} {'>=' if r else '<'} {self.target.sr_position}")
+        return r
+
+    def distanceOnRoute(self, target: OnRoute) -> float:
+        if self.route is None or target.route is None:
+            logger.debug("no route")
+            return 0.0
+        if self.index == target.index:
+            return abs(self.distance - target.distance)
+        if (self.index + 1) <= target.index:
+            total = self.route[self.index].getProp(SMOOTH_ROUTE.DISTANCE) - self.distance  # left on self
+            for i in range(self.index + 1, target.index):
+                total += route[i].getProp(SMOOTH_ROUTE.DISTANCE)  # length of followings (if any)
+            total += self.distance  # left on i2
+        else:
+            total = self.route[target.index].getProp(SMOOTH_ROUTE.DISTANCE) - target.distance  # left on self
+            for i in range(target.index + 1, self.index):
+                total += route[i].getProp(SMOOTH_ROUTE.DISTANCE)  # length of followings (if any)
+            total += target.distance  # left on i2
+        return total
 
 
 class Turn:
