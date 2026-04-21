@@ -559,7 +559,7 @@ VERSION = "{__VERSION__}"
         rerr = False
         stand = self.extconfig.get("start", "the stand")
         if external:
-            route_free = self.extconfig.get("route-free")
+            route_free = self.extconfig.get("route-geojson")
             if route_free is not None and len(route_free) > 0:
                 logger.info("creating adhoc route from external source..")
                 rerr, self.route = self.airport.mkAdhocRouteExternalDeparture(self.aircraft, stand, destination, route_free)

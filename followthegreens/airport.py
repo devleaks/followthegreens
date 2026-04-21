@@ -896,7 +896,7 @@ class Airport:
         local_route = []
         if type(route) is dict:
             i = 0
-            for f in route.features:
+            for f in route["features"]:
                 if f["geometry"]["type"] == "Point":
                     c = f["geometry"]["coordinates"]
                     g.add_vertex(node=str(i), point=Point(lat=c[1], lon=c[0]), usage="", name="")
@@ -911,6 +911,7 @@ class Airport:
                         if last is not None:
                             d = distance(last, this)
                             e = Edge(src=last, dst=this, cost=d, direction=TAXIWAY_DIRECTION.BOTH, usage="taxiway_C", name="T")
+                            g.add_edge(e)
                         last = this
                 else:
                     logger.info(f"geojson feature {f} ignored")
@@ -928,6 +929,9 @@ class Airport:
                 last = c
             # Make route
             local_route = [str(i) for i in range(len(g.vert_dict))]
+
+        g.stats()
+        logger.debug(f"route {local_route}")
 
         # Create Adhoc Route
         route_ext = Route(graph=g)
