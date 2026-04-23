@@ -81,7 +81,31 @@ class OnRoute:
         s = ", ".join(f"{field.name}={f(getattr(self, field.name))!r}" for field in fields(self))
         return f"{type(self).__name__}({s})"
 
-    def reached(self, target: OnRoute) -> bool:
+    @staticmethod
+    def fromLight(light, route):
+        return OnRoute(index=light.srIndex, distance=ligth.distFromsrIndex, route=route)
+
+    @property
+    def vertex(self) -> Point:
+        return self.route[self.index]
+
+    @property
+    def bearing(self) -> float:
+        return self.vertex.getProp(SMOOTH_ROUTE.BEARING.value)
+
+    @property
+    def edge_length(self) -> float:
+        return self.vertex.getProp(SMOOTH_ROUTE.DISTANCE.value)
+
+    @property
+    def to_next(self) -> float:
+        return self.edge_length - self.distance
+
+    @property
+    def point(self) -> Point:
+        return destination(src=self.vertex, brngDeg=self.bearing, d=self.distance)
+
+    def reached(self, target: OnRoute, dist: float = 0.0) -> bool:
         # Means self is at or after target
         if self.route is None:
             logger.warning("no route")
@@ -99,31 +123,60 @@ class OnRoute:
             logger.debug(f"target not on route {target}")
             return False
 
+        t2 = target
+        if dist > 0:
+            t2 = self.forward(dist=dist)
+        elif dist < 0:
+            t2 = self.backward(dist=dist)
+        # logger.debug(f"{target} - {dist} = {t2}")
+
         r = False
-        if self.index > target.index:
+        if self.index > t2.index:
             r = True
-        elif self.index == target.index and self.distance >= target.distance:
+        elif self.index == t2.index and self.distance >= t2.distance:
             r = True
-        # logger.debug(f"{r}: {self.current.sr_position} {'>=' if r else '<'} {self.target.sr_position}")
+        # logger.debug(f"{r}: {self} {'>=' if r else '<'} {t2}")
         return r
 
-    def distanceOnRoute(self, target: OnRoute) -> float:
+    def distanceTo(self, target: OnRoute) -> float:
         if self.route is None or target.route is None:
             logger.debug("no route")
             return 0.0
         if self.index == target.index:
             return abs(self.distance - target.distance)
-        if (self.index + 1) <= target.index:
-            total = self.route[self.index].getProp(SMOOTH_ROUTE.DISTANCE) - self.distance  # left on self
-            for i in range(self.index + 1, target.index):
-                total += route[i].getProp(SMOOTH_ROUTE.DISTANCE)  # length of followings (if any)
-            total += self.distance  # left on i2
-        else:
-            total = self.route[target.index].getProp(SMOOTH_ROUTE.DISTANCE) - target.distance  # left on self
-            for i in range(target.index + 1, self.index):
-                total += route[i].getProp(SMOOTH_ROUTE.DISTANCE)  # length of followings (if any)
-            total += target.distance  # left on i2
+        if self.index > target.index:
+            return target.distanceTo(self)
+        # self is "before" target
+        total = self.to_next  # left on current segment
+        i = self.index + 1
+        while i < target.index and i < len(self.route):
+            total += self.route[i].getProp(SMOOTH_ROUTE.DISTANCE.value)
+            i += 1
+        total += target.distance  # left on i2
         return total
+
+    def forward(self, dist: float) -> OnRoute:
+        t = self.distance + dist
+        if t < self.edge_length:
+            return OnRoute(index=self.index, distance=t, route=self.route)
+        i = self.index + 1
+        if i >= len(self.route):  # end reached
+            logger.debug("at end of route")
+            return OnRoute(index=len(self.route) - 1, distance=0.0, route=self.route)
+        left = self.edge_length - self.distance
+        next_or = OnRoute(index=i, distance=0.0, route=self.route)
+        return next_or.forward(dist=dist - left)
+
+    def backward(self, dist: float) -> OnRoute:
+        if dist <= self.distance:
+            return OnRoute(index=self.index, distance=self.distance - dist, route=self.route)
+        if self.index <= 0:  # begining of route since dist > distance
+            logger.debug("at begining of route")
+            return OnRoute(index=0, distance=0.0, route=self.route)
+        i = self.index - 1
+        d = self.route[i].getProp(SMOOTH_ROUTE.DISTANCE)
+        next_or = OnRoute(index=i, distance=d, route=self.route)  # == OnRoute(index=self.index, distance=0.0, route=self.route)
+        return next_or.backward(dist=dist - self.distance)
 
 
 class Turn:
@@ -242,12 +295,6 @@ class Turn:
         points.append((pt, self.bearing_end))
         logger.debug(f"length={round(length, 1)}m, turn={round(self.alpha, 1)}D, {len(points)} points")
         return points
-
-
-class SmoothRoute:
-    def __init__(self, route):
-        self.route = route
-        self.smoothRoute = []
 
 
 class Route:
@@ -695,24 +742,12 @@ class Route:
         # logger.debug(
         #     f"control: r={len(self.route)}, v={len(self.vertices)}, e={len(self.edges)}, turns={len(self.turns)}, brk={len(self.dtb)}, atbrk={len(self.dtb_at)}, d={len(self.dleft)}, t={len(self.tleft)}"
         # )
+        # self.test()
         if logger.level <= 10:
             fn = os.path.join(os.path.dirname(__file__), "..", "ftg_route.geojson")  # _{self.route[0]}-{self.route[-1]}
             fc = FeatureCollection(features=self.features())
             fc.save(fn)
             logger.debug(f"taxi route saved in {os.path.abspath(fn)}")
-
-    def destination(self, i: int, dist: float) -> tuple:
-        if i >= len(self.vertices) - 1:  # end of route, end of recursion, return last point
-            return self.vertices[-1], self.edges_orient[-1], i, 0
-        if dist == 0:
-            return self.vertices[i], self.edges_orient[i], i, 0
-        self._srrecurr += 1
-        d = self.edges[i].cost
-        if dist < d:  # there is enough room on the current edge, recursion ends
-            b = self.edges_orient[i]
-            pt = destination(self.vertices[i], b, dist)
-            return pt, b, i, dist
-        return self.destination(i=i + 1, dist=dist - d)
 
     # SMOOTH ROUTE
     # Adds turns at vertices.
@@ -959,36 +994,6 @@ class Route:
         # distance between two points on smoothRoute
         return self.srDistanceRoute(self.smoothRoute, i1=i1, dist1=dist1, i2=i2, dist2=dist2)
 
-    def srOnEdge(self, i: int, dist: float) -> Point | None:
-        # returns point at dist from vertex i on smoothRoute[]
-        # assumes dist < self.smoothRoute[i].getProp(SMOOTH_ROUTE.DISTANCE.value)
-        # DOES NOT GO TO NEXT VERTEX, sends a warning if overshoot
-        if self.smoothRoute is not None and i < len(self.smoothRoute):
-            if dist > self.smoothRoute[i].getProp(SMOOTH_ROUTE.DISTANCE.value):
-                logger.warning(f"requested distance {round(dist, 1)}m larger than segment {round(self.smoothRoute[i].getProp(SMOOTH_ROUTE.DISTANCE.value), 1)}m")
-            return destination(self.smoothRoute[i], self.smoothRoute[i].getProp(SMOOTH_ROUTE.BEARING.value), dist)
-        return None
-
-    def srEquiv(self, i: int, dist: float):
-        # Progress dist from vertex i of route[] is equivalent to
-        # progress d from vertex j of smoothRoute[]
-        self._srcnt += 1
-        if dist == 0:
-            j = self.vertices[i].getProp(SMOOTH_ROUTE.REVERSE_INDEX.value)
-            return j, 0.0
-        d = dist
-        j = self.vertices[i].getProp(SMOOTH_ROUTE.REVERSE_INDEX.value)
-        # logger.debug(f"LOOP {i}, {dist} -> {j}, {d}")
-        while d > 0 and j < len(self.smoothRoute):
-            self._srscan += 1
-            d -= self.smoothRoute[j].getProp(SMOOTH_ROUTE.DISTANCE.value)
-            j += 1
-            # logger.debug(f"LOOP {i}, {dist} -> {j}, {d}")
-        j -= 1
-        d += self.smoothRoute[j].getProp(SMOOTH_ROUTE.DISTANCE.value)
-        # logger.debug(f"RETURN {i}, {dist} -> {j}, {d}")
-        return j, d
-
     def srStraightRoute(self, start: Point, end: Point, heading: float, text: str = ""):  # should pass fmcam.detail? to get radius, speed...
         # Direct segment to join route with turn at the end towards heading
         # To Do: Add initial turn from a starting heading towards end point
@@ -1118,3 +1123,25 @@ class Route:
 
     def stats(self):
         logger.debug(f"equiv {self._srcnt}, scan={self._srscan}, ahead recur={self._srrecurr}")
+
+    def test(self):
+        # can we trust OnRoute?
+        try:
+            dl = self.srDistance(i1=0, dist1=0.0, i2=len(self.smoothRoute) - 1, dist2=0.0)
+            center = OnRoute(index=int(len(self.smoothRoute) / 2), distance=0.0, route=self.smoothRoute)
+            d0 = self.srDistance(i1=0, dist1=0, i2=center.index, dist2=center.distance)
+            logger.debug(f"center at {d0} {center}, total={dl}")
+
+            for d in [0, 10, 100, 1000, 2000]:
+                df = center.forward(dist=d)
+                df0 = self.srDistance(i1=0, dist1=0, i2=df.index, dist2=df.distance)
+                df1 = self.srDistance(i1=center.index, dist1=center.distance, i2=df.index, dist2=df.distance)
+                df2 = df.distanceTo(center)
+                logger.debug(f"forward {d} {df0} {df1} {df2} {df}")
+                db = center.backward(dist=d)
+                db0 = self.srDistance(i1=0, dist1=0, i2=db.index, dist2=db.distance)
+                db1 = self.srDistance(i1=center.index, dist1=center.distance, i2=df.index, dist2=df.distance)
+                db2 = db.distanceTo(center)
+                logger.debug(f"backward {d} {db0} {db1} {db2} {db}")
+        except:
+            logger.debug("error", exc_info=True)

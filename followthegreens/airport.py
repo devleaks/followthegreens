@@ -15,6 +15,7 @@ except ImportError:
 has_xplane_airports = False
 try:
     from xplane_airports.AptDat import AptDat, Airport
+
     has_xplane_airports = True
 except ImportError:
     print("xplane_airports not loaded")
@@ -938,7 +939,7 @@ class Airport:
         route_ext.route = local_route
         # Add meta-data
         route_ext.precise_start = g.get_vertex(n="0")
-        route_ext.precise_end = g.get_vertex(n=str(len(g.vert_dict)-1))
+        route_ext.precise_end = g.get_vertex(n=str(len(g.vert_dict) - 1))
         #
         r = None if self.cursor_type is None else self.cursor_type.turn_radius
         route_ext.build(acf_speed=aircraft.avgTaxiSpeed(), radius=r)
