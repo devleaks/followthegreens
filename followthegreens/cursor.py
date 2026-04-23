@@ -159,8 +159,11 @@ class Situation:
     sr_max = OnRoute()  # sr_route should remain between those two values
     sr_stop = OnRoute(index=NOT_ON_ROUTE, distance=NO_STOP_AHEAD, name="no stop")  # sr_route cannot drive beyond this point, distance < 0 is sign there is no stop
 
-    position: Point | None = None  # position at sr_position(index, distance)
     speed: float = 0.0
+
+    @property
+    def position(self) -> Point:
+        return self.sr_position.point
 
     @property
     def sr_end(self) -> OnRoute:
@@ -362,7 +365,7 @@ class Cursor:
 
     @property
     def inited(self) -> bool:
-        return self.current.position is not None and self.route is not None
+        return len(self.current.sr_route) > 0 is not None and self.route is not None
 
     # Creation, destruction
     #
@@ -371,7 +374,6 @@ class Cursor:
         if self.inited:  # only init once
             return
         self.current.sr_route = route
-        self.current.position = Point(lat=position.lat, lon=position.lon)  # take a local copy of the supplied position
         self.current.speed = speed
         self.current.sr_position = OnRoute(index=0, distance=0.0, route=self.current.sr_route, name="initial position")
         self.target.sr_position = OnRoute(index=len(self.current.sr_route) - 1, distance=0, route=self.current.sr_route, name="initial target position")
@@ -584,7 +586,7 @@ class Cursor:
                 )
             light_ahead, light_index, dist_left = self.lights.lightAhead(index_from=closestLight, ahead=ahead_at_join)
             self.fmc_light_progress = light_index
-            join_route = self.route.srStraightRoute(start=self.current.position, end=light_ahead.position, heading=light_ahead.heading)
+            join_route = self.route.mkSmoothJoinRoute(start=self.current.position, end=light_ahead.position, heading=light_ahead.heading)
             # later: Add smooth turn from current heading to join_route
             self.resetRoute()
             self.addRoute(route_part=RoutePart(route=join_route, adjust=False, comment="join route on new route"))
@@ -598,15 +600,16 @@ class Cursor:
             # Express range into min/max targets: [range] -> [sr_min, sr_max]
             DISTANCE_MARGIN = 10.0  # meters
             drange = self.aircraft.adjustAheadRange(rabbit_mode=self.lights.rabbit_mode)
-            sr_cl = OnRoute(index=light_ahead.srIndex, distance=light_ahead.distFromsrIndex, route=self.current.sr_route, name=f"light {light_index} position")
+            sr_cl = OnRoute.fromLight(light=light_ahead, route=self.current.sr_route, name=f"light {light_index} position")
             d0 = drange[0] + DISTANCE_MARGIN
             pt, brg, idx, dist = self.route.srAheadRoute(route=self.current.sr_route, i=light_ahead.srIndex, dist=light_ahead.distFromsrIndex, start=d0)
-            self.current.sr_min = OnRoute(index=idx, distance=dist, route=self.current.sr_route, name="bracket min")
+            self.current.sr_min = sr_cl.forward(dist=d0)
+            self.current.sr_min.name = "bracket min"
             if SHOW_BRACKET:
                 self.cursor_min.move(lat=pt.lat, lon=pt.lon, hdg=0, elev=1.0)
             d1 = (d0 + DISTANCE_MARGIN) if drange[1] < (d0 + DISTANCE_MARGIN) else drange[1] - DISTANCE_MARGIN
-            pt, brg, idx, dist = self.route.srAheadRoute(route=self.current.sr_route, i=light_ahead.srIndex, dist=light_ahead.distFromsrIndex, start=d1)
-            self.current.sr_max = OnRoute(index=idx, distance=dist, route=self.current.sr_route, name="bracket max")
+            self.current.sr_max = sr_cl.forward(dist=d1)
+            self.current.sr_max.name = "bracket max"
             if SHOW_BRACKET:
                 self.cursor_max.move(lat=pt.lat, lon=pt.lon, hdg=0, elev=1.0)
             logger.debug(f"bracket placed from light {closestLight} ({sr_cl}), [{self.current.sr_min}, {self.current.sr_max}]")
@@ -684,15 +687,15 @@ class Cursor:
 
         self.nextStop = nextStop
         light = self.lights.lights[nextStop]
-        self.current.sr_stop = OnRoute(index=light.srIndex, distance=light.distFromsrIndex, route=self.route.smoothRoute, name=f"stop at light {nextStop}")
+        self.current.sr_stop = OnRoute.fromLight(light=light, route=self.route.smoothRoute, name=f"stop at light {nextStop}")
         self.cursor_stop.move(lat=light.position.lat, lon=light.position.lon, hdg=0, elev=1.0)
         self.cursor_stop.on()
 
         if True:
             # TEST
-            t = self.route.srBackRoute(route=self.route.smoothRoute, i=light.srIndex, dist=light.distFromsrIndex, back=BRAKE_DISTANCE)
-            tor = OnRoute(index=t[2], distance=t[3], route=self.route.smoothRoute)
-            dc = self.route.srDistance(i1=light.srIndex, dist1=light.distFromsrIndex, i2=t[2], dist2=t[3])
+            t0 = OnRoute.fromLight(light=light, route=self.route.smoothRoute)
+            tor = t0.backward(dist=BRAKE_DISTANCE)
+            dc = t0.distanceTo(target=tor)
             # Must check that backup is NOT "before" current car position
             ok = self.current.sr_position.reached(tor)
             logger.debug(f"backup on route: {self.current.sr_stop} - {BRAKE_DISTANCE} -> {tor} (ok={ok}, dc={sf(dc, 'm')})")
@@ -706,7 +709,7 @@ class Cursor:
         return self.nextStop != NO_STOP_AHEAD
 
     def distanceToStop(self) -> bool:
-        return self.current.sr_position.distanceOnRoute(target=self.current.sr_stop)
+        return self.current.sr_position.distanceTo(target=self.current.sr_stop)
 
     def canContinue(self):
         # Aim is to restart after mustStopAt()
@@ -730,7 +733,7 @@ class Cursor:
 
         ahead = self.ftg.aircraft.adjustAhead(rabbit_mode=self.ftg.flightLoop.rabbitMode)
         light_ahead, light_index, dist_left = self.lights.lightAhead(index_from=closestLight, ahead=ahead)
-        self.target.sr_position = OnRoute(index=light_ahead.srIndex, distance=light_ahead.distFromsrIndex, route=self.route.smoothRoute, name="target can continue")
+        self.target.sr_position = OnRoute.fromLight(light=light_ahead, route=self.route.smoothRoute, name="target can continue")
         self.cursor_mid.move(lat=light_ahead.position.lat, lon=light_ahead.position.lon, hdg=0, elev=1.0)
         self.adjustSpeed(ahead=ahead)
         logger.debug("..continuing")
@@ -777,16 +780,18 @@ class Cursor:
             logger.debug("no close light to start")
             closestLight = 0
         closest_light = self.lights.lights[closestLight]
-        sr_cl = OnRoute(index=closest_light.srIndex, distance=closest_light.distFromsrIndex, route=self.current.sr_route, name=f"light {closestLight} position")
+        sr_cl = OnRoute.fromLight(light=closest_light, route=self.current.sr_route, name=f"light {closestLight} position")
         d0 = drange[0] + DISTANCE_MARGIN
-        pt, brg, idx, dist = self.route.srAheadRoute(route=self.current.sr_route, i=closest_light.srIndex, dist=closest_light.distFromsrIndex, start=d0)
-        self.current.sr_min = OnRoute(index=idx, distance=dist + DISTANCE_MARGIN, route=self.current.sr_route, name="bracket min")
+        self.current.sr_min = sr_cl.forward(dist=d0)
+        self.current.sr_min.name = "bracket min"
         if SHOW_BRACKET:
+            pt = self.current.sr_min.point
             self.cursor_min.move(lat=pt.lat, lon=pt.lon, hdg=0, elev=1.0)
         d1 = (d0 + DISTANCE_MARGIN) if drange[1] < (d0 + DISTANCE_MARGIN) else drange[1] - DISTANCE_MARGIN
-        pt, brg, idx, dist = self.route.srAheadRoute(route=self.current.sr_route, i=closest_light.srIndex, dist=closest_light.distFromsrIndex, start=d1)
-        self.current.sr_max = OnRoute(index=idx, distance=dist, route=self.current.sr_route, name="bracket max")
+        self.current.sr_max = sr_cl.forward(dist=d1)
+        self.current.sr_max.name = "bracket max"
         if SHOW_BRACKET:
+            pt = self.current.sr_max.point
             self.cursor_max.move(lat=pt.lat, lon=pt.lon, hdg=0, elev=1.0)
         logger.debug(f"bracket placed from light {closestLight} at {sr_cl} => [{self.current.sr_min}, {self.current.sr_max}]")
 
@@ -936,7 +941,7 @@ class Cursor:
     def nextPosition(self, t: float):
         if self.status == CURSOR_STATUS.HOLD:
             logger.debug("probably changing route....cannot move")
-            return self.current.position, self.current.heading, self.current.sr_position, 0.0  # speed = 0.0 is wrong...
+            return self.current.sr_position, 0.0  # speed = 0.0 is wrong...
 
         if self.endOfRoute():
             logger.debug("end of route reached")
@@ -945,11 +950,11 @@ class Cursor:
                     logger.debug("no more route")
                 else:
                     self.setAimSpeed(speed=0.0, reason="no more route")
-                return self.current.position, self.current.heading, self.current.sr_position, 0.0
+                return self.current.sr_position, 0.0
 
         if self.at_rest() and self.aim_speed == 0.0:  # must remain at rest
             logger.debug("at rest, must remain at rest")
-            return self.current.position, self.current.heading, self.current.sr_position, 0.0
+            return self.current.sr_position, 0.0
 
         if self.onRoute():
             if self.destinationReached():
@@ -963,7 +968,7 @@ class Cursor:
                     if not self.beforeBracket():
                         logger.debug("at rest and after minimal distance, no need to move on")
                         # speed will be adjsuted in adjustSpeed() since acf_dist < drange[0]
-                        return self.current.position, self.current.heading, self.current.sr_position, 0.0
+                        return self.current.sr_position, 0.0
                     else:  # no move yet
                         logger.debug("before minimal distance, need to move on")  # debug, remove
                 elif self.bracketEndReached():
@@ -1000,14 +1005,14 @@ class Cursor:
             self.indicator = self.nextTurnIndicator()  # compute turn indicator code for turns
 
         d = t * self.current.speed
-        point, hdg, idx, dist = self.route.srAheadRoute(self.current.sr_route, i=self.current.sr_position.index, start=self.current.sr_position.distance, dist=d)
-        sr_position = OnRoute(index=idx, distance=dist, route=self.current.sr_route, name="current position")
+        sr_position = self.current.sr_position.forward(dist=d)
+        sr_position.name = "current position"
         # logger.debug(f"d={sf(self.distance(self.aircraft.position_point()), 'm')}, car={sf(self.current.speed, 'm/s')}, acf={sf(self.aircraft.speed(), 'm/s')}")
         # logger.debug(f"progress {idx} {sf(dist, 'm')}")
-        return point, hdg, sr_position, self.current.speed
+        return sr_position, self.current.speed
 
     def _move(self, t: float) -> int | float:
-        self.current.position, dummy, self.current.sr_position, self.current.speed = self.nextPosition(t=t)
+        self.current.sr_position, self.current.speed = self.nextPosition(t=t)
         if self.current.speed > 0:
             self.cursor.move(lat=self.current.position.lat, lon=self.current.position.lon, hdg=self.current.heading, elev=self.detail.above_ground)
             if self.indicator_cursor is not None:
@@ -1034,7 +1039,7 @@ class Cursor:
             # s1 = destination(fs.start, fs.bearing() + rnd * 90, self.SPAWN_SIDE_DISTANCE)  # use acf.heading()?
             # spawn = destination(s1, fs.bearing(), self.SPAWN_SIDE_DISTANCE)  # use acf.heading()?
             # from spot to begining of route
-            join_sr_route = self.route.srStraightRoute(start=spawn, end=self.ftg.route.vertices[0], heading=self.ftg.route.edges_orient[0])
+            join_sr_route = self.route.mkSmoothJoinRoute(start=spawn, end=self.ftg.route.vertices[0], heading=self.ftg.route.edges_orient[0])
             self.init(route=join_sr_route, position=spawn, heading=join_sr_route[0].getProp(SMOOTH_ROUTE.BEARING), speed=0.0)  # @todo always spawned at rest?
             ahead = self.aircraft.adjustAhead(rabbit_mode=self.lights.rabbit_mode)
 
@@ -1049,8 +1054,11 @@ class Cursor:
                 logger.debug("no close light to start")
                 closestLight = 0
             light_ahead, light_index, dist_left = self.lights.lightAhead(index_from=closestLight, ahead=ahead)
+            onr_la = OnRoute.fromLight(light=light_ahead, route=self.route.smoothRoute, name="light ahead")
             next_stop_light = self.lights.lights[nextStop]
-            if next_stop_light.srIndex < light_ahead.srIndex or (next_stop_light.srIndex == light_ahead.srIndex and next_stop_light.distFromsrIndex < light_ahead.distFromsrIndex):
+            onr_ns = OnRoute.fromLight(light=next_stop_light, route=self.route.smoothRoute, name="next stop light")
+            # if next_stop_light.srIndex < light_ahead.srIndex or (next_stop_light.srIndex == light_ahead.srIndex and next_stop_light.distFromsrIndex < light_ahead.distFromsrIndex):
+            if onr_la.after(target=onr_ns):
                 self.mustStopAt(nextStop)
                 self.addRoute(
                     route_part=RoutePart(
@@ -1082,7 +1090,7 @@ class Cursor:
         ahead_at_join = acf_ahead + ahead
         logger.debug(f"ahead_at_join={round(ahead_at_join, 1)}m = ahead={round(ahead,1)}m + acf_ahead={round(acf_ahead,1)}m")
         light_ahead, light_index, dist_left = self.lights.lightAhead(index_from=closestLight, ahead=ahead_at_join)
-        join_route = self.route.srStraightRoute(start=spawn, end=light_ahead.position, heading=light_ahead.heading)
+        join_route = self.route.mkSmoothJoinRoute(start=spawn, end=light_ahead.position, heading=light_ahead.heading)
         initial_speed = join_route[-1].getProp(SMOOTH_ROUTE.TOTAL) / ROUTE_JOIN_TIME
         logger.debug(f"spawning ahead {round(ahead / 2, 1)}m at {rnd} {SPAWN_SIDE_DISTANCE}m side of precise start position, speed is {round(initial_speed,1)}m/s..")
         # we spawn the car at aircraft speed + speed to travel in front of acf.
@@ -1152,7 +1160,7 @@ class Cursor:
         hdg = hdg + 90 * rnd
         td = LEAVE_DIST_AHEAD / spd
         logger.debug(f"carry forward {sf(LEAVE_DIST_AHEAD, 'm')} in {sf(td, 's')} heading {sf(hdg1, 'D')}, terminates heading {sf(hdg, 'D')}")
-        leave_sr_route = self.route.srStraightRoute(start=end, end=d1, heading=hdg)
+        leave_sr_route = self.route.mkSmoothJoinRoute(start=end, end=d1, heading=hdg)
         self.addRoute(route_part=RoutePart(route=leave_sr_route, speed=self.detail.normal_speed, comment="leaving route"))
         self.setAimSpeed(speed=self.detail.normal_speed, reason="finishing, start quitting")
 
@@ -1161,7 +1169,7 @@ class Cursor:
         spd = self.detail.leave_speed
         td = LEAVE_DIST_SIDE / spd
         logger.debug(f"carry sideway {sf(LEAVE_DIST_SIDE, 'm')} in {sf(td, 's')} heading {sf(hdg, 'D')}")
-        exit_sr_route = self.route.srStraightRoute(start=d1, end=final_dest, heading=hdg)
+        exit_sr_route = self.route.mkSmoothJoinRoute(start=d1, end=final_dest, heading=hdg)
         self.addRoute(route_part=RoutePart(route=exit_sr_route, speed=self.detail.normal_speed, comment="exit scenery"))
         self.active = False
         logger.debug("cursor inactive")  # i.e. does not respond to external messages anymore
@@ -1196,7 +1204,7 @@ class Cursor:
             # logger.debug("..not moved")
             if self.fmc_light_progress < nextStop:
                 light_at_stop = self.lights.lights[nextStop]
-                self.target.sr_position = OnRoute(index=light_at_stop.srIndex, distance=light_at_stop.distFromsrIndex, route=self.route.smoothRoute, name="target with stop")
+                self.target.sr_position = OnRoute.fromLight(light=light_at_stop, route=self.route.smoothRoute, name="target with stop")
                 self.cursor_mid.move(lat=light_at_stop.position.lat, lon=light_at_stop.position.lon, hdg=0, elev=1.0)
                 self.adjustSpeed(ahead=total_ahead)
                 self.fmc_light_progress = nextStop
@@ -1206,7 +1214,7 @@ class Cursor:
         else:
             # logger.debug(f"light ahead={light_index} on edge index={light_ahead.edgeIndex}, distance from edge={round(light_ahead.distFromEdgeStart, 1)}m")
             # logger.debug(f"future_index to i={light_ahead.edgeIndex}, d={round(light_ahead.distFromEdgeStart,1)}m, spd={round(fmc_speed,1)}m/s")
-            self.target.sr_position = OnRoute(index=light_ahead.srIndex, distance=light_ahead.distFromsrIndex, route=self.route.smoothRoute, name="target no stop")
+            self.target.sr_position = OnRoute.fromLight(light=light_ahead, route=self.route.smoothRoute, name="target no stop")
             self.cursor_mid.move(lat=light_ahead.position.lat, lon=light_ahead.position.lon, hdg=0, elev=1.0)
             self.adjustSpeed(ahead=total_ahead)
             self.fmc_light_progress = light_index

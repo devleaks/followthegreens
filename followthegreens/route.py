@@ -62,12 +62,12 @@ NOT_ON_ROUTE = -1
 
 @dataclass
 class OnRoute:
-    """4 position with other information"""
+    """Position on route, expressed as vertex and distance AFTER that vertex on route"""
 
-    index: int = NOT_ON_ROUTE
+    index: int = NOT_ON_ROUTE  # vertex index on route
     distance: float = 0.0  # distance "forward" from above index
-    route: tuple | None = None  # pointer to route
-    name: str = ""
+    route: tuple = tuple()  # pointer to route
+    name: str = ""  # for debugging
 
     def __str__(self):
         """Returns a string containing only the non-default field values."""
@@ -82,8 +82,16 @@ class OnRoute:
         return f"{type(self).__name__}({s})"
 
     @staticmethod
-    def fromLight(light, route):
-        return OnRoute(index=light.srIndex, distance=ligth.distFromsrIndex, route=route)
+    def fromLight(light, route, name:str = ""):
+        return OnRoute(index=light.srIndex, distance=light.distFromsrIndex, route=route, name=name)
+
+    @property
+    def has_route(self) -> bool:
+        return self.route is not None and len(self.route) > 0
+
+    @property
+    def on_route(self) -> bool:
+        return self.index != NOT_ON_ROUTE
 
     @property
     def vertex(self) -> Point:
@@ -95,7 +103,10 @@ class OnRoute:
 
     @property
     def edge_length(self) -> float:
-        return self.vertex.getProp(SMOOTH_ROUTE.DISTANCE.value)
+        l = self.vertex.getProp(SMOOTH_ROUTE.DISTANCE.value)
+        if self.distance > l:
+            logger.warning(f"distance larger than edge length {self}")
+        return l
 
     @property
     def to_next(self) -> float:
@@ -103,24 +114,37 @@ class OnRoute:
 
     @property
     def point(self) -> Point:
+        # Point at position
+        if self.distance > self.edge_length:
+            logger.warning(f"distance larger than edge length {self}")
         return destination(src=self.vertex, brngDeg=self.bearing, d=self.distance)
 
+    def after(self, target: OnRoute) -> bool:
+        return self.reached(target=target)
+
+    def before(self, target: OnRoute) -> bool:
+        return not self.reached(target=target)
+
+    def at(self, target: OnRoute, margin: float = 1.0) -> bool:
+        # margin, distances, in meter
+        return self.distanceTo(target=target) < margin
+
     def reached(self, target: OnRoute, dist: float = 0.0) -> bool:
-        # Means self is at or after target
-        if self.route is None:
+        # Means self is at or after target, could be called .after(target)
+        if not self.has_route:
             logger.warning("no route")
             return False
 
-        if target.route is None:
+        if not target.has_route:
             logger.warning("no target route")
+            return False
+
+        if not self.on_route:
+            logger.warning("not on route")
             return False
 
         if self.route != target.route:
             logger.warning(f"not on same route {self.name} vs {len(target.name)}")
-            return False
-
-        if target.index == NOT_ON_ROUTE:
-            logger.debug(f"target not on route {target}")
             return False
 
         t2 = target
@@ -139,6 +163,7 @@ class OnRoute:
         return r
 
     def distanceTo(self, target: OnRoute) -> float:
+        # always positive
         if self.route is None or target.route is None:
             logger.debug("no route")
             return 0.0
@@ -994,7 +1019,7 @@ class Route:
         # distance between two points on smoothRoute
         return self.srDistanceRoute(self.smoothRoute, i1=i1, dist1=dist1, i2=i2, dist2=dist2)
 
-    def srStraightRoute(self, start: Point, end: Point, heading: float, text: str = ""):  # should pass fmcam.detail? to get radius, speed...
+    def mkSmoothJoinRoute(self, start: Point, end: Point, heading: float, text: str = ""):  # should pass fmcam.detail? to get radius, speed...
         # Direct segment to join route with turn at the end towards heading
         # To Do: Add initial turn from a starting heading towards end point
         route = []
