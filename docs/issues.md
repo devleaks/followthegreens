@@ -34,7 +34,10 @@ pilot should cancel the previous session and restart a new one to take
 into account all changes.
 
 
-# FMC stop
+# Follow me car Jumps
 
-When FMC stops in a turn or at the end of a turn,
-it restarts at the same distance but on the edge (little jump).
+In rare, known circumstances, the Follow Me Car may produce little "jumps" rather than smoothly follow a curve.
+This happens when 2 turns are too close to each other, when the first turn "terminates" inside the second turn.
+This is a rare event as taxiways are more often large straight lines.
+Solving this event implies loading a substantial helping package (for Bézier curves) not required for other operations.
+For simplicity, we chose not to impose that large package, unnecessary in 99% of the time.

@@ -82,7 +82,7 @@ class OnRoute:
         return f"{type(self).__name__}({s})"
 
     @staticmethod
-    def fromLight(light, route, name:str = ""):
+    def fromLight(light, route, name: str = ""):
         return OnRoute(index=light.srIndex, distance=light.distFromsrIndex, route=route, name=name)
 
     @property
@@ -939,28 +939,28 @@ class Route:
             self.idxcache = closest.getProp(SMOOTH_ROUTE.INDEX)
         return None if closest is None else route[closest], shortest
 
-    def srClosestOnRoute(self, route: tuple, point: Point) -> tuple:
+    def srClosestOnRoute(self, route: tuple, point: Point) -> OnRoute:
         # 360 – maximum angle + minimum angle
         closest, dist = self.srClosest(route=route, point=point)
         if closest is None:
             logger.log(8, "not found")
-            return None, dist
+            return OnRoute(index=NOT_ON_ROUTE, distance=dist, route=route)
         idx = closest.getProp(SMOOTH_ROUTE.INDEX)
         if idx == 0:  # first
             logger.log(8, "first segment")
-            return idx, dist
+            return OnRoute(index=idx, distance=dist, route=route)
         if idx == (len(route) - 1):  # last
             logger.log(8, "last segment")
-            return len(route) - 2, distance(route[-2], point)
+            return OnRoute(index=len(route) - 2, distance=distance(route[-2], point), route=route)
         b1 = bearing(closest, point)
         b2 = bearing(closest, route[idx + 1])
         trn = turn(b1, b2)
         logger.log(8, f"turn: {trn}")
         if abs(trn) > 175:  # opposite
             logger.log(8, "previous")
-            return idx - 1, distance(route[idx - 1], point)
+            return OnRoute(index=idx - 1, distance=distance(route[idx - 1], point), route=route)
         logger.log(8, "current")
-        return idx, dist
+        return OnRoute(index=idx, distance=dist, route=route)
 
     def srAheadRoute(self, route, i: int, dist: float, start: float = 0) -> tuple:
         # move dist after start after route[i]
