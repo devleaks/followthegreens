@@ -2,6 +2,7 @@
 # Airport information container: name, taxi routes, runways, ramps, holding positions, etc.
 #
 from __future__ import annotations
+from abc import ABC, abstractmethod
 import os
 import math
 from enum import StrEnum
@@ -202,6 +203,25 @@ class OnRoute:
         d = self.route[i].getProp(SMOOTH_ROUTE.DISTANCE)
         next_or = OnRoute(index=i, distance=d, route=self.route)  # == OnRoute(index=self.index, distance=0.0, route=self.route)
         return next_or.backward(dist=dist - self.distance)
+
+
+class Vehicle(ABC):
+
+    @abstractmethod
+    def position(self) -> tuple:
+        return (0.0, 0.0)
+
+    @abstractmethod
+    def position_point(self) -> Point:
+        return Point(*self.position())
+
+    @abstractmethod
+    def speed(self) -> float:
+        pass
+
+    # closestLight(lights) -> int
+    # distanceToNextTurn(route) -> 345, LEFT
+    # distanceToNextStop(lights) -> 647
 
 
 class Turn:

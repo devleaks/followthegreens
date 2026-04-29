@@ -185,6 +185,9 @@ class FlightLoop:
     def hasRabbit(self) -> bool:
         return self.ftg.lights.hasRabbit() if self.ftg.lights is not None else False
 
+    def hasFMCar(self) -> bool:
+        return self.ftg is not None and self.ftg.fmcar is not None
+
     @property
     def may_rabbit_autotune(self) -> bool:
         return self._may_adjust_rabbit and not self.manual_mode
@@ -272,6 +275,9 @@ class FlightLoop:
     def taxiStarted(self) -> bool:
         return self.actual_start is not None
 
+    def taxiEnded(self) -> bool:
+        return self._taxi_ended
+
     def taxiStart(self):
         # isolated a few markers taken when we detect taxi actually starts...
         self.actual_start = datetime.now(tz=timezone.utc).replace(microsecond=0)
@@ -289,7 +295,7 @@ class FlightLoop:
         if not self.taxiStarted():
             logger.debug("taxi not started")
             return
-        if self._taxi_ended:
+        if self.taxiEnded():
             # logger.debug("taxi already ended")
             return
         self._taxi_ended = True
@@ -515,6 +521,11 @@ class FlightLoop:
     def closingToStop(self):
         return self.nextStop != NO_STOP_AHEAD
 
+    def closingToStop(self, aircraft) -> bool:
+        pos = aircraft.position_point()
+        nextStop, warn = self.ftg.lights.toNextStop(pos)
+        return warn < aircraft.warningDistance()
+
     def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
         # show rabbit in front of plane.
@@ -565,11 +576,8 @@ class FlightLoop:
 
         if not self.taxiStarted():
             # FM Car hook #1
-            if fmcar is not None and not fmcar.inited:
-                try:
-                    fmcar.spawn(nextStop=nextStop)
-                except:
-                    logger.error("error spawning fmcar", exc_info=True)
+            if self.hasFMCar() and not fmcar.inited:
+                fmcar.spawn(nextStop=nextStop)
             #
             if aircraft.moved() > AIRCRAFT_MIN_DIST or aircraft.moving():
                 self.taxiStart()
@@ -589,11 +597,8 @@ class FlightLoop:
         if nextStop and warn < aircraft.warningDistance():
             logger.debug(f"closing to stop (at light index={nextStop}, d={round(warn, 1)}m)")
             self.nextStop = nextStop
-            if fmcar is not None:
-                try:
-                    fmcar.mustStopAt(nextStop=nextStop)
-                except:
-                    logger.error("fmcar mustStopAt", exc_info=True)
+            if self.hasFMCar():
+                fmcar.mustStopAt(nextStop=nextStop)
             if self.hasRabbit():
                 if self.rabbitMode != RABBIT_MODE.SLOWEST:
                     self.allowRabbitAutotune("close to stop, allow autotune to force update to SLOWEST..")
@@ -607,11 +612,8 @@ class FlightLoop:
                 logger.debug(f"show_clearance_popup = {self.show_clearance_popup}")
         else:
             self.nextStop = NO_STOP_AHEAD
-            if fmcar is not None:
-                try:
-                    fmcar.canContinue()
-                except:
-                    logger.error("fmcar canContinue", exc_info=True)
+            if self.hasFMCar():
+                fmcar.canContinue()
             if not self.may_rabbit_autotune:
                 self.allowRabbitAutotune("no longer close to stop")
 
@@ -628,26 +630,15 @@ class FlightLoop:
         if closestLight < self.acf_light_progress:
             logger.debug(f"backup detected, ignoring closestLight={closestLight}, using {self.acf_light_progress}, no progress")
             closestLight = max(closestLight, self.acf_light_progress)
-        else:
-            # FM Car hook #2
-            if fmcar is not None:
-                try:
-                    fmcar.move(
-                        elapsedSinceLastCall=elapsedSinceLastCall,
-                        closestLight=closestLight,
-                        nextStop=nextStop,
-                    )
-                    if fmcar.isDeleted():
-                        self.ftg.fmcar = None  # ready to create a new one
-                except:
-                    logger.error("error moving fmcar", exc_info=True)
-            #
 
-        if closestLight == (len(self.ftg.lights.lights) - 1):  # at end
+        if self.ftg.lights.isLastLight(index=closestLight):  # at end
             self.taxiEnd()
 
         if self.hasRabbit():
             self.adjustRabbit(position=pos, closestLight=closestLight, acf_speed=acf_speed)  # Here is the 4D!
+
+        if self.hasFMCar() and self.taxiEnded() and fmcar.isDeleted():
+            self.ftg.fmcar = None  # ready to create a new one
 
         self.acf_light_progress = closestLight
 

@@ -10,6 +10,7 @@ except ImportError:
 from .globals import logger, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT, AMBIANT_RWY_LIGHT, RABBIT_MODE, AIRCRAFT_MIN_SPEED
 from .geo import distance, Point
 from .se import daylight
+from .route import Vehicle
 
 # fmt: off
 ICAO_AND_IATA_AIRLINERS_CODES = [
@@ -199,13 +200,14 @@ DEFAULT_HARDCODED_RANGE = [70, 150]
 HARDCODED_AHEAD_LIMITS = [45, 250]
 
 
-class Aircraft:
+class Aircraft(Vehicle):
 
     # Adjustment of distance and/or speed for rabbit
     RABBIT_FACTOR_DISTANCE = {RABBIT_MODE.SLOWEST: 0.70, RABBIT_MODE.SLOWER: 0.85, RABBIT_MODE.MED: 1.00, RABBIT_MODE.FASTER: 1.15, RABBIT_MODE.FASTEST: 1.30}
     RABBIT_FACTOR_SPEED = {RABBIT_MODE.SLOWEST: 0.85, RABBIT_MODE.SLOWER: 0.92, RABBIT_MODE.MED: 1.00, RABBIT_MODE.FASTER: 1.08, RABBIT_MODE.FASTEST: 1.15}
 
     def __init__(self, prefs: dict = {}):
+        Vehicle.__init__(self)
         self.prefs = prefs
         self.icao = None
 
@@ -238,6 +240,10 @@ class Aircraft:
         # If modified in preference file
         self.setPreferences()
         self._ahead_range_base = []
+
+        self._last_speed = -1
+        self._last_speed_time = datetime.utcnow()
+        self._last_acceleration = 0
 
         self.positions = [self.position()]
         self.speeds = [self.speed()]
@@ -313,11 +319,29 @@ class Aircraft:
         else:
             logger.debug("aircraft has no preference for class or type")
 
+    # Vehicle Interface
+    #
     def position(self) -> list:
         return [xp.getDataf(self.lat), xp.getDataf(self.lon)]
 
     def position_point(self) -> Point:
         return Point(lat=xp.getDataf(self.lat), lon=xp.getDataf(self.lon))
+
+    def heading(self) -> float:
+        return xp.getDataf(self.psi)
+
+    def speed(self) -> float:
+        s = xp.getDataf(self.groundspeed)  # sometimes fluctuates around 0...
+        now = datetime.utcnow()
+        delta = (now - self._last_speed_time).total_seconds()
+        if self._last_speed > 0 and (0 < delta < 2):
+            self._last_acceleration = (self._last_speed - s) / delta
+        self._last_speed = s
+        self._last_speed_time = now
+        return s if s > AIRCRAFT_STOPPED_SPEED else 0.0
+
+    def acceleration(self) -> float:
+        return self._last_acceleration
 
     def daylight(self, now: datetime = datetime.now(tz=timezone.utc)) -> bool:
         # report if it is daylight at aircraft position on ground at supplied datetime
@@ -443,13 +467,6 @@ class Aircraft:
         ahead = min(ahead_range) + (max(ahead_range) - min(ahead_range)) * 0.4  # 0.4 inside the braket values
         logger.debug(f"ahead={round(ahead, 1)}m")
         return ahead
-
-    def heading(self) -> float:
-        return xp.getDataf(self.psi)
-
-    def speed(self) -> float:
-        s = xp.getDataf(self.groundspeed)  # sometimes fluctuates around 0...
-        return s if s > AIRCRAFT_STOPPED_SPEED else 0.0
 
     def mark(self) -> int:
         self.positions.append(self.position())

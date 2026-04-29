@@ -567,7 +567,7 @@ class LightString:
             for i in range(len(self.stopbars)):
                 segs.append(f"#{i}:{last}-{self.stopbars[i].lightStringIndex - 1}")
                 last = self.stopbars[i].lightStringIndex
-            segs.append(f"#{len(self.stopbars)}:{last}-{len(self.lights) - 1}")
+            segs.append(f"#{len(self.stopbars)}:{last}-{self.lastLightIndex}")
             logger.debug("segments: " + ", ".join(segs))
 
         logger.debug(f"distance between taxiway center lights: {self.distance_between_green_lights} m")
@@ -602,30 +602,19 @@ class LightString:
                 return sb.lightStringIndex
             logger.debug(f"stopbar {i} already cleared")
             i = i + 1
-        # no more stop bar? return last light
-        return len(self.lights) - 1
+        # no more stop bar? return last light, even it is not a stop
+        return self.lastLightIndex
 
-    def nextStopIsEndWithNoStopbar(self, nextStop: int) -> bool:
+    def mustStopAt(self, nextStop: int) -> bool:
         # Return true if nextStop is last light and there is no stop bar at the last light
-        limit = len(self.lights) - 1
         if len(self.stopbars) > 0:
-            lastStopBar = self.stopbars[-1]
-            return lastStopBar.lightStringIndex != limit
+            last_light = self.lastLightIndex
+            if nextStop == last_light:
+                lastStopBar = self.stopbars[-1]
+                return lastStopBar.lightStringIndex == last_light
+            return not self.nextStopCleared(nextStop)
+        logger.debug(f"no stopbar ({nextStop})")
         return False
-
-    def closest(self, position, after: int = 0):
-        # Find closest light to position (often aircraft)
-        dist = math.inf
-        idx = None
-        point = Point(position[0], position[1])
-        for i in range(after, len(self.lights)):
-            light = self.lights[i]
-            d = distance(point, light.position)
-            if d < dist:
-                dist = d
-                idx = i
-
-        return [idx, dist]
 
     def nextStopCleared(self, nextStop: int) -> bool:
         s = None
@@ -647,10 +636,24 @@ class LightString:
         # logger.debug(f"control: closest={c} (at {round(d2, 1)}m), next stop={ns}, d calc={round(d3, 1)}m, d mesure={round(d, 1)}m")
         return [ns, d]
 
+    def closest(self, position, after: int = 0):
+        # Find closest light to position (often aircraft)
+        dist = math.inf
+        idx = None
+        point = Point(position[0], position[1])
+        for i in range(after, len(self.lights)):
+            light = self.lights[i]
+            d = distance(point, light.position)
+            if d < dist:
+                dist = d
+                idx = i
+
+        return [idx, dist]
+
     def lightAhead(self, index_from: int, ahead: float) -> tuple:
         move = int(ahead / self.distance_between_green_lights)
         left = ahead - move * self.distance_between_green_lights
-        idx = min(index_from + move, len(self.lights) - 1)
+        idx = min(index_from + move, self.lastLightIndex)
         return self.lights[idx], idx, left
 
     # INIT
@@ -1034,6 +1037,13 @@ class LightString:
         r = (self.rabbit_length > 0 and self.num_lights_ahead != HARDCODED_MAX_DISTANCE) or self.rabbit_speed > 0
         # logger.debug(f"haslLight {r}")
         return r
+
+    @property
+    def lastLightIndex(self) -> int:
+        return -1 if self.lights is None or len(self.lights) == 0 else len(self.lights) - 1
+
+    def isLastLight(self, index) -> bool:
+        return index >= 0 and index == self.lastLightIndex
 
     def hasRabbit(self) -> bool:
         return (abs(self.rabbit_duration) > 0 and self.num_rabbit_lights > 0) or self.lights_ahead > 0
