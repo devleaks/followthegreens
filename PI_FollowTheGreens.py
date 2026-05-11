@@ -429,7 +429,7 @@ class PythonInterface:
 
             if inMessage in (xp.MSG_SCENERY_LOADED, xp.MSG_AIRPORT_LOADED):
                 msg_name = "SCENERY_LOADED" if inMessage == xp.MSG_SCENERY_LOADED else "AIRPORT_LOADED"
-                self.debug(f"XPluginReceiveMessage: {msg_name} — invalidating all light capsules", force=True)
+                self.debug(f"XPluginReceiveMessage: {msg_name} — invalidating lights..", force=True)
 
                 if not self.enabled:
                     return
@@ -437,13 +437,15 @@ class PythonInterface:
                 if self.followTheGreens is not None:
                     # Destroy all live XPLMInstanceRef objects (turns lights off
                     # and sets every Light.instance back to None).
-                    self.followTheGreens.newLocation()
-                    self.notify(message="New location", color=GREEN)
-                    self.debug("XPluginReceiveMessage: light instances destroyed", force=True)
+                    if self.followTheGreens.newLocation():
+                        self.notify(message="New location", color=GREEN)
+                        self.debug(f"XPluginReceiveMessage: ..{msg_name.lower().replace('_', ' ')}", force=True)
+                    else:
+                        self.debug(f"XPluginReceiveMessage: ..{msg_name.lower().replace('_', ' not ')}", force=True)
 
             if inMessage == xp.MSG_PLANE_LOADED:
                 msg_name = "PLANE_LOADED"
-                self.debug(f"XPluginReceiveMessage: {msg_name} — changing aircraft", force=True)
+                self.debug(f"XPluginReceiveMessage: {msg_name} — loading aircraft..", force=True)
 
                 if not self.enabled:
                     return
@@ -451,9 +453,11 @@ class PythonInterface:
                 if self.followTheGreens is not None:
                     # Destroy all live XPLMInstanceRef objects (turns lights off
                     # and sets every Light.instance back to None).
-                    self.followTheGreens.newAircraft()
-                    self.notify(message="New aircraft", color=GREEN)
-                    self.debug("XPluginReceiveMessage: changing aircraft", force=True)
+                    if self.followTheGreens.newAircraft():
+                        self.notify(message="New aircraft", color=GREEN)
+                        self.debug("XPluginReceiveMessage: ..aircraft loaded", force=True)
+                    else:
+                        self.debug("XPluginReceiveMessage: ..aircraft not loaded", force=True)
 
         except Exception:
             # Never let a message handler crash XP.

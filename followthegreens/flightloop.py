@@ -311,7 +311,7 @@ class FlightLoop:
         self.old_starts.append((self.actual_start, self.target_time, self.planned))
         self.actual_start = None
 
-    def adjustedIter(self, acf_speed) -> float:
+    def adjustedIter(self, acf_speed: float) -> float:
         # If aircraft move fast, we check/update FtG more often
         # nextIter never changes, lastIter does
         FASTEST_PLANE_MONITOR_DURATION = 0.8  # fastest "frequency" in secs.
@@ -338,15 +338,15 @@ class FlightLoop:
             while i < len(SPEEDS):
                 if acf_speed > SPEEDS[i][0]:
                     j = SPEEDS[i][1]
-                    logger.debug(f"speed {round(acf_speed, 1)}, iter set to {j}s")
+                    logger.debug(f"acf speed {round(acf_speed, 1)}m/s, iter set to {j}s")
                     if j != self.lastIter:
-                        logger.debug(f"speed {round(acf_speed, 1)}, iter set to {j}s")
+                        logger.debug(f"acf speed {round(acf_speed, 1)}m/s, iter set to {j}s")
                         self.lastIter = j
                     return self.lastIter
                 i = i + 1
         except:
             logger.error("adjustedIter", exc_info=True)
-        logger.debug(f"regular iter {self.nextIter}s (acf={round(acf_speed, 1)}m/s)")
+        logger.debug(f"acf speed {round(acf_speed, 1)}m/s, regular iter {self.nextIter}s")
         return self.nextIter
 
     def adjustRabbit(self, position, closestLight, acf_speed):

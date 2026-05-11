@@ -219,7 +219,9 @@ class Vehicle(ABC):
     def speed(self) -> float:
         pass
 
-    # closestLight(lights) -> int
+    def closestLight(lights) -> tuple:
+        return lights.closest(self.position())
+
     # distanceToNextTurn(route) -> 345, LEFT
     # distanceToNextStop(lights) -> 647
 

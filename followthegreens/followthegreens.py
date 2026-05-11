@@ -205,7 +205,7 @@ class FollowTheGreens:
                 try:
                     self.extconfig = json.load(fp)
                     logger.info(f"external configuration file {filename} {loading}ed")
-                    logger.debug(f"external configuration file:\n{self.extconfig}")
+                    logger.debug(f"external configuration file:\n{pformat(self.extconfig)}")
                 except:
                     logger.warning(f"external configuration file {filename} not {loading}ed", exc_info=True)
                     with open(filename, "rb") as ferr:
@@ -374,7 +374,7 @@ VERSION = "{__VERSION__}"
     def rabbitModeAuto(self):
         self.flightLoop.automaticRabbitMode()
 
-    def newLocation(self):
+    def newLocation(self) -> bool:
         # called when
         # XPLM_MSG_SCENERY_LOADED = 104
         # XPLM_MSG_AIRPORT_LOADED = 107
@@ -383,15 +383,16 @@ VERSION = "{__VERSION__}"
             self.lights.destroy()
             self.lights = None
             logger.debug("light instances destroyed")
-        self.getAirport(after=False)
+        return self.getAirport(after=False)
 
-    def newAircraft(self):
+    def newAircraft(self) -> bool:
         # called when
         # XPLM_MSG_AIRPORT_LOADED = 107
         # plugin message received
         self.aircraft = Aircraft(prefs=self.prefs)
         self.status = FTG_STATUS.AIRCRAFT
         self.inc(self.aircraft.icao)
+        return True
 
     def start(self, alternate: bool = False) -> int:
         # Toggles visibility of main window.
@@ -505,6 +506,7 @@ VERSION = "{__VERSION__}"
         self.status = FTG_STATUS.AIRPORT
         if after:
             return self.afterAirport(airport.navAidID)
+        return True
 
     def afterAirport(self, airport):
         return self.getDestination(airport)

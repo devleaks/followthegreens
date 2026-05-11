@@ -563,12 +563,18 @@ class LightString:
         logger.info(f"added {len(self.lights)} lights, {self.segments + 1} segments, {len(self.stopbars)} stop bars")
         if len(self.stopbars) > 0:
             segs = []
+            sbars = []
             last = 0
             for i in range(len(self.stopbars)):
+                sbars.append(str(self.stopbars[i].lightStringIndex))
                 segs.append(f"#{i}:{last}-{self.stopbars[i].lightStringIndex - 1}")
                 last = self.stopbars[i].lightStringIndex
             segs.append(f"#{len(self.stopbars)}:{last}-{self.lastLightIndex}")
             logger.debug("segments: " + ", ".join(segs))
+            logger.debug("stop bars at indices: " + ", ".join(sbars))
+        else:
+            logger.debug(f"one segment 0-{len(self.lights)-1}")
+            logger.debug("no stop bar")
 
         logger.debug(f"distance between taxiway center lights: {self.distance_between_green_lights} m")
         logger.debug(f"lights ahead: {self.num_lights_ahead},  {self.aircraft.lights_ahead} m")
@@ -607,12 +613,19 @@ class LightString:
 
     def mustStopAt(self, nextStop: int) -> bool:
         # Return true if nextStop is last light and there is no stop bar at the last light
+        logger.debug(f"must stop at {nextStop}?")
         if len(self.stopbars) > 0:
             last_light = self.lastLightIndex
             if nextStop == last_light:
+                logger.debug(f"next stop is last light ({nextStop})")
                 lastStopBar = self.stopbars[-1]
-                return lastStopBar.lightStringIndex == last_light
-            return not self.nextStopCleared(nextStop)
+                r = lastStopBar.lightStringIndex == last_light
+                if r:
+                    logger.debug(f"last stop bar is at last light ({lastStopBar.lightStringIndex} = {last_light})")
+                return r
+            r = self.nextStopCleared(nextStop)
+            logger.debug(f"next stop is not last light ({nextStop} != {last_light}), next stop bar cleared = {r}")
+            return not r
         logger.debug(f"no stopbar ({nextStop})")
         return False
 
@@ -621,6 +634,7 @@ class LightString:
         i = 0
         while s is None and i < len(self.stopbars):
             if self.stopbars[i].lightStringIndex <= nextStop:  # if nextStop provided by nextStop(), must be lightStringIndex == nextStop
+                logger.debug(f"at {nextStop}, next stop bar at {self.stopbars[i].lightStringIndex} is {self.stopbars[i].cleared}")
                 s = self.stopbars[i]
             i += 1
         return s is None or s.cleared
