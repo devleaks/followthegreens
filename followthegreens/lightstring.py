@@ -186,18 +186,18 @@ class XPObject:
 
     def groundXYZ(self, latstr, lonstr, altstr):
         lat, lon, alt = (float(latstr), float(lonstr), float(altstr))
-        (x, y, z) = xp.worldToLocal(lat, lon, alt)  # this return proper altitude
+        x, y, z = xp.worldToLocal(lat, lon, alt)  # this return proper altitude
         probe = xp.createProbe(xp.ProbeY)
         info = xp.probeTerrainXYZ(probe, x, y, z)
         if info.result == xp.ProbeError:
             logger.debug("terrain error")
-            (x, y, z) = xp.worldToLocal(lat, lon, alt)
+            x, y, z = xp.worldToLocal(lat, lon, alt)
         elif info.result == xp.ProbeMissed:
             logger.debug("terrain Missed")
-            (x, y, z) = xp.worldToLocal(lat, lon, alt)
+            x, y, z = xp.worldToLocal(lat, lon, alt)
         elif info.result == xp.ProbeHitTerrain:
             # logger.debug("Terrain info is [{}] {}".format(info.result, info))
-            (x, y, z) = (info.locationX, info.locationY, info.locationZ)
+            x, y, z = (info.locationX, info.locationY, info.locationZ)
             # (lat, lng, alt) = xp.localToWorld(info.locationX, info.locationY, info.locationZ)
             # logger.debug('lat, lng, alt is {} feet'.format((lat, lng, alt * 3.28)))
         xp.destroyProbe(probe)
@@ -211,7 +211,7 @@ class XPObject:
             return
         self.lightObject = lightType.obj
         pitch, roll, alt = (0, 0, 0)
-        (x, y, z) = self.groundXYZ(self.position.lat, self.position.lon, alt)
+        x, y, z = self.groundXYZ(self.position.lat, self.position.lon, alt)
         self.xyz = (x, y, z, pitch, self.heading, roll)
 
         if lightTypeOff is not None and self.instanceOff is None:
@@ -244,7 +244,7 @@ class XPObject:
             lat = p.lat
             lon = p.lon
         pitch, roll, alt = (0, 0, 0)
-        (x, y, z) = self.groundXYZ(lat, lon, alt)
+        x, y, z = self.groundXYZ(lat, lon, alt)
         # if fwd != 0.0:
         #     x, y = self.coordinates_of_adjusted_ref(x, z, fwd, 0, hdg)
         xyz = (x, y + elev, z, pitch, hdg, roll)
@@ -623,18 +623,18 @@ class LightString:
                 if r:
                     logger.debug(f"last stop bar is at last light ({lastStopBar.lightStringIndex} = {last_light})")
                 return r
-            r = self.nextStopCleared(nextStop)
-            logger.debug(f"next stop is not last light ({nextStop} != {last_light}), next stop bar cleared = {r}")
+            r = self.stopCleared(nextStop)
+            logger.debug(f"next stop is not last light ({nextStop} != {last_light}), next stop bar cleared={r}")
             return not r
         logger.debug(f"no stopbar ({nextStop})")
         return False
 
-    def nextStopCleared(self, nextStop: int) -> bool:
+    def stopCleared(self, nextStop: int) -> bool:
         s = None
         i = 0
         while s is None and i < len(self.stopbars):
             if self.stopbars[i].lightStringIndex <= nextStop:  # if nextStop provided by nextStop(), must be lightStringIndex == nextStop
-                logger.debug(f"at {nextStop}, next stop bar at {self.stopbars[i].lightStringIndex} is {self.stopbars[i].cleared}")
+                logger.debug(f"at {nextStop}, next stop bar at {self.stopbars[i].lightStringIndex}, cleared={self.stopbars[i].cleared}")
                 s = self.stopbars[i]
             i += 1
         return s is None or s.cleared

@@ -206,24 +206,68 @@ class OnRoute:
 
 
 class Vehicle(ABC):
+    # ABC for Aircraft and Follow Me car since they share/face common properties and tasks
+    #
+    # - Position, heading, speed,
+    # - Started, stopped, moving,
+    # - Next (mandatory) stop, status of stop
+    # - Info like: closest light
+    # - Properties of vehicle: sizes, distance to brake to stop, "warning distance", acceleration, deceleration
+    #
 
     @abstractmethod
     def position(self) -> tuple:
-        return (0.0, 0.0)
+        raise NotImplementedError
 
-    @abstractmethod
     def position_point(self) -> Point:
         return Point(*self.position())
 
     @abstractmethod
     def speed(self) -> float:
-        pass
+        raise NotImplementedError
 
-    def closestLight(lights) -> tuple:
+    @abstractmethod
+    def warningDistance(self, target: float = 0.0) -> float:
+        raise NotImplementedError
+
+    def closestLight(self, lights) -> tuple:
         return lights.closest(self.position())
 
-    # distanceToNextTurn(route) -> 345, LEFT
-    # distanceToNextStop(lights) -> 647
+    def nextTurn(self, ftg, closestLight: int) -> tuple:
+        # Returns distance, turn angle
+        # 1. next vertex
+        route = ftg.lights.route
+        light = ftg.lights.lights[closestLight]
+        next_vertex = light.edgeIndex + 1
+        if next_vertex >= len(route.route):  # end of route
+            next_vertex = len(route.route) - 1
+            logger.debug("end of route")
+        nextvtxid = route.route[next_vertex]
+        nextvtx = route.graph.get_vertex(nextvtxid)
+
+        # 2. distance to that next vertex and turn at that vertex
+        pos = self.position()
+        dist_from_vehicle_to_next_vtx = distance(Point(lat=pos[0], lon=pos[1]), nextvtx)
+        turn_angle = route.turns[light.edgeIndex]
+
+        TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
+        idx = next_vertex
+        while abs(turn_angle) < TURN_LIMIT and idx < len(route.turns):
+            turn_angle = route.turns[idx]
+            idx = idx + 1
+        if idx >= len(route.route):  # end of route
+            idx = len(route.route) - 1
+            logger.debug("end of route")
+        dist_from_next_vtx_to_next_turn = 0 if abs(route.turns[next_vertex]) > TURN_LIMIT else route.dtb[next_vertex]
+
+        # 3. packing summary
+        dist_before_turn = dist_from_vehicle_to_next_vtx + dist_from_next_vtx_to_next_turn
+        return dist_before_turn, turn_angle
+
+    def nextStop(self, ftg, closestLight: int) -> tuple:
+        # Returns light index, distance, whether next stop cleared
+        light_index, distance_to_stop = ftg.lights.toNextStop(self.position())
+        return light_index, distance_to_stop, ftg.lights.stopCleared(nextStop=light_index)
 
 
 class Turn:
@@ -428,23 +472,16 @@ class Route:
             return self.dleft[idx], self.tleft[idx]
         return 0, 0
 
-    def before_route(self):
+    def beforeRoute(self):
         # Original point to first vertex
         return Line(start=self.precise_start, end=self.vertices[0])
 
-    def after_route(self):
+    def afterRoute(self):
         # Last vertex to destination
         return Line(start=self.vertices[-1], end=self.precise_end)
 
-    def from_edge(self, i: int, position: Point) -> float | None:
-        if self.vertices is not None and len(self.vertices) > i:
-            return distance(self.vertices[i], position)
-        return None
-
-    def on_edge(self, i: int, dist: float) -> Point | None:
-        if self.vertices is not None and len(self.vertices) > i:
-            return destination(self.vertices[i], self.edges_orient[i], dist)
-        return None
+    def orientLastVertex(self) -> float:
+        return self.departure_runway.bearing() if self.move == MOVEMENT.DEPARTURE and self.departure_runway is not None else self.edges_orient[-1]
 
     def mkEdges(self):
         # From liste of vertices, build list of edges
@@ -477,9 +514,6 @@ class Route:
         self.dleft.append(total)
         self.dleft.reverse()
         logger.debug(f"distance left to destination at vertex: {[round(e, 1) for e in self.dleft]}")
-
-    def orientLastVertex(self) -> float:
-        return self.departure_runway.bearing() if self.move == MOVEMENT.DEPARTURE and self.departure_runway is not None else self.edges_orient[-1]
 
     def mkVertices(self):
         self.vertices = list(map(lambda x: self.graph.get_vertex(x), self.route))
@@ -1168,6 +1202,8 @@ class Route:
 
         return route
 
+    # TESTS / DEBUG
+    #
     def stats(self):
         logger.debug(f"equiv {self._srcnt}, scan={self._srscan}, ahead recur={self._srrecurr}")
 

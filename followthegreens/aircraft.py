@@ -458,7 +458,7 @@ class Aircraft(Vehicle):
         # logger.debug(f"ahead range {r} adjusted from {self._ahead_range_base} for rabbit_mode={rabbit_mode}, hard limits={HARDCODED_AHEAD_LIMITS})")
         return r
 
-    def adjustAhead(self, rabbit_mode: RABBIT_MODE) -> float:
+    def adjustAhead(self, rabbit_mode: RABBIT_MODE, return_range: bool = False) -> float | tuple:
         # adjust aircraft/environment (visibility, daylight, etc.) range
         # for aircraft speed and rabbit mode (which is an invitation to adjust speed:
         # too fast->range smaller, too slow->range larger)
@@ -466,7 +466,9 @@ class Aircraft(Vehicle):
         ahead_range = self.adjustAheadRange(rabbit_mode=rabbit_mode)  # already adjusted for visibility conditions
         ahead = min(ahead_range) + (max(ahead_range) - min(ahead_range)) * 0.4  # 0.4 inside the braket values
         logger.debug(f"ahead={round(ahead, 1)}m")
-        return ahead
+        if not return_range:
+            return ahead
+        return ahead, ahead_range
 
     def mark(self) -> int:
         self.positions.append(self.position())

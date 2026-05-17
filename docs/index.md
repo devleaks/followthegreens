@@ -574,6 +574,7 @@ You can get support in the [forum thread dedicated to FtG](https://forums.x-plan
 
 You can also get support on the [following discord server](https://discord.gg/s8mRAbFysx).
 
+
 ## Limits, Constraints
 
 Follow the greens, the original project is conceptually simple and should not misbehave.

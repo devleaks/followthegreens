@@ -25,7 +25,6 @@ from .globals import (
 )
 from .geo import EARTH, Point, distance
 
-
 # Hardcaded here, not preferences
 MAX_UPDATE_FREQUENCY = 10  # seconds, rabbit cannot change again more that 10 seconds it changed
 AIRCRAFT_STOPPED_SPEED = 0.01  # m/s, under that speed, things are considered stopped, not moving.
@@ -70,10 +69,13 @@ class FlightLoop:
         self.is_late = False
         self.remaining = "waiting for data..."
         self.dist_to_next_turn = 0
-        self.last_dist_to_next_vertex = -1
+        self.dist_from_next_vtx_to_next_turn = 0
+        self.last_dist_from_acf_to_next_vtx = -1
         self.total_dist = 0  # total taxi distance
         self.total_time = 0  # total taxi distance
 
+        self.last_acf_light_progress = 0
+        self.last_acf_light_progress_cnt = 0
         self.acf_light_progress = 0  # most recent light where the acf is. Can only grow.
         self._taxi_ended = False
 
@@ -87,6 +89,8 @@ class FlightLoop:
     def startFlightLoop(self):
         self.lastLit = 0
         self.acf_light_progress = 0
+        self.last_acf_light_progress = 0
+        self.last_acf_light_progress_cnt = 0
 
         if self.hasRabbit():
             if not self.rabbitRunning:
@@ -356,9 +360,9 @@ class FlightLoop:
         # If we are not close to a stop, here we are to check for turns.
         #
         # logger.debug("adjusting rabbit")
-        if not self.hasRabbit():
-            logger.debug("..no rabbit")
-            return
+        # if not self.hasRabbit():
+        #     logger.debug("..no rabbit")
+        #     return
 
         # I. Collect information
         # 1. Distance to next vertex (= distance to next potential turn)
@@ -372,16 +376,16 @@ class FlightLoop:
         nextvtx = route.graph.get_vertex(nextvtxid)
 
         # 2. distance to that next vertex and turn at that vertex
-        dist_to_next_vertex = distance(Point(lat=position[0], lon=position[1]), nextvtx)
+        dist_from_acf_to_next_vtx = distance(Point(lat=position[0], lon=position[1]), nextvtx)
 
-        if round(self.last_dist_to_next_vertex, 1) == round(dist_to_next_vertex, 1):  # not moved
+        if round(self.last_dist_from_acf_to_next_vtx, 1) == round(dist_from_acf_to_next_vtx, 1):  # not moved
             msg = "stopped"
             if self.old_msg != msg:
                 logger.debug(msg)
                 self.old_msg = msg
             return
 
-        self.last_dist_to_next_vertex = dist_to_next_vertex
+        self.last_dist_from_acf_to_next_vtx = dist_from_acf_to_next_vtx
         turn = route.turns[light.edgeIndex]
 
         # 3. current speed
@@ -402,7 +406,7 @@ class FlightLoop:
         #
         # 4. Find next "significant" turn of more than TURN_LIMIT
         # following is precomputed once and for all in mkDistToBrake() (.dtb[<route-vertex-index>])
-        # dist2 = dist_to_next_vertex
+        # dist2 = dist_from_acf_to_next_vtx
         # dist_before2 = dist2
         TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
 
@@ -416,25 +420,26 @@ class FlightLoop:
             idx = len(route.route) - 1
             logger.info("reached end of route")
 
-        # logger.debug(f"current vertex={light.edgeIndex}, distance to next vertex {idx}: {round(dist_to_next_vertex, 1)}m")
+        # logger.debug(f"current vertex={light.edgeIndex}, distance to next vertex {idx}: {round(dist_from_acf_to_next_vtx, 1)}m")
         # logger.debug(f"at vertext {idx}: turn={round(route.turns[idx], 1)} DEG")
-        dist_to_next_turn = 0 if abs(route.turns[next_vertex]) > TURN_LIMIT else route.dtb[next_vertex]
+        dist_from_next_vtx_to_next_turn = 0 if abs(route.turns[next_vertex]) > TURN_LIMIT else route.dtb[next_vertex]
         # next_turn_vertex_index = next_vertex if abs(route.turns[next_vertex]) > TURN_LIMIT else route.dtb_at[next_vertex]
         # could also be route.dtb_at[light.edgeIndex]
-        # logger.debug(f"at vertext {idx}: distance to add to next turn={round(dist_to_next_turn, 1)}m")
+        # logger.debug(f"at vertext {idx}: distance to add to next turn={round(dist_from_next_vtx_to_next_turn, 1)}m")
 
-        dist_before = dist_to_next_turn + dist_to_next_vertex
+        dist_before = dist_from_acf_to_next_vtx + dist_from_next_vtx_to_next_turn
         self.dist_to_next_turn = dist_before  # for hud, temporarily
+        self.dist_from_next_vtx_to_next_turn = dist_before  # for hud, temporarily
         taxi_speed = max(acf_speed, self.ftg.aircraft.avgTaxiSpeed())  # m/s
-        time_to_next_vertex = dist_to_next_vertex / taxi_speed
+        time_to_next_vertex = dist_from_acf_to_next_vtx / taxi_speed
 
         # logger.debug(f"acf speed={round(acf_speed, 1)}, moved {round(acf_move, 1)}m during last iteration ({self.lastIter} secs)")
         # logger.debug(f"at index {light.edgeIndex}, next turn at index {idx-1}, {round(turn)}D at {round(dist_before, 1)}m")
-        # logger.debug(f"dist to next vertex {next_vertex}: {round(dist_to_next_vertex, 1)}m, dist from next_vertex to next turn: {round(dist_to_next_turn, 1)}m")
+        # logger.debug(f"dist to next vertex {next_vertex}: {round(dist_from_acf_to_next_vtx, 1)}m, dist from next_vertex to next turn: {round(dist_from_next_vtx_to_next_turn, 1)}m")
 
         # dist to next vertex + remaining at next vertex = total left
-        self.remaining_dist = dist_to_next_vertex + route.dleft[next_vertex]
-        # logger.debug(f"remaining dist to {next_vertex}: nxt {round(dist_to_next_vertex, 1)}m + end {round(route.dleft[next_vertex], 1)}m = {round(self.remaining_dist, 1)}m")
+        self.remaining_dist = dist_from_acf_to_next_vtx + route.dleft[next_vertex]
+        # logger.debug(f"remaining dist to {next_vertex}: nxt {round(dist_from_acf_to_next_vtx, 1)}m + end {round(route.dleft[next_vertex], 1)}m = {round(self.remaining_dist, 1)}m")
 
         self.remaining_time = time_to_next_vertex + route.tleft[next_vertex] + 30
         # logger.debug(
@@ -518,13 +523,21 @@ class FlightLoop:
         except:
             logger.error("set rabbitMode", exc_info=True)
 
-    def closingToStop(self):
+    def hasToStop(self):
         return self.nextStop != NO_STOP_AHEAD
 
     def closingToStop(self, aircraft) -> bool:
         pos = aircraft.position_point()
         nextStop, warn = self.ftg.lights.toNextStop(pos)
         return warn < aircraft.warningDistance()
+
+    def lightsProgressed(self) -> bool:
+        # note: first update might be due to aircraft being "on" the light string.
+        #       second update confirms aircraft has moved on light string.
+        r = self.last_acf_light_progress_cnt > 1
+        if r:
+            logger.debug(f"lights progressed: {self.last_acf_light_progress} -> {self.acf_light_progress} ({self.last_acf_light_progress_cnt})")
+        return r
 
     def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
@@ -572,14 +585,19 @@ class FlightLoop:
             return self.nextIter
 
         fmcar = self.ftg.fmcar
-        nextStop, warn = self.ftg.lights.toNextStop(pos)
+        closestLight, dist_to_closestLight = aircraft.closestLight(lights=self.ftg.lights)
+        nextStop = NO_STOP_AHEAD
+        warn = EARTH
+        if closestLight is not None:
+            logger.debug(f"acf closest light {closestLight}")
+            nextStop, warn, cleared = aircraft.nextStop(ftg=self.ftg, closestLight=closestLight)
 
         if not self.taxiStarted():
             # FM Car hook #1
             if self.hasFMCar() and not fmcar.inited:
                 fmcar.spawn(nextStop=nextStop)
             #
-            if aircraft.moved() > AIRCRAFT_MIN_DIST or aircraft.moving():
+            if aircraft.moved() > AIRCRAFT_MIN_DIST or aircraft.moving() or self.lightsProgressed():
                 self.taxiStart()
             else:
                 msg = f"not started taxiing yet, {round(aircraft.moved(), 1)} < {AIRCRAFT_MIN_DIST}, moving={aircraft.moving()}"
@@ -598,7 +616,7 @@ class FlightLoop:
             logger.debug(f"closing to stop (at light index={nextStop}, d={round(warn, 1)}m)")
             self.nextStop = nextStop
             if self.hasFMCar():
-                fmcar.mustStopAt(nextStop=nextStop)
+                fmcar.mustStopSoon()
             if self.hasRabbit():
                 if self.rabbitMode != RABBIT_MODE.SLOWEST:
                     self.allowRabbitAutotune("close to stop, allow autotune to force update to SLOWEST..")
@@ -612,12 +630,11 @@ class FlightLoop:
                 logger.debug(f"show_clearance_popup = {self.show_clearance_popup}")
         else:
             self.nextStop = NO_STOP_AHEAD
-            if self.hasFMCar():
+            if self.hasFMCar() and fmcar.mustStop():
                 fmcar.canContinue()
             if not self.may_rabbit_autotune:
                 self.allowRabbitAutotune("no longer close to stop")
 
-        closestLight, dist = self.ftg.lights.closest(pos)
         if closestLight is None:
             if self.closestLight_cnt % 20:
                 logger.debug("no close light")
@@ -640,28 +657,32 @@ class FlightLoop:
         if self.hasFMCar() and self.taxiEnded() and fmcar.isDeleted():
             self.ftg.fmcar = None  # ready to create a new one
 
+        if self.last_acf_light_progress != self.acf_light_progress:
+            self.last_acf_light_progress_cnt += 1
+
+        self.last_acf_light_progress = self.acf_light_progress
         self.acf_light_progress = closestLight
 
         # logger.debug("closest %d %f", closestLight, distance)
-        if closestLight > self.lastLit and dist < self.diftingLimit:  # Progress OK
+        if closestLight > self.lastLit and dist_to_closestLight < self.diftingLimit:  # Progress OK
             # logger.debug("moving %d %d", closestLight, self.lastLit)
             self.lastLit = closestLight
-            self.distance_to_closest_light = dist
+            self.distance_to_closest_light = dist_to_closestLight
             return nextIter
 
-        if self.lastLit == closestLight and (abs(self.distance_to_closest_light - dist) < DISTANCE_BETWEEN_GREEN_LIGHTS):  # not moved enought, may even be stopped
+        if self.lastLit == closestLight and (abs(self.distance_to_closest_light - dist_to_closestLight) < DISTANCE_BETWEEN_GREEN_LIGHTS):  # not moved enought, may even be stopped
             # logger.debug("aircraft did not move")
             return nextIter
 
         # @todo
         # Need to send warning when pilot moves away from the green.
         # if distance > DRIFTING_DISTANCE send warning?
-        if dist > DRIFTING_DISTANCE:
-            logger.debug(f"aircraft drifting away from track? (d={round(dist, 1)} > {DRIFTING_DISTANCE})")
+        if dist_to_closestLight > DRIFTING_DISTANCE:
+            logger.debug(f"aircraft drifting away from track? (d={round(dist_to_closestLight, 1)} > {DRIFTING_DISTANCE})")
 
         # if distance > (2*DRIFTING_DISTANCE) and AUTO_REROUTE:
         #     logger.debug(f"aircraft drifting away from track? (d={round(distance, 1)} > {DRIFTING_DISTANCE}), starting new greens")
         #     self.ftg.newGreen(destination=self.ftg.destination)
-        self.distance_to_closest_light = dist
+        self.distance_to_closest_light = dist_to_closestLight
 
         return nextIter

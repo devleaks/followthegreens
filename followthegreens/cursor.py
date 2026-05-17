@@ -186,6 +186,12 @@ class Situation:
     def hasStop(self) -> bool:
         return self.sr_stop.distance != NO_STOP_AHEAD
 
+    def atStop(self) -> bool:
+        return self.sr_position.reached(target=self.sr_stop)
+
+    def clearStop(self):
+        self.sr_stop = OnRoute(index=NOT_ON_ROUTE, distance=NO_STOP_AHEAD, name="no stop")  # sr_route cannot drive beyond this point, distance < 0 is sign there is no stop
+
     def __str__(self):
         """Returns a string containing only the non-default field values."""
         # https://stackoverflow.com/questions/71344648/how-to-define-str-for-dataclass-that-omits-default-values
@@ -222,7 +228,7 @@ class RoutePart:
 
 class Cursor(Vehicle):
 
-    def __init__(self, detail, ftg) -> None:
+    def __init__(self, detail: CursorType, ftg) -> None:
         Vehicle.__init__(self)
         self._ftg = ftg
         self.detail = detail
@@ -249,7 +255,6 @@ class Cursor(Vehicle):
 
         self.route = ftg.route  # route that the cursor must follow
         self.fmc_light_progress = 0
-        self.nextStop = NO_STOP_AHEAD
 
         self._future = SimpleQueue()
 
@@ -299,6 +304,14 @@ class Cursor(Vehicle):
         return self._ftg.aircraft
 
     @property
+    def nextStop(self) -> int:
+        return NO_STOP_AHEAD if self._ftg is None else self._ftg.flightLoop.nextStop
+
+    @property
+    def lastLit(self) -> int:
+        return NO_STOP_AHEAD if self._ftg is None else self._ftg.flightLoop.lastLit
+
+    @property
     def status(self) -> CURSOR_STATUS:
         return self._status
 
@@ -338,7 +351,7 @@ class Cursor(Vehicle):
         else:
             self.hudText = HUD_TEXT.FOLLOW_ME.value
 
-    def setAimSpeed(self, speed, reason: str = "") -> float:
+    def setAimSpeed(self, speed, reason: str = ""):
         if reason != "" and reason[0] != ",":
             reason = ", " + reason
         if self._aim_speed != speed:
@@ -347,6 +360,9 @@ class Cursor(Vehicle):
             self._aim_speed = speed
         # else:
         #     logger.debug(f"aim speed already set at {speed}{reason}")
+
+    def stop(self, reason: str = "stop"):
+        self.setAimSpeed(speed=0.0, reason=reason)
 
     @property
     def aim_speed(self) -> float:
@@ -488,9 +504,13 @@ class Cursor(Vehicle):
                 slow_debug(self.cnt, "no cursor")
             self.cnt += 1
             return 3.0
+        #
+        if self.lights is None:
+            self.stop(reason="no lights")
+            return 3.0
         # Slow loop for speed/distance adjustments
         self._last_call += elapsedSinceLastCall
-        if self._last_call > self._last_call_max:
+        if self._last_call > self._last_call_max:  # self._last_call_max dynamically adjusted
             try:
                 self._adjust(elapsedSinceLastCall=self._last_call)
                 self._last_call = 0
@@ -675,6 +695,9 @@ class Cursor(Vehicle):
     def speed(self) -> float:
         return self.current.speed
 
+    def warningDistance(self, target: float = 0.0) -> float:
+        return self.detail.indicator_warning_distance
+
     # Information external interface
     #
     def distance(self, position) -> float:
@@ -728,13 +751,12 @@ class Cursor(Vehicle):
 
     # Stop bar handling from aircraft position
     #
-    def mustStopAt(self, nextStop: int):
+    def mustStopSoon(self):
         # Aim is to block until canContinue()
         self.indicator = INDICATOR.STOP
         if not self.onRoute():
             logger.warning(f"got next stop {nextStop} and not on route")
 
-        self.nextStop = nextStop
         light = self.lights.lights[nextStop]
         self.current.sr_stop = OnRoute.fromLight(light=light, route=self.route.smoothRoute, name=f"stop at light {nextStop}")
         self.cursor_stop.move(lat=light.position.lat, lon=light.position.lon, hdg=0, elev=1.0)
@@ -761,14 +783,13 @@ class Cursor(Vehicle):
         return self.current.sr_position.distanceTo(target=self.current.sr_stop)
 
     def canContinue(self):
-        # Aim is to restart after mustStopAt()
+        # Aim is to restart after mustStopSoon()
         if not self.mustStop():
             logger.debug("no stop, can continue")
             return
         # Need to add new future to restart without waiting for acf movement
         logger.debug("continuing after stop..")
         self.indicator = INDICATOR.FOLLOW_ME
-        self.nextStop = NO_STOP_AHEAD
         self.current.sr_stop = OnRoute(index=NOT_ON_ROUTE, distance=NO_STOP_AHEAD, name="no stop")
         self.cursor_stop.off()
 
@@ -816,12 +837,12 @@ class Cursor(Vehicle):
     # Local targets
     #
     def nextStopReached(self) -> bool:
-        r = False if not self.current.hasStop() else self.current.sr_position.reached(self.current.sr_stop)
+        r = False if not self.current.hasStop() else self.current.atStop()
         # if r:
         #     logger.debug("next stop reached")
         return r
 
-    def bracketEndReached(self) -> bool:
+    def afterBracket(self) -> bool:
         r = self.current.sr_position.reached(self.current.sr_max)
         # if r:
         #     logger.debug("after bracket")
@@ -891,7 +912,7 @@ class Cursor(Vehicle):
                         return self.current.sr_position, 0.0
                     else:  # no move yet
                         logger.debug("before minimal distance, need to move on")  # debug, remove
-                elif self.bracketEndReached():
+                elif self.afterBracket():
                     if self.aim_speed != 0.0:
                         if self.aim_speed < AIRCRAFT_MIN_SPEED:
                             self.setAimSpeed(speed=0.0, reason="reached maximal distance, need to stop")
@@ -953,7 +974,7 @@ class Cursor(Vehicle):
         if not self.aircraft.moving() and self.ftg.move == MOVEMENT.DEPARTURE:
             # 1. Spawn the car next to (random) side of aircraft
             rnd = 1  # 1 if (int(pos[0] * 10000) % 2) == 0 else -1
-            fs = self.ftg.route.before_route()
+            fs = self.ftg.route.beforeRoute()
             # spawn at spot randomly left or right of current aircraft position
             spawn = destination(fs.start, fs.bearing() + rnd * 90, SPAWN_SIDE_DISTANCE)  # use acf.heading()?
             ahead = self.aircraft.adjustAhead(rabbit_mode=self.lights.rabbit_mode)
@@ -977,6 +998,7 @@ class Cursor(Vehicle):
             if prev_li > 0:
                 prev_li = prev_li - 1
             prev_light = self.lights.lights[prev_li]
+            logger.debug(f"close light {closestLight} at {sf(dist, 'm')}, join at light {prev_li} (ahead {sf(ahead, 'm')})")
             join_sr_route = self.route.mkSmoothJoinRoute(start=spawn, end=prev_light.position, heading=light.heading)
             self.init(route=join_sr_route, position=spawn, heading=join_sr_route[0].getProp(SMOOTH_ROUTE.BEARING), speed=0.0)  # @todo always spawned at rest?
             if prev_li > 0:  # goes from prev_light to light
@@ -1122,7 +1144,7 @@ class Cursor(Vehicle):
         # The car goes at its initial off-route speed.
         if not self.onRoute():
             # logger.debug("not on route")
-            if self.current.speed < default_speed:
+            if self.current.speed < default_speed and self.aim_speed < default_speed:
                 stopped = "stopped" if self.current.speed == 0 else "insufficient speed"
                 logger.debug(f"not on route, {stopped}; set default speed {default_speed} (current aim speed {sf(self.aim_speed, 'm/s')})")
                 self.setAimSpeed(speed=default_speed, reason=f"not on route, {stopped}; set default speed {default_speed}")
@@ -1134,9 +1156,12 @@ class Cursor(Vehicle):
         rabbit_mode = self.lights.rabbit_mode
 
         aircraft = self.aircraft
+        if aircraft.stopped():
+            logger.debug("aircraft stopped, nothing to adjust")
+            return
+
         acf_speed = aircraft.speed()
-        drange = aircraft.adjustAheadRange(rabbit_mode=rabbit_mode)
-        ahead = self.aircraft.adjustAhead(rabbit_mode=rabbit_mode)
+        ahead, drange = aircraft.adjustAhead(rabbit_mode=rabbit_mode, return_range=True)
         pos_pt = aircraft.position_point()
         acf_dist = self.distance(pos_pt)
 
@@ -1145,7 +1170,7 @@ class Cursor(Vehicle):
 
         logger.debug(f"acf move {round(acf_move, 1)}m (loop={round(elapsedSinceLastCall, 3)}secs * speed={sf(acf_speed, 'm/s')}), accel={sf(self._acf_accel, 'm/s2')}")
 
-        closestLight, dist = self.lights.closest((pos_pt.lat, pos_pt.lon))
+        closestLight, dist = aircraft.closestLight(lights=self.lights)
         if closestLight is None:
             logger.debug("no close light to start")
             closestLight = 0
@@ -1267,7 +1292,7 @@ class Cursor(Vehicle):
             logger.debug(
                 f"car is at light={self.fmc_light_progress}, cannot move to light={light_index} because it is after stop at light {self.nextStop} that is not cleared, need to clear stop before (note: indicator={self.indicator})"
             )
-            logger.debug(f"next stop at index={self.nextStop} is {'cleared' if self.lights.nextStopCleared(self.nextStop) else 'not cleared'}")
+            logger.debug(f"next stop at index={self.nextStop} is {'cleared' if self.lights.stopCleared(self.nextStop) else 'not cleared'}")
             # logger.debug("..not moved")
             if self.fmc_light_progress < self.nextStop:
                 light_at_stop = self.lights.lights[self.nextStop]
@@ -1328,5 +1353,6 @@ class Cursor(Vehicle):
             i = i + 1
         logger.debug(f"regular iter {PLANE_MONITOR_DURATION}s (acf speed {round(acf_speed, 1)}m/s)")
         return PLANE_MONITOR_DURATION
+
 
 #

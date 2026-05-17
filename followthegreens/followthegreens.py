@@ -848,10 +848,8 @@ VERSION = "{__VERSION__}"
         return self.terminate("stopped")
 
     def toExit(self):
-        logger.error(
-            f"""If error from FollowTheGreens persist, in X-Plane, select Plugin -> XPPython3 -> Reload scripts
+        logger.error(f"""If error from FollowTheGreens persist, in X-Plane, select Plugin -> XPPython3 -> Reload scripts
 to stop and reload python scripts and effectively stop FollowTheGreens (this will also stop other python scripts.).
 FollowTheGreens will not restart unless you reactivate it.
 Please send file {os.path.join(os.path.dirname(__file__), '..', 'ftg_log.txt')} along with log.txt and XPPython3Log.txt
-to the author of the plugin to investigate the issue and fix it. Sorry for the inconvenience. Thank you."""
-        )
+to the author of the plugin to investigate the issue and fix it. Sorry for the inconvenience. Thank you.""")
