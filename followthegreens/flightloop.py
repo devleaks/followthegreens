@@ -570,7 +570,8 @@ class FlightLoop:
                 self.old_msg = msg
             return 2
 
-        self.ftg.ui.hideMainWindowIfOk(elapsedSinceLastCall)
+        self.ftg.hideWindow(elapsedSinceLastCall)
+
         aircraft = self.ftg.aircraft
 
         pos_pt = aircraft.position_point()

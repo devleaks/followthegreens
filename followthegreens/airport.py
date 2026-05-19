@@ -204,7 +204,6 @@ class Airport:
     Note: Should be split with generic non dependant airport and airport with routing, dependant on Graph
     """
 
-    HARDCODED_MAX_DISTANCE = int(6 * 7)  # m DO NOT CHANGE
     MTWYLDWC = 10  # count
 
     def __init__(self, icao, prefs: dict = {}):
@@ -342,8 +341,8 @@ class Airport:
         #
         # DID WE ASK FOR FMCAR
 
-        if self.lights_ahead != Airport.HARDCODED_MAX_DISTANCE or self.rabbit_length != 0 or self.rabbit_speed != 0:
-            logger.debug(f"no fmcar (la={self.lights_ahead}, rl={self.rabbit_length}, rs={self.rabbit_speed})")
+        if not ftg.alternate:
+            logger.debug("no alternate")
             return None
         # MAYBE, depends on movement
         # check at airport-level first...
@@ -355,7 +354,7 @@ class Airport:
             movement = self.prefs.get("MOVEMENT", ",".join([m.value for m in MOVEMENT]))
         if ftg.move.value not in movement:
             logger.debug(f"no fmcar for {ftg.move} ({movement} only)")
-            # Setting global default rather than HARDCODED_MAX_DISTANCE/0/0
+            # Setting global default
             logger.info(f"no fmcar on {ftg.move.value} at {self.icao}")
             self.rabbit_speed = get_global(RABBIT.LIGHTS_AHEAD.value, self.prefs)
             if self.lights_ahead == 0:
@@ -384,18 +383,8 @@ class Airport:
         self.cursor_type = CursorType(**fmcar)
         return Cursor(self.cursor_type, ftg)
 
-    def ensureFmcar(self):
-        self.lights_ahead = Airport.HARDCODED_MAX_DISTANCE
-        self.lights_ahead_pref = True
-        self.rabbit_length = 0
-        self.rabbit_length_pref = True
-        self.rabbit_speed = 0
-        self.rabbit_speed_pref = True
-        self.distance_between_green_lights = self.MTWYLDWC
-        self.distance_between_green_lights_pref = True
-
-    def ensureDev(self):
-        if self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False) and self.rabbit_length == 0 and self.rabbit_speed == 0:
+    def ensureDev(self) -> bool:
+        if self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False):
             self.lights_ahead = 0
             self.lights_ahead_pref = True
             self.rabbit_length = 10
@@ -403,6 +392,8 @@ class Airport:
             self.rabbit_speed = 0.166
             self.rabbit_speed_pref = True
             logger.debug(f"and lights for development (forced rabbit_speed={self.rabbit_speed} != 0)")
+            return True
+        return False
 
     def load(self):
         APT_FILES = {}

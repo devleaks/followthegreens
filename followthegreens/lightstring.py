@@ -29,7 +29,6 @@ from .globals import (
 )
 
 HARDCODED_MIN_DISTANCE = 50  # meters
-HARDCODED_MAX_DISTANCE = int(6 * 7)  # m
 HARDCODED_MIN_TIME = 0.04  # secs
 HARDCODED_MIN_RABBIT_LENGTH = 4  # lights
 
@@ -364,7 +363,7 @@ class LightString:
     #    (108-75)*distance_between_green_lights
     # No need for sophisticated calculation. Error is at most distance_between_green_lights.
 
-    def __init__(self, airport, aircraft, preferences: dict = {}):
+    def __init__(self, airport, aircraft, preferences: dict = {}, has_light: bool = True):
         self.airport = airport  # get some lighting preference from there
         self.aircraft = aircraft  # get some rabbit preference from there
         self.prefs = preferences  # get FtG preference from there
@@ -390,7 +389,7 @@ class LightString:
         self.lightTypes = None
         self.taxiway_alt = 0
         self.use_wigwag = get_global("ADD_WIGWAG", preferences=self.prefs)
-        self._hasLight = None
+        self._hasLight = has_light
         self._on_active = False
 
         # PREFERENCES
@@ -1047,10 +1046,7 @@ class LightString:
         if self._hasLight is not None:
             # logger.debug(f"haslLight1 {self._hasLight}")
             return self._hasLight
-        # logger.debug(f"rabbit_speed={self.rabbit_speed}, rabbit_length={self.rabbit_length}, num_lights_ahead={self.num_lights_ahead} => {(self.rabbit_length > 0 and self.num_lights_ahead != HARDCODED_MAX_DISTANCE) or self.rabbit_speed > 0}")
-        r = (self.rabbit_length > 0 and self.num_lights_ahead != HARDCODED_MAX_DISTANCE) or self.rabbit_speed > 0
-        # logger.debug(f"haslLight {r}")
-        return r
+        return True
 
     @property
     def lastLightIndex(self) -> int:

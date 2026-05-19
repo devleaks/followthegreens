@@ -10,10 +10,6 @@ from datetime import datetime, timedelta, timezone
 from textwrap import wrap
 from pprint import pformat
 
-from followthegreens import aircraft
-
-from followthegreens import airport
-
 try:
     import xp
 except ImportError:
@@ -26,6 +22,7 @@ from .airport import Airport
 from .flightloop import FlightLoop
 from .lightstring import LightString
 from .ui import UIUtil
+from .ui2 import UIIM
 from .nato import phonetic, toml_dumps
 
 PREFERENCE_FILE_NAME = "followthegreens.prf"  # followthegreens.prf
@@ -60,6 +57,8 @@ class FollowTheGreens:
         self.prefs = {}
         self.extconfig = {}
         self.ui = None
+        # test IMGUI
+        self.ui2 = UIIM()
         self._last_ui_shown = None
         self.flightLoop = None
         # frame rate estimates
@@ -266,6 +265,8 @@ class FollowTheGreens:
             logger.warning(f"airport not ready: {status[1]}")
             return False
         self.airport = airport_data
+        if self.ui2 is not None:
+            self.ui2.setAirport(self.airport)
         self.status = FTG_STATUS.AIRPORT
 
         # 2.1 Check runway
@@ -394,6 +395,11 @@ VERSION = "{__VERSION__}"
         self.inc(self.aircraft.icao)
         return True
 
+    def hideWindow(self, elapsedSinceLastCall):
+        self.ui.hideMainWindowIfOk(elapsedSinceLastCall)
+        if self.ui2 is not None:
+            self.ui2.hideWindowIfTimedout(elapsedSinceLastCall)
+
     def start(self, alternate: bool = False) -> int:
         # Toggles visibility of main window.
         # If it was simply closed for hiding, show it again as it was.
@@ -402,6 +408,7 @@ VERSION = "{__VERSION__}"
             self.init()
 
         # if self.status = ACTIVE:
+
         logger.debug(f"current status: {self.status}, ui={self.ui.mainWindowExists()}, alt={self.alternate}")
         if self.ui.mainWindowExists():
             logger.debug(f"mainWindow exists, changing visibility {self.ui.isMainWindowVisible()}")
@@ -413,6 +420,8 @@ VERSION = "{__VERSION__}"
             if not self.ui.isMainWindowVisible():
                 self._last_ui_shown = datetime.now()  # becomes visible aster next call
             self.ui.toggleVisibilityMainWindow()
+            if self.ui2 is not None:
+                self.ui2.toggleVisibility()
             return 1
 
         # there is no existing window, we create a new session
@@ -443,6 +452,10 @@ VERSION = "{__VERSION__}"
         logger.debug("..reloading preferences..")
         self.init_preferences(reloading=True)
         logger.debug("..reloaded..")
+
+        # test IMGUI
+        if self.ui2 is not None:
+            self.ui2.createWindow()
 
         mainWindow = self.init_external()
         if not mainWindow:
@@ -496,6 +509,8 @@ VERSION = "{__VERSION__}"
                 logger.warning(f"airport not ready: {status[1]}")
                 return self.ui.promptForAirport()
             self.airport = airport_data
+            if self.ui2 is not None:
+                self.ui2.setAirport(airport=self.airport)
             self.inc(self.airport.icao)
         else:
             logger.debug(f"airport {self.airport.icao} already loaded")
@@ -522,6 +537,8 @@ VERSION = "{__VERSION__}"
                 logger.warning(f"airport not ready: {status[1]}")
                 return self.ui.sorry(status[1])  # could loop on getAirport? return self.getAirport()
             self.airport = airport
+            if self.ui2 is not None:
+                self.ui2.setAirport(self.airport)
             self.inc(self.airport.icao)
         else:
             logger.debug(f"airport {self.airport.icao} already loaded")
@@ -550,6 +567,9 @@ VERSION = "{__VERSION__}"
         if destination not in self.airport.getDestinations(move=self.move):
             logger.debug(f"destination not valid {destination} for {self.move}")
             return self.ui.promptForDestination(status=f"Destination {destination} not valid for {self.move}.")
+
+        if self.ui2 is not None:
+            self.ui2.deleteWindow()
 
         frp = xp.getDataf(self.frp)
         if frp != 0:
@@ -616,22 +636,21 @@ VERSION = "{__VERSION__}"
 
         #
         self.airport.resetPreferences()  # necessary if a previous session requested a car
-        if self.alternate:
-            self.airport.ensureFmcar()
 
         # sets a reduced distance between lights
+        has_light = not self.alternate
         new_fmcar = False
         if self.fmcar is None:
             self.fmcar = self.airport.fmcar(ftg=self)
             new_fmcar = True
         else:
-            self.airport.ensureDev()
+            has_light = self.airport.ensureDev()  # may force both fmcar and lights on dev
 
         onRwy = False
         if self.move == MOVEMENT.ARRIVAL:
             onRwy, runway = self.airport.onRunway(pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg)  # RUNWAY_BUFFER_WIDTH either side of runway, return [True,Runway()] or [False, None]
 
-        self.lights = LightString(airport=self.airport, aircraft=self.aircraft, preferences=self.prefs)
+        self.lights = LightString(airport=self.airport, aircraft=self.aircraft, preferences=self.prefs, has_light=has_light)
         self.lights._days = self.dayOfYear()
         self.lights.populate(self.route, move=self.move, onRunway=onRwy)
         if len(self.lights.lights) == 0:
@@ -691,6 +710,18 @@ VERSION = "{__VERSION__}"
                 speak = speak + f" Start is at about {phonetic(dist_str)} meters heading {phonetic(hdg_str)}."
         logger.debug(" ".join(intro_arr))
         xp.speakString(speak)
+
+        if self.ui2 is not None:
+            self.ui2.createWindow(
+                report=intro_arr
+                + [
+                    "",
+                    self.situation(),
+                    f"{intro} until you encounter red stop lights across the taxiway.",
+                    "At the stop lights, contact ATC for clearance. Press Clearance received when cleared.",
+                    "",
+                ]
+            )
 
         # self.segment = 0
         if self.lights.segments == 0:  # just one segment
@@ -763,6 +794,10 @@ VERSION = "{__VERSION__}"
     def terminate(self, reason=""):
         # Abandon the FTG mission. Instruct subroutines to turn off FTG lights, remove them,
         # and restore the environment.
+
+        # test IMGUI
+        if self.ui2 is not None:
+            self.ui2.deleteWindow()
 
         if self.status in [FTG_STATUS.TERMINATED, FTG_STATUS.DELETED]:
             logger.warning(f"{type(self).__name__} already terminated")

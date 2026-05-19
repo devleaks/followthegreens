@@ -13,6 +13,7 @@ from .globals import RABBIT_MODE, logger, MOVEMENT, INDICATOR, AIRCRAFT_MIN_SPEE
 from .geo import Point, bearing, destination, distance, turn
 from .lightstring import XPObject, LightType
 from .route import Vehicle, SMOOTH_ROUTE, OnRoute, NOT_ON_ROUTE
+from .aircraft import AIRCRAFT_STOPPED_SPEED
 
 
 class CURSOR_STATUS(StrEnum):
@@ -61,8 +62,9 @@ def slow_debug(c, s):
 
 
 NO_STOP_AHEAD = -1
+# AIRCRAFT_STOPPED_SPEED = 0.01  # m/s, under that speed, things are considered stopped, not moving.
+
 SHOW_BRACKET = True  # debugging stuff
-AIRCRAFT_STOPPED_SPEED = 0.01  # m/s, under that speed, things are considered stopped, not moving.
 
 
 @dataclass
