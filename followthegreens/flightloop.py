@@ -41,6 +41,9 @@ class FlightLoop:
         self.refplane = "FtG:aircraft"
         self.flplane = None
         self.planeRunning = False
+        self.refexec = "FtG:rabbit"
+        self.flexec = None
+        self.execRunning = False
         self.nextIter = PLANE_MONITOR_DURATION  # seconds
         self.lastIter = PLANE_MONITOR_DURATION  # seconds, because it is dynamic
         self.nextStop = NO_STOP_AHEAD
@@ -85,6 +88,18 @@ class FlightLoop:
         self.old_msg2 = ""
 
         self.pause_dref = xp.findDataRef("sim/time/paused")
+        self.startExecLoop()
+
+    def startExecLoop(self):
+        self.flexec = xp.createFlightLoop(callback=self.executeFLCB, phase=xp.FlightLoop_Phase_BeforeFlightModel, refCon=self.refexec)
+        xp.scheduleFlightLoop(self.flexec, 1.0, 1)  # starts in a second, arbitrary
+        self.execRunning = True
+        logger.debug("execute loop started")
+
+    def stopExecLoop(self):
+        xp.destroyFlightLoop(self.flexec)
+        self.execRunning = False
+        logger.debug("execute loop stopped")
 
     def startFlightLoop(self):
         self.lastLit = 0
@@ -138,6 +153,8 @@ class FlightLoop:
                     logger.debug(f"runway lights preference set to {ll} (original={self.runway_level_original}, during FtG={currlevel})")
 
     def stopFlightLoop(self):
+        self.stopExecLoop()
+
         self.taxiEnd()
         self.taxiReset()
         if self.rabbitRunning:
@@ -550,6 +567,15 @@ class FlightLoop:
             except:
                 logger.error("issue in rabbit flight loop, retrying in 5 seconds", exc_info=True)
         return 5.0
+
+    def executeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
+        timed = 1.0
+        try:
+            if self.ftg is not None:
+                self.ftg._execute()
+        except:
+            logger.error(f"issue in execute flight loop, retrying in {timed} seconds", exc_info=True)
+        return timed  # seconds
 
     def planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         try:

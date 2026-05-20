@@ -5,7 +5,7 @@ import os
 import re
 import tomllib
 import json
-from queue import Empty
+from queue import Queue, Empty
 from random import randint
 from datetime import datetime, timedelta, timezone
 from textwrap import wrap
@@ -23,7 +23,7 @@ from .airport import Airport
 from .flightloop import FlightLoop
 from .lightstring import LightString
 from .ui import UIUtil
-from .ui2 import UIIM
+from .ui2 import UIIM, FTG_COMMANDS
 from .nato import phonetic, toml_dumps
 
 PREFERENCE_FILE_NAME = "followthegreens.prf"  # followthegreens.prf
@@ -68,6 +68,8 @@ class FollowTheGreens:
         self.xp_log_dir = os.path.join(".", "Output", "caches", "followthegreens")  # relative to X-Plane "root/home" folder, needs to be created first
         logger.info(f"created {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
         # logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}")
+
+        self.todo = Queue()
 
     def __del__(self):
         # alias to cancel
@@ -395,34 +397,10 @@ VERSION = "{__VERSION__}"
         return True
 
     def hideWindow(self, elapsedSinceLastCall):
+        # called from inside flight loop
         self.ui.hideMainWindowIfOk(elapsedSinceLastCall)
         if self.ui2 is not None:
             self.ui2.hideWindowIfTimedout(elapsedSinceLastCall)
-            self.execRemote()
-
-    def execRemote(self):
-        if self.ui2 is None:
-            return
-        try:
-            e = self.ui2.todo.get_nowait()
-            logger.debug(f"EXECUTOR execute {e} ({self.ui2.airport}, {self.ui2.move}, {self.ui2.destination}, {self.ui2.guide})")
-            # if e == FTG_COMMANDS.START:
-            #     self.followTheGreen(destination=self.destination)
-            # elif e == FTG_COMMANDS.NEWGREENS:
-            #     self.followTheGreen(destination=self.destination, newGreen=True)
-            # elif e == FTG_COMMANDS.CLEAR:
-            #     self.nextLeg()
-            # elif e == FTG_COMMANDS.CANCEL:
-            #     self.terminate("cancel")
-            # elif e == FTG_COMMANDS.BYE:
-            #     self.terminate("bye")
-            # else:
-            #     logger.warning(f"EXECUTOR unhandled {e}")
-        except Empty:
-            pass
-        except:
-            logger.warning("EXECUTOR executor error", exc_info=True)
-
 
     def start(self, alternate: bool = False) -> int:
         # Toggles visibility of main window.
@@ -915,3 +893,29 @@ to stop and reload python scripts and effectively stop FollowTheGreens (this wil
 FollowTheGreens will not restart unless you reactivate it.
 Please send file {os.path.join(os.path.dirname(__file__), '..', 'ftg_log.txt')} along with log.txt and XPPython3Log.txt
 to the author of the plugin to investigate the issue and fix it. Sorry for the inconvenience. Thank you.""")
+
+    def execute(self, action: FTG_COMMANDS):
+        self.todo.put(action)
+        logger.debug(f"requesting {action} ({self.ui2.airport}, {self.ui2.move}, {self.ui2.destination}, {self.ui2.guide})")
+
+    def _execute(self):
+        try:
+            e = self.todo.get_nowait()
+            logger.debug(f"{e} ({self.ui2.airport}, {self.ui2.move}, {self.ui2.destination}, {self.ui2.guide})")
+            self.ui2.deleteWindow()
+            # if e == FTG_COMMANDS.TERMINATE:  # command to self
+            #     pass
+            # elif e == FTG_COMMANDS.START:
+            #     dummy = self.followTheGreen(destination=self.destination)
+            # elif e == FTG_COMMANDS.NEWGREENS:
+            #     dummy = self.followTheGreen(destination=self.destination, newGreen=True)
+            # elif e == FTG_COMMANDS.CLEAR:
+            #     dummy = self.nextLeg()
+            # elif e == FTG_COMMANDS.CANCEL:
+            #     dummy = self.terminate("cancel")
+            # else:
+            #     logger.warning(f"EXECUTOR unhandled {e} ({self.airport}, {self.move}, {self.destination}, {self.guide})")
+        except Empty:
+            pass
+        except:
+            logger.error("error", exc_info=True)

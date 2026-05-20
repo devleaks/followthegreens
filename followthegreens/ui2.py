@@ -1,5 +1,3 @@
-from queue import Queue, Empty
-from threading import Thread, Event
 from datetime import datetime
 from enum import StrEnum
 
@@ -71,12 +69,7 @@ class UIIM:
         self.window = None
         self.imgui_refcon = {}
         self._last = datetime.now()
-
-        # executor
-        self.todo = Queue()
-        # self.run = Event()
-        # self.run.set()  # starts at rest
-        # self.thread = None
+        self.todo = FTG_COMMANDS.OK
 
     @property
     def destination(self) -> str | None:
@@ -98,6 +91,9 @@ class UIIM:
     @property
     def timedout(self) -> bool:
         return self.win_autohide and (datetime.now() - self._last).total_seconds() > self.win_timeout
+
+    def execute(self, action: FTG_COMMANDS):
+        self.ftg.execute(action)
 
     def toggleVisibility(self):
         if self.window is None:
@@ -220,7 +216,7 @@ class UIIM:
                 changed, self.alt_airport = imgui.input_text(label="New airport ICAO", value=self.alt_airport, buffer_length=6)
                 imgui.pop_item_width()
                 if imgui.button(label="OK", width=80, height=0):
-                    self.enqueue(FTG_COMMANDS.AIRPORT)
+                    self.execute(FTG_COMMANDS.AIRPORT)
                     imgui.close_current_popup()
                 imgui.set_item_default_focus()
                 imgui.same_line()
@@ -273,7 +269,7 @@ class UIIM:
             imgui.push_style_color(imgui.COLOR_BUTTON_ACTIVE, 0.4, 0.4, 0.4, 1.0)
         if imgui.button(label="Follow the " + self.guide):
             if self.dest_idx != -1:
-                self.enqueue(FTG_COMMANDS.START)
+                self.execute(FTG_COMMANDS.START)
                 self.hint = None
             else:
                 self.hint = "Select " + ("runway" if self._deparr else "destination stand")
@@ -345,37 +341,37 @@ class UIIM:
 
         if refCon.get("clearance", False):
             if imgui.button(label="Clearance received", width=150, height=0):
-                self.enqueue(FTG_COMMANDS.CLEAR)
+                self.execute(FTG_COMMANDS.CLEAR)
                 self.resetTimeout()
             imgui.same_line()
 
         if refCon.get("newgreens", False):
             if imgui.button(label="New " + ("route" if self.use_car else "greens"), width=80, height=0):
-                self.enqueue(FTG_COMMANDS.NEWGREENS)
+                self.execute(FTG_COMMANDS.NEWGREENS)
                 self.resetTimeout()
             imgui.same_line()
 
         if refCon.get("cancel", False):
             if imgui.button(label="Cancel", width=80, height=0):
-                self.enqueue(FTG_COMMANDS.CANCEL)
+                self.execute(FTG_COMMANDS.CANCEL)
                 self.resetTimeout()
                 return
 
         if refCon.get("ok", False):
             if imgui.button(label="OK", width=80, height=0):
-                self.enqueue(FTG_COMMANDS.OK)
+                self.execute(FTG_COMMANDS.OK)
                 self.resetTimeout()
             imgui.same_line()
 
         if refCon.get("close", False):
             if imgui.button(label="Close", width=80, height=0):
-                self.enqueue(FTG_COMMANDS.CLOSE)
+                self.execute(FTG_COMMANDS.CLOSE)
                 self.resetTimeout()
             imgui.same_line()
 
         if refCon.get("bye", False):
             if imgui.button(label="Terminate", width=80, height=0):
-                self.enqueue(FTG_COMMANDS.BYE)
+                self.execute(FTG_COMMANDS.BYE)
                 self.resetTimeout()
             imgui.same_line()
 
@@ -396,59 +392,3 @@ class UIIM:
             imgui.text("Hint: " + self.hint)
         imgui.spacing()
         imgui.text("Follow the greens rel. " + __VERSION__)
-
-    #
-    # UI COMMAND EXECUTION (in separte thread)
-    #
-    def enqueue(self, action: FTG_COMMANDS):
-        self.todo.put(action)
-        logger.debug(f"EXECUTOR enqueued {action} ({self.airport}, {self.move}, {self.destination}, {self.guide})")
-
-    # def execute(self):
-    #     logger.debug("EXECUTOR started")
-    #     while not self.run.is_set():
-
-    #         try:
-    #             e = self.todo.get_nowait()
-    #             logger.debug(f"EXECUTOR execute {e} ({self.airport}, {self.move}, {self.destination}, {self.guide})")
-    #             if e == FTG_COMMANDS.TERMINATE:  # command to self
-    #                 self.run.set()
-    #             elif e == FTG_COMMANDS.START:
-    #                 self.ftg.followTheGreen(destination=self.destination)
-    #             elif e == FTG_COMMANDS.NEWGREENS:
-    #                 self.ftg.followTheGreen(destination=self.destination, newGreen=True)
-    #             elif e == FTG_COMMANDS.CLEAR:
-    #                 self.ftg.nextLeg()
-    #             elif e == FTG_COMMANDS.CANCEL:
-    #                 self.ftg.terminate("cancel")
-    #             else:
-    #                 logger.warning(f"EXECUTOR unhandled {e} ({self.airport}, {self.move}, {self.destination}, {self.guide})")
-    #         except Empty:
-    #             pass
-    #         except:
-    #             logger.warning("EXECUTOR executor error", exc_info=True)
-
-    #         self.run.wait(1)
-
-    #     logger.debug("EXECUTOR terminated")
-
-    # def start(self):
-    #     self.use_car = self.ftg.alternate
-    #     if self.run.is_set():
-    #         self.thread = Thread(target=self.execute, name="EXECUTOR")
-    #         self.run.clear()
-    #         self.thread.start()
-
-    # def stop(self):
-    #     self.run.set()
-    #     if self.thread is not None:
-    #         self.thread.join(timeout=1)
-    #         if self.thread.is_alive():
-    #             logger.warning("EXECUTOR thread may hang")
-    #         logger.debug("thread stopped")
-
-    # def terminate(self):
-    #     self.deleteWindow()
-    #     self.stop()
-
-#
