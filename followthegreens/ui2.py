@@ -1,6 +1,12 @@
-from logging import NOTSET
-import sys
+from queue import Queue, Empty
+from threading import Thread, Event
 from datetime import datetime
+from enum import StrEnum
+
+from followthegreens.geo import destination
+
+from .version import __VERSION__
+from .globals import logger
 
 try:
     from XPPython3 import xp, xp_imgui
@@ -8,21 +14,21 @@ try:
 except ImportError:
     print("X-Plane not loaded")
 
-from .version import __VERSION__
-from .globals import logger
 
-TEXT = [
-    "Follow the car to 07R via taxiways R4 M I8 I9 I10 Z P9.",
-    "Expect taxi ride of 2.7km, about 8 minutes.",
-    "Follow me car is in front of you." "We are at EBBR, taxiing to runway 07R.",
-    "Follow the car to 07R until you encounter red stop lights across the taxiway.",
-    "At thze stop light, conact ATC for clearance. Press clearance recevied when cleared.",
-]
+class FTG_COMMANDS(StrEnum):
+    CLEAR = "CLEAR"  # clearance received, continue
+    CANCEL = "CANCEL"  # terminates FTG
+    START = "START"  # starts session
+    AIRPORT = "AIRPORT"  # change airport
+    NEWGREENS = "NEWGREENS"  # new greens/route requested, continue
+    BYE = "BYE"  # terminates after completion
+    OK = "OK"  # no op? similar to close
+    CLOSE = "CLOSE"  # close window
 
 
 class UIIM:
 
-    WIN_WIDTH = 550  # px
+    WIN_WIDTH = 480  # px
     WIN_HEIGHT = 520  # px
 
     STAND_COMBO = 20  # show combo from that many item on
@@ -32,17 +38,15 @@ class UIIM:
 
     LIGHT_MAX = 16  # or 0 to select first available destination if any
 
-    def __init__(self):
-        self.airport = "ICAO"
+    def __init__(self, ftg):
+        self.ftg = ftg
+
+        self._airport = "<None>"
         self.alt_airport = self.airport
         self.runway_threshold = True
-        self.dest_dep = []
-        self.dest_arr = []
         self.dest_idx = self.DESTINATION if self.DESTINATION < len(self.dest_dep) else -1
-        self.deparr = [True, False]  # init
+        self.deparr = [True, False]
         self._deparr = True
-
-        self.ftgfmc = [True, False]  # init
 
         self.lights = [True, False]
         self.rabbit_length = 8
@@ -50,6 +54,7 @@ class UIIM:
         self.lights_ahead = 0
         self.use_4d = True
 
+        self.use_car = False
         self.fmcars = ["Car 1", "Car 2", "Other"]
         self.fmcar_idx = 0
         self.use_indicator = True
@@ -64,16 +69,31 @@ class UIIM:
         self.window_flags = 0
         self.window_flags |= imgui.WINDOW_NO_COLLAPSE
         self.window = None
-        self.imgui_refcon = []
+        self.imgui_refcon = {}
         self._last = datetime.now()
+
+        # executor
+        self.todo = Queue()
+        # self.run = Event()
+        # self.run.set()  # starts at rest
+        # self.thread = None
 
     @property
     def destination(self) -> str | None:
-        return str(self.dest_arr[self.dest_idx]) if len(self.dest_arr) > 0 else None
+        destinations = self.dest_dep if self.deparr[0] else self.dest_arr
+        return str(destinations[self.dest_idx]) if len(destinations) > 0 and self.dest_idx != -1 else None
+
+    @property
+    def move(self) -> str:
+        return "DEPARTURE" if self._deparr else "ARRIVAL"
+
+    @property
+    def guide(self) -> str:
+        return "car" if self.use_car else "greens"
 
     @property
     def fmcar(self) -> str | None:
-        return str(self.fmcars[self.fmcar_idx]) if len(self.fmcars) > 0 else None
+        return str(self.fmcars[self.fmcar_idx]) if len(self.fmcars) > 0 and self.fmcar_idx != -1 else None
 
     @property
     def timedout(self) -> bool:
@@ -107,25 +127,41 @@ class UIIM:
         imgui.new_line()
         return v if any(v) else values
 
-    def setAirport(self, airport) -> bool:
-        self.airport = airport.icao
-        self.dest_dep = sorted(airport.runways.keys())  # + list(airport.holds.keys())
-        self.dest_arr = sorted(airport.ramps.keys())
-        self.dest_idx = self.DESTINATION if self.DESTINATION < len(self.dest_dep) else -1
-        self.alt_airport = self.airport
-        return True
+    @property
+    def hasAirport(self) -> bool:
+        r = self.ftg is not None and self.ftg.airport is not None
+        if r:  # check if airport has changed
+            if self.ftg.airport.icao != self._airport:
+                self._airport = self.ftg.airport.icao
+                self.resetDestination()
+        return r
 
-    def reset_timeout(self):
+    @property
+    def airport(self):
+        return self.ftg.airport.icao if self.hasAirport else "<None>"
+
+    @property
+    def dest_dep(self):
+        return sorted(self.ftg.airport.runways.keys()) if self.hasAirport else []
+
+    @property
+    def dest_arr(self):
+        return sorted(self.ftg.airport.ramps.keys()) if self.hasAirport else []
+
+    def resetDestination(self):
+        self.dest_idx = self.DESTINATION if self.DESTINATION < len(self.dest_dep) else -1
+
+    def resetTimeout(self):
         self._last = datetime.now()
 
-    def createWindow(self, report: list | None = None):
+    def createWindow(self, report: dict | None = None):
         if self.window is not None:
             return
         l, t, _r, _b = xp.getScreenBoundsGlobal()
         left_offset = self.win_pos[0]
         top_offset = self.win_pos[1]
-        if report is not None:
-            self.text = report
+        if type(report) is dict:
+            self.imgui_refcon = report
             self.window = xp_imgui.Window(
                 left=l + left_offset,
                 top=top_offset + self.WIN_HEIGHT,
@@ -136,6 +172,7 @@ class UIIM:
                 refCon=self.imgui_refcon,
             )
         else:
+            self.use_car = self.ftg.alternate
             self.window = xp_imgui.Window(
                 left=l + left_offset,
                 top=top_offset + self.WIN_HEIGHT,
@@ -145,20 +182,20 @@ class UIIM:
                 draw=self.collect,
                 refCon=self.imgui_refcon,
             )
-        self.reset_timeout()
-        self.window.setTitle("Follow the green")
+        self.resetTimeout()
+        self.window.setTitle("Follow the greens")
 
     def activateWindow(self):
         if self.window is None:
-            self.createWindow(report=self.text)
-        self.reset_timeout()
+            self.createWindow(report=self.imgui_refcon)
+        self.resetTimeout()
 
     def deleteWindow(self):
         if self.window is None:
             return
-        self.hint = None
         self.window.delete()
         self.window = None
+        self.hint = None
 
     def collect(self, _windowID, refCon):
         if self.window is None:
@@ -173,26 +210,25 @@ class UIIM:
         # 1. LOCATION
         #
         # 1.1 AIRPORT
-        imgui.push_item_width(60)
-        changed, airport = imgui.input_text(label="Airport ICAO", value=self.airport, buffer_length=10)
-        imgui.same_line()
-        imgui.pop_item_width()
-        imgui.text("  ")
-        imgui.same_line()
-        if imgui.button(label="Change.."):
-            imgui.open_popup("Change Airport")
-        if imgui.begin_popup_modal(title="Change Airport", visible=None, flags=imgui.WINDOW_ALWAYS_AUTO_RESIZE)[0]:
-            imgui.push_item_width(60)
-            changed, self.alt_airport = imgui.input_text(label="New airport ICAO", value=self.alt_airport, buffer_length=10)
-            imgui.pop_item_width()
-            if imgui.button(label="OK", width=80, height=0):
-                self.airport = self.alt_airport
-                imgui.close_current_popup()
-            imgui.set_item_default_focus()
+        if self.airport == "<None>":
+            imgui.text(f"{self.airport}   Airport ICAO  ")
             imgui.same_line()
-            if imgui.button(label="Cancel", width=80, height=0):
-                imgui.close_current_popup()
-            imgui.end_popup()
+            if imgui.button(label="Change.."):
+                imgui.open_popup("Change Airport")
+            if imgui.begin_popup_modal(title="Change Airport", visible=None, flags=imgui.WINDOW_ALWAYS_AUTO_RESIZE)[0]:
+                imgui.push_item_width(60)
+                changed, self.alt_airport = imgui.input_text(label="New airport ICAO", value=self.alt_airport, buffer_length=6)
+                imgui.pop_item_width()
+                if imgui.button(label="OK", width=80, height=0):
+                    self.enqueue(FTG_COMMANDS.AIRPORT)
+                    imgui.close_current_popup()
+                imgui.set_item_default_focus()
+                imgui.same_line()
+                if imgui.button(label="Cancel", width=80, height=0):
+                    imgui.close_current_popup()
+                imgui.end_popup()
+        else:
+            imgui.text(f"At {self.airport}")
 
         # 1.2 DEPARTURE/ARRIVAL
         self.deparr = self.radioButtons(["Departure", "Arrival"], self.deparr)
@@ -221,33 +257,37 @@ class UIIM:
                         self.dest_idx = i
                 imgui.end_popup()
 
-        # 1.4 MODE
-        self.ftgfmc = self.radioButtons(["Follow the greens", "Follow Me Car"], self.ftgfmc)
+        # 1.4 alt
+        clicked, self.use_car = imgui.checkbox(label="Use Follow Me car instead of greens", state=self.use_car)
 
         # 1.5 GO!
+        imgui.spacing()
         imgui.spacing()
         if self.dest_idx != -1:
             imgui.push_style_color(imgui.COLOR_BUTTON, 0.0, 0.8, 0.1, 1.0)
             imgui.push_style_color(imgui.COLOR_BUTTON_HOVERED, 0.0, 0.8, 0.1, 1.0)
             imgui.push_style_color(imgui.COLOR_BUTTON_ACTIVE, 0.0, 0.8, 0.1, 1.0)
-            self.hint = None
         else:
             imgui.push_style_color(imgui.COLOR_BUTTON, 0.4, 0.4, 0.4, 1.0)
             imgui.push_style_color(imgui.COLOR_BUTTON_HOVERED, 0.4, 0.4, 0.4, 1.0)
             imgui.push_style_color(imgui.COLOR_BUTTON_ACTIVE, 0.4, 0.4, 0.4, 1.0)
-            self.hint = "Set destination"
-        if imgui.button(label="Follow the " + ("greens" if self.ftgfmc[0] else "car")):
-            imgui.pop_style_color(3)
-            return
+        if imgui.button(label="Follow the " + self.guide):
+            if self.dest_idx != -1:
+                self.enqueue(FTG_COMMANDS.START)
+                self.hint = None
+            else:
+                self.hint = "Select " + ("runway" if self._deparr else "destination stand")
+
         imgui.pop_style_color(3)
         imgui.same_line()
         self.show_help_marker("Press to start")
+        imgui.spacing()
         imgui.spacing()
 
         #
         # 2. FTG Options
         #
-        show, _ = imgui.collapsing_header("Follow the greens options", visible=self.ftgfmc[0])
+        show, _ = imgui.collapsing_header("Follow the greens options", visible=not self.use_car)
         if show:
             imgui.push_item_width(240)
             changed, self.rabbit_length = imgui.slider_int("Rabbit length", self.rabbit_length, 0, self.LIGHT_MAX)
@@ -264,7 +304,7 @@ class UIIM:
         #
         # 3. FMC Options
         #
-        show, _ = imgui.collapsing_header("Follow Me Car options", visible=self.ftgfmc[1])
+        show, _ = imgui.collapsing_header("Follow Me Car options", visible=self.use_car)
         if show:
             clicked, self.fmcar_idx = imgui.combo("Model", self.fmcar_idx, self.fmcars)
             # imgui.same_line()
@@ -297,21 +337,49 @@ class UIIM:
         self.status()
 
     def report(self, _windowID, refCon):
+        text = refCon.get("text", "<No text>")
         imgui.push_item_width(imgui.get_font_size() * -12)
-        imgui.text("\n".join(self.text))
+        imgui.text("\n".join(text))
+        imgui.spacing()
         imgui.spacing()
 
-        if imgui.button(label="Clearance received", width=150, height=0):
-            self.reset_timeout()
-            return
-        imgui.same_line()
-        if imgui.button(label="New " + ("greens" if self.ftgfmc[0] else "route"), width=80, height=0):
-            self.reset_timeout()
-            return
-        imgui.same_line()
-        if imgui.button(label="Cancel", width=80, height=0):
-            self.reset_timeout()
-            return
+        if refCon.get("clearance", False):
+            if imgui.button(label="Clearance received", width=150, height=0):
+                self.enqueue(FTG_COMMANDS.CLEAR)
+                self.resetTimeout()
+            imgui.same_line()
+
+        if refCon.get("newgreens", False):
+            if imgui.button(label="New " + ("route" if self.use_car else "greens"), width=80, height=0):
+                self.enqueue(FTG_COMMANDS.NEWGREENS)
+                self.resetTimeout()
+            imgui.same_line()
+
+        if refCon.get("cancel", False):
+            if imgui.button(label="Cancel", width=80, height=0):
+                self.enqueue(FTG_COMMANDS.CANCEL)
+                self.resetTimeout()
+                return
+
+        if refCon.get("ok", False):
+            if imgui.button(label="OK", width=80, height=0):
+                self.enqueue(FTG_COMMANDS.OK)
+                self.resetTimeout()
+            imgui.same_line()
+
+        if refCon.get("close", False):
+            if imgui.button(label="Close", width=80, height=0):
+                self.enqueue(FTG_COMMANDS.CLOSE)
+                self.resetTimeout()
+            imgui.same_line()
+
+        if refCon.get("bye", False):
+            if imgui.button(label="Terminate", width=80, height=0):
+                self.enqueue(FTG_COMMANDS.BYE)
+                self.resetTimeout()
+            imgui.same_line()
+
+        imgui.new_line()
         self.status()
 
     def status(self):
@@ -322,10 +390,65 @@ class UIIM:
         imgui.spacing()
         imgui.text("DEMO PURPOSE ONLY NOTHING IS DONE WITH DATA IN THIS FORM")
         imgui.spacing()
-        if self.hint != None:
+        # imgui.text("Safely close this window to cancel actions")
+        # imgui.spacing()
+        if self.hint is not None:
             imgui.text("Hint: " + self.hint)
         imgui.spacing()
         imgui.text("Follow the greens rel. " + __VERSION__)
 
+    #
+    # UI COMMAND EXECUTION (in separte thread)
+    #
+    def enqueue(self, action: FTG_COMMANDS):
+        self.todo.put(action)
+        logger.debug(f"EXECUTOR enqueued {action} ({self.airport}, {self.move}, {self.destination}, {self.guide})")
+
+    # def execute(self):
+    #     logger.debug("EXECUTOR started")
+    #     while not self.run.is_set():
+
+    #         try:
+    #             e = self.todo.get_nowait()
+    #             logger.debug(f"EXECUTOR execute {e} ({self.airport}, {self.move}, {self.destination}, {self.guide})")
+    #             if e == FTG_COMMANDS.TERMINATE:  # command to self
+    #                 self.run.set()
+    #             elif e == FTG_COMMANDS.START:
+    #                 self.ftg.followTheGreen(destination=self.destination)
+    #             elif e == FTG_COMMANDS.NEWGREENS:
+    #                 self.ftg.followTheGreen(destination=self.destination, newGreen=True)
+    #             elif e == FTG_COMMANDS.CLEAR:
+    #                 self.ftg.nextLeg()
+    #             elif e == FTG_COMMANDS.CANCEL:
+    #                 self.ftg.terminate("cancel")
+    #             else:
+    #                 logger.warning(f"EXECUTOR unhandled {e} ({self.airport}, {self.move}, {self.destination}, {self.guide})")
+    #         except Empty:
+    #             pass
+    #         except:
+    #             logger.warning("EXECUTOR executor error", exc_info=True)
+
+    #         self.run.wait(1)
+
+    #     logger.debug("EXECUTOR terminated")
+
+    # def start(self):
+    #     self.use_car = self.ftg.alternate
+    #     if self.run.is_set():
+    #         self.thread = Thread(target=self.execute, name="EXECUTOR")
+    #         self.run.clear()
+    #         self.thread.start()
+
+    # def stop(self):
+    #     self.run.set()
+    #     if self.thread is not None:
+    #         self.thread.join(timeout=1)
+    #         if self.thread.is_alive():
+    #             logger.warning("EXECUTOR thread may hang")
+    #         logger.debug("thread stopped")
+
+    # def terminate(self):
+    #     self.deleteWindow()
+    #     self.stop()
 
 #

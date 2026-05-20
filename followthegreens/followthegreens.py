@@ -5,6 +5,7 @@ import os
 import re
 import tomllib
 import json
+from queue import Empty
 from random import randint
 from datetime import datetime, timedelta, timezone
 from textwrap import wrap
@@ -58,7 +59,7 @@ class FollowTheGreens:
         self.extconfig = {}
         self.ui = None
         # test IMGUI
-        self.ui2 = UIIM()
+        self.ui2 = UIIM(ftg=self)
         self._last_ui_shown = None
         self.flightLoop = None
         # frame rate estimates
@@ -265,8 +266,6 @@ class FollowTheGreens:
             logger.warning(f"airport not ready: {status[1]}")
             return False
         self.airport = airport_data
-        if self.ui2 is not None:
-            self.ui2.setAirport(self.airport)
         self.status = FTG_STATUS.AIRPORT
 
         # 2.1 Check runway
@@ -399,6 +398,31 @@ VERSION = "{__VERSION__}"
         self.ui.hideMainWindowIfOk(elapsedSinceLastCall)
         if self.ui2 is not None:
             self.ui2.hideWindowIfTimedout(elapsedSinceLastCall)
+            self.execRemote()
+
+    def execRemote(self):
+        if self.ui2 is None:
+            return
+        try:
+            e = self.ui2.todo.get_nowait()
+            logger.debug(f"EXECUTOR execute {e} ({self.ui2.airport}, {self.ui2.move}, {self.ui2.destination}, {self.ui2.guide})")
+            # if e == FTG_COMMANDS.START:
+            #     self.followTheGreen(destination=self.destination)
+            # elif e == FTG_COMMANDS.NEWGREENS:
+            #     self.followTheGreen(destination=self.destination, newGreen=True)
+            # elif e == FTG_COMMANDS.CLEAR:
+            #     self.nextLeg()
+            # elif e == FTG_COMMANDS.CANCEL:
+            #     self.terminate("cancel")
+            # elif e == FTG_COMMANDS.BYE:
+            #     self.terminate("bye")
+            # else:
+            #     logger.warning(f"EXECUTOR unhandled {e}")
+        except Empty:
+            pass
+        except:
+            logger.warning("EXECUTOR executor error", exc_info=True)
+
 
     def start(self, alternate: bool = False) -> int:
         # Toggles visibility of main window.
@@ -509,8 +533,6 @@ VERSION = "{__VERSION__}"
                 logger.warning(f"airport not ready: {status[1]}")
                 return self.ui.promptForAirport()
             self.airport = airport_data
-            if self.ui2 is not None:
-                self.ui2.setAirport(airport=self.airport)
             self.inc(self.airport.icao)
         else:
             logger.debug(f"airport {self.airport.icao} already loaded")
@@ -537,8 +559,6 @@ VERSION = "{__VERSION__}"
                 logger.warning(f"airport not ready: {status[1]}")
                 return self.ui.sorry(status[1])  # could loop on getAirport? return self.getAirport()
             self.airport = airport
-            if self.ui2 is not None:
-                self.ui2.setAirport(self.airport)
             self.inc(self.airport.icao)
         else:
             logger.debug(f"airport {self.airport.icao} already loaded")
@@ -713,14 +733,17 @@ VERSION = "{__VERSION__}"
 
         if self.ui2 is not None:
             self.ui2.createWindow(
-                report=intro_arr
-                + [
-                    "",
-                    self.situation(),
-                    f"{intro} until you encounter red stop lights across the taxiway.",
-                    "At the stop lights, contact ATC for clearance. Press Clearance received when cleared.",
-                    "",
-                ]
+                report={
+                    "text": [
+                        self.situation(),
+                        f"{intro} until you encounter red stop lights across the taxiway.",
+                        "At the stop lights, contact ATC for clearance. Press Clearance received when cleared.",
+                        "",
+                    ] + intro_arr + [""],
+                    "clearance": True,
+                    "newgreens": True,
+                    "cancel": True,
+                }
             )
 
         # self.segment = 0
@@ -870,12 +893,16 @@ VERSION = "{__VERSION__}"
         if self.status == FTG_STATUS.NEW:
             self.init()
         self.status = FTG_STATUS.ENABLED
-        return [True, ""]
+        return [True, "enabled"]
 
     def disable(self):
         # alias to cancel
-        self.status = FTG_STATUS.DISABLED
-        return self.terminate("disabled")
+        r = self.terminate("disabled")
+        if r[0]:
+            self.status = FTG_STATUS.DISABLED
+        else:
+            logger.warning(f"disable returned {r[1]}")
+        return r
 
     def stop(self):
         # alias to cancel
