@@ -30,4 +30,3 @@ from .globals import (
 )
 from .followthegreens import FollowTheGreens
 from .showtaxiways import ShowTaxiways
-from .ui2 import UIIM

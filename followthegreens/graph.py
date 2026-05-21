@@ -208,6 +208,10 @@ class Graph:  # Graph(FeatureCollection)?
     def __iter__(self):
         return iter(self.vert_dict.values())
 
+    def usable(self):
+        # at least one edge!
+        return len(self.vert_dict) > 1 and len(self.edges_arr) > 0
+
     def stats(self):
         logger.debug(f"graph {self.name}")
         s = {}

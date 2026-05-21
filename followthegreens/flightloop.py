@@ -587,7 +587,7 @@ class FlightLoop:
 
     def _planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
-        # monitor progress of plane on the green. Turns lights off as it does no longer needs them.
+        # monitor progress of plane on the greens. Turns lights off as it does no longer needs them.
         # logger.debug('%2f, %2f, %d', elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter)
         if xp.getDatai(self.pause_dref) == 1:
             msg = "paused"
@@ -702,14 +702,14 @@ class FlightLoop:
             return nextIter
 
         # @todo
-        # Need to send warning when pilot moves away from the green.
+        # Need to send warning when pilot moves away from the greens.
         # if distance > DRIFTING_DISTANCE send warning?
         if dist_to_closestLight > DRIFTING_DISTANCE:
             logger.debug(f"aircraft drifting away from track? (d={round(dist_to_closestLight, 1)} > {DRIFTING_DISTANCE})")
 
         # if distance > (2*DRIFTING_DISTANCE) and AUTO_REROUTE:
         #     logger.debug(f"aircraft drifting away from track? (d={round(distance, 1)} > {DRIFTING_DISTANCE}), starting new greens")
-        #     self.ftg.newGreen(destination=self.ftg.destination)
+        #     self.ftg.newGreens(destination=self.ftg.destination)
         self.distance_to_closest_light = dist_to_closestLight
 
         return nextIter

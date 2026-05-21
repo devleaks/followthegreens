@@ -223,6 +223,8 @@ class Airport:
         self.holds = {}
         self.ramps = {}
 
+        self.status = False
+
         #
         # PREFERENCES - Fetched by LightString
         # Set sensible default value from global preferences
@@ -286,7 +288,23 @@ class Airport:
         # Info 8
         logger.debug(f"ramps: {status.keys()}")
 
+        self.status = True
         return [True, "Airport ready"]
+
+    def usable(self, move: MOVEMENT | None = None) -> bool:
+        # should check has taxiways, has runway, has at least one ramp?
+        if not self.graph.usable():
+            logger.debug("graph not usable")
+            return False
+        ok = False
+        if move is not None:
+            if move == MOVEMENT.DEPARTURE:
+                ok = len(self.runways) > 0
+            else:
+                ok = len(self.ramps) > 0
+        else:
+            ok = True
+        return ok and self.status
 
     def hasPreferences(self) -> bool:
         return self.icao in self.prefs.get("Airports", {})

@@ -17,13 +17,12 @@ except ImportError:
     print("X-Plane not loaded")
 
 from .version import __VERSION__
-from .globals import logger, get_global, INTERNAL_CONSTANTS, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE, DISTANCE_TO_RAMPS
+from .globals import logger, get_global, INTERNAL_CONSTANTS, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE, DISTANCE_TO_RAMPS, GOOD
 from .aircraft import Aircraft
 from .airport import Airport
 from .flightloop import FlightLoop
 from .lightstring import LightString
-from .ui import UIUtil
-from .ui2 import UIIM, FTG_COMMANDS
+from .ui import UIIM, FTG_COMMANDS
 from .nato import phonetic, toml_dumps
 
 PREFERENCE_FILE_NAME = "followthegreens.prf"  # followthegreens.prf
@@ -44,6 +43,7 @@ class FollowTheGreens:
         self.segment = 0  # counter for green segments currently lit -0-----|-1-----|-2---------|-3---
         self.move: MOVEMENT | None = None  # departure or arrival, guessed first, can be changed by pilot.
         self.destination = None  # Handy
+        self.waiting_for_clearance = False
 
         self.airport_light_level = xp.findDataRef(AMBIANT_RWY_LIGHT_VALUE)  # [off, lo, med, hi] = [0, 0.25, 0.5, 0.75, 1]
         self.zuluTime = xp.findDataRef("sim/time/zulu_time_sec")
@@ -58,8 +58,6 @@ class FollowTheGreens:
         self.prefs = {}
         self.extconfig = {}
         self.ui = None
-        # test IMGUI
-        self.ui2 = UIIM(ftg=self)
         self._last_ui_shown = None
         self.flightLoop = None
         # frame rate estimates
@@ -70,6 +68,8 @@ class FollowTheGreens:
         # logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}")
 
         self.todo = Queue()
+        self._last_enqueue_time = datetime.now()
+        self._last_enqueue_exec = FTG_COMMANDS.BYE
 
     def __del__(self):
         # alias to cancel
@@ -82,7 +82,7 @@ class FollowTheGreens:
 
     @property
     def is_holding(self) -> bool:
-        return self.ui.waiting_for_clearance
+        return self.waiting_for_clearance
 
     @property
     def status(self) -> FTG_STATUS:
@@ -119,7 +119,7 @@ class FollowTheGreens:
         self.load_stats()
         self.prefs = {}
         self.init_preferences()
-        self.ui = UIUtil(self)  # Where windows are built
+        self.ui = UIIM(ftg=self)  # Where windows are built
         self.flightLoop = FlightLoop(self)  # where the magic is done
         # logger.info(f"initialized {type(self).__name__}")
         self.status = FTG_STATUS.INITIALIZED
@@ -212,6 +212,7 @@ class FollowTheGreens:
                     logger.warning(f"external configuration file {filename} not {loading}ed", exc_info=True)
                     with open(filename, "rb") as ferr:
                         logger.warning(f"file:\n{ferr.readlines()}\n")
+                    return False
         else:
             logger.debug(f"no external configuration file {filename}")
             return False
@@ -285,7 +286,9 @@ class FollowTheGreens:
         # 3. Start FtG (create lights, light them, etc.)
         self.move = MOVEMENT.DEPARTURE
         logger.info(f"external config going to {destination}")
-        return self.followTheGreen(destination, external=True)
+        self.followTheGreens(destination, external=True)
+        self.status = FTG_STATUS.READY
+        return True
 
     def create_empty_prefs(self):
         # Once, on first use, to help user
@@ -365,9 +368,12 @@ VERSION = "{__VERSION__}"
         # with open(filename, "w") as fp:
         #     print(toml_dumps(self.prefs))
 
+    def situation(self) -> str:
+        s = "runway" if self.move == MOVEMENT.DEPARTURE else "ramp"
+        return f"We are at {self.airport.icao}, taxiing to {s} {self.destination}."
+
     @property
     def thing(self) -> str:
-        # f"{ftg.things}"
         return "car" if self.alternate else "greens"
 
     def rabbitMode(self, mode: RABBIT_MODE):
@@ -385,7 +391,8 @@ VERSION = "{__VERSION__}"
             self.lights.destroy()
             self.lights = None
             logger.debug("light instances destroyed")
-        return self.getAirport(after=False)
+        r = self.setAirport()
+        return r[0]
 
     def newAircraft(self) -> bool:
         # called when
@@ -398,10 +405,11 @@ VERSION = "{__VERSION__}"
 
     def hideWindow(self, elapsedSinceLastCall):
         # called from inside flight loop
-        self.ui.hideMainWindowIfOk(elapsedSinceLastCall)
-        if self.ui2 is not None:
-            self.ui2.hideWindowIfTimedout(elapsedSinceLastCall)
+        self.ui.hideWindowIfTimedout(elapsedSinceLastCall)
 
+    #
+    # Initialisation of Follow the Greens
+    #
     def start(self, alternate: bool = False) -> int:
         # Toggles visibility of main window.
         # If it was simply closed for hiding, show it again as it was.
@@ -409,21 +417,11 @@ VERSION = "{__VERSION__}"
         if self.status == FTG_STATUS.NEW:
             self.init()
 
-        # if self.status = ACTIVE:
+        logger.debug(f"current status: {self.status}, ui={self.ui.hasWindow}, alt={self.alternate}")
 
-        logger.debug(f"current status: {self.status}, ui={self.ui.mainWindowExists()}, alt={self.alternate}")
-        if self.ui.mainWindowExists():
-            logger.debug(f"mainWindow exists, changing visibility {self.ui.isMainWindowVisible()}")
-            # @todo? Widget was hidden, it is popped up again;
-            # may be situation has changed, we should at least may be check
-            # we still are at the same airport as before?
-            # May be other checks depending on self.status?
-            # May be session should reset when not gone through everything and still not running?
-            if not self.ui.isMainWindowVisible():
-                self._last_ui_shown = datetime.now()  # becomes visible aster next call
-            self.ui.toggleVisibilityMainWindow()
-            if self.ui2 is not None:
-                self.ui2.toggleVisibility()
+        if self.ui.hasWindow:
+            logger.debug(f"imgui window exists, toggle visibility {self.ui.isVisible()}")
+            self.ui.toggleWindowVisibility()
             return 1
 
         # there is no existing window, we create a new session
@@ -445,47 +443,64 @@ VERSION = "{__VERSION__}"
         )
         logger.info(f"starting new green session at {datetime.now().astimezone().isoformat()} (session id = {self.session})..")
 
+        # From here on, there is no opened window
+        #
         # Info 1
-        # logger.info("starting..")
+        logger.info("starting..")
         self.alternate = alternate
-
         self.status = FTG_STATUS.START
 
         logger.debug("..reloading preferences..")
         self.init_preferences(reloading=True)
         logger.debug("..reloaded..")
 
-        # test IMGUI
-        if self.ui2 is not None:
-            self.ui2.createWindow()
+        # External configuration?
+        if self.init_external():
+            logger.info("..started from external configuration.")
+            return 1
 
-        mainWindow = self.init_external()
-        if not mainWindow:
-            mainWindow = self.getAirport()
-        logger.debug("mainWindow created")
-        if mainWindow and not xp.isWidgetVisible(mainWindow):
-            xp.showWidget(mainWindow)
-            self._last_ui_shown = datetime.now()
-            logger.debug("mainWindow shown")
-        self.status = FTG_STATUS.READY
+        status = self.setAircraft()
+        if not status[0]:
+            self.ui.createWindow(
+                report={
+                    "text": [status[1]],
+                    "error": "No aircraft",
+                    "cancel": True,
+                }
+            )
+            return 1
+
+        status = self.setAirport()
+        if not status[0]:
+            self.ui.createWindow(
+                report={
+                    "text": [status[1]],
+                    "error": "No airport",
+                    "cancel": True,
+                }
+            )
+            return 1
+
+        # Info 10
+        self.move = self.airport.guessMove(self.aircraft.position())
+
         logger.info("..started.")
+        self.afterAirport(self.airport.icao)
         return 1  # window displayed
 
-    def getAirport(self, after: bool = True):
-        # Search for airport or prompt for one.
-        # If airport is not equiped, we loop here until we get a suitable airport.
-        # When one is given and satisfies the condition for FTG
-        # we go to next step: Find the end point of Follow the greens.
-        # @todo: We need to guess those from dataref
-        # Note: Aircraft should be "created" outside of FollowTheGreen
-        # and passed to start or getAirport. That way, we can instanciate
-        # individual FollowTheGreen for numerous aircrafts.
+    def setAircraft(self) -> tuple:
         self.aircraft = Aircraft(prefs=self.prefs)
+        return [True, "Aircraft ready"]
+
+    def setAirport(self) -> tuple:
+        if self.aircraft is None:
+            logger.debug("no aircraft")
+            return [False, "We could not locate your aircraft."]
 
         pos = self.aircraft.position()
         if pos is None or (pos[0] == 0 and pos[1] == 0):
             logger.debug("no aircraft position")
-            return self.ui.sorry("We could not locate your aircraft.")
+            return [False, "We could not locate your aircraft."]
 
         hdg = self.aircraft.heading()
         logger.info(f"aircraft position ok: {pos}, heading {round(hdg, 1)}")
@@ -496,11 +511,11 @@ VERSION = "{__VERSION__}"
         airport = self.aircraft.airport(pos)
         if airport is None:
             logger.debug("no airport")
-            return self.ui.promptForAirport()  # prompt for airport will continue with getDestination(airport)
+            return [False, "No airport"]
 
         if airport.name == "NOT FOUND":
-            logger.debug("no airport (not found)")
-            return self.ui.promptForAirport()  # prompt for airport will continue with getDestination(airport)
+            logger.debug("airport not found")
+            return [False, "Airport not found"]
 
         airport_name = airport.navAidID
         if not self.airport or (self.airport.icao != airport_name):  # we may have changed airport since last call
@@ -509,7 +524,7 @@ VERSION = "{__VERSION__}"
             status = airport_data.prepare()  # [ok, errmsg]
             if not status[0]:
                 logger.warning(f"airport not ready: {status[1]}")
-                return self.ui.promptForAirport()
+                return [False, "Airport not ready"]
             self.airport = airport_data
             self.inc(self.airport.icao)
         else:
@@ -519,55 +534,35 @@ VERSION = "{__VERSION__}"
         # Info 3
         logger.info(f"at {airport.name}")
         self.status = FTG_STATUS.AIRPORT
-        if after:
-            return self.afterAirport(airport.navAidID)
-        return True
+        return [True, "Airport ready"]
 
     def afterAirport(self, airport):
-        return self.getDestination(airport)
+        self.ui.createWindow()
 
-    def getDestination(self, airport):
-        # Prompt for local destination at airport.
-        # Either a runway for departure or a parking for arrival.
-        if not self.airport or (self.airport.icao != airport):  # we may have changed airport since last call
-            airport = Airport(icao=airport, prefs=self.prefs)
-            # Info 4 to 9 in airport.prepare()
-            status = airport.prepare()  # [ok, errmsg]
-            if not status[0]:
-                logger.warning(f"airport not ready: {status[1]}")
-                return self.ui.sorry(status[1])  # could loop on getAirport? return self.getAirport()
-            self.airport = airport
-            self.inc(self.airport.icao)
-        else:
-            logger.debug(f"airport {self.airport.icao} already loaded")
-
-        logger.info(f"airport {self.airport.icao} ready")
-
-        # Info 10
-        self.move = self.airport.guessMove(self.aircraft.position())
-        return self.ui.promptForDestination(location=f"airport {self.airport.icao}")
-
-    def newGreen(self, destination):
-        # What is we had a green, and now we don't?!
-        # so we first make sur we find a new green, and if we do, we cancel the previous one.
+    #
+    # Follow the greens
+    #
+    def newGreens(self, destination):
+        # What is we had a greens, and now we don't?!
+        # so we first make sur we find a new greens, and if we do, we cancel the previous one.
         self.inc("new_greens")
-        return self.followTheGreen(destination=destination, newGreen=True)
+        self.followTheGreens(destination=destination, newGreens=True)
 
-    def followTheGreen(self, destination, newGreen: bool = False, external: bool = False):
+    def followTheGreens(self, destination, newGreens: bool = False, external: bool = False):
         # Destination is either
         #   the name of a runway for departure, or
         #   the name of a parking ramp for arrival.
         # We know where we are, we know where we want to go.
         # If we find a route, we light it.
-        if newGreen:
+        if newGreens:
             logger.info("new green requested")
 
         if destination not in self.airport.getDestinations(move=self.move):
             logger.debug(f"destination not valid {destination} for {self.move}")
-            return self.ui.promptForDestination(status=f"Destination {destination} not valid for {self.move}.")
+            self.ui.createWindow()
+            return
 
-        if self.ui2 is not None:
-            self.ui2.deleteWindow()
+        self.ui.deleteWindow()
 
         frp = xp.getDataf(self.frp)
         if frp != 0:
@@ -604,7 +599,11 @@ VERSION = "{__VERSION__}"
 
         if not rerr:
             logger.info(f"..no route to destination {destination} (route {self.route})")
-            return self.ui.tryAgain(self.route)
+            self.ui.createWindow(report={"text": [
+                "We could not find a route to your destination.",
+                "Get closer to taxiways and try again.",
+            ]})
+            return
 
         # Info 12
         logger.info(f"..route to {destination}: {self.route}")
@@ -612,7 +611,7 @@ VERSION = "{__VERSION__}"
         logger.info(f"destination {destination}")
         self.status = FTG_STATUS.DESTINATION
 
-        if newGreen:  # We had a green, and we found a new one.
+        if newGreens:  # We had a greens, and we found a new one.
             # turn off previous lights
             self.terminate("new green requested")
             self.flightLoop.newRoute()
@@ -653,7 +652,10 @@ VERSION = "{__VERSION__}"
         self.lights.populate(self.route, move=self.move, onRunway=onRwy)
         if len(self.lights.lights) == 0:
             logger.debug("no lights")
-            return self.ui.sorry("We could not light a route to your destination.")
+            self.ui.createWindow(report={"text": [
+                "We could not light a route to your destination.",
+            ]})
+            return
         self.inc("lights", qty=len(self.lights.lights))
 
         # Info 13
@@ -671,7 +673,10 @@ VERSION = "{__VERSION__}"
         logger.info(f"current segment {self.segment + 1}/{self.lights.segments + 1}")
         ret = self.lights.illuminateSegment(self.segment)
         if not ret[0]:
-            return self.ui.sorry(ret[1])
+            self.ui.createWindow(report={"text": [
+                ret[1],
+            ]})
+            return
         logger.debug(f"lights instanciated for segment {self.segment}")
 
         initbrgn, initdist, initdiff = self.lights.initial(pos, hdg)
@@ -709,42 +714,71 @@ VERSION = "{__VERSION__}"
         logger.debug(" ".join(intro_arr))
         xp.speakString(speak)
 
-        if self.ui2 is not None:
-            self.ui2.createWindow(
-                report={
-                    "text": [
-                        self.situation(),
-                        f"{intro} until you encounter red stop lights across the taxiway.",
-                        "At the stop lights, contact ATC for clearance. Press Clearance received when cleared.",
-                        "",
-                    ] + intro_arr + [""],
-                    "clearance": True,
-                    "newgreens": True,
-                    "cancel": True,
-                }
-            )
-
         # self.segment = 0
         if self.lights.segments == 0:  # just one segment
             logger.debug(f"just one segment {self.move}")
             if self.move == MOVEMENT.ARRIVAL:
                 if len(self.lights.stopbars) == 0:  # not terminated by a stop bar, it is probably an arrival...
                     logger.debug("just one segment on arrival")
-                    return self.ui.promptForParked(destination=destination)
+                    self.ui.createWindow(
+                        report={
+                            "text": [
+                                self.situation(),
+                                f"Follow the {self.thing} to the parking stand {self.destination}.",
+                                "Press Continue when parked.",
+                            ],
+                            "clearance": True,
+                            "newgreens": True,
+                            "cancel": True,
+                            "continue": True,
+                        }
+                    )
+                    return
                 if len(self.lights.stopbars) == 1:  # terminated with a stop bar, it is probably a departure...
                     logger.debug("1 segment with 1 stopbar on arrival?")
-                    return self.ui.promptForClearance(destination=self.destination)
+                    self.ui.createWindow(
+                        report={
+                            "text": [
+                                self.situation(),
+                                f"{intro} until you encounter red stop lights across the taxiway.",
+                                "At the stop lights, contact ATC for clearance. Press Clearance received when cleared.",
+                                "",
+                            ] + intro_arr + [""],
+                            "clearance": True,
+                            "newgreens": True,
+                            "cancel": True,
+                        }
+                    )
+                    return
             if self.move == MOVEMENT.DEPARTURE:
                 if len(self.lights.stopbars) == 0:  # not terminated by a stop bar, it is probably an arrival...
                     logger.debug("1 segment with 0 stopbar on departure?")
-                    return self.ui.promptForDeparture()
+                    self.ui.createWindow(
+                        report={
+                            "text": [
+                                self.situation(),
+                                f"Follow the {self.thing} until you encounter red stop lights across the taxiway",
+                                "before departure runway.",
+                                "Contact ATC, press Clearance received when cleared for runway.",
+                            ],
+                            "clearance": True,
+                            "newgreens": True,
+                            "cancel": True,
+                        }
+                    )
+                    return
 
-        return self.ui.promptForClearance(intro=intro_arr, destination=self.destination)
-        # return self.ui.sorry("Follow the greens is not completed yet.")  # development
-
-    def situation(self) -> str:
-        s = "runway" if self.move == MOVEMENT.DEPARTURE else "ramp"
-        return f"We are at {self.airport.icao}, taxiing to {s} {self.destination}."
+        self.ui.createWindow(
+            report={
+                "text": [ self.situation() ] + intro_arr + ["",
+                    f"Follow the {self.thing} until you encounter red stop lights across the taxiway",
+                    "At the stop lights, contact ATC for clearance. Press Clearance received when cleared.",
+                ],
+                "clearance": True,
+                "newgreens": True,
+                "cancel": True,
+            }
+        )
 
     def nextLeg(self):
         # Called when cleared by TOWER
@@ -763,13 +797,30 @@ VERSION = "{__VERSION__}"
             self.status = FTG_STATUS.FINISHED
             logger.info("done")
             self.segment = 0  # reset
-            return self.ui.bye()
+            msgs = [self.situation(), "You are approaching your destination."]
+            if self.move == MOVEMENT.DEPARTURE:
+                msgs += ["Contact ATC for takeoff clearance."]
+            msgs += [self.greetings("Enjoy your %s.")]
+            self.ui.createWindow(
+                report={
+                    "text": msgs,
+                    "bye": True,
+                }
+            )
+            return
 
         self.status = FTG_STATUS.GREENS
         ret = self.lights.illuminateSegment(self.segment)
         if not ret[0]:
             self.terminate("issue with light segment illumination")
-            return self.ui.sorry(ret[1])
+            self.ui.createWindow(
+                report={
+                    "text": [ret[1]],
+                    "error": "Issue with light segment illumination",
+                    "cancel": True,
+                }
+            )
+            return
         logger.debug(f"lights instanciated (segment={self.segment})")
 
         # re-authorize rabbit auto-tuning
@@ -777,28 +828,73 @@ VERSION = "{__VERSION__}"
         self.status = FTG_STATUS.ACTIVE
 
         if self.move == MOVEMENT.DEPARTURE and self.segment == (self.lights.segments - 1):
-            return self.ui.promptForDeparture()
-
+            self.ui.createWindow(
+                report={
+                    "text": [
+                        self.situation(),
+                        f"Follow the {self.thing} until you encounter red stop lights across the taxiway",
+                        "before departure runway.",
+                        "Contact ATC, press Clearance received when cleared for runway.",
+                    ],
+                    "clearance": True,
+                    "newgreens": True,
+                    "cancel": True,
+                }
+            )
+            return
         if self.move == MOVEMENT.DEPARTURE and self.segment == self.lights.segments:
             # Info 16.b
             self.status = FTG_STATUS.FINISHED
             logger.info("ready for take-off")
             self.segment = 0  # reset
-            return self.ui.bye()
+            msgs = [self.situation(), "You are approaching your destination."]
+            if self.move == MOVEMENT.DEPARTURE:
+                msgs += ["Contact ATC for takeoff clearance."]
+            msgs += [self.greetings("Enjoy your %s.")]
+            self.ui.createWindow(
+                report={
+                    "text": msgs,
+                    "bye": True,
+                }
+            )
+            return
 
         if self.move == MOVEMENT.ARRIVAL and self.segment == self.lights.segments:
-            return self.ui.promptForParked(destination=self.destination)
+            self.ui.createWindow(
+                report={
+                    "text": [
+                        self.ftg.situation(),
+                        f"Follow the {self.ftg.thing} to the parking stand {destination}.",
+                        "Press Continue when parked.",
+                    ],
+                    "clearance": True,
+                    "newgreens": True,
+                    "cancel": True,
+                }
+            )
+            return
 
         self.ui.canHide = True
-        return self.ui.promptForClearance(destination=self.destination)
+        self.ui.createWindow(
+            report={
+                "text": [
+                    self.situation(),
+                    f"{intro} until you encounter red stop lights across the taxiway.",
+                    "At the stop lights, contact ATC for clearance. Press Clearance received when cleared.",
+                    "",
+                ] + intro_arr + [""],
+                "clearance": True,
+                "newgreens": True,
+                "cancel": True,
+            }
+        )
 
     def terminate(self, reason=""):
         # Abandon the FTG mission. Instruct subroutines to turn off FTG lights, remove them,
         # and restore the environment.
 
         # test IMGUI
-        if self.ui2 is not None:
-            self.ui2.deleteWindow()
+        self.ui.deleteWindow()
 
         if self.status in [FTG_STATUS.TERMINATED, FTG_STATUS.DELETED]:
             logger.warning(f"{type(self).__name__} already terminated")
@@ -813,9 +909,6 @@ VERSION = "{__VERSION__}"
         if self.lights is not None:
             self.lights.destroy()
             self.lights = None
-
-        if self.ui is not None and self.ui.mainWindowExists():
-            self.ui.destroyMainWindow()
 
         self.status = FTG_STATUS.TERMINATED
         self.save_stats()
@@ -838,6 +931,9 @@ VERSION = "{__VERSION__}"
         self.session = None
         return [True, ""]
 
+    #
+    # General information
+    #
     def hourOfDay(self) -> float:
         return int(xp.getDataf(self.localTime) / 3600)  # seconds since midnight??
 
@@ -859,6 +955,18 @@ VERSION = "{__VERSION__}"
         u = datetime.utcnow()  # year
         return datetime(year=u.year, month=1, day=1, tzinfo=t) + timedelta(days=d, seconds=s)
 
+    def greetings(self, text="Good %s."):
+        h = self.hourOfDay()
+        ss = list(GOOD.keys())[-1]  # last one is good night, from 0-4 and 20-24.
+        for k, v in GOOD.items():
+            if h > v:
+                ss = k
+        logger.debug(f"bye: {h}h, good {ss}")
+        return text % ss
+
+    #
+    # PI integration
+    #
     def bookmark(self, message: str = ""):
         # @todo: fetch simulator date/time too
         z = self.getSimulatorDatetime()
@@ -887,35 +995,40 @@ VERSION = "{__VERSION__}"
         self.inc("stopped")
         return self.terminate("stopped")
 
+    def execute(self, action: FTG_COMMANDS):
+        if self._last_enqueue_exec == action and (datetime.now() - self._last_enqueue_time).total_seconds() < 2:
+            logger.debug("too quick same enqueue, rejected (double click?)")
+            return
+        self.inc("enqueue")
+        self.todo.put(action)
+        logger.debug(f"requesting {action} ({self.ui.airport}, {self.ui.move}, {self.ui.destination}, {self.ui.guide})")
+        self._last_enqueue_exec = action
+        self._last_enqueue_time = datetime.now()
+
+    def _execute(self):
+        try:
+            e = self.todo.get_nowait()
+            logger.debug(f"{e} ({self.ui.airport}, {self.ui.move}, {self.ui.destination}, {self.ui.guide})")
+            self.ui.deleteWindow()
+            if e == FTG_COMMANDS.START:
+                self.followTheGreens(destination=self.ui.destination)
+            elif e == FTG_COMMANDS.NEWGREENS:
+                self.followTheGreens(destination=self.destination, newGreens=True)
+            elif e == FTG_COMMANDS.CLEAR:
+                self.nextLeg()
+            elif e == FTG_COMMANDS.CANCEL:
+                self.terminate("cancel")
+            else:
+                logger.warning(f"EXECUTOR unhandled {e} ({self.airport}, {self.move}, {self.destination}, {self.guide})")
+            self.inc("execute")
+        except Empty:
+            pass
+        except:
+            logger.error("error", exc_info=True)
+
     def toExit(self):
         logger.error(f"""If error from FollowTheGreens persist, in X-Plane, select Plugin -> XPPython3 -> Reload scripts
 to stop and reload python scripts and effectively stop FollowTheGreens (this will also stop other python scripts.).
 FollowTheGreens will not restart unless you reactivate it.
 Please send file {os.path.join(os.path.dirname(__file__), '..', 'ftg_log.txt')} along with log.txt and XPPython3Log.txt
 to the author of the plugin to investigate the issue and fix it. Sorry for the inconvenience. Thank you.""")
-
-    def execute(self, action: FTG_COMMANDS):
-        self.todo.put(action)
-        logger.debug(f"requesting {action} ({self.ui2.airport}, {self.ui2.move}, {self.ui2.destination}, {self.ui2.guide})")
-
-    def _execute(self):
-        try:
-            e = self.todo.get_nowait()
-            logger.debug(f"{e} ({self.ui2.airport}, {self.ui2.move}, {self.ui2.destination}, {self.ui2.guide})")
-            self.ui2.deleteWindow()
-            # if e == FTG_COMMANDS.TERMINATE:  # command to self
-            #     pass
-            # elif e == FTG_COMMANDS.START:
-            #     dummy = self.followTheGreen(destination=self.destination)
-            # elif e == FTG_COMMANDS.NEWGREENS:
-            #     dummy = self.followTheGreen(destination=self.destination, newGreen=True)
-            # elif e == FTG_COMMANDS.CLEAR:
-            #     dummy = self.nextLeg()
-            # elif e == FTG_COMMANDS.CANCEL:
-            #     dummy = self.terminate("cancel")
-            # else:
-            #     logger.warning(f"EXECUTOR unhandled {e} ({self.airport}, {self.move}, {self.destination}, {self.guide})")
-        except Empty:
-            pass
-        except:
-            logger.error("error", exc_info=True)
