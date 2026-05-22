@@ -17,6 +17,8 @@ from .globals import (
     TAXIWAY_DIRECTION,
     logger,
     get_global,
+    Error,
+    NoError,
     DISTANCE_BETWEEN_STOPLIGHTS,
     FTG_SPEED_PARAMS,
     LIGHT_TYPE,
@@ -971,11 +973,11 @@ class LightString:
         # Lights up a segment of lights between 2 stop bars
         if not self.lightTypes:
             if not self.loadObjects():
-                return [False, "Could not load light objects."]
+                return Error("Could not load light objects.")
 
         if not self.xyzPlaced:  # do it once and for all. Lights rarely move.
             if not self.placeLights():
-                return [False, "Could not place light objects."]
+                return Error("Could not place light objects.")
 
         self.currentSegment = segment
         start = 0
@@ -1022,7 +1024,7 @@ class LightString:
         if not self.rabbitCanRun:
             self.rabbitCanRun = True
 
-        return [True, "greens are set"]
+        return NoError("greens are set")
 
     def offToIndex(self, idx):
         if idx < len(self.lights):
@@ -1177,11 +1179,11 @@ class LightString:
         # Lights up a segment of lights between 2 stop bars
         if not self.lightTypes:
             if not self.loadObjects():
-                return [False, "Could not load light objects."]
+                return Error("Could not load light objects.")
 
         if not self.xyzPlaced:  # do it once and for all. Lights rarely move.
             if not self.placeLights():
-                return [False, "Could not place light objects."]
+                return Error("Could not place light objects.")
 
         for light in self.lights:
             light.on()

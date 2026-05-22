@@ -585,7 +585,7 @@ class PythonInterface:
         if self.followTheGreens and phase == 0:
             self.debug("_followTheGreensCmd: available")
             try:
-                self.followTheGreens.start(alternate=alternate)
+                self.followTheGreens.run(alternate=alternate)
                 self.debug("_followTheGreensCmd: started")
                 return 1
             except:
@@ -635,7 +635,7 @@ class PythonInterface:
                 return 0
             else:
                 try:
-                    self.showTaxiways.start()
+                    self.showTaxiways.run()
                     self.debug("showTaxiwaysCmd: started")
                     return 1
                 except:

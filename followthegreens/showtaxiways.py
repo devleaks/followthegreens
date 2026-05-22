@@ -20,7 +20,7 @@ except ImportError:
 from .followthegreens import FollowTheGreens
 from .airport import Airport
 from .lightstring import LightString
-from .globals import logger, FTG_STATUS
+from .globals import logger, NoError, FTG_STATUS
 
 
 class ShowTaxiways(FollowTheGreens):
@@ -91,4 +91,4 @@ class ShowTaxiways(FollowTheGreens):
 
         # Info 16
         logger.info(f"terminated, reason: {reason}.")
-        return [True, ""]
+        return NoError("terminated")

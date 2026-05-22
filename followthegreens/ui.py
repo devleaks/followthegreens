@@ -1,5 +1,9 @@
+# User Interface Utility Class
+# Creates FTG windows using imgui through xppython3
+#
 from datetime import datetime
-from enum import StrEnum
+from enum import StrEnum, Enum
+from os import error
 
 from followthegreens.geo import destination
 
@@ -14,21 +18,34 @@ except ImportError:
 
 
 class FTG_COMMANDS(StrEnum):
-    CLEAR = "CLEAR"  # clearance received, continue
-    CANCEL = "CANCEL"  # terminates FTG
     START = "START"  # starts session
-    AIRPORT = "AIRPORT"  # change airport
+    CANCEL = "CANCEL"  # terminates FTG
+    CLEAR = "CLEAR"  # clearance received, continue
     NEWGREENS = "NEWGREENS"  # new greens/route requested, continue
     BYE = "BYE"  # terminates after completion
     CONTINUE = "CONTINUE"  # no op? similar to close
     OK = "OK"  # no op? similar to close
     CLOSE = "CLOSE"  # close window
+    AIRPORT = "AIRPORT"  # change airport
+
+
+class UI_BUTTON(Enum):
+    CLEARANCE = ("Clearance received", FTG_COMMANDS.CLEAR)
+    CANCEL = ("Cancel", FTG_COMMANDS.CANCEL)  # terminates FTG
+    BYE = ("Bye", FTG_COMMANDS.BYE)  # terminates after completion
+    CONTINUE = ("Continue", FTG_COMMANDS.CONTINUE)  # no op? similar to close
+    OK = ("OK", FTG_COMMANDS.OK)  # no op? similar to close
+    CLOSE = ("Close", FTG_COMMANDS.CLOSE)  # close window
+    NEWGREENS = ("New greens", FTG_COMMANDS.NEWGREENS)  # new greens/route requested, continue
 
 
 class UIIM:
 
     WIN_WIDTH = 480  # px
     WIN_HEIGHT = 260  # px, height of "small report window", collect window is twice as height
+
+    WIN_TOP = (2 * 260) + 200  # px
+    WIN_LEFT = 100  # px
 
     STAND_COMBO = 20  # show combo from that many item on
     STAND_COMBO_WIDTH = 240  # px
@@ -58,25 +75,137 @@ class UIIM:
         self.fmcar_idx = 0
         self.use_indicator = True
 
-        self.hint = None
-        self.error = None
+        self.show_options = False
 
-        self.win_pos = [100, 600]
+        self.hint = None  # hint is unique
+        self.errors = set()
+
+        self.win_pos = [UIIM.WIN_LEFT, UIIM.WIN_TOP]
         self.win_autohide = True
         self.win_timeout = 30  # secs
 
         self.window_flags = 0
         self.window_flags |= imgui.WINDOW_NO_COLLAPSE
         self.window = None
-        self.imgui_refcon = {}
         self._last = datetime.now()
         self._canHide = True
 
+    #
+    # Window management
+    #
     @property
     def destination(self) -> str | None:
         destinations = self.dest_dep if self.deparr[0] else self.dest_arr
         return str(destinations[self.dest_idx]) if len(destinations) > 0 and self.dest_idx != -1 else None
 
+    @property
+    def timedout(self) -> bool:
+        return self.win_autohide and (datetime.now() - self._last).total_seconds() > self.win_timeout
+
+    @property
+    def hasWindow(self) -> bool:
+        return self.window is not None
+
+    def isVisible(self) -> bool:
+        if self.hasWindow:
+            return xp.getWindowIsVisible(self.window.windowID) == 1
+        return False
+
+    def showWindow(self, canHide: bool = True):
+        if self.hasWindow:
+            xp.setWindowIsVisible(self.window.windowID, visible=1)
+            self.canHide = canHide
+            self.resetTimeout()
+
+    def hideWindow(self):
+        if self.hasWindow and self.canHide:
+            xp.setWindowIsVisible(self.window.windowID, visible=0)
+
+    def toggleWindowVisibility(self):
+        if self.isVisible():
+            self.hideWindow()
+        else:
+            self.showWindow()
+
+    def hideWindowIfTimedout(self, elapsedSinceLastCall: float):
+        if self.timedout:
+            self.hideWindow()
+
+    @property
+    def canHide(self) -> bool:
+        return self._canHide
+
+    @canHide.setter
+    def canHide(self, canHide):
+        if canHide != self._canHide:
+            logger.debug(f"allow UI to hide={self._canHide}")
+        self._canHide = canHide
+
+    def addError(self, error: str):
+        self.errors.add(error)
+
+    def hasErrors(self) -> bool:
+        return len(self.errors) > 0
+
+    def getErrors(self) -> bool:
+        return "\n".join(self.errors)
+
+    def clearErrors(self):
+        self.errors = set()
+
+    def resetTimeout(self):
+        self._last = datetime.now()
+
+    def createWindow(self, report: dict = {}):
+        if self.hasWindow:
+            return
+        DEFAULT_TEXT = ["<No text>"]
+        l, t, _r, _b = xp.getScreenBoundsGlobal()
+        left_offset = self.win_pos[0]
+        top_offset = self.win_pos[1]
+        text = report.get("text", DEFAULT_TEXT)
+        has_text = text != DEFAULT_TEXT
+        h = (len(text) + 4) * 20 if has_text else self.WIN_HEIGHT
+        if top_offset < h:
+            top_offset = h + 10
+        if has_text:  # info with buttons
+            self.window = xp_imgui.Window(
+                left=l + left_offset,
+                top=top_offset,
+                right=l + left_offset + self.WIN_WIDTH,
+                bottom=top_offset - h,
+                visible=1,
+                draw=self.report,
+                refCon=report,
+            )
+        else:  # general welcome screen for data collection
+            self.use_car = self.ftg.alternate
+            self.window = xp_imgui.Window(
+                left=l + left_offset,
+                top=top_offset,
+                right=l + left_offset + self.WIN_WIDTH,
+                bottom=top_offset - h,
+                visible=1,
+                draw=self.collect,
+                refCon=report,
+            )
+        self.canHide = True  # new window can always be hidden
+        self.resetTimeout()
+        self.window.setTitle("Follow the greens")
+
+    def deleteWindow(self):
+        if self.window is None:
+            return
+        self.window.delete()
+        self.window = None
+        self.hint = None
+
+    def execute(self, action: FTG_COMMANDS):
+        self.ftg.execute(action)
+
+    #
+    # Data for collection
+    #
     @property
     def move(self) -> str:
         return "DEPARTURE" if self._deparr else "ARRIVAL"
@@ -88,59 +217,6 @@ class UIIM:
     @property
     def fmcar(self) -> str | None:
         return str(self.fmcars[self.fmcar_idx]) if len(self.fmcars) > 0 and self.fmcar_idx != -1 else None
-
-    @property
-    def timedout(self) -> bool:
-        return self.win_autohide and (datetime.now() - self._last).total_seconds() > self.win_timeout
-
-    @property
-    def hasWindow(self) -> bool:
-        return self.window is not None
-
-    def execute(self, action: FTG_COMMANDS):
-        self.ftg.execute(action)
-
-    def isVisible(self) -> bool:
-        if self.hasWindow:
-            return xp.getWindowIsVisible(self.window.windowID) == 1
-        return False
-
-    def showWindow(self):
-        if self.hasWindow:
-            xp.setWindowIsVisible(self.window.windowID, visible=1)
-            self.resetTimeout()
-
-    def hideWindow(self):
-        if self.hasWindow:
-            xp.setWindowIsVisible(self.window.windowID, visible=0)
-
-    def toggleWindowVisibility(self):
-        if self.isVisible():
-            self.hideWindow()
-        else:
-            self.showWindow()
-
-    def hideWindowIfTimedout(self, elapsedSinceLastCall: float):
-        if self.canHide and self.timedout:
-            self.hideWindow()
-
-    def show_help_marker(self, desc):
-        imgui.text_disabled("(?)")
-        if imgui.is_item_hovered():
-            imgui.begin_tooltip()
-            imgui.push_text_wrap_pos(imgui.get_font_size() * 35.0)
-            imgui.text_unformatted(desc)
-            imgui.pop_text_wrap_pos()
-            imgui.end_tooltip()
-
-    def radioButtons(self, prompts: list, values: list) -> list:
-        v = []
-        for i in range(len(prompts)):
-            v.append(False)
-            v[i] = imgui.radio_button(prompts[i], values[i])
-            imgui.same_line()
-        imgui.new_line()
-        return v if any(v) else values
 
     @property
     def hasAirport(self) -> bool:
@@ -170,68 +246,46 @@ class UIIM:
     def dest_arr(self):
         return sorted(self.ftg.airport.ramps.keys()) if self.hasAirport else []
 
-    @property
-    def canHide(self) -> bool:
-        return self._canHide
-
-    @canHide.setter
-    def canHide(self, canHide):
-        if canHide != self._canHide:
-            logger.debug(f"allow UI to hide={self._canHide}")
-        self._canHide = canHide
-
     def resetDestination(self):
         self.dest_idx = self.DESTINATION if self.DESTINATION < len(self.dest_dep) else -1
 
-    def resetTimeout(self):
-        self._last = datetime.now()
+    @property
+    def info(self):
+        return f"{self.airport}, {self.move}, {self.destination}, {self.guide}"
 
-    def createWindow(self, report: dict = {}, **kwargs):
-        if self.hasWindow:
-            return
-        l, t, _r, _b = xp.getScreenBoundsGlobal()
-        left_offset = self.win_pos[0]
-        top_offset = self.win_pos[1]
-        if report.get("text") is not None:  # info with buttons
-            self.imgui_refcon = report
-            self.window = xp_imgui.Window(
-                left=l + left_offset,
-                top=top_offset + self.WIN_HEIGHT,
-                right=l + left_offset + self.WIN_WIDTH,
-                bottom=top_offset,
-                visible=1,
-                draw=self.report,
-                refCon=self.imgui_refcon,
-            )
-        else:  # general welcome screen for data collection
-            self.use_car = self.ftg.alternate
-            self.window = xp_imgui.Window(
-                left=l + left_offset,
-                top=top_offset + 2 * self.WIN_HEIGHT,
-                right=l + left_offset + self.WIN_WIDTH,
-                bottom=top_offset,
-                visible=1,
-                draw=self.collect,
-                refCon=self.imgui_refcon,
-            )
-        self.resetTimeout()
-        self.window.setTitle("Follow the greens")
+    #
+    # Reporting window
+    #
+    def show_help_marker(self, desc):
+        imgui.text_disabled("(?)")
+        if imgui.is_item_hovered():
+            imgui.begin_tooltip()
+            imgui.push_text_wrap_pos(imgui.get_font_size() * 35.0)
+            imgui.text_unformatted(desc)
+            imgui.pop_text_wrap_pos()
+            imgui.end_tooltip()
 
-    def activateWindow(self):
-        if self.window is None:
-            self.createWindow(report=self.imgui_refcon)
-        self.resetTimeout()
-
-    def deleteWindow(self):
-        if self.window is None:
-            return
-        self.window.delete()
-        self.window = None
-        self.hint = None
+    def radioButtons(self, prompts: list, values: list) -> list:
+        v = []
+        for i in range(len(prompts)):
+            v.append(False)
+            v[i] = imgui.radio_button(prompts[i], values[i])
+            imgui.same_line()
+        imgui.new_line()
+        return v if any(v) else values
 
     def collect(self, _windowID, refCon):
         if self.window is None:
             return
+
+        l, t, _r, _b = xp.getScreenBoundsGlobal()
+        left_offset = self.win_pos[0]
+        top_offset = self.win_pos[1]
+        h = self.WIN_HEIGHT if not self.show_options else 2 * self.WIN_HEIGHT
+        if top_offset < h:
+            top_offset = h + 10
+        xp.setWindowGeometry(windowID=self.window.windowID, left=l + left_offset, top=top_offset, right=l + left_offset + self.WIN_WIDTH, bottom=top_offset - h)
+
         # Most "big" widgets share a common width settings by default.
         imgui.push_item_width(imgui.get_window_width() * 0.65)
         # Use 2/3 of the space for widgets and 1/3 for labels (default)
@@ -244,10 +298,9 @@ class UIIM:
         # 1.1 AIRPORT
         if self.airport == "<None>" or not self.airport_ok:
             imgui.text(f"{self.airport}   Airport ICAO  ")
-            self.error = "Airport is invalid"
+            self.addError("Airport is invalid")
         else:
             imgui.text(f"At {self.airport}")
-            self.error = None
 
         imgui.same_line()
         if imgui.button(label="Change.."):
@@ -293,7 +346,7 @@ class UIIM:
                 imgui.end_popup()
 
         # 1.4 alt
-        clicked, self.use_car = imgui.checkbox(label="Use Follow Me car instead of greens", state=self.use_car)
+        clicked, self.use_car = imgui.checkbox(label="Use Follow Me car instead of taxiway green lights", state=self.use_car)
 
         # 1.5 GO!
         imgui.spacing()
@@ -308,6 +361,7 @@ class UIIM:
             imgui.push_style_color(imgui.COLOR_BUTTON_ACTIVE, 0.4, 0.4, 0.4, 1.0)
         if imgui.button(label="Follow the " + self.guide):
             if self.dest_idx != -1:
+                self.hideWindow()
                 self.execute(FTG_COMMANDS.START)
                 self.hint = None
             else:
@@ -319,122 +373,120 @@ class UIIM:
         imgui.spacing()
         imgui.spacing()
 
-        #
-        # 2. FTG Options
-        #
-        show, _ = imgui.collapsing_header("Follow the greens options", visible=not self.use_car)
-        if show:
-            imgui.push_item_width(240)
-            changed, self.rabbit_length = imgui.slider_int("Rabbit length", self.rabbit_length, 0, self.LIGHT_MAX)
-            changed, self.rabbit_speed = imgui.slider_int("Rabbit speed", self.rabbit_speed, 0, 3)  # none, slow, normal, fast
-            imgui.same_line()
-            imgui.text("(" + ["no rabbit", "slow", "medium", "fast"][self.rabbit_speed] + ")")
-            changed, self.lights_ahead = imgui.slider_int("Lights ahead", self.lights_ahead, 0, self.LIGHT_MAX)
-            imgui.same_line()
-            self.show_help_marker("0 light ahead means show greens to next stop")
-            imgui.pop_item_width()
-            clicked, self.use_4d = imgui.checkbox(label="Use 4D", state=self.use_4d)
-            self.lights = self.radioButtons(["Omni directional", "Taxiway"], self.lights)
+        clicked, self.show_options = imgui.checkbox(label="Show advanced options", state=self.show_options)
 
         #
-        # 3. FMC Options
+        # 2. Options
         #
-        show, _ = imgui.collapsing_header("Follow Me Car options", visible=self.use_car)
-        if show:
-            clicked, self.fmcar_idx = imgui.combo("Model", self.fmcar_idx, self.fmcars)
-            # imgui.same_line()
-            # show_help_marker(
-            #     'Refer to the "Combo" section below for an explanation of the full BeginCombo/EndCombo API, and demonstration of various flags.\n'
-            # )
-            clicked, self.use_indicator = imgui.checkbox(label="Use indicator", state=self.use_indicator)
-            imgui.same_line()
-            self.show_help_marker("An Indicator is a sign board on top of car to indicate direction and other messages")
-            clicked, self.use_4d = imgui.checkbox(label="Use 4D", state=self.use_4d)
+        if self.show_options:
+            #
+            # 2.1 FTG Options
+            #
+            show, _ = imgui.collapsing_header("Follow the greens options", visible=not self.use_car)
+            if show:
+                imgui.push_item_width(240)
+                changed, self.rabbit_length = imgui.slider_int("Rabbit length", self.rabbit_length, 0, self.LIGHT_MAX)
+                changed, self.rabbit_speed = imgui.slider_int("Rabbit speed", self.rabbit_speed, 0, 3)  # none, slow, normal, fast
+                imgui.same_line()
+                imgui.text("(" + ["no rabbit", "slow", "medium", "fast"][self.rabbit_speed] + ")")
+                changed, self.lights_ahead = imgui.slider_int("Lights ahead", self.lights_ahead, 0, self.LIGHT_MAX)
+                imgui.same_line()
+                self.show_help_marker("0 light ahead means show greens to next stop")
+                imgui.pop_item_width()
+                clicked, self.use_4d = imgui.checkbox(label="Use 4D", state=self.use_4d)
+                self.lights = self.radioButtons(["Omni directional", "Taxiway"], self.lights)
 
-        #
-        # 4. Options
-        #
-        show, _ = imgui.collapsing_header("Plugin options")
-        if show:
-            imgui.text("Window top left position (from screen bottom left)")
-            changed, self.win_pos[0] = imgui.slider_int("From Left", self.win_pos[0], 0, 600)
-            imgui.same_line()
-            self.show_help_marker("Top of window from left of screen")
-            changed, self.win_pos[1] = imgui.slider_int("From Bottom", self.win_pos[1], 0, 600)
-            imgui.same_line()
-            self.show_help_marker("Top of window from bottom of screen")
+            #
+            # 2.1 FMC Options
+            #
+            show, _ = imgui.collapsing_header("Follow Me Car options", visible=self.use_car)
+            if show:
+                clicked, self.fmcar_idx = imgui.combo("Model", self.fmcar_idx, self.fmcars)
+                # imgui.same_line()
+                # show_help_marker(
+                #     'Refer to the "Combo" section below for an explanation of the full BeginCombo/EndCombo API, and demonstration of various flags.\n'
+                # )
+                clicked, self.use_indicator = imgui.checkbox(label="Use indicator", state=self.use_indicator)
+                imgui.same_line()
+                self.show_help_marker("An Indicator is a sign board on top of car to indicate direction and other messages")
+                clicked, self.use_4d = imgui.checkbox(label="Use 4D", state=self.use_4d)
+
+            #
+            # 2.3 Options
+            #
+            show, _ = imgui.collapsing_header("Plugin options")
+            if show:
+                imgui.text("Window top left position (from screen bottom left)")
+                changed, self.win_pos[0] = imgui.slider_int("From Left", self.win_pos[0], 0, 600)
+                imgui.same_line()
+                self.show_help_marker("Top of window from left of screen")
+                changed, self.win_pos[1] = imgui.slider_int("From Bottom", self.win_pos[1], 0, 600)
+                imgui.same_line()
+                self.show_help_marker("Top of window from bottom of screen")
+                imgui.spacing()
+                checked, self.win_autohide = imgui.checkbox(label="Auto Hide", state=self.win_autohide)
+                changed, self.win_timeout = imgui.slider_int("Hide timeout (seconds)", self.win_timeout, 1, 60)
+                imgui.spacing()
+                checked, self.runway_threshold = imgui.checkbox(label="Use runway threshold", state=self.runway_threshold)
+
+        self.status(show_version=self.show_options)
+
+    #
+    # Data collection window
+    #
+    def status(self, show_version: bool = True):
+        imgui.spacing()
+        imgui.spacing()
+        imgui.spacing()
+        imgui.spacing()
+        imgui.spacing()
+        imgui.spacing()
+
+        if self.hasErrors():
+            imgui.text_colored(self.getErrors(), r=1.0, g=0.0, b=0.0)
+
+        imgui.spacing()
+
+        if self.hint is not None:
+            imgui.text_colored("Hint: " + self.hint, r=0.0, g=0.8, b=0.8)
+
+        if show_version:
             imgui.spacing()
-            checked, self.win_autohide = imgui.checkbox(label="Auto Hide", state=self.win_autohide)
-            changed, self.win_timeout = imgui.slider_int("Hide timeout (seconds)", self.win_timeout, 1, 60)
-            imgui.spacing()
-            checked, self.runway_threshold = imgui.checkbox(label="Use runway threshold", state=self.runway_threshold)
-
-        self.status()
+            imgui.text("Follow the greens rel. " + __VERSION__)
 
     def report(self, _windowID, refCon):
+        # refCon = {
+        #     "text": ["bla"],
+        #     "buttons": [UI_BUTTON.OK],
+        #     "error": "bla",
+        #     "hint": "bla",
+        # }
         text = refCon.get("text", ["<No text>"])
         imgui.push_item_width(imgui.get_font_size() * -12)
         imgui.text_wrapped("\n".join(text))
         imgui.spacing()
         imgui.spacing()
 
-        if refCon.get("clearance", False):
-            if imgui.button(label="Clearance received", width=150, height=0):
-                self.execute(FTG_COMMANDS.CLEAR)
-                self.resetTimeout()
-            imgui.same_line()
-
-        if refCon.get("newgreens", False):
-            if imgui.button(label="New " + ("route" if self.use_car else "greens"), width=80, height=0):
-                self.execute(FTG_COMMANDS.NEWGREENS)
-                self.resetTimeout()
-            imgui.same_line()
-
-        if refCon.get("cancel", False):
-            if imgui.button(label="Cancel", width=80, height=0):
-                self.execute(FTG_COMMANDS.CANCEL)
-                self.resetTimeout()
-                return
-
-        if refCon.get("continue", False):
-            if imgui.button(label="Continue", width=80, height=0):
-                self.execute(FTG_COMMANDS.CONTINUE)
-                self.resetTimeout()
-            imgui.same_line()
-
-        if refCon.get("ok", False):
-            if imgui.button(label="OK", width=80, height=0):
-                self.execute(FTG_COMMANDS.OK)
-                self.resetTimeout()
-            imgui.same_line()
-
-        if refCon.get("close", False):
-            if imgui.button(label="Close", width=80, height=0):
-                self.execute(FTG_COMMANDS.CLOSE)
-                self.resetTimeout()
-            imgui.same_line()
-
-        if refCon.get("bye", False):
-            if imgui.button(label="Terminate", width=80, height=0):
-                self.execute(FTG_COMMANDS.BYE)
+        buttons = refCon.get("buttons", [UI_BUTTON.OK])
+        for b in buttons:
+            p = b.value[0]
+            w = 80 if len(p) < 12 else 150
+            if imgui.button(label=p, width=w, height=0):
+                self.execute(b.value[1])
                 self.resetTimeout()
             imgui.same_line()
 
         imgui.new_line()
+
+        self.hint = refCon.get("hint", self.hint)
+        e = refCon.get("error")
+        if e is not None:
+            if type(e) in [list, tuple]:
+                for m in e:
+                    self.addError(m)
+            else:
+                self.addError(e)
         self.status()
 
-    def status(self):
-        imgui.spacing()
-        imgui.spacing()
-        imgui.spacing()
-        imgui.spacing()
-        imgui.spacing()
-        imgui.spacing()
 
-        if self.error is not None:
-            imgui.text_colored("Error: " + self.error, r=1.0, g=0, b=0)
-        if self.hint is not None:
-            imgui.text_colored("Hint: " + self.hint, r=0.0, g=0.8, b=0.8)
-
-        imgui.spacing()
-        imgui.text("Follow the greens rel. " + __VERSION__)
+#

@@ -25,6 +25,9 @@ from .globals import (
     TAXIWAY_DIRECTION,
     logger,
     get_global,
+    Status,
+    Error,
+    NoError,
     DISTANCE_TO_RAMPS,
     TAXIWAY_TYPE,
     RUNWAY_BUFFER_WIDTH,
@@ -213,6 +216,8 @@ class Airport:
         self.apt_data = None
         self.cursor_type = None  # keep track of meta data of current cursor (turn radius, speeds, etc.)
         self.atc_ground = None
+        self.latitude = 0
+        self.longitude = 0
         self.altitude = 0  # ASL, in meters
         self.loaded = False
         self.scenery_pack = False
@@ -253,29 +258,34 @@ class Airport:
         logger.debug(f"airport rabbit: length={self.rabbit_length}L, speed={self.rabbit_speed}s, ahead={self.lights_ahead}L")
         logger.debug(f"airport rabbit: btw greens={self.distance_between_green_lights}m, whole net={self.distance_between_taxiway_lights}m")
 
-    def prepare(self, filename: str | None = None):
+    def position(self) -> tuple:
+        if self.apt_data is not None:
+            return (self.apt_data.latitude, self.apt_data.longitude, self.altitude)
+        return (self.latitude, self.longitude, self.altitude)
+
+    def prepare(self, filename: str | None = None) -> Status:
         if filename is None:
             status = self.load()
         else:
             logger.debug(f"loading from file {filename}")
             status = self.loadFile(filename)
         if not status:
-            return [False, f"We could not find airport named '{self.icao}'."]
+            return Error(f"We could not find airport named '{self.icao}'.")
 
         # status = self.load_smooth()
         # if not status:
-        #     return [False, f"We could not find smooth taxiway lines for airport named '{self.icao}'."]
+        #     return Error(f"We could not find smooth taxiway lines for airport named '{self.icao}'.")
 
         # Info 5
         # logger.debug(f"has ATC {self.hasATC()}")  # actually, we don't care.
 
         status = self.mkRoutingNetwork()
         if not status:
-            return [False, f"We could not build taxiway network for {self.icao}."]
+            return Error(f"We could not build taxiway network for {self.icao}.")
 
         status = self.ldRunways()
         if len(status) == 0:
-            return [False, f"We could not find runways for {self.icao}."]
+            return Error(f"We could not find runways for {self.icao}.")
         # Info 7
         logger.debug(f"runways: {status.keys()}")
 
@@ -284,12 +294,12 @@ class Airport:
 
         status = self.ldRamps()
         if len(status) == 0:
-            return [False, f"We could not find ramps/parking for {self.icao}."]
+            return Error(f"We could not find ramps/parking for {self.icao}.")
         # Info 8
         logger.debug(f"ramps: {status.keys()}")
 
         self.status = True
-        return [True, "Airport ready"]
+        return NoError("Airport ready")
 
     def usable(self, move: MOVEMENT | None = None) -> bool:
         # should check has taxiways, has runway, has at least one ramp?
@@ -720,7 +730,7 @@ class Airport:
         logger.debug(f"{closest} at {round(shortest, 1)}m")
         return [closest, shortest]
 
-    def onRunway(self, position, width: float | None = None, heading: float | None = None):
+    def onRunway(self, position, width: float | None = None, heading: float | None = None) -> Runway | None:
         # Width is in meter
         logger.debug(f"onRunway? position={position}, width={width}, heading={heading}")
         point = Point(position[0], position[1])
@@ -743,7 +753,7 @@ class Airport:
                             logger.debug(
                                 f"on {name}, same orientation (rwy width={rwy.width}m, ac heading={round(heading, 1)}, rwy heading={round(rwy.bearing(), 1)}, delta={round(d, 2)})"
                             )
-                            return [True, rwy]
+                            return rwy
                     else:
                         logger.debug(f"not on runway {name} (rwy width={rwy.width}m)")  # , {polygon.coords()}
                 else:
@@ -759,25 +769,25 @@ class Airport:
             if polygon is not None:
                 if pointInPolygon(point, polygon):
                     logger.debug(f"on {name}, no orientation (rwy width={rwy.width}m)")
-                    return [True, rwy]
+                    return rwy
                 else:
                     logger.debug(f"not on runway {name}")  # , {polygon.coords()}
             else:
                 logger.debug(f"no polygon for runway {name}")
 
-        return [False, None]
+        return None
 
     def guessMove(self, coord) -> MOVEMENT:
         # Info 10
-        onRwy, runway = self.onRunway(coord)
-        if onRwy:
+        runway = self.onRunway(coord)
+        if runway is not None:
             logger.info("aircraft appears to be on runway, assuming arrival")
             return MOVEMENT.ARRIVAL
-        ret = self.findClosestRamp(coord)
-        if ret[1] < DISTANCE_TO_RAMPS:  # meters, we are close to a ramp.
+        res = self.findClosestRamp(coord)
+        if res[1] < DISTANCE_TO_RAMPS:  # meters, we are close to a ramp.
             closest = ""
-            if type(ret[0]) is str:
-                closest = f" close to stand {ret[0]}"
+            if type(res[0]) is str:
+                closest = f" close to stand {res[0]}"
             logger.info(f"aircraft appears to be on apron{closest}, assuming departure")
             return MOVEMENT.DEPARTURE
         logger.info("aircraft is far from known ramps, assuming arrival")
@@ -809,17 +819,17 @@ class Airport:
 
         return list(self.ramps.keys())
 
-    def mkRoute(self, aircraft, destination, move: MOVEMENT, use_strict_mode: bool) -> tuple:
-        # Returns (True, route object) or (False, error message)
+    def mkRoute(self, aircraft, destination, move: MOVEMENT, use_strict_mode: bool) -> Status:
+        # Returns NoError(route object) or Error(error message)
         # From aircraft position..
         arrival_runway = None
         if move == MOVEMENT.ARRIVAL:
             pos = aircraft.position()
             if not pos:
                 logger.debug("plane could not be located")
-                return (False, "We could not locate your aircraft.")
+                return Error("We could not locate your aircraft.")
             hdg = aircraft.heading()
-            onRwy, arrival_runway = self.onRunway(pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg)
+            arrival_runway = self.onRunway(pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg)
 
         # ..to destination
         dst_pos = None
@@ -828,17 +838,17 @@ class Airport:
             if destination in self.runways.keys():
                 dst_pos = self.getRunway(destination)
                 if dst_pos is None:  # we sure to find one because first test
-                    return (False, f"We could not find runway {destination}.")
+                    return Error(f"We could not find runway {destination}.")
                 dst_type = "runway"
             elif destination in self.holds.keys():
                 dst_pos = self.holds[destination].coords()
                 if dst_pos is None:  # we sure to find one because first test
-                    return (False, f"We could not find hold position {destination}.")
+                    return Error(f"We could not find hold position {destination}.")
                 dst_type = "hold"
         else:
             dst_pos = self.getRamp(destination)
             if dst_pos is None:
-                return (False, f"We could not find stand {destination}.")
+                return Error(f"We could not find stand {destination}.")
             dst_type = "stand"
 
         route = Route.Find(self.graph, aircraft, arrival_runway, dst_pos, dst_type, move, use_strict_mode, self.use_threshold)
@@ -850,11 +860,11 @@ class Airport:
             logger.debug(f"route {route.text(destination=destination)}")
             r = None if self.cursor_type is None else self.cursor_type.turn_radius
             route.build(acf_speed=aircraft.avgTaxiSpeed(), radius=r)
-            return (True, route)
+            return NoError(route)
 
-        return (False, "We could not find a route to your destination.")
+        return Error("We could not find a route to your destination.")
 
-    def mkRouteExternalDeparture(self, aircraft, stand, destination, route: list) -> tuple:
+    def mkRouteExternalDeparture(self, aircraft, stand, destination, route: list) -> Status:
         route = [str(i) for i in route]
 
         route_ext = Route(graph=self.graph)
@@ -864,7 +874,7 @@ class Airport:
         vext = [i for i in route if i not in self.graph.vert_dict]
         logger.debug(f"unknown vertices: {vext}")
         if len(vext) > 0:
-            return (False, f"unknown vertices in route: {vext}")
+            return Error(f"unknown vertices in route: {vext}")
 
         # From stand..
         src_pos = None
@@ -872,7 +882,7 @@ class Airport:
         if stand in self.ramps.keys():
             src_pos = self.ramps[stand]
             if src_pos is None:  # we sure to find one because first test
-                return (False, f"We could not find stand {stand}.")
+                return Error(f"We could not find stand {stand}.")
             src_type = "stand"
         route_ext.precise_start = src_pos
 
@@ -882,24 +892,24 @@ class Airport:
         if destination in self.runways.keys():
             dst_pos = self.getRunway(destination)
             if dst_pos is None:  # we sure to find one because first test
-                return (False, f"We could not find runway {destination}.")
+                return Error(f"We could not find runway {destination}.")
             route_ext.precise_end = dst_pos.threshold
             route_ext.departure_runway = dst_pos
         elif destination in self.holds.keys():
             dst_pos = self.holds[destination].coords()
             if dst_pos is None:  # we sure to find one because first test
-                return (False, f"We could not find hold position {destination}.")
+                return Error(f"We could not find hold position {destination}.")
             route_ext.precise_end = dst_pos
         else:
-            return (False, f"We could not find destination {destination}.")
+            return Error(f"We could not find destination {destination}.")
 
         r = None if self.cursor_type is None else self.cursor_type.turn_radius
         route_ext.build(acf_speed=aircraft.avgTaxiSpeed(), radius=r)
 
         logger.info(f"external route built from {stand} to {destination}")
-        return (True, route_ext)
+        return NoError(route_ext)
 
-    def mkAdhocRouteExternalDeparture(self, aircraft, stand, destination, route: list | dict) -> tuple:
+    def mkAdhocRouteExternalDeparture(self, aircraft, stand, destination, route: list | dict) -> Status:
         #
         g = Graph(name="adhoc")
         # Make vertices
@@ -954,7 +964,7 @@ class Airport:
         route_ext.build(acf_speed=aircraft.avgTaxiSpeed(), radius=r)
 
         logger.info(f"external adhoc route built from {stand} to {destination}")
-        return (True, route_ext)
+        return NoError(route_ext)
 
     def hasATC(self):
         # Returns ATC ground frequency if it exists

@@ -568,3 +568,19 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger("FtG")
+
+
+class Status:
+    def __init__(self, status: bool, message: str) -> None:
+        self.status = status
+        self.message = message
+
+
+class NoError(Status):
+    def __init__(self, info: str) -> None:
+        Status.__init__(self, status=True, message=info)
+
+
+class Error(Status):
+    def __init__(self, message: str) -> None:
+        Status.__init__(self, status=False, message=message)

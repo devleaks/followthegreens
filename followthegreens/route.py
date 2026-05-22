@@ -353,15 +353,6 @@ class Turn:
     def end(self) -> Point:
         return self.points[-1][0] if self.valid else None
 
-    # def progress(self, dist: float) -> tuple:
-    #     # dist from start of turn
-    #     if dist > self.length:
-    #         return self.points[-1][0], self.points[-1][1], True
-    #     portion = dist / self.length
-    #     idx = min(round(portion * len(self.points)), len(self.points) - 1)  # not int==math.floor
-    #     # logger.debug(f"turn {round(dist, 1)}m -> index={idx}/{len(self.points)-1}")
-    #     return self.points[idx][0], self.points[idx][1], False
-
     def progressiveTurn(self, length: float, segments: int = NUM_SEGMENTS, min_turn: float = 3.0) -> list:
         # Build alternate list of (points, heading) without a turn (stay on edge(s), progressive heading changes, appears to be turning)
         if abs(self.alpha) < min_turn:

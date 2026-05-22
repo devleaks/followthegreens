@@ -650,9 +650,9 @@ class FlightLoop:
                     self.rabbitMode = RABBIT_MODE.SLOWEST
                     # prevent rabbit auto-tuning, must remain slow until stop bar cleared
                     self.disallowRabbitAutotune("..close to stop, autotune forced to SLOWEST")
-            if not self.ftg.ui.isMainWindowVisible() and self.show_clearance_popup:
+            if not self.ftg.ui.isVisible() and self.show_clearance_popup:
                 # logger.debug("showing UI")
-                self.ftg.ui.showMainWindow(False)
+                self.ftg.ui.showWindow(canHide=False)
             else:
                 logger.debug(f"show_clearance_popup = {self.show_clearance_popup}")
         else:
