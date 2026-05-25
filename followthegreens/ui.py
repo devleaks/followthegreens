@@ -3,12 +3,10 @@
 #
 from datetime import datetime
 from enum import StrEnum, Enum
-from os import error
-
-from followthegreens.geo import destination
 
 from .version import __VERSION__
-from .globals import logger
+from .globals import logger, get_global
+from .cursor import FOLLOW_ME_CARS
 
 try:
     from XPPython3 import xp, xp_imgui
@@ -39,6 +37,14 @@ class UI_BUTTON(Enum):
     NEWGREENS = ("New greens", FTG_COMMANDS.NEWGREENS)  # new greens/route requested, continue
 
 
+RABBIT_SPEEDS = {
+    "no rabbit": 0.00,
+    "slow": 1.00,
+    "medium": 0.50,
+    "fast": 0.16
+}
+
+
 class UIIM:
 
     WIN_WIDTH = 480  # px
@@ -66,21 +72,22 @@ class UIIM:
 
         self.lights = [True, False]
         self.rabbit_length = 8
-        self.rabbit_speed = 2
+        self.rabbit_speed_idx = 2
         self.lights_ahead = 0
         self.use_4d = True
 
         self.use_car = False
-        self.fmcars = ["Car 1", "Car 2", "Other"]
+        self.fmcars = list(FOLLOW_ME_CARS.keys()) + ["Other"]
         self.fmcar_idx = 0
         self.use_indicator = True
 
-        self.show_options = False
+        self.advanced_options = False
 
         self.hint = None  # hint is unique
         self.errors = set()
 
-        self.win_pos = [UIIM.WIN_LEFT, UIIM.WIN_TOP]
+        self.win_pos = get_global("WINDOW_LEFT_TOP", ftg.prefs)
+        self.win_pos_new = self.win_pos.copy()
         self.win_autohide = True
         self.win_timeout = 30  # secs
 
@@ -89,6 +96,8 @@ class UIIM:
         self.window = None
         self._last = datetime.now()
         self._canHide = True
+
+        self._screen_l, self._screen_t, self._screen__r, self._screen__b = xp.getScreenBoundsGlobal()
 
     #
     # Window management
@@ -113,6 +122,7 @@ class UIIM:
 
     def showWindow(self, canHide: bool = True):
         if self.hasWindow:
+            # self.win_pos = self.win_pos_new.copy()
             xp.setWindowIsVisible(self.window.windowID, visible=1)
             self.canHide = canHide
             self.resetTimeout()
@@ -160,7 +170,7 @@ class UIIM:
         if self.hasWindow:
             return
         DEFAULT_TEXT = ["<No text>"]
-        l, t, _r, _b = xp.getScreenBoundsGlobal()
+        l, t, _r, _b = (self._screen_l, self._screen_t, self._screen__r, self._screen__b)
         left_offset = self.win_pos[0]
         top_offset = self.win_pos[1]
         text = report.get("text", DEFAULT_TEXT)
@@ -217,6 +227,10 @@ class UIIM:
     @property
     def fmcar(self) -> str | None:
         return str(self.fmcars[self.fmcar_idx]) if len(self.fmcars) > 0 and self.fmcar_idx != -1 else None
+
+    @property
+    def rabbit_speed(self) -> float | None:
+        return list(RABBIT_SPEEDS.values())[self.rabbit_speed_idx] if self.rabbit_speed_idx != -1 else None
 
     @property
     def hasAirport(self) -> bool:
@@ -278,10 +292,11 @@ class UIIM:
         if self.window is None:
             return
 
-        l, t, _r, _b = xp.getScreenBoundsGlobal()
-        left_offset = self.win_pos[0]
-        top_offset = self.win_pos[1]
-        h = self.WIN_HEIGHT if not self.show_options else 2 * self.WIN_HEIGHT
+        l, t, _r, _b = (self._screen_l, self._screen_t, self._screen__r, self._screen__b)
+        p = xp.getWindowGeometry(windowID=self.window.windowID) # left, top, right, bottom
+        left_offset = p[0]
+        top_offset = p[1]
+        h = self.WIN_HEIGHT if not self.advanced_options else 2 * self.WIN_HEIGHT
         if top_offset < h:
             top_offset = h + 10
         xp.setWindowGeometry(windowID=self.window.windowID, left=l + left_offset, top=top_offset, right=l + left_offset + self.WIN_WIDTH, bottom=top_offset - h)
@@ -373,12 +388,12 @@ class UIIM:
         imgui.spacing()
         imgui.spacing()
 
-        clicked, self.show_options = imgui.checkbox(label="Show advanced options", state=self.show_options)
+        clicked, self.advanced_options = imgui.checkbox(label="Show advanced options", state=self.advanced_options)
 
         #
         # 2. Options
         #
-        if self.show_options:
+        if self.advanced_options:
             #
             # 2.1 FTG Options
             #
@@ -386,9 +401,9 @@ class UIIM:
             if show:
                 imgui.push_item_width(240)
                 changed, self.rabbit_length = imgui.slider_int("Rabbit length", self.rabbit_length, 0, self.LIGHT_MAX)
-                changed, self.rabbit_speed = imgui.slider_int("Rabbit speed", self.rabbit_speed, 0, 3)  # none, slow, normal, fast
+                changed, self.rabbit_speed_idx = imgui.slider_int("Rabbit speed", self.rabbit_speed_idx, 0, 3)  # none, slow, normal, fast
                 imgui.same_line()
-                imgui.text("(" + ["no rabbit", "slow", "medium", "fast"][self.rabbit_speed] + ")")
+                imgui.text("(" + list(RABBIT_SPEEDS.keys())[self.rabbit_speed_idx] + f" (~ {self.rabbit_speed}s))")
                 changed, self.lights_ahead = imgui.slider_int("Lights ahead", self.lights_ahead, 0, self.LIGHT_MAX)
                 imgui.same_line()
                 self.show_help_marker("0 light ahead means show greens to next stop")
@@ -416,20 +431,22 @@ class UIIM:
             #
             show, _ = imgui.collapsing_header("Plugin options")
             if show:
-                imgui.text("Window top left position (from screen bottom left)")
-                changed, self.win_pos[0] = imgui.slider_int("From Left", self.win_pos[0], 0, 600)
-                imgui.same_line()
-                self.show_help_marker("Top of window from left of screen")
-                changed, self.win_pos[1] = imgui.slider_int("From Bottom", self.win_pos[1], 0, 600)
-                imgui.same_line()
-                self.show_help_marker("Top of window from bottom of screen")
-                imgui.spacing()
+                # l, t, _r, _b = (0, 1620, 3840, 0)
+                # imgui.text("Window top left position (from screen bottom left)")
+                # changed, self.win_pos_new[0] = imgui.slider_int("From Left", self.win_pos_new[0], 0, _r - self.WIN_LEFT - 10)
+                # imgui.same_line()
+                # self.show_help_marker("Top of window from left of screen")
+                # changed, self.win_pos_new[1] = imgui.slider_int("From Bottom", self.win_pos_new[1], int(10 + 2 * self.WIN_HEIGHT), t)
+                # imgui.same_line()
+                # self.show_help_marker("Top of window from bottom of screen")
+                # imgui.spacing()
                 checked, self.win_autohide = imgui.checkbox(label="Auto Hide", state=self.win_autohide)
-                changed, self.win_timeout = imgui.slider_int("Hide timeout (seconds)", self.win_timeout, 1, 60)
+                if self.win_autohide:
+                    changed, self.win_timeout = imgui.slider_int("Hide timeout (seconds)", self.win_timeout, 10, 120)
                 imgui.spacing()
                 checked, self.runway_threshold = imgui.checkbox(label="Use runway threshold", state=self.runway_threshold)
 
-        self.status(show_version=self.show_options)
+        self.status(show_version=self.advanced_options)
 
     #
     # Data collection window
@@ -488,5 +505,15 @@ class UIIM:
                 self.addError(e)
         self.status()
 
-
-#
+# Options to pass
+# Greens
+# - speed, length
+# - light type
+# Car
+# - Model
+# - Indicator y/n OK
+# Global
+# - 4D y/n
+# - Position: OK
+# - Autohide timeout: OK
+# - Use threshold: OK

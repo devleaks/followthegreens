@@ -37,6 +37,21 @@ class HUD_TEXT(StrEnum):
     EMPTY = " "
 
 
+# PROVIDED (X-CSL)
+FOLLOW_ME_CARS = {
+    "Follow Me Truck":{
+        "filename": "xcsl/FMC.obj",
+        "indicator": True,
+        "indicator_shift": [1.95, -0.70]
+            },
+    "Follow Me Car":{
+        "filename": "xcsl/FMC2.obj",
+        "indicator": True,
+        "indicator_shift": [2.02, -1.8]
+    }
+}
+
+
 def ts() -> float:
     return datetime.now().timestamp()
 
@@ -245,6 +260,7 @@ class Cursor(Vehicle):
 
         self._indicator = INDICATOR.FOLLOW_ME
         self.hudText = INDICATOR.FOLLOW_ME.name
+        self.hudExtra = ""
         self.indicator_object = None
         self.indicator_cursor = None
         if detail.indicator:
@@ -352,6 +368,9 @@ class Cursor(Vehicle):
             self.hudText = HUD_TEXT.RIGHT.value
         else:
             self.hudText = HUD_TEXT.FOLLOW_ME.value
+
+    def setHudExtra(self, text: str = ""):
+        self.hudExtra = text
 
     def setAimSpeed(self, speed, reason: str = ""):
         if reason != "" and reason[0] != ",":

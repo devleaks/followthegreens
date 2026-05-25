@@ -40,7 +40,7 @@ from .globals import (
 )
 from .geo import Point, Line, Polygon, destination, distance, pointInPolygon
 from .graph import Graph, Edge, Vertex
-from .cursor import CursorType, Cursor
+from .cursor import CursorType, Cursor, FOLLOW_ME_CARS
 from .route import Route
 
 SYSTEM_DIRECTORY = "."
@@ -63,7 +63,7 @@ class Runway(Line):
         else:
             self.polygon = pol
         self.threshold = self.start
-        self.threshold_lat = self.start
+        self.threshold_alt = self.start
         self.first_exit = self.threshold
         self.mkThreshold()
         self.mkThresholdAlt()
@@ -374,6 +374,15 @@ class Airport:
             return None
         # MAYBE, depends on movement
         # check at airport-level first...
+        uifmcar = ftg.ui.fmcar
+        fmcar = FOLLOW_ME_CARS.get(uifmcar)
+        logger.debug(f"UI FM car {uifmcar}")
+        if fmcar is None:  # none provided through UI (may be Other)
+            fmcar = self.prefs.get("FollowMeCar", {})
+        if len(fmcar) == 0:
+            logger.debug("no FM car")
+            return
+
         apt = self.prefs.get("Airports", {})
         prefs = apt.get(self.icao, {})
         movement = prefs.get("MOVEMENT")
@@ -384,7 +393,7 @@ class Airport:
             logger.debug(f"no fmcar for {ftg.move} ({movement} only)")
             # Setting global default
             logger.info(f"no fmcar on {ftg.move.value} at {self.icao}")
-            self.rabbit_speed = get_global(RABBIT.LIGHTS_AHEAD.value, self.prefs)
+            self.lights_ahead = get_global(RABBIT.LIGHTS_AHEAD.value, self.prefs)
             if self.lights_ahead == 0:
                 self.lights_ahead = LIGHTS_AHEAD
             self.lights_ahead_pref = True
@@ -399,7 +408,15 @@ class Airport:
             logger.info(f"using global default for greens (la={self.lights_ahead}, rl={self.rabbit_length}, rs={self.rabbit_speed})")
             return None
         # YES
-        fmcar = self.prefs.get("FollowMeCar", {})
+        # Transfer UI values to airport for use
+        if ftg.ui.advanced_options:
+            self.lights_ahead = ftg.ui.lights_ahead
+            self.lights_ahead_pref = True
+            self.rabbit_length = ftg.ui.rabbit_length
+            self.rabbit_length_pref = True
+            self.rabbit_speed = ftg.ui.rabbit_speed
+            self.rabbit_speed_pref = True
+            logger.info(f"using ui values for greens (la={self.lights_ahead}, rl={self.rabbit_length}, rs={self.rabbit_speed})")
         adj = ""
         if self.distance_between_green_lights > self.MTWYLDWC:  # min twy light distance with/when fmcar
             adj = f", distance between taxiway lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
@@ -407,11 +424,12 @@ class Airport:
             self.distance_between_green_lights_pref = True
         logger.debug(f"using fmcar {fmcar}{adj}")
         # If developer mode, show lights as well
-        self.ensureDev()
         self.cursor_type = CursorType(**fmcar)
+        self.cursor_type.indicator = ftg.ui.use_indicator # transfert from UI
         return Cursor(self.cursor_type, ftg)
 
     def ensureDev(self) -> bool:
+        # returns has_light
         if self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False):
             self.lights_ahead = 0
             self.lights_ahead_pref = True

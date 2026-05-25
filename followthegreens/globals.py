@@ -156,12 +156,7 @@ MAINWINDOW_AUTOHIDE = True  # If false, main UI window will always remain visibl
 MAINWINDOW_DISPLAY_TIME = 30  # If above true, main UI window will disappear after that amount seconds of inactivity
 
 # you may carefully adjust those:
-MAINWINDOW_FROM_LEFT = 100  # Distance of main UI window from left of screen
-MAINWINDOW_FROM_BOTTOM = 80  # Distance of the bottom of the main window from the bottom of the screen
-
-# don't touch those:
-MAINWINDOW_WIDTH = 500  # Normal main window width. May need adjustment if font size is changed
-MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from space and title bar
+WINDOW_LEFT_TOP = [100, 600]
 
 # Reference point is top left corner of HUD.
 # First number is distance of reference point from left of screen,
@@ -453,10 +448,7 @@ INTERNAL_CONSTANTS = [
     "WARNING_DISTANCE",
     "HUD_POSITION",
     "HUD_COLORS",
-    "MAINWINDOW_FROM_BOTTOM",
-    "MAINWINDOW_FROM_LEFT",
-    "MAINWINDOW_HEIGHT",
-    "MAINWINDOW_WIDTH",
+    "WINDOW_TOP_LEFT",
     "MAINWINDOW_AUTOHIDE",
     "MAINWINDOW_DISPLAY_TIME",
 ]
@@ -495,10 +487,7 @@ ALL_INTERNAL_CONSTANTS = [
     "LIGHT_TYPE_OBJFILES",
     "LIGHTS_AHEAD",
     "LOGGING_LEVEL",
-    "MAINWINDOW_FROM_BOTTOM",
-    "MAINWINDOW_FROM_LEFT",
-    "MAINWINDOW_HEIGHT",
-    "MAINWINDOW_WIDTH",
+    "WINDOW_TOP_LEFT",
     "MAINWINDOW_AUTOHIDE",
     "MAINWINDOW_DISPLAY_TIME",
     "MIN_SEGMENTS_BEFORE_HOLD",

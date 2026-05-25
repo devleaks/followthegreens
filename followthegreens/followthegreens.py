@@ -19,6 +19,7 @@ except ImportError:
 from .version import __VERSION__
 from .globals import logger, get_global, Status, Error, NoError
 from .globals import INTERNAL_CONSTANTS, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE, DISTANCE_TO_RAMPS, GOOD
+from .geo import distance, Point
 from .aircraft import Aircraft
 from .airport import Airport
 from .flightloop import FlightLoop
@@ -491,23 +492,25 @@ VERSION = "{__VERSION__}"
 
     def setAirport(self, apt: str | None = None) -> Status:
         # if apt is supplied, tries to load it, otherwise guess from aircraft position
+        if self.aircraft is None:
+            logger.debug("no aircraft")
+            return Error("We could not locate your aircraft.")
+
+        pos = self.aircraft.position()
+        if pos is None or (pos[0] == 0 and pos[1] == 0):
+            logger.debug("no aircraft position")
+            return Error("We could not locate your aircraft.")
+
+        hdg = self.aircraft.heading()
+
+        # Info 2
+        logger.info(f"aircraft position ok: {pos}, heading {round(hdg, 1)}")
+        self.status = FTG_STATUS.AIRCRAFT
+        self.inc(self.aircraft.icao)
+
         airport_name = apt
+
         if airport_name is None:
-            if self.aircraft is None:
-                logger.debug("no aircraft")
-                return Error("We could not locate your aircraft.")
-
-            pos = self.aircraft.position()
-            if pos is None or (pos[0] == 0 and pos[1] == 0):
-                logger.debug("no aircraft position")
-                return Error("We could not locate your aircraft.")
-
-            hdg = self.aircraft.heading()
-            logger.info(f"aircraft position ok: {pos}, heading {round(hdg, 1)}")
-            self.status = FTG_STATUS.AIRCRAFT
-            self.inc(self.aircraft.icao)
-
-            # Info 2
             airport = self.aircraft.airport(pos)
 
             if airport is None:
@@ -520,7 +523,7 @@ VERSION = "{__VERSION__}"
 
             airport_name = airport.navAidID
 
-        if not self.airport or (self.airport.icao != airport_name):  # we may have changed airport since last call
+        if apt is not None or self.airport is None or (self.airport.icao != airport_name):  # we may have changed airport since last call
             airport_data = Airport(icao=airport_name, prefs=self.prefs)
             # Info 4 to 9 in airport.prepare()
             status = airport_data.prepare()  # [ok, errmsg]
@@ -532,9 +535,18 @@ VERSION = "{__VERSION__}"
         else:
             logger.debug(f"airport {self.airport.icao} already loaded")
 
-        logger.info(f"airport {self.airport.icao} ready")
+        # test
+        apt_loc = self.airport.position()
+        if apt_loc[0] != 0.0 and apt_loc[1] != 0.0:
+            apt_dist = distance(Point(pos[0], pos[1]), Point(apt_loc[0], apt_loc[1]))
+            logger.debug(f"airport location at {round(apt_dist, 1)}m from aircraft")
+            if apt_dist > 10000:
+                logger.warning(f"airport location at {round(apt_dist, 1)}m from aircraft")
+        else:
+            logger.debug(f"airport location {apt_loc}")
+
         # Info 3
-        logger.info(f"at {airport_name}")
+        logger.info(f"at {airport_name}, airport ready")
         self.status = FTG_STATUS.AIRPORT
         return NoError("Airport ready")
 
@@ -570,6 +582,9 @@ VERSION = "{__VERSION__}"
         if frp != 0:
             self.fr = 1 / frp
             logger.info(f"estimated frame rate {round(self.fr, 1)} fps")
+
+        # Transfer UI option to airport for route finding calculation
+        self.airport.use_threshold = self.ui.runway_threshold
 
         # Info 11
         intro_arr = []
@@ -652,8 +667,8 @@ VERSION = "{__VERSION__}"
         if self.fmcar is None:
             self.fmcar = self.airport.fmcar(ftg=self)
             new_fmcar = True
-        else:
-            has_light = self.airport.ensureDev()  # may force both fmcar and lights on dev
+
+        has_light = self.airport.ensureDev()  # may force both fmcar and lights on dev
 
         runway = None
         if self.move == MOVEMENT.ARRIVAL:
@@ -954,6 +969,7 @@ VERSION = "{__VERSION__}"
             logger.debug(f"{e} ({self.ui.info})")
             if e == FTG_COMMANDS.START:
                 self.ui.deleteWindow()
+                self.alternate = self.ui.use_car
                 self.followTheGreens(destination=self.ui.destination)
             elif e == FTG_COMMANDS.NEWGREENS:
                 self.ui.deleteWindow()

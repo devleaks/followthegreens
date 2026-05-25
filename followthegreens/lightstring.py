@@ -392,6 +392,7 @@ class LightString:
         self.taxiway_alt = 0
         self.use_wigwag = get_global("ADD_WIGWAG", preferences=self.prefs)
         self._hasLight = has_light
+        logger.debug(f"has_light={has_light} -> {self.hasLight}")
         self._on_active = False
 
         # PREFERENCES
@@ -989,7 +990,7 @@ class LightString:
                 lastSb = self.stopbars[segment - 1]
                 start = lastSb.lightStringIndex
             end = len(self.lights)
-            logger.debug(f"illuminated last segment {segment} between {start} and {end}")
+            logger.debug(f"planning to illuminate last segment {segment} between {start} and {end}")
         else:
             sbend = self.stopbars[segment]
             if segment > 0:
@@ -997,18 +998,21 @@ class LightString:
                 sbbeging = self.stopbars[segment - 1]
                 start = sbbeging.lightStringIndex
             end = sbend.lightStringIndex
-            logger.debug(f"illuminated segment {segment} between {start} and {end}")
+            logger.debug(f"planning to illuminate segment {segment} between {start} and {end}")
 
         if start == end:
-            logger.warning(f"illuminated segment {segment} between {start} and {end}: no light to illuminate")
+            logger.warning(f"planning to illuminate segment {segment} between {start} and {end}: no light to illuminate")
 
         if (self.num_lights_ahead is None or self.num_lights_ahead == 0) and self.hasLight:
             # Instanciate for each green light in segment and stop bar
+            logger.debug("no light ahead: illuminated whole greens")
             for i in range(start, end):
                 self.lights[i].on()
+            logger.debug(f"illuminated segment {segment} between {start} and {end}")
             # map(lambda x: x.on(self.txy_light_obj), self.lights[start:end])
-            logger.debug("no light ahead: illuminated whole greens")
-        # else, lights will be turned on in front of rabbit
+        else:
+            logger.debug(f"lights will be turned on progressively in front of rabbit (la={self.num_lights_ahead}, hasLight={self.hasLight})")
+
 
         # Instanciate for each stop light
         # for sb in self.stopbars:
