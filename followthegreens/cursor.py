@@ -39,16 +39,8 @@ class HUD_TEXT(StrEnum):
 
 # PROVIDED (X-CSL)
 FOLLOW_ME_CARS = {
-    "Follow Me Truck":{
-        "filename": "xcsl/FMC.obj",
-        "indicator": True,
-        "indicator_shift": [1.95, -0.70]
-            },
-    "Follow Me Car":{
-        "filename": "xcsl/FMC2.obj",
-        "indicator": True,
-        "indicator_shift": [2.02, -1.8]
-    }
+    "Follow Me Truck": {"filename": "xcsl/FMC.obj", "indicator": True, "indicator_shift": [1.95, -0.70]},
+    "Follow Me Car": {"filename": "xcsl/FMC2.obj", "indicator": True, "indicator_shift": [2.02, -1.8]},
 }
 
 
@@ -298,6 +290,9 @@ class Cursor(Vehicle):
         self._last_call = 0
         self._last_call_max = 5.0
         self._last_call_std = PLANE_MONITOR_DURATION
+        self._eor = False
+        self._eod = False
+        self._last_position = (self.current.sr_position, self.current.speed)
         self.current_distance = 0.0  # distance to acf
         self.current_bearing = -360.0  # acf -> fmcar
         self.uturned = False  # now fmcar -> acf!
@@ -428,6 +423,7 @@ class Cursor(Vehicle):
         self.current.speed = speed
         self.current.sr_position = OnRoute(index=0, distance=0.0, route=self.current.sr_route, name="initial position")
         self.target.sr_position = OnRoute(index=len(self.current.sr_route) - 1, distance=0, route=self.current.sr_route, name="initial target position")
+        self._last_position = (self.current.sr_position, self.current.speed)
 
         self.cursor.position = self.current.position  # initial position where will appear
         self.cursor.heading = self.current.heading
@@ -776,10 +772,10 @@ class Cursor(Vehicle):
         # Aim is to block until canContinue()
         self.indicator = INDICATOR.STOP
         if not self.onRoute():
-            logger.warning(f"got next stop {nextStop} and not on route")
+            logger.warning(f"got next stop {self.nextStop} and not on route")
 
-        light = self.lights.lights[nextStop]
-        self.current.sr_stop = OnRoute.fromLight(light=light, route=self.route.smoothRoute, name=f"stop at light {nextStop}")
+        light = self.lights.lights[self.nextStop]
+        self.current.sr_stop = OnRoute.fromLight(light=light, route=self.route.smoothRoute, name=f"stop at light {self.nextStop}")
         self.cursor_stop.move(lat=light.position.lat, lon=light.position.lon, hdg=0, elev=1.0)
         self.cursor_stop.on()
 
@@ -795,7 +791,7 @@ class Cursor(Vehicle):
             logger.debug("already beyond braking distance position")
 
         if self.nextStopReached():
-            self.setAimSpeed(speed=0.0, reason=f"next stop {nextStop} reached")
+            self.setAimSpeed(speed=0.0, reason=f"next stop {self.nextStop} reached")
 
     def mustStop(self) -> bool:
         return self.nextStop != NO_STOP_AHEAD
@@ -833,7 +829,7 @@ class Cursor(Vehicle):
     #
     def smoothConverge(self, s1: float, s2: float) -> float:
         # smoothly converge from s1 to s2, slower acceleration
-        SMOOTH = 0.1 if s2 > s1 else 0.02
+        SMOOTH = 0.07 if s2 > s1 else 0.02
         return s1 + SMOOTH * (s2 - s1)
 
     def _adjustLocalSpeeds(self):
@@ -884,23 +880,29 @@ class Cursor(Vehicle):
     def endOfRoute(self) -> bool:
         # end of route is end of current sr_route
         r = self.current.sr_position.reached(target=self.current.sr_end)
-        if r:
+        if r and not self._eor:
+            self._eor = True
             logger.debug("end of route")
         return r
 
     def destinationReached(self) -> bool:
         # Destination is the last point on the route
         r = self.current.sr_position.reached(target=OnRoute(index=len(self.route.smoothRoute) - 1, distance=0.0, route=self.route.smoothRoute, name="destination"))
-        if r:
+        if r and not self._eod:
+            self._eod = True
             logger.debug("destination reached")
         return r
 
     # Move
     #
     def nextPosition(self, t: float):
+        if self.status == CURSOR_STATUS.LOAD_ROUTE:
+            logger.debug("loading route .. cannot move")
+            return self._last_position
+
         if self.status == CURSOR_STATUS.HOLD:
-            logger.debug("probably changing route....cannot move")
-            return self.current.sr_position, 0.0  # speed = 0.0 is wrong...
+            logger.debug("changing route .. cannot move")
+            return self._last_position  # speed = 0.0 is wrong...
 
         if self.endOfRoute():
             logger.debug("end of route reached")
@@ -971,6 +973,7 @@ class Cursor(Vehicle):
         sr_position.name = "current position"
         # logger.debug(f"d={sf(self.distance(self.aircraft.position_point()), 'm')}, car={sf(self.current.speed, 'm/s')}, acf={sf(self.aircraft.speed(), 'm/s')}")
         # logger.debug(f"progress {idx} {sf(dist, 'm')}")
+        self._last_position = (sr_position, self.current.speed)  # in case we need
         return sr_position, self.current.speed
 
     def _move(self, t: float) -> int | float:
@@ -1107,8 +1110,12 @@ class Cursor(Vehicle):
             LEAVE_DIST_SIDE = 100  # m, on service road, away to vanish out of sight
         else:
             logger.debug("default finish")
-        end = self.route.vertices[-1]
-        # Last point of route to "away"
+
+        end = self.lights.lights[-1].position  # last position of car is last light, not last point if route
+        # end = self.route.smoothRoute(-1)
+        # end = self.current.position
+        # should may be go from last light to last point of route first? (which is threshold or start of runway)
+        # Last position of car to "away"
         d1 = destination(src=end, brngDeg=hdg, d=LEAVE_DIST_AHEAD)
         # self.returnToRamp(final_position=d1)
         spd = self.detail.leave_speed

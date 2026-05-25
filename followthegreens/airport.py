@@ -425,7 +425,7 @@ class Airport:
         logger.debug(f"using fmcar {fmcar}{adj}")
         # If developer mode, show lights as well
         self.cursor_type = CursorType(**fmcar)
-        self.cursor_type.indicator = ftg.ui.use_indicator # transfert from UI
+        self.cursor_type.indicator = ftg.ui.use_indicator  # transfert from UI
         return Cursor(self.cursor_type, ftg)
 
     def ensureDev(self) -> bool:

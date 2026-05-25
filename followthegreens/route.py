@@ -8,6 +8,8 @@ import math
 from enum import StrEnum
 from datetime import datetime
 from dataclasses import dataclass, fields
+from io import StringIO
+from traceback import print_stack
 
 try:
     import xp
@@ -120,18 +122,7 @@ class OnRoute:
             logger.warning(f"distance larger than edge length {self}")
         return destination(src=self.vertex, brngDeg=self.bearing, d=self.distance)
 
-    def after(self, target: OnRoute) -> bool:
-        return self.reached(target=target)
-
-    def before(self, target: OnRoute) -> bool:
-        return not self.reached(target=target)
-
-    def at(self, target: OnRoute, margin: float = 1.0) -> bool:
-        # margin, distances, in meter
-        return self.distanceTo(target=target) < margin
-
-    def reached(self, target: OnRoute, dist: float = 0.0) -> bool:
-        # Means self is at or after target, could be called .after(target)
+    def same_route(self, target: OnRoute) -> bool:
         if not self.has_route:
             logger.warning("no route")
             return False
@@ -143,8 +134,36 @@ class OnRoute:
         if not self.on_route:
             logger.warning("not on route")
             return False
+        r = self.route == target.route
+        if not r:
+            string_io = StringIO()
+            print_stack(file=string_io)
+            string_io.close()
+            logger.debug(string_io.getvalue())
+        return r
 
-        if self.route != target.route:
+    def after(self, target: OnRoute) -> bool:
+        if not self.same_route(target):
+            logger.warning(f"not on same route {self.name} vs {len(target.name)}")
+            return False
+        return self.reached(target=target)
+
+    def before(self, target: OnRoute) -> bool:
+        if not self.same_route(target):
+            logger.warning(f"not on same route {self.name} vs {len(target.name)}")
+            return False
+        return not self.reached(target=target)
+
+    def at(self, target: OnRoute, margin: float = 1.0) -> bool:
+        # margin, distances, in meters
+        if not self.same_route(target):
+            logger.warning(f"not on same route {self.name} vs {len(target.name)}")
+            return False
+        return self.distanceTo(target=target) < margin
+
+    def reached(self, target: OnRoute, dist: float = 0.0) -> bool:
+        # Means self is at or after target, could be called .after(target)
+        if not self.same_route(target):
             logger.warning(f"not on same route {self.name} vs {len(target.name)}")
             return False
 
@@ -164,6 +183,9 @@ class OnRoute:
         return r
 
     def distanceTo(self, target: OnRoute) -> float:
+        if not self.same_route(target):
+            logger.warning(f"not on same route {self.name} vs {len(target.name)}")
+            return 0.0
         # always positive
         if self.route is None or target.route is None:
             logger.debug("no route")
@@ -377,6 +399,52 @@ class Turn:
         points.append((pt, self.bearing_end))
         logger.debug(f"length={round(length, 1)}m, turn={round(self.alpha, 1)}D, {len(points)} points")
         return points
+
+
+class RoutePoint(Point):
+
+    def __init__(self, point: Point, orientation: float = 0.0):
+        Point.__init__(self, point.lat, point.lon)
+        self.orientation = 0.0
+
+        self.index = 0
+
+        self.distance_to_next = 0.0
+        self.distance_to_last = 0.0
+
+        # stop specific
+        self.is_stop = False
+        self.distance_to_next_stop = 0.0
+
+        # turn specific
+        self.turn_type = ""  # smooth, progressive, or immediate
+        self.turn_valid = False
+        self.turn_part = ""  # start, mid, end
+        self.turn_angle = 0.0
+        self.turn_tangent = 0.0
+        self.distance_to_next_turn = 0.0
+
+        self.reverse_index = 0
+        self.reverse_reference = list()
+
+    def props(self) -> dict:
+        # Overwrite Point.props()
+        self.setProp("index", self.index)
+        # @todo
+        return self.properties
+
+
+class RouteObj:
+
+    def __init__(self, points: list):
+        self.route = points
+
+    def make(self):
+        # compute individual point attributes from list of points
+        pass
+
+    def features(self) -> list:
+        return [p.feature() for p in self.route]
 
 
 class Route:

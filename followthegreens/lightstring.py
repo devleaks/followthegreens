@@ -635,10 +635,11 @@ class LightString:
         s = None
         i = 0
         while s is None and i < len(self.stopbars):
-            if self.stopbars[i].lightStringIndex <= nextStop:  # if nextStop provided by nextStop(), must be lightStringIndex == nextStop
-                logger.debug(f"at {nextStop}, next stop bar at {self.stopbars[i].lightStringIndex}, cleared={self.stopbars[i].cleared}")
-                s = self.stopbars[i]
-            i += 1
+            if self.stopbars[i].lightStringIndex <= nextStop:  # if nextStop provided by nextStop(), lightStringIndex == nextStop
+                i += 1
+                continue
+            logger.debug(f"at {nextStop}, next stop bar at {self.stopbars[i].lightStringIndex}, cleared={self.stopbars[i].cleared}")
+            s = self.stopbars[i]
         return s is None or s.cleared
 
     def toNextStop(self, position):
@@ -1012,7 +1013,6 @@ class LightString:
             # map(lambda x: x.on(self.txy_light_obj), self.lights[start:end])
         else:
             logger.debug(f"lights will be turned on progressively in front of rabbit (la={self.num_lights_ahead}, hasLight={self.hasLight})")
-
 
         # Instanciate for each stop light
         # for sb in self.stopbars:

@@ -745,8 +745,10 @@ class PythonInterface:
 
             fl = self.followTheGreens.flightLoop
             fc = self.followTheGreens.fmcar
+            car_speed = None
             if fc is not None:
                 MAX_LINES += 1
+                car_speed = fc.speed()
             if fl is not None:
                 hp = fl.hudPosition()
                 text_color = fl.hudColors()  # may be we'll pass other colors after
@@ -767,8 +769,8 @@ class PythonInterface:
                 xp.drawString(color, LEFT, TOP - 3 * LINE, self.followTheGreens.status.value)  # FtG status
             if fc is not None:
                 xp.drawString(text_color, LEFT, TOP - 4 * LINE, fc.hudText)  # Global status
-            dist_speed = self.followTheGreens.aircraft.speed()
-            curr_speed = dist_speed
+            acf_speed = self.followTheGreens.aircraft.speed()
+            curr_speed = acf_speed
             speed_color = self._speed_color
             if curr_speed > 15.0:
                 speed_color = RED
@@ -783,7 +785,11 @@ class PythonInterface:
                 self._speed = curr_speed
                 self._speed_color = speed_color
                 self._speed_cnt = 100
-            xp.drawString(speed_color, LEFT, TOP - MAX_LINES * LINE, f"SPEED {round(dist_speed, 1)} m/s")  # Aircraft speed
+            speeds = f"acf {round(acf_speed, 1)}"
+            if car_speed is not None:
+                speeds += f", car {round(car_speed, 1)}"
+            speeds += " m/s"
+            xp.drawString(speed_color, LEFT, TOP - MAX_LINES * LINE, speeds)  # Aircraft speed
         except:
             xp.drawString((1, 0, 0), 287, 90, "TAXI HUD ERROR")  # almost everything hardcoded..;
             xp.drawString((0.0, 1.0, 1.0), 400, 90, self.vu)

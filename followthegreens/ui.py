@@ -5,7 +5,7 @@ from datetime import datetime
 from enum import StrEnum, Enum
 
 from .version import __VERSION__
-from .globals import logger, get_global
+from .globals import MOVEMENT, logger, get_global
 from .cursor import FOLLOW_ME_CARS
 
 try:
@@ -37,12 +37,7 @@ class UI_BUTTON(Enum):
     NEWGREENS = ("New greens", FTG_COMMANDS.NEWGREENS)  # new greens/route requested, continue
 
 
-RABBIT_SPEEDS = {
-    "no rabbit": 0.00,
-    "slow": 1.00,
-    "medium": 0.50,
-    "fast": 0.16
-}
+RABBIT_SPEEDS = {"no rabbit": 0.00, "slow": 1.00, "medium": 0.50, "fast": 0.16}
 
 
 class UIIM:
@@ -67,8 +62,8 @@ class UIIM:
         self.alt_airport = self.airport
         self.runway_threshold = True
         self.dest_idx = self.DESTINATION if self.DESTINATION < len(self.dest_dep) else -1
-        self.deparr = [True, False]
-        self._deparr = True
+        self.deparr = [True, False] if ftg.move == MOVEMENT.DEPARTURE else [False, True]
+        self._deparr = ftg.move == MOVEMENT.DEPARTURE
 
         self.lights = [True, False]
         self.rabbit_length = 8
@@ -78,7 +73,7 @@ class UIIM:
 
         self.use_car = False
         self.fmcars = list(FOLLOW_ME_CARS.keys()) + ["Other"]
-        self.fmcar_idx = 0
+        self.fmcar_idx = 1
         self.use_indicator = True
 
         self.advanced_options = False
@@ -217,8 +212,8 @@ class UIIM:
     # Data for collection
     #
     @property
-    def move(self) -> str:
-        return "DEPARTURE" if self._deparr else "ARRIVAL"
+    def move(self) -> MOVEMENT:
+        return MOVEMENT.DEPARTURE if self._deparr else MOVEMENT.ARRIVAL
 
     @property
     def guide(self) -> str:
@@ -293,7 +288,7 @@ class UIIM:
             return
 
         l, t, _r, _b = (self._screen_l, self._screen_t, self._screen__r, self._screen__b)
-        p = xp.getWindowGeometry(windowID=self.window.windowID) # left, top, right, bottom
+        p = xp.getWindowGeometry(windowID=self.window.windowID)  # left, top, right, bottom
         left_offset = p[0]
         top_offset = p[1]
         h = self.WIN_HEIGHT if not self.advanced_options else 2 * self.WIN_HEIGHT
@@ -504,6 +499,7 @@ class UIIM:
             else:
                 self.addError(e)
         self.status()
+
 
 # Options to pass
 # Greens

@@ -970,6 +970,7 @@ VERSION = "{__VERSION__}"
             if e == FTG_COMMANDS.START:
                 self.ui.deleteWindow()
                 self.alternate = self.ui.use_car
+                self.move = self.ui.move
                 self.followTheGreens(destination=self.ui.destination)
             elif e == FTG_COMMANDS.NEWGREENS:
                 self.ui.deleteWindow()
