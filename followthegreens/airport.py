@@ -882,57 +882,81 @@ class Airport:
 
         return Error("We could not find a route to your destination.")
 
-    def mkRouteExternalDeparture(self, aircraft, stand, destination, route: list) -> Status:
+    def mkRouteExternal(self, aircraft, start, destination, route: list, move: MOVEMENT) -> Status:
         route = [str(i) for i in route]
 
         route_ext = Route(graph=self.graph)
         route_ext.route = route  # todo: check all vertices are known
-        route_ext.move = MOVEMENT.DEPARTURE
+        route_ext.move = move
 
         vext = [i for i in route if i not in self.graph.vert_dict]
         logger.debug(f"unknown vertices: {vext}")
         if len(vext) > 0:
             return Error(f"unknown vertices in route: {vext}")
 
-        # From stand..
-        src_pos = None
-        src_type = ""
-        if stand in self.ramps.keys():
-            src_pos = self.ramps[stand]
-            if src_pos is None:  # we sure to find one because first test
-                return Error(f"We could not find stand {stand}.")
-            src_type = "stand"
-        route_ext.precise_start = src_pos
+        if move == MOVEMENT.DEPARTURE:
+            # From stand..
+            src_pos = None
+            src_type = ""
+            if start in self.ramps.keys():
+                src_pos = self.ramps[start]
+                if src_pos is None:  # we sure to find one because first test
+                    return Error(f"We could not find stand {start}.")
+                src_type = "stand"
+            route_ext.precise_start = src_pos
 
-        # ..to destination
-        dst_pos = None
-        dst_type = ""
-        if destination in self.runways.keys():
-            dst_pos = self.getRunway(destination)
-            if dst_pos is None:  # we sure to find one because first test
-                return Error(f"We could not find runway {destination}.")
-            route_ext.precise_end = dst_pos.threshold
-            route_ext.departure_runway = dst_pos
-        elif destination in self.holds.keys():
-            dst_pos = self.holds[destination].coords()
-            if dst_pos is None:  # we sure to find one because first test
-                return Error(f"We could not find hold position {destination}.")
-            route_ext.precise_end = dst_pos
-        else:
-            return Error(f"We could not find destination {destination}.")
+            # ..to runway
+            dst_pos = None
+            dst_type = ""
+            if destination in self.runways.keys():
+                rwy = self.getRunway(destination)
+                if rwy is None:  # we sure to find one because first test
+                    return Error(f"We could not find runway {rwy}.")
+                dst_pos = rwy.threshold if self.use_threshold else rwy.start
+                route_ext.precise_end = dst_pos
+                route_ext.departure_runway = rwy
+            elif destination in self.holds.keys():
+                dst_pos = self.holds[destination].coords()
+                if dst_pos is None:  # we sure to find one because first test
+                    return Error(f"We could not find hold position {destination}.")
+                route_ext.precise_end = dst_pos
+            else:
+                return Error(f"We could not find destination {destination}.")
+        else:  # ARRIVAL
+            # From runway..
+            src_pos = None
+            src_type = ""
+            if start in self.runways.keys():
+                rwy = self.runways[start]
+                if rwy is None:  # we sure to find one because first test
+                    return Error(f"We could not find runway {start}.")
+                route_ext.arrival_runway = rwy
+                src_pos = rwy.end
+                src_type = "runway"
+            route_ext.precise_start = src_pos
+
+            # ..to stand
+            dst_pos = None
+            dst_type = ""
+            if destination in self.ramps.keys():
+                dst_pos = self.ramps[destination]
+                if dst_pos is None:  # we sure to find one because first test
+                    return Error(f"We could not find stand {destination}.")
+                route_ext.precise_end = dst_pos
+                dst_type = "stand"
 
         r = None if self.cursor_type is None else self.cursor_type.turn_radius
         route_ext.build(acf_speed=aircraft.avgTaxiSpeed(), radius=r)
 
-        logger.info(f"external route built from {stand} to {destination}")
+        logger.info(f"external route built from {start} to {destination}")
         return NoError(route_ext)
 
-    def mkAdhocRouteExternalDeparture(self, aircraft, stand, destination, route: list | dict) -> Status:
+    def mkAdhocRouteExternal(self, aircraft, start, destination, route: list | dict, move: MOVEMENT) -> Status:
         #
         g = Graph(name="adhoc")
         # Make vertices
         local_route = []
-        if type(route) is dict:
+        if type(route) is dict:  # route is either a linestring feature (expanded into its points) or a collection of point features
             i = 0
             for f in route["features"]:
                 if f["geometry"]["type"] == "Point":
@@ -971,9 +995,20 @@ class Airport:
         g.stats()
         logger.debug(f"route {local_route}")
 
+        # Check
+        logger.debug("free route proximity to taxiways..")
+        for k, v in g.vert_dict.items():
+            n, d, l = self.graph.findClosestPointOnEdges(v)
+            if n is not None:
+                logger.debug(f"point {k} at {round(d, 1)}m from taxiway {l.name}")
+            else:
+                logger.debug(f"point {k} not close to taxiway")
+        logger.debug("..done")
+
         # Create Adhoc Route
         route_ext = Route(graph=g)
         route_ext.route = local_route
+        route_ext.move = move
         # Add meta-data
         route_ext.precise_start = g.get_vertex(n="0")
         route_ext.precise_end = g.get_vertex(n=str(len(g.vert_dict) - 1))
@@ -981,7 +1016,7 @@ class Airport:
         r = None if self.cursor_type is None else self.cursor_type.turn_radius
         route_ext.build(acf_speed=aircraft.avgTaxiSpeed(), radius=r)
 
-        logger.info(f"external adhoc route built from {stand} to {destination}")
+        logger.info(f"external adhoc route built from {start} to {destination}")
         return NoError(route_ext)
 
     def hasATC(self):

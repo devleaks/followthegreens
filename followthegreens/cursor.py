@@ -421,6 +421,7 @@ class Cursor(Vehicle):
             return
         self.current.sr_route = route
         self.current.speed = speed
+        self.setAimSpeed(speed=speed, reason="initial speed")
         self.current.sr_position = OnRoute(index=0, distance=0.0, route=self.current.sr_route, name="initial position")
         self.target.sr_position = OnRoute(index=len(self.current.sr_route) - 1, distance=0, route=self.current.sr_route, name="initial target position")
         self._last_position = (self.current.sr_position, self.current.speed)
@@ -577,28 +578,34 @@ class Cursor(Vehicle):
         old_status = self.status
         self.status = CURSOR_STATUS.LOAD_ROUTE  # lock, prevents tick when changing routes
 
-        old_route = self.current.sr_route
-        route_part = self._future.get()
-        self.current.sr_route = route_part.route
-        logger.debug(f"new route loaded {route_part.comment} (adjust={route_part.adjust})")
-        # need to adjust current pos...
-        start = OnRoute(index=0, distance=0.0, route=self.current.sr_route)
-        c = self.route.srClosestOnRoute(route=self.current.sr_route, point=old_route[-1]) if route_part.adjust else start
-        self.current.sr_position = c
-        logger.debug(f"new current position {self.current.sr_position}")
-        if route_part.index >= 0:
-            self.target.sr_position = OnRoute(index=route_part.index, distance=route_part.distance, route=self.current.sr_route, name="new target position (supplied)")
-            logger.debug(f"new target set from route {self.target.sr_position}")
-        else:
-            self.target.sr_position = OnRoute(index=len(self.current.sr_route) - 1, distance=0, name="new target position (default)")
-            logger.debug("new target set to end of route")
-        if route_part.speed >= 0.0:
-            self.setAimSpeed(speed=route_part.speed, reason="requirement from loaded route")
-        else:
-            logger.debug("no route speed requirement")
-        if self.cursor_mid is not None:
-            # target_pos = self.route.srDestinationRoute(route=self.current.sr_route, i=self.target.sr_position.index, dist=self.target.sr_position.distance)
-            self.cursor_mid.move(lat=self.target.position.lat, lon=self.target.position.lon, hdg=0, elev=1.0)
+        try:
+            # Change ROUTE
+            old_route = self.current.sr_route
+            route_part = self._future.get()
+            self.current.sr_route = route_part.route
+            logger.debug(f"new route loaded {route_part.comment} (adjust={route_part.adjust})")
+            # need to adjust current pos...
+            start = OnRoute(index=0, distance=0.0, route=self.current.sr_route)
+            c = self.route.srClosestOnRoute(route=self.current.sr_route, point=old_route[-1]) if route_part.adjust else start
+            self.current.sr_position = c
+            logger.debug(f"new current position {self.current.sr_position}")
+            # need to adjust target pos...
+            if route_part.index >= 0:
+                self.target.sr_position = OnRoute(index=route_part.index, distance=route_part.distance, route=self.current.sr_route, name="new target position (supplied)")
+                logger.debug(f"new target set from route {self.target.sr_position}")
+            else:
+                self.target.sr_position = OnRoute(index=len(self.current.sr_route) - 1, distance=0, route=self.current.sr_route, name="new target position (default)")
+                logger.debug(f"new target set to end of route {self.target.sr_position}")
+            # set speed if requested
+            if route_part.speed >= 0.0:
+                self.setAimSpeed(speed=route_part.speed, reason="requirement from loaded route")
+            else:
+                logger.debug("no route speed requirement")
+            if self.cursor_mid is not None:
+                # target_pos = self.route.srDestinationRoute(route=self.current.sr_route, i=self.target.sr_position.index, dist=self.target.sr_position.distance)
+                self.cursor_mid.move(lat=self.target.position.lat, lon=self.target.position.lon, hdg=0, elev=1.0)
+        except:
+            logger.error("error", exc_info=True)
 
         self.status = old_status
         return True
@@ -726,7 +733,7 @@ class Cursor(Vehicle):
         if self.current_bearing != -360.0:
             self.uturned = abs(self.current_bearing - brng) > 160
         self.current_distance = distance(self.current.position, position)
-        logger.debug(f"d={sf(self.current_distance, 'm')}, before={sf(self.current_bearing, 'D')}, after={sf(brng, 'D')} {self.uturned}")
+        # logger.debug(f"d={sf(self.current_distance, 'm')}, before={sf(self.current_bearing, 'D')}, after={sf(brng, 'D')} {self.uturned}")
         self.current_bearing = brng
         return self.current_distance
 
@@ -1159,7 +1166,7 @@ class Cursor(Vehicle):
         # Not ready to move
         if not self.inited:  # we're on initial move
             logger.debug("not inited")
-            self.setAimSpeed(speed=default_speed, reason="not inited")
+            self.setAimSpeed(speed=0.0, reason="not inited")
             return
 
         # IF car is off-route, finishing after the route, we do no modify its behavior
@@ -1185,13 +1192,17 @@ class Cursor(Vehicle):
 
         aircraft = self.aircraft
         if aircraft.stopped():
-            logger.debug("aircraft stopped, nothing to adjust")
+            if self.onRoute() and self.aim_speed > 0.0:
+                self.setAimSpeed(speed=0.0, reason="on route and aircraft stopped")
+            else:
+                logger.debug("aircraft stopped, nothing to adjust")
             return
 
         acf_speed = aircraft.speed()
         ahead, drange = aircraft.adjustAhead(rabbit_mode=rabbit_mode, return_range=True)
         pos_pt = aircraft.position_point()
         acf_dist = self.distance(pos_pt)
+        logger.debug(f"acf at {round(acf_dist, 1)}m")
 
         acf_move = acf_speed * elapsedSinceLastCall
         total_ahead = acf_move + ahead
@@ -1285,6 +1296,9 @@ class Cursor(Vehicle):
                 acc_factor = max(rabbit_factor, range_factor)
                 fmcar_speed = target_speed * acc_factor
                 work_msg += f", need to accelerate, new start speed for estimate={round(target_speed, 1)} (factors: acc_factor={round(acc_factor, 2)}, range_factor={round(range_factor, 2)}, rabbit_factor={round(rabbit_factor, 2)})"
+                if fmcar_speed > self.detail.normal_speed and fmcar_speed > acf_speed:  # no need to go too fast either
+                    fmcar_speed = 1.2 * max(self.detail.normal_speed, acf_speed)
+                    work_msg += f" max to {round(fmcar_speed, 1)}, "
         else:  # we are within range, we keepup with the aircraft but we might need to show something with rabbit...
             self.setHudText()  # reset, case it was slow
             work_msg = f"fmcar within range (rabbit factor={rabbit_factor})"
@@ -1312,7 +1326,7 @@ class Cursor(Vehicle):
         if acf_move <= 0.0:
             logger.debug("no aircraft movment")
             return
-        logger.debug(f"should move {round(total_ahead, 1)}m (ahead={round(ahead, 1)}m + acf={round(acf_move, 1)}m)")
+        logger.debug(f"should move {round(total_ahead, 1)}m ahead of aircraft (ahead={round(ahead, 1)}m + acf={round(acf_move, 1)}m)")
         light_ahead, light_index, dist_left = self.lights.lightAhead(index_from=closestLight, ahead=total_ahead)
         logger.debug(f"should move to light={light_index} on edge index={light_ahead.edgeIndex}, distance={round(light_ahead.distFromEdgeStart, 1)}m")
         if self.mustStop() and light_index > self.nextStop and self.lights.mustStopAt(nextStop=self.nextStop):
@@ -1374,12 +1388,11 @@ class Cursor(Vehicle):
         while i < len(SPEEDS):
             if acf_speed > SPEEDS[i][0]:
                 j = SPEEDS[i][1]
-                logger.debug(f"acf speed {round(acf_speed, 1)}m/s), iter set to {j}s")
                 if j != self._last_call_max:
                     logger.debug(f"acf speed {round(acf_speed, 1)}m/s), iter set to {j}s")
                 return j
             i = i + 1
-        logger.debug(f"regular iter {PLANE_MONITOR_DURATION}s (acf speed {round(acf_speed, 1)}m/s)")
+        logger.debug(f"acf speed {round(acf_speed, 1)}m/s), regular iter {PLANE_MONITOR_DURATION}s")
         return PLANE_MONITOR_DURATION
 
 

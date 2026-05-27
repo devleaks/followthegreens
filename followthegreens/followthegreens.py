@@ -226,10 +226,13 @@ class FollowTheGreens:
             logger.debug(f"no external configuration file {filename}")
             return False
 
+        move_str = self.extconfig.get("mode", "departure")
+        move = MOVEMENT(move_str)
+
         destination = self.extconfig["dest"]
         logger.info(f"external configuration file {filename} read")
         logger.info(f"route exported with X-Dispatch {self.extconfig.get('x-dispatch-version')} on {self.extconfig.get('timestamp')}")
-        logger.info(f"From {self.extconfig.get('apt')}/{self.extconfig.get('start')} to runway {destination}")
+        logger.info(f"At {self.extconfig.get('apt')}, {move}, from {self.extconfig.get('start')} to {destination}")
         logger.info(f"Route {" ".join(self.extconfig.get('taxiway_names'))}")
         # logger.info("external configuration not implemented yet, ignored")
         # return False
@@ -280,21 +283,24 @@ class FollowTheGreens:
         self.airport = airport_data
         self.status = FTG_STATUS.AIRPORT
 
-        # 2.1 Check runway
-        if destination not in self.airport.getDestinations(move=MOVEMENT.DEPARTURE):
-            logger.warning(f"destination runway '{destination}' not in airport list {self.airport.getDestinations(move=MOVEMENT.DEPARTURE)}")
-
-        # 2.2 Check stand
-        closest_stand = self.airport.findClosestRamp(pos)
-        if closest_stand[1] < DISTANCE_TO_RAMPS:  # meters, we are close to a ramp.
-            closest_stand_str = closest_stand[0] if type(closest_stand[0]) is str else ""
-            stand = self.extconfig.get("start")
-            if stand is not None and closest_stand_str != "" and closest_stand_str != stand:
-                logger.warning(f"stand in external configuration file {stand} does not match stand closest to aircraft {closest_stand_str}")
+        # 2.1 Check destination
+        if move == MOVEMENT.DEPARTURE:
+            if destination not in self.airport.getDestinations(move=MOVEMENT.DEPARTURE):
+                logger.warning(f"destination runway '{destination}' not in airport list {self.airport.getDestinations(move=MOVEMENT.DEPARTURE)}")
+            # 2.2 Check stand
+            closest_stand = self.airport.findClosestRamp(pos)
+            if closest_stand[1] < DISTANCE_TO_RAMPS:  # meters, we are close to a ramp.
+                closest_stand_str = closest_stand[0] if type(closest_stand[0]) is str else ""
+                stand = self.extconfig.get("start")
+                if stand is not None and closest_stand_str != "" and closest_stand_str != stand:
+                    logger.warning(f"stand in external configuration file {stand} does not match stand closest to aircraft {closest_stand_str}")
+        else:
+            if destination not in self.airport.getDestinations(move=MOVEMENT.ARRIVAL):
+                logger.warning(f"destination stand '{destination}' not in airport list {self.airport.getDestinations(move=MOVEMENT.ARRIVAL)}")
 
         # 3. Start FtG (create lights, light them, etc.)
-        self.move = MOVEMENT.DEPARTURE
-        logger.info(f"external config going to {destination}")
+        self.move = move
+        logger.info(f"external config from {self.extconfig.get('start')} to {destination}")
         self.followTheGreens(destination, external=True)
         self.status = FTG_STATUS.READY
         return True
@@ -401,7 +407,7 @@ VERSION = "{__VERSION__}"
             self.lights = None
             logger.debug("light instances destroyed")
         r = self.setAirport()
-        return r[0]
+        return r.status
 
     def newAircraft(self) -> bool:
         # called when
@@ -589,23 +595,30 @@ VERSION = "{__VERSION__}"
         # Info 11
         intro_arr = []
         rerr = False
-        stand = self.extconfig.get("start", "the stand")
+        move_str = self.extconfig.get("mode", "departure")
+        move = MOVEMENT(move_str)
         if external:
+            self.move = move
             route_free = self.extconfig.get("route_free")
+            src = self.extconfig.get("start", "start")
+            dst = self.extconfig.get("dest", "destination")
+
             if route_free is not None and len(route_free) > 0:
                 logger.info("creating adhoc route from external source..")
-                ret = self.airport.mkAdhocRouteExternalDeparture(self.aircraft, stand, destination, route_free)
+                ret = self.airport.mkAdhocRouteExternal(aircraft=self.aircraft, start=src, destination=dst, route=route_free, move=move)
                 rerr = ret.status
                 if rerr:
                     self.route = ret.message
+                    self.route.adhoc = True  # little reminder
                     intro_arr.append(f"X-Dispatch kindly provided sufficient information to follow the {self.thing}.")
                 else:
                     logger.info("could not create adhoc route from external configuration file")
+
             if not rerr:
                 route = self.extconfig.get("route")
                 if route is not None and len(route) > 0:
                     logger.info("using route from external source..")
-                    ret = self.airport.mkRouteExternalDeparture(self.aircraft, stand, destination, route)
+                    ret = self.airport.mkRouteExternal(aircraft=self.aircraft, start=src, destination=dst, route=route, move=move)
                     if ret.status:
                         self.route = ret.message
                         intro_arr.append(f"X-Dispatch kindly provided sufficient information to follow the {self.thing}.")
@@ -617,8 +630,11 @@ VERSION = "{__VERSION__}"
         if not rerr:
             logger.info(f"trying route to destination {destination}..")
             ret = self.airport.mkRoute(self.aircraft, destination, self.move, get_global("RESPECT_CONSTRAINTS", preferences=self.prefs))
+            rerr = ret.status
+            if rerr:
+                self.route = ret.message
 
-        if not ret.status:
+        if not rerr:
             logger.info(f"..no route to destination {destination} (route {self.route})")
             self.ui.createWindow(
                 report={
@@ -630,7 +646,6 @@ VERSION = "{__VERSION__}"
                 }
             )
             return
-        self.route = ret.message
 
         # Info 12
         logger.info(f"..route to {destination}: {self.route}")
@@ -757,12 +772,13 @@ VERSION = "{__VERSION__}"
                     logger.debug("just one segment on arrival")
                     self.ui.createWindow(
                         report={
-                            "text": [
-                                self.situation(),
-                                f"Follow the {self.thing} to the parking stand {self.destination}.",
+                            "text": [self.situation()]
+                            + intro_arr
+                            + [
+                                f"Follow the {self.thing} to parking stand {self.destination}.",
                                 "Press Continue when parked.",
                             ],
-                            "buttons": [UI_BUTTON.CLEARANCE, UI_BUTTON.NEWGREENS, UI_BUTTON.CANCEL, UI_BUTTON.CONTINUE],
+                            "buttons": [UI_BUTTON.NEWGREENS, UI_BUTTON.CANCEL, UI_BUTTON.CONTINUE],
                         }
                     )
                     return
@@ -770,14 +786,13 @@ VERSION = "{__VERSION__}"
                     logger.debug("1 segment with 1 stopbar on arrival?")
                     self.ui.createWindow(
                         report={
-                            "text": [
-                                self.situation(),
+                            "text": [self.situation()]
+                            + intro_arr
+                            + [
                                 f"{intro} until you encounter red stop lights across the taxiway.",
                                 "At the stop lights, contact ATC for clearance. Press Clearance received when cleared.",
                                 "",
-                            ]
-                            + intro_arr
-                            + [""],
+                            ],
                             "buttons": [UI_BUTTON.CLEARANCE, UI_BUTTON.NEWGREENS, UI_BUTTON.CANCEL],
                         }
                     )
@@ -787,8 +802,9 @@ VERSION = "{__VERSION__}"
                     logger.debug("1 segment with 0 stopbar on departure?")
                     self.ui.createWindow(
                         report={
-                            "text": [
-                                self.situation(),
+                            "text": [self.situation()]
+                            + intro_arr
+                            + [
                                 f"Follow the {self.thing} until you encounter red stop lights across the taxiway",
                                 "before departure runway.",
                                 "Contact ATC, press Clearance received when cleared for runway.",
@@ -909,11 +925,12 @@ VERSION = "{__VERSION__}"
     def terminate(self, reason=""):
         # Abandon the FTG mission. Instruct subroutines to turn off FTG lights, remove them,
         # and restore the environment.
+        logger.debug(f"terminating {reason}..")
 
-        # test IMGUI
-        self.ui.deleteWindow()
+        # remove interaction first
+        self.ui.terminate()
 
-        if self.status in [FTG_STATUS.TERMINATED, FTG_STATUS.DELETED]:
+        if self.status in [FTG_STATUS.TERMINATED, FTG_STATUS.DELETED, FTG_STATUS.DISABLED]:
             logger.warning(f"{type(self).__name__} already terminated")
             return NoError("already terminated")
 
@@ -930,11 +947,12 @@ VERSION = "{__VERSION__}"
         self.status = FTG_STATUS.TERMINATED
         self.save_stats()
 
+        logger.info(f"terminated: {reason}")
+
         if reason == "delete":
             return NoError("delete")
 
         # Info 16
-        logger.info(f"terminated: {reason}")
         if reason == "new green requested":
             logger.info(f"green session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session}) for greener greens")
             # do not delete fmcar
@@ -946,6 +964,7 @@ VERSION = "{__VERSION__}"
             logger.info("-=" * 50)
             logger.info("\n\n")
         self.session = None
+        logger.debug(f".. terminated {reason}")
         return NoError("terminated")
 
     #

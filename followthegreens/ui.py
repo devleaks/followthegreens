@@ -208,6 +208,10 @@ class UIIM:
     def execute(self, action: FTG_COMMANDS):
         self.ftg.execute(action)
 
+    def terminate(self) -> bool:
+        self.deleteWindow()
+        return True
+
     #
     # Data for collection
     #

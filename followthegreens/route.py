@@ -98,7 +98,15 @@ class OnRoute:
 
     @property
     def vertex(self) -> Point:
-        return self.route[self.index]
+        try:
+            return self.route[self.index]
+        except IndexError:
+            logger.error(f"OnRoute {self.name}: index={self.index} route length={len(self.route)}")
+            string_io = StringIO()
+            print_stack(file=string_io)
+            ret = string_io.getvalue()
+            string_io.close()
+            logger.debug(ret)
 
     @property
     def bearing(self) -> float:
@@ -138,8 +146,9 @@ class OnRoute:
         if not r:
             string_io = StringIO()
             print_stack(file=string_io)
+            ret = string_io.getvalue()
             string_io.close()
-            logger.debug(string_io.getvalue())
+            logger.debug(ret)
         return r
 
     def after(self, target: OnRoute) -> bool:
@@ -401,50 +410,69 @@ class Turn:
         return points
 
 
-class RoutePoint(Point):
+# class RoutePoint(Point):
 
-    def __init__(self, point: Point, orientation: float = 0.0):
-        Point.__init__(self, point.lat, point.lon)
-        self.orientation = 0.0
+#     def __init__(self, point: Point, orientation: float = 0.0):
+#         Point.__init__(self, point.lat, point.lon)
+#         self.orientation = 0.0
 
-        self.index = 0
+#         self.index = 0
 
-        self.distance_to_next = 0.0
-        self.distance_to_last = 0.0
+#         self.distance_to_next = 0.0
+#         self.distance_to_last = 0.0
 
-        # stop specific
-        self.is_stop = False
-        self.distance_to_next_stop = 0.0
+#         # stop specific
+#         self.is_stop = False
+#         self.distance_to_next_stop = 0.0
 
-        # turn specific
-        self.turn_type = ""  # smooth, progressive, or immediate
-        self.turn_valid = False
-        self.turn_part = ""  # start, mid, end
-        self.turn_angle = 0.0
-        self.turn_tangent = 0.0
-        self.distance_to_next_turn = 0.0
+#         # turn specific
+#         self.turn_type = ""  # smooth, progressive, or immediate
+#         self.turn_valid = False
+#         self.turn_part = ""  # start, mid, end
+#         self.turn_angle = 0.0
+#         self.turn_tangent = 0.0
+#         self.distance_to_next_turn = 0.0
 
-        self.reverse_index = 0
-        self.reverse_reference = list()
+#         self.reverse_index = 0
+#         self.reverse_reference = list()
 
-    def props(self) -> dict:
-        # Overwrite Point.props()
-        self.setProp("index", self.index)
-        # @todo
-        return self.properties
+#     def props(self) -> dict:
+#         # Overwrite Point.props()
+#         self.setProp("index", self.index)
+#         # @todo
+#         return self.properties
 
 
-class RouteObj:
+# class RouteObj:
 
-    def __init__(self, points: list):
-        self.route = points
+#     def __init__(self, points: list):
+#         self.route = points
 
-    def make(self):
-        # compute individual point attributes from list of points
-        pass
+#     def make(self):
+#         # compute individual point attributes from list of points
+#         last = None
+#         last_turn = None
+#         last_stop = 0
+#         total = 0.0
+#         count = len(self.route)
+#         for i in range(count - 1):
+#             p = self.route[i]
+#             nextp = self.route[i+1]
+#             if i ==
+#             p.distance_to_next = distance(p, nextp)
+#             p.orientation = bearing(p, nextp)
+#             p.distance_from_start = total
+#             total += p.distance_to_next
+#             if p.turn_part == "start":
+#                 last_turn = i
+#             if p.is_stop:
+#                 last_stop = i
 
-    def features(self) -> list:
-        return [p.feature() for p in self.route]
+#         for p in self.route:
+#             p.distance_to_last = total - p.distance_from_start
+
+#     def features(self) -> list:
+#         return [p.feature() for p in self.route]
 
 
 class Route:
@@ -461,6 +489,7 @@ class Route:
         self.arrival_runway = None
 
         # working vars
+        self.adhoc = False
         self.move = None
         self.vertices = None
         self.edges = None
@@ -652,6 +681,8 @@ class Route:
         logger.debug(f"time left to destination at vertex (speed={round(speed, 1)}m/s, {penalty} turns): {', '.join([minsec(e) for e in self.tleft])}")
 
     def text(self, destination: str = "destination") -> str:
+        if self.adhoc:
+            return ""
         if self.edges is None or len(self.edges) == 0:
             self.mkEdges()
         route_str = ""
