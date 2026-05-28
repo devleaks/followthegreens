@@ -37,10 +37,11 @@ class FollowTheGreens:
     def __init__(self, pi):
         self._status = FTG_STATUS.NEW
         self.pi = pi
-        self.alternate = False
+        self.use_car = False
         self.airport: Airport | None = None
         self.aircraft: Aircraft | None = None
         self.lights: LightString | None = None
+        self.use_taxiway_lights = False
         self.fmcar = None
         self.segment = 0  # counter for green segments currently lit -0-----|-1-----|-2---------|-3---
         self.move: MOVEMENT | None = None  # departure or arrival, guessed first, can be changed by pilot.
@@ -389,7 +390,7 @@ VERSION = "{__VERSION__}"
 
     @property
     def thing(self) -> str:
-        return "car" if self.alternate else "greens"
+        return "car" if self.use_car else "greens"
 
     def rabbitMode(self, mode: RABBIT_MODE):
         self.flightLoop.manualRabbitMode(mode)
@@ -425,14 +426,14 @@ VERSION = "{__VERSION__}"
     #
     # PI Main entry point
     #
-    def run(self, alternate: bool = False) -> int:
+    def run(self, use_car: bool = False) -> int:
         # Toggles visibility of main window.
         # If it was simply closed for hiding, show it again as it was.
         # If it does not exist, creates it from start of process.
         # SAME function for both FollowTheGreens and ShowTaxiways
         self.init()
 
-        logger.debug(f"current status: {self.status}, ui={self.ui.hasWindow}, alt={self.alternate}")
+        logger.debug(f"current status: {self.status}, ui={self.ui.hasWindow}, alt={self.use_car}")
 
         if self.ui.hasWindow:
             logger.debug(f"imgui window exists, toggle visibility {self.ui.isVisible()}")
@@ -462,7 +463,7 @@ VERSION = "{__VERSION__}"
         #
         # Info 1
         logger.info("starting..")
-        self.alternate = alternate
+        self.use_car = use_car
         self.status = FTG_STATUS.START
 
         logger.debug("..reloading preferences..")
@@ -590,7 +591,7 @@ VERSION = "{__VERSION__}"
             logger.info(f"estimated frame rate {round(self.fr, 1)} fps")
 
         # Transfer UI option to airport for route finding calculation
-        self.airport.use_threshold = self.ui.runway_threshold
+        self.airport.use_threshold = self.ui.use_runway_threshold
 
         # Info 11
         intro_arr = []
@@ -677,7 +678,7 @@ VERSION = "{__VERSION__}"
         self.airport.resetPreferences()  # necessary if a previous session requested a car
 
         # sets a reduced distance between lights
-        has_light = not self.alternate
+        has_light = not self.use_car
         new_fmcar = False
         if self.fmcar is None:
             self.fmcar = self.airport.fmcar(ftg=self)
@@ -689,7 +690,7 @@ VERSION = "{__VERSION__}"
         if self.move == MOVEMENT.ARRIVAL:
             runway = self.airport.onRunway(pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg)  # RUNWAY_BUFFER_WIDTH either side of runway, return [True,Runway()] or Error(None)
 
-        self.lights = LightString(airport=self.airport, aircraft=self.aircraft, preferences=self.prefs, has_light=has_light)
+        self.lights = LightString(airport=self.airport, aircraft=self.aircraft, preferences=self.prefs, has_light=has_light, use_taxiway_lights=self.use_taxiway_lights)
         self.lights._days = self.dayOfYear()
         self.lights.populate(self.route, move=self.move, onRunway=runway is not None)
         if len(self.lights.lights) == 0:
@@ -755,7 +756,7 @@ VERSION = "{__VERSION__}"
         if initdiff > 20 or initdist > 200:
             dist_str = " ".join(f"{int(initdist):d}")
             hdg_str = " ".join(f"{int(initbrgn):03d}")
-            if self.alternate:
+            if self.use_car:
                 intro_arr.append("Follow me car is in front of you.")
                 speak = speak + " Follow me car is in front of you."
             else:
@@ -988,7 +989,7 @@ VERSION = "{__VERSION__}"
             logger.debug(f"{e} ({self.ui.info})")
             if e == FTG_COMMANDS.START:
                 self.ui.deleteWindow()
-                self.alternate = self.ui.use_car
+                self.use_car = self.ui.use_car
                 self.move = self.ui.move
                 self.followTheGreens(destination=self.ui.destination)
             elif e == FTG_COMMANDS.NEWGREENS:

@@ -23,6 +23,7 @@ from .globals import (
     FTG_SPEED_PARAMS,
     LIGHT_TYPE,
     LIGHT_TYPE_OBJFILES,
+    LIGHT_TYPE_OBJFILES_TAXIWAY,
     MOVEMENT,
     RABBIT_MODE,
     TAXIWAY_ACTIVE,
@@ -365,10 +366,11 @@ class LightString:
     #    (108-75)*distance_between_green_lights
     # No need for sophisticated calculation. Error is at most distance_between_green_lights.
 
-    def __init__(self, airport, aircraft, preferences: dict = {}, has_light: bool = True):
+    def __init__(self, airport, aircraft, preferences: dict = {}, has_light: bool = True, use_taxiway_lights: bool = False):
         self.airport = airport  # get some lighting preference from there
         self.aircraft = aircraft  # get some rabbit preference from there
         self.prefs = preferences  # get FtG preference from there
+        self.light_objects = LIGHT_TYPE_OBJFILES_TAXIWAY if use_taxiway_lights else LIGHT_TYPE_OBJFILES
 
         self.lights = []  # all green lights from start to destination indexed from 0 to len(lights)
         self.stopbars = []  # Keys of this dict are green light indices.
@@ -685,7 +687,7 @@ class LightString:
             "texture": LightType.DEFAULT_TEXTURE_CODE,
         }
         self.lightTypes = {}
-        for k, f in LIGHT_TYPE_OBJFILES.items():
+        for k, f in self.light_objects.items():
             if self._days == 44 and k != LIGHT_TYPE.STOP:
                 eggfn = LightType.create(name="egg.obj", color=(0.9, 0.1, 0.9), size=18, intensity=10, texture=LightType.DEFAULT_TEXTURE_CODE)
                 self.lightTypes[k] = LightType(k, eggfn)

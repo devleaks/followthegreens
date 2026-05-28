@@ -293,6 +293,8 @@ class Cursor(Vehicle):
         self._eor = False
         self._eod = False
         self._last_position = (self.current.sr_position, self.current.speed)
+        self._paused = False
+        self._pause_speed = 0.0
         self.current_distance = 0.0  # distance to acf
         self.current_bearing = -360.0  # acf -> fmcar
         self.uturned = False  # now fmcar -> acf!
@@ -335,6 +337,22 @@ class Cursor(Vehicle):
             logger.info(f"{type(self).__name__} is now {status}")
 
     @property
+    def paused(self) -> bool:
+        # no FL means no action here
+        return self.ftg.flightLoop.paused if self.ftg.flightLoop is not None else True
+
+    def pause(self):
+        self._pause_speed = self.aim_speed
+        self._paused = True
+        logger.debug("paused")
+        self.setAimSpeed(speed=0.0, reason="pause")
+
+    def unpause(self):
+        self.setAimSpeed(speed=self._pause_speed, reason="unpause")
+        self._paused = False
+        logger.debug("unpaused")
+
+    @property
     def indicator(self) -> int:
         return self._indicator.value
 
@@ -366,6 +384,11 @@ class Cursor(Vehicle):
 
     def setHudExtra(self, text: str = ""):
         self.hudExtra = text
+
+    def getExtraLine(self) -> str:
+        t = self.aircraft.brake_temperature()
+        ts = "" if t == 0.0 else f" T {t: 5.1f}"
+        return f"A {round(self.aircraft.speed(), 1): 4.1f} C {round(self.speed(), 1): 4.1f} D {round(self.current_distance, 1): 5.1f}" + ts
 
     def setAimSpeed(self, speed, reason: str = ""):
         if reason != "" and reason[0] != ",":
@@ -528,7 +551,7 @@ class Cursor(Vehicle):
             return 3.0
         # Slow loop for speed/distance adjustments
         self._last_call += elapsedSinceLastCall
-        if self._last_call > self._last_call_max:  # self._last_call_max dynamically adjusted
+        if not self._paused and self._last_call > self._last_call_max:  # self._last_call_max dynamically adjusted
             try:
                 self._adjust(elapsedSinceLastCall=self._last_call)
                 self._last_call = 0

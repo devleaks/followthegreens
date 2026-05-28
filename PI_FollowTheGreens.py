@@ -84,6 +84,7 @@ RED = (1.0, 0.0, 0.0)
 GREEN = (0, 1, 0)
 CYAN = (0.0, 1.0, 1.0)
 WHITE = (1.0, 1.0, 1.0)
+HUD_LEVEL = 2  # 0, 1, 2
 
 
 class PythonInterface:
@@ -585,7 +586,7 @@ class PythonInterface:
         if self.followTheGreens and phase == 0:
             self.debug("_followTheGreensCmd: available")
             try:
-                self.followTheGreens.run(alternate=alternate)
+                self.followTheGreens.run(use_car=alternate)
                 self.debug("_followTheGreensCmd: started")
                 return 1
             except:
@@ -785,11 +786,10 @@ class PythonInterface:
                 self._speed = curr_speed
                 self._speed_color = speed_color
                 self._speed_cnt = 100
-            speeds = f"acf {round(acf_speed, 1)}"
-            if car_speed is not None:
-                speeds += f", car {round(car_speed, 1)}"
-            speeds += " m/s"
-            xp.drawString(speed_color, LEFT, TOP - MAX_LINES * LINE, speeds)  # Aircraft speed
+            xtraline = f"Speed {round(acf_speed, 1)}m/s"
+            if fc is not None and HUD_LEVEL > 0:
+                xtraline = fc.getExtraLine()
+            xp.drawString(speed_color, LEFT, TOP - MAX_LINES * LINE, xtraline)  # Aircraft speed
         except:
             xp.drawString((1, 0, 0), 287, 90, "TAXI HUD ERROR")  # almost everything hardcoded..;
             xp.drawString((0.0, 1.0, 1.0), 400, 90, self.vu)

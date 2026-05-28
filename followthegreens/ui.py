@@ -60,12 +60,12 @@ class UIIM:
 
         self._airport = "<None>"
         self.alt_airport = self.airport
-        self.runway_threshold = True
+        self.use_runway_threshold = True
         self.dest_idx = self.DESTINATION if self.DESTINATION < len(self.dest_dep) else -1
         self.deparr = [True, False] if ftg.move == MOVEMENT.DEPARTURE else [False, True]
         self._deparr = ftg.move == MOVEMENT.DEPARTURE
 
-        self.lights = [True, False]
+        self.light_type = [True, False]
         self.rabbit_length = 8
         self.rabbit_speed_idx = 2
         self.lights_ahead = 0
@@ -184,7 +184,7 @@ class UIIM:
                 refCon=report,
             )
         else:  # general welcome screen for data collection
-            self.use_car = self.ftg.alternate
+            self.use_car = self.ftg.use_car
             self.window = xp_imgui.Window(
                 left=l + left_offset,
                 top=top_offset,
@@ -222,6 +222,10 @@ class UIIM:
     @property
     def guide(self) -> str:
         return "car" if self.use_car else "greens"
+
+    @property
+    def use_taxiway_lights(self) -> bool:
+        return self.light_type[1]
 
     @property
     def fmcar(self) -> str | None:
@@ -408,7 +412,7 @@ class UIIM:
                 self.show_help_marker("0 light ahead means show greens to next stop")
                 imgui.pop_item_width()
                 clicked, self.use_4d = imgui.checkbox(label="Use 4D", state=self.use_4d)
-                self.lights = self.radioButtons(["Omni directional", "Taxiway"], self.lights)
+                self.light_type = self.radioButtons(["Omni directional", "Taxiway"], self.light_type)
 
             #
             # 2.1 FMC Options
@@ -443,7 +447,8 @@ class UIIM:
                 if self.win_autohide:
                     changed, self.win_timeout = imgui.slider_int("Hide timeout (seconds)", self.win_timeout, 10, 120)
                 imgui.spacing()
-                checked, self.runway_threshold = imgui.checkbox(label="Use runway threshold", state=self.runway_threshold)
+                if self.deparr[0]:
+                    checked, self.use_runway_threshold = imgui.checkbox(label="Use runway threshold", state=self.use_runway_threshold)
 
         self.status(show_version=self.advanced_options)
 

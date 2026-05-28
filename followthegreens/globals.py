@@ -266,6 +266,7 @@ class FTGJSON(StrEnum):
 # of aircraft movements
 #
 class AIRPORT(Enum):
+    USE_THRESHOLD = "USE_THRESHOLD"
     DISTANCE_BETWEEN_GREEN_LIGHTS = "DISTANCE_BETWEEN_GREEN_LIGHTS"
     DISTANCE_BETWEEN_STOPLIGHTS = "DISTANCE_BETWEEN_STOPLIGHTS"
     DISTANCE_BETWEEN_LIGHTS = "DISTANCE_BETWEEN_LIGHTS"
@@ -409,6 +410,28 @@ LIGHT_TYPE_OBJFILES = {
     LIGHT_TYPE.RUNWAY_GUARD: "runway.obj",
     LIGHT_TYPE.RUNWAY: "green.obj",  # taxiway lead-in/out lights, alternating green/amber, should be unidirectional
     LIGHT_TYPE.RUNWAY_ALT: "amber.obj",  # same
+    # LIGHT_TYPE.ACTIVE_DEP: "green.obj",
+    # LIGHT_TYPE.ACTIVE_ARR: "green.obj",
+    # LIGHT_TYPE.ACTIVE_ILS: "green.obj",
+    # LIGHT_TYPE.ONEWAY: "green.obj",
+    # LIGHT_TYPE.INNER: "green.obj",
+    # LIGHT_TYPE.OUTER: "green.obj",
+}
+
+LIGHT_TYPE_OBJFILES_TAXIWAY = {
+    LIGHT_TYPE.OFF: "off_light.obj",
+    LIGHT_TYPE.FIRST: "taxi_gg.obj",
+    LIGHT_TYPE.TAXIWAY: "taxi_gg.obj",
+    LIGHT_TYPE.TAXIWAY_ALT: "taxi_g.obj",  # should be unidirectional
+    LIGHT_TYPE.STOP: "taxi_r.obj",
+    LIGHT_TYPE.VERTEX: "green.obj",
+    LIGHT_TYPE.WARNING: "amber.obj",
+    LIGHT_TYPE.LAST: "green.obj",
+    LIGHT_TYPE.DEFAULT: "white.obj",
+    LIGHT_TYPE.ACTIVE: "green.obj",
+    LIGHT_TYPE.RUNWAY_GUARD: "runway.obj",
+    LIGHT_TYPE.RUNWAY: "taxi_g.obj",  # taxiway lead-in/out lights, alternating green/amber, should be unidirectional
+    LIGHT_TYPE.RUNWAY_ALT: "taxi_y.obj",  # same
     # LIGHT_TYPE.ACTIVE_DEP: "green.obj",
     # LIGHT_TYPE.ACTIVE_ARR: "green.obj",
     # LIGHT_TYPE.ACTIVE_ILS: "green.obj",

@@ -15,7 +15,7 @@ First exit is more than 500m away.
 
 Workaround:
 
-Let aricraft moving forward until it is less that 500m away from taxiway vertex.
+Let aircraft moving forward until it is less that 500m away from taxiway vertex.
 
 
 # Pause
@@ -31,3 +31,8 @@ If the aircraft does not move, greens don't change.
 In rare, known circumstances, the Follow Me Car may produce little "jumps" rather than smoothly follow a curve.
 This happens when 2 turns are too close to each other, when the first turn "terminates" inside the second turn.
 This is a rare event as taxiways are more often large straight lines.
+
+
+# User Interface
+
+When using operating system-type windows, it does not resize when switching _Advanced options_ on or off.

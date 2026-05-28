@@ -236,6 +236,7 @@ class Airport:
         self.use_threshold = get_global("USE_THRESHOLD", self.prefs)
         if self.use_threshold is None:
             self.use_threshold = False
+        self.use_threshold_pref = False
 
         self.use_car = get_global("USE_CAR", self.prefs)
         if self.use_car is None:
@@ -329,10 +330,10 @@ class Airport:
         if len(prefs) > 0:
             logger.debug(f"airport {self.icao} preferences: {prefs}")
             if prefs is not None:
-                if "USE_CAR" in prefs:
-                    self.use_car = prefs["USE_CAR"]
-                if "USE_THRESHOLD" in prefs:
-                    self.use_threshold = prefs["USE_THRESHOLD"]
+                self.use_car = prefs.get("USE_CAR", self.use_car)
+                if AIRPORT.USE_THRESHOLD in prefs:
+                    self.use_threshold = prefs.get(AIRPORT.USE_THRESHOLD)
+                    self.use_threshold_pref = True
                 if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in prefs:
                     self.distance_between_green_lights = prefs[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
                     self.distance_between_green_lights_pref = True
@@ -369,8 +370,8 @@ class Airport:
         #
         # DID WE ASK FOR FMCAR
 
-        if not ftg.alternate:
-            logger.debug("no alternate")
+        if not ftg.use_car:
+            logger.debug("no use of fmcar")
             return None
         # MAYBE, depends on movement
         # check at airport-level first...
@@ -924,15 +925,15 @@ class Airport:
                 return Error(f"We could not find destination {destination}.")
         else:  # ARRIVAL
             # From runway..
-            src_pos = None
-            src_type = ""
+            src_pos = aircraft.position_point()
+            src_type = "aircraft"
             if start in self.runways.keys():
                 rwy = self.runways[start]
                 if rwy is None:  # we sure to find one because first test
                     return Error(f"We could not find runway {start}.")
                 route_ext.arrival_runway = rwy
-                src_pos = rwy.end
-                src_type = "runway"
+                # src_pos = rwy.end
+                # src_type = "runway"
             route_ext.precise_start = src_pos
 
             # ..to stand
@@ -997,10 +998,16 @@ class Airport:
 
         # Check
         logger.debug("free route proximity to taxiways..")
+        STICK_TO_TAXIWAYS = True
+        STICKING_DISTANCE = 20.0  # meters
         for k, v in g.vert_dict.items():
             n, d, l = self.graph.findClosestPointOnEdges(v)
             if n is not None:
                 logger.debug(f"point {k} at {round(d, 1)}m from taxiway {l.name}")
+                if STICK_TO_TAXIWAYS and d < STICKING_DISTANCE:
+                    logger.debug("sticking")
+                    v.lat = n.lat
+                    v.lon = n.lon
             else:
                 logger.debug(f"point {k} not close to taxiway")
         logger.debug("..done")

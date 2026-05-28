@@ -219,6 +219,7 @@ class Aircraft(Vehicle):
         self.groundspeed = xp.findDataRef("sim/flightmodel/position/groundspeed")
         self.tiller = xp.findDataRef("ckpt/tiller")  # check if pilot is turning
         self.visibility_dref = xp.findDataRef("sim/weather/visibility_reported_m")
+        self.bt_dref = xp.findDataRef("AirbusFBW/BrakeTemperatureArray")
 
         self.width_code = TAXIWAY_WIDTH_CODE.C  # init to default
         self.init()
@@ -342,6 +343,12 @@ class Aircraft(Vehicle):
 
     def acceleration(self) -> float:
         return self._last_acceleration
+
+    def brake_temperature(self) -> float:
+        arr = []
+        c = xp.getDatavf(self.bt_dref, arr, count=4) if self.bt_dref is not None else [0, 0, 0, 0]
+        c = min(c, 4)
+        return sum(arr[:c]) / c if c > 0 else 0.0
 
     def daylight(self, now: datetime = datetime.now(tz=timezone.utc)) -> bool:
         # report if it is daylight at aircraft position on ground at supplied datetime

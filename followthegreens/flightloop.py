@@ -585,16 +585,28 @@ class FlightLoop:
             logger.error("issue in the main flight loop, retrying in 5 seconds", exc_info=True)
         return 5.0  # seconds
 
+    @property
+    def paused(self) -> bool:
+        return xp.getDatai(self.pause_dref) == 1
+
     def _planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument
         # monitor progress of plane on the greens. Turns lights off as it does no longer needs them.
         # logger.debug('%2f, %2f, %d', elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter)
-        if xp.getDatai(self.pause_dref) == 1:
+        if self.paused:
             msg = "paused"
             if msg != self.old_msg:
                 logger.debug(msg)
                 self.old_msg = msg
+            if self.ftg.fmcar is not None:
+                self.ftg.fmcar.pause()
             return 2
+
+        if self.old_msg == "paused":
+            self.old_msg = ""
+            logger.debug("unpaused")
+            if self.ftg.fmcar is not None:
+                self.ftg.fmcar.unpause()
 
         self.ftg.hideWindow(elapsedSinceLastCall)
 
