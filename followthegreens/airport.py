@@ -794,6 +794,7 @@ class Airport:
             else:
                 logger.debug(f"no polygon for runway {name}")
 
+        logger.debug("does not appear to be on any runway")
         return None
 
     def guessMove(self, coord) -> MOVEMENT:

@@ -219,6 +219,10 @@ class UIIM:
     def move(self) -> MOVEMENT:
         return MOVEMENT.DEPARTURE if self._deparr else MOVEMENT.ARRIVAL
 
+    @move.setter
+    def move(self, move):
+        self.deparr = [True, False] if move == MOVEMENT.DEPARTURE else [False, True]
+
     @property
     def guide(self) -> str:
         return "car" if self.use_car else "greens"

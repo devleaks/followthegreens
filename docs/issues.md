@@ -36,3 +36,12 @@ This is a rare event as taxiways are more often large straight lines.
 # User Interface
 
 When using operating system-type windows, it does not resize when switching _Advanced options_ on or off.
+
+
+# Borderline Cases
+
+In some occurence, there might be a problem for the Follow me car to respect constraints
+and provide a smooth ride. Here are a few identified cases:
+
+- On apparition, the car moves in front of the aircraft from a side position.
+  The car may not stop at a stop bar if the initial route that joins the taxi route intercepts _after_  the stop line (rare occurrences).

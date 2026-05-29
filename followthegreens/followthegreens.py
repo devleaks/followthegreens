@@ -488,6 +488,7 @@ VERSION = "{__VERSION__}"
 
         # Info 10
         self.move = self.airport.guessMove(self.aircraft.position())
+        self.ui.move = self.move
 
         logger.info("..started")
         self.afterAirport(self.airport.icao)
@@ -592,6 +593,7 @@ VERSION = "{__VERSION__}"
 
         # Transfer UI option to airport for route finding calculation
         self.airport.use_threshold = self.ui.use_runway_threshold
+        self.use_taxiway_lights = self.ui.use_taxiway_lights
 
         # Info 11
         intro_arr = []
