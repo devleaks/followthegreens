@@ -409,15 +409,6 @@ class Airport:
             logger.info(f"using global default for greens (la={self.lights_ahead}, rl={self.rabbit_length}, rs={self.rabbit_speed})")
             return None
         # YES
-        # Transfer UI values to airport for use
-        if ftg.ui.advanced_options:
-            self.lights_ahead = ftg.ui.lights_ahead
-            self.lights_ahead_pref = True
-            self.rabbit_length = ftg.ui.rabbit_length
-            self.rabbit_length_pref = True
-            self.rabbit_speed = ftg.ui.rabbit_speed
-            self.rabbit_speed_pref = True
-            logger.info(f"using ui values for greens (la={self.lights_ahead}, rl={self.rabbit_length}, rs={self.rabbit_speed})")
         adj = ""
         if self.distance_between_green_lights > self.MTWYLDWC:  # min twy light distance with/when fmcar
             adj = f", distance between taxiway lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
@@ -487,6 +478,7 @@ class Airport:
 
     def loadXplaneAirport(self, filename):
         if has_xplane_airports:
+            self.apt_data = None
             try:
                 apt_dat = AptDat(path_to_file=filename)
                 apt_data = apt_dat[self.icao]

@@ -495,6 +495,8 @@ class UIIM:
         buttons = refCon.get("buttons", [UI_BUTTON.OK])
         for b in buttons:
             p = b.value[0]
+            if p == "New greens" and self.use_car:
+                p = "New route"
             w = 80 if len(p) < 12 else 150
             if imgui.button(label=p, width=w, height=0):
                 self.execute(b.value[1])

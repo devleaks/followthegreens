@@ -50,42 +50,6 @@ to the Follow the green core software,
 just for the smooth movement of the car.
 
 
-# How to Get a Follow Me Car
-
-Follow Me Car was always considered as a joke, a side project, an accident,
-a funny addition to the core, serious, hi-tech Follow the greens.
-
- - Follow the greens is A-SMGCS (Advanced Surface Movement Guidance and Control System)
- - A Follow Me Car is also A-SMGCS (_Antique_ Surface Movement Guidance and Control System)
-
-Pursuing that spirit, Follow me car is added as a seriously fun addition:
-
-*After extensive study of ideal number of visible lights ahead, questioning numerous A.I.,
-sources agreed to the same number of lights:
-It does not matter, as long as you do not use 42 lights.
-42 is already used for answering a far more complex question.
-So we had to come up with a solution in case a pilot requires exactly 42 lights ahead.
-We came with the solution of using a follow me car instead of the green lights.
-So if you require no rabbit (rabbit_length=0, rabbit_speed=0) and exactly 42 lights ahead (lights_ahead=42),
-you will see no green lights in front of you but a follow me car instead.
-For 42 Universal Safety considerations. You understand.
-We apologise for the inconvenience.*
-
-*Don’t worry, the car will follow the same route as the greens would show you.
-It will monitor your speed and invite you to taxi faster if it is far in front of you,
-and you’ll have to slow down if you get closer to it,
-to not mill the car with your RR Trent UltraFan engines.
-Just follow it, keep a safe distance, don’t run over it.
-It is a real 4D Follow Me car.
-It might even use its turn indicator lights to warn you of an imminent sharp turn or
-display a STOP message when there is a red line ahead.
-The car will not run over the stop red lines.
-It will also wait for clearance. Just like you.*
-
-*Antique is the new Advanced.*
-
-Taxi safely
-
 
 
 # Ahead RANGE
@@ -182,3 +146,41 @@ At each frame or so, speed of the car is progressively adjusted from current spe
 
 When rabbit mode changes, ahead ranges changes abruptly, leading to abrupt speed changes to conform to rules.
 
+
+
+# Programming of the Follow Me car behavior
+
+To minimize computation in flight loops, the general idea is as follow.
+
+Some computation where already done effectively for Follow the greens.
+We dit not change that, we start from the same data set for the Follow Me car (fmc).
+
+To minimize the impact of the these computation,
+we carefully monitor the behavior of the aircraft and adjust computation frequency accordingly.
+
+If the aircraft is stopped, or moves fast, no computation other than monitoring its speed occurs.
+Typically it is run every 1 to 5 seconds.
+
+This is the _aircraft monitoring flight loop_.
+This loop is the same for both Follow the greens and Follow the car.
+
+Observation data from the _aircraft monitoring flight loop_ is passed
+to the _follow me car directive flight loop_.
+
+The goal of this flight loop is to set short term directive to the car:
+Aim there, accelerate, decelerate, adjust speed, show that sign or turn indicator.
+This loop involves computation and is performed as infrequently as possible.
+(Typically it is run every 1 to 3 seconds when the follow me car is used.)
+Again, the frequency of this loop is dynamic and adjusted to maintain
+a smooth car ride.
+
+The Follow Me car behaves autonomously.
+It has is own _follow me car control loop_.
+
+The _follow me car control loop_ reads directives from the _follow me car directive flight loop_
+and adjust the car behavior to meet them.
+This loop is done for each frame to draw the car at it's proper position
+with indications visible to the pilot.
+
+The behavior was designed with some safeguards in mind.
+If, for some reason, the car is missing information, it smoothly brakes and stops.

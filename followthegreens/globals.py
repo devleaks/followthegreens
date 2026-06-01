@@ -426,9 +426,9 @@ LIGHT_TYPE_OBJFILES_TAXIWAY = {
     LIGHT_TYPE.STOP: "taxi_r.obj",
     LIGHT_TYPE.VERTEX: "green.obj",
     LIGHT_TYPE.WARNING: "amber.obj",
-    LIGHT_TYPE.LAST: "green.obj",
+    LIGHT_TYPE.LAST: "taxi_gg.obj",
     LIGHT_TYPE.DEFAULT: "white.obj",
-    LIGHT_TYPE.ACTIVE: "green.obj",
+    LIGHT_TYPE.ACTIVE: "taxi_gg.obj",
     LIGHT_TYPE.RUNWAY_GUARD: "runway.obj",
     LIGHT_TYPE.RUNWAY: "taxi_g.obj",  # taxiway lead-in/out lights, alternating green/amber, should be unidirectional
     LIGHT_TYPE.RUNWAY_ALT: "taxi_y.obj",  # same

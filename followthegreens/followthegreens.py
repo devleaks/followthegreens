@@ -495,30 +495,33 @@ VERSION = "{__VERSION__}"
         return 1  # window displayed
 
     def setAircraft(self) -> Status:
-        self.aircraft = Aircraft(prefs=self.prefs)
+        logger.debug("setting aircraft..")
+        aircraft = Aircraft(prefs=self.prefs)
+
+        pos = aircraft.position()
+        if pos is None or (pos[0] == 0 and pos[1] == 0):
+            logger.debug("no aircraft position")
+            return Error("We could not locate your aircraft.")
+        hdg = aircraft.heading()
+        logger.info(f"aircraft type {aircraft.icao} ready: position: {pos}, heading {round(hdg, 1)}")
+
+        # # Info 2
+        self.aircraft = aircraft
+        self.status = FTG_STATUS.AIRCRAFT
+        self.inc(self.aircraft.icao)
         return NoError("Aircraft ready")
 
     def setAirport(self, apt: str | None = None) -> Status:
         # if apt is supplied, tries to load it, otherwise guess from aircraft position
-        if self.aircraft is None:
-            logger.debug("no aircraft")
-            return Error("We could not locate your aircraft.")
-
-        pos = self.aircraft.position()
-        if pos is None or (pos[0] == 0 and pos[1] == 0):
-            logger.debug("no aircraft position")
-            return Error("We could not locate your aircraft.")
-
-        hdg = self.aircraft.heading()
-
-        # Info 2
-        logger.info(f"aircraft position ok: {pos}, heading {round(hdg, 1)}")
-        self.status = FTG_STATUS.AIRCRAFT
-        self.inc(self.aircraft.icao)
+        logger.debug(f"trying to set airport {apt}..")
 
         airport_name = apt
+        if airport_name is None:  # guess it
+            if self.aircraft is None:
+                logger.debug("no aircraft")
+                return Error("We could not locate your aircraft.")
+            pos = self.aircraft.position()
 
-        if airport_name is None:
             airport = self.aircraft.airport(pos)
 
             if airport is None:
@@ -531,17 +534,29 @@ VERSION = "{__VERSION__}"
 
             airport_name = airport.navAidID
 
-        if apt is not None or self.airport is None or (self.airport.icao != airport_name):  # we may have changed airport since last call
+        if self.airport is not None and (self.airport.icao == airport_name):
+            logger.debug(f"airport {apt} already loaded")
+            return NoError("already loaded")
+
+        if apt is not None:  # we must try to load the supplied new airport
+            airport_data = Airport(icao=airport_name, prefs=self.prefs)
+            # Info 4 to 9 in airport.prepare()
+            status = airport_data.prepare()  # [ok, errmsg]
+            if not status.status:
+                logger.warning(f"cannot prepare airport: {status.message}")
+                return Error("cannot prepare airport")
+            self.airport = airport_data
+            logger.debug(f"new airport {self.airport.icao} loaded")
+
+        if self.airport is None:  # we must try to load an airport
             airport_data = Airport(icao=airport_name, prefs=self.prefs)
             # Info 4 to 9 in airport.prepare()
             status = airport_data.prepare()  # [ok, errmsg]
             if not status.status:
                 logger.warning(f"airport not ready: {status.message}")
-                return Error("Airport not ready")
+                return Error("cannot prepare airport")
             self.airport = airport_data
-            self.inc(self.airport.icao)
-        else:
-            logger.debug(f"airport {self.airport.icao} already loaded")
+            logger.debug(f"airport {self.airport.icao} loaded")
 
         # test
         apt_loc = self.airport.position()
@@ -554,6 +569,7 @@ VERSION = "{__VERSION__}"
             logger.debug(f"airport location {apt_loc}")
 
         # Info 3
+        self.inc(self.airport.icao)
         logger.info(f"at {airport_name}, airport ready")
         self.status = FTG_STATUS.AIRPORT
         return NoError("Airport ready")
@@ -682,11 +698,12 @@ VERSION = "{__VERSION__}"
         # sets a reduced distance between lights
         has_light = not self.use_car
         new_fmcar = False
-        if self.fmcar is None:
+        if self.use_car and self.fmcar is None:
             self.fmcar = self.airport.fmcar(ftg=self)
             new_fmcar = True
 
-        has_light = self.airport.ensureDev()  # may force both fmcar and lights on dev
+        if not has_light:
+            has_light = self.airport.ensureDev()  # may force both fmcar and lights on dev
 
         runway = None
         if self.move == MOVEMENT.ARRIVAL:
@@ -694,7 +711,7 @@ VERSION = "{__VERSION__}"
 
         self.lights = LightString(airport=self.airport, aircraft=self.aircraft, preferences=self.prefs, has_light=has_light, use_taxiway_lights=self.use_taxiway_lights)
         self.lights._days = self.dayOfYear()
-        self.lights.populate(self.route, move=self.move, onRunway=runway is not None)
+        self.lights.populate(ftg=self, onRunway=runway is not None)
         if len(self.lights.lights) == 0:
             logger.debug("no lights")
             self.ui.createWindow(

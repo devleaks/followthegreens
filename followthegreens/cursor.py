@@ -3,13 +3,14 @@ import os
 from dataclasses import dataclass, fields
 from enum import StrEnum
 from datetime import datetime
+from random import random
 
 try:
     import xp
 except ImportError:
     print("X-Plane not loaded")
 
-from .globals import RABBIT_MODE, logger, MOVEMENT, INDICATOR, AIRCRAFT_MIN_SPEED, PLANE_MONITOR_DURATION
+from .globals import RABBIT_MODE, get_global, logger, MOVEMENT, INDICATOR, AIRCRAFT_MIN_SPEED, PLANE_MONITOR_DURATION
 from .geo import Point, bearing, destination, distance, turn
 from .lightstring import XPObject, LightType
 from .route import Vehicle, SMOOTH_ROUTE, OnRoute, NOT_ON_ROUTE
@@ -42,10 +43,6 @@ FOLLOW_ME_CARS = {
     "Follow Me Truck": {"filename": "xcsl/FMC.obj", "indicator": True, "indicator_shift": [1.95, -0.70]},
     "Follow Me Car": {"filename": "xcsl/FMC2.obj", "indicator": True, "indicator_shift": [2.02, -1.8]},
 }
-
-
-def ts() -> float:
-    return datetime.now().timestamp()
 
 
 def st(t: float) -> float:
@@ -245,6 +242,7 @@ class Cursor(Vehicle):
         self.cursor_object = CursorObject(detail.filename)
         self.cursor = XPObject(None, 0, 0, 0)
 
+        self.show_bracket = SHOW_BRACKET and ftg.prefs.get("DEVELOPER_PREFERENCE_ONLY", False)
         self.cursor_min = XPObject(None, 0, 0, 0)
         self.cursor_max = XPObject(None, 0, 0, 0)
         self.cursor_mid = XPObject(None, 0, 0, 0)
@@ -454,7 +452,7 @@ class Cursor(Vehicle):
         self.cursor.place(lightType=self.cursor_object)
         self.cursor.on()
 
-        if SHOW_BRACKET:
+        if self.show_bracket:
             min_light = LightType.create(name="lmin.obj", color=(0, 1, 0), size=40, intensity=60, texture=3)  # green
             self.cursor_min.position = self.current.position  # initial position where will appear
             self.cursor_min.heading = self.current.heading
@@ -496,7 +494,7 @@ class Cursor(Vehicle):
         if self.indicator_object is not None:
             del self.indicator_object
             self.indicator_object = None
-        if SHOW_BRACKET:
+        if self.show_bracket:
             if self.cursor_min is not None:
                 self.cursor_min.destroy()
                 self.cursor_min = None
@@ -721,12 +719,12 @@ class Cursor(Vehicle):
         d0 = drange[0] + DISTANCE_MARGIN
         self.current.sr_min = sr_cl.forward(dist=d0)
         self.current.sr_min.name = "bracket min"
-        if SHOW_BRACKET:
+        if self.show_bracket:
             self.cursor_min.move(lat=self.current.sr_min.point.lat, lon=self.current.sr_min.point.lon, hdg=0, elev=1.0)
         d1 = (d0 + DISTANCE_MARGIN) if drange[1] < (d0 + DISTANCE_MARGIN) else drange[1] - DISTANCE_MARGIN
         self.current.sr_max = sr_cl.forward(dist=d1)
         self.current.sr_max.name = "bracket max"
-        if SHOW_BRACKET:
+        if self.show_bracket:
             self.cursor_max.move(lat=self.current.sr_max.point.lat, lon=self.current.sr_max.point.lon, hdg=0, elev=1.0)
         logger.debug(f"bracket light={sr_cl}, [{self.current.sr_min}, {self.current.sr_max}]")
 
@@ -789,7 +787,7 @@ class Cursor(Vehicle):
 
         dist_to_next_turn_at_start_vtx = self.route.dtb[edge_idx]
         dist_to_next_turn = dist_to_next_turn_at_start_vtx - distance_on_edge
-        turn_vertex = vertex.getProp("tobrake_index")
+        turn_vertex = self.route.dtb_at[edge_idx]  # vertex.getProp("tobrake_index")
         turn = self.route.turns[turn_vertex]
         logger.log(8, f"after vertex {edge_idx}, d={sf(distance_on_edge, 'm')}, next turn at {sf(dist_to_next_turn, 'm')}, {sf(turn, 'D')}")
         if dist_to_next_turn < self.detail.indicator_warning_distance:  # and abs(turn) > TURN_LIMIT
@@ -1027,7 +1025,7 @@ class Cursor(Vehicle):
 
         if not self.aircraft.moving() and self.ftg.move == MOVEMENT.DEPARTURE:
             # 1. Spawn the car next to (random) side of aircraft
-            rnd = 1  # 1 if (int(pos[0] * 10000) % 2) == 0 else -1
+            rnd = -1 + 2 * int(random() / 0.5)
             fs = self.ftg.route.beforeRoute()
             # spawn at spot randomly left or right of current aircraft position
             spawn = destination(fs.start, fs.bearing() + rnd * 90, SPAWN_SIDE_DISTANCE)  # use acf.heading()?

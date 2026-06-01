@@ -504,7 +504,15 @@ class LightString:
 
         # control logged info
         self._info_sent = False
-        logger.info(f"rabbit: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}, greens={self.distance_between_green_lights}m")
+        if has_light:
+            logger.info(
+                f"rabbit: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}, greens={self.distance_between_green_lights}m"
+            )
+        else:
+            logger.info(
+                f"rabbit: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}, greens={self.distance_between_green_lights}m"
+            )
+            logger.info(f"no lights, res={self.distance_between_green_lights}m")
 
     def destroy(self):
         # Destroy each green light
@@ -809,9 +817,22 @@ class LightString:
         logger.debug(f"{t} lights placed")
         return True
 
-    def populate(self, route, move: MOVEMENT, onRunway: bool = False):
+    def populate(self, ftg, onRunway: bool = False):
         # @todo: If already populated, must delete lights first
         logger.debug(f"populate: on runway = {onRunway}")
+
+        route = ftg.route
+        move = ftg.move
+        # Transfer UI values to airport for use
+        if not ftg.ui.use_car and ftg.ui.advanced_options:
+            self.lights_ahead = ftg.ui.lights_ahead
+            self.lights_ahead_pref = True
+            self.rabbit_length = ftg.ui.rabbit_length
+            self.rabbit_length_pref = True
+            self.rabbit_speed = ftg.ui.rabbit_speed
+            self.rabbit_speed_pref = True
+            logger.info(f"using ui values for greens (la={self.lights_ahead}, rl={self.rabbit_length}, rs={self.rabbit_speed})")
+
         self.route = route
         graph = route.graph
         thisLights = []
@@ -1064,7 +1085,7 @@ class LightString:
         return index >= 0 and index == self.lastLightIndex
 
     def hasRabbit(self) -> bool:
-        return (abs(self.rabbit_duration) > 0 and self.num_rabbit_lights > 0) or self.lights_ahead > 0
+        return self.hasLight and ((abs(self.rabbit_duration) > 0 and self.num_rabbit_lights > 0) or self.lights_ahead > 0)
 
     def resetRabbit(self):
         # set all lights

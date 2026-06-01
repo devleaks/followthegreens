@@ -104,6 +104,8 @@ class PythonInterface:
         self.isRunningRef = None
         self.getIndicatorRef = None
 
+        self.widgetID = None
+
         # 1. Follow The Greens
         self.menuIdx = None
         self.menuIdx2 = None
@@ -737,12 +739,16 @@ class PythonInterface:
 
     def hud(self, phase, after, refCon):
         if not self._hud or self.followTheGreens is None:
+            if self.widgetID is not None:  # turn off hud
+                xp.destroyWidget(self.widgetID, 1)
+                self.widgetID = None
             return
         if self.followTheGreens.flightLoop is None or not self.followTheGreens.flightLoop.rabbitRunning:
             return
         try:
             text_color = GREEN  # default
             MAX_LINES = 4
+            WIDTH = 160
 
             fl = self.followTheGreens.flightLoop
             fc = self.followTheGreens.fmcar
@@ -756,6 +762,37 @@ class PythonInterface:
             LINE = 15 if len(hp) < 3 else hp[2]
             LEFT = max(hp[0], 1)
             TOP = max(hp[1], MAX_LINES * LINE + 1)
+
+            if self.widgetID is None:
+                self.widgetID = xp.createWidget(LEFT - 3, TOP + 10, LEFT + WIDTH, max(TOP - MAX_LINES * LINE - 10, 0), 1, "", 1, 0, xp.WidgetClass_MainWindow)
+                xp.setWidgetProperty(self.widgetID, xp.Property_MainWindowType, xp.MainWindowStyle_Translucent)
+
+            # Alternate: display strings as captions on the widget
+            # strings = []
+
+            # for w in self.widgets:
+            #   xp.destroyWidget(w, 1)
+            # self.widgets = []
+            # i = 0
+
+            # for s in strings:
+            #     strWidth = xp.measureString(self.fontID, s)
+            #     left = LEFT
+            #     right = int(LEFT + strWidth)
+            #     top = TOP - i * line
+            #     bottom = int(top - self.strHeight)
+            #     i += 1
+            #     widget.append(xp.createWidget(
+            #         left,
+            #         top,
+            #         right,
+            #         bottom,
+            #         1,
+            #         s,
+            #         0,
+            #         self.widgetID,
+            #         xp.WidgetClass_Caption,
+            #     ))
 
             xp.setGraphicsState(0, 1, 0, 0, 0, 0, 0)
             xp.drawString(text_color, LEFT - 3, TOP, "TAXI")  # Title/header
