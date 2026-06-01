@@ -977,8 +977,7 @@ VERSION = "{__VERSION__}"
             logger.info(f"green session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session}) for greener greens")
             # do not delete fmcar
         else:
-            if self.fmcar is not None:
-                self.fmcar.destroy()
+            if self.fmcar is not None and self.fmcar.destroy():
                 self.fmcar = None
             logger.info(f"green session ended at {datetime.now().astimezone().isoformat()} (session id = {self.session})")
             logger.info("-=" * 50)
