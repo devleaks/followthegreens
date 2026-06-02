@@ -722,7 +722,7 @@ class PythonInterface:
 
     def getRunningStatusCallback(self, inRefcon):
         # Returns 1 if actually running (lights blinking on taxiways). 0 otherwise.
-        return 1 if self.followTheGreens is not None and self.followTheGreens.flightLoop is not None and self.followTheGreens.flightLoop.rabbitRunning else 0
+        return 1 if self.followTheGreens is not None and self.followTheGreens.lights is not None and self.followTheGreens.lights.rabbitRunning else 0
 
     def getFTGIsHoldingCallback(self, inRefcon):
         # Returns 1 if actually running (lights blinking on taxiways). 0 otherwise.
@@ -743,7 +743,7 @@ class PythonInterface:
                 xp.destroyWidget(self.widgetID, 1)
                 self.widgetID = None
             return
-        if self.followTheGreens.flightLoop is None or not self.followTheGreens.flightLoop.rabbitRunning:
+        if self.followTheGreens is None or self.followTheGreens.lights is None:
             return
         try:
             text_color = GREEN  # default
@@ -800,7 +800,7 @@ class PythonInterface:
             color = RED if fl.is_late else GREEN  # cannot change color of timing status (meaningful)
             xp.drawString(color, LEFT, TOP - LINE, fl.remaining)  # 1234m, 12:45   indication
             xp.drawString(color, LEFT, TOP - 2 * LINE, f"! {round(fl.dist_to_next_turn):4d}m")  # 1234m
-            color = RED if fl.rabbitRunning else AMBER  # cannot change color of rabbit status (meaningful)
+            color = RED if self.followTheGreens.lights.rabbitRunning else AMBER  # cannot change color of rabbit status (meaningful)
             if self.followTheGreens.status.value == "ACTIVE":
                 xp.drawString(text_color, LEFT, TOP - 3 * LINE, fl.rabbitText)  # Rabbit status
             else:

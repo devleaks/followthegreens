@@ -19,6 +19,9 @@ from .globals import (
     get_global,
     Error,
     NoError,
+    AMBIANT_RWY_LIGHT,
+    AMBIANT_RWY_LIGHT_VALUE,
+    AMBIANT_RWY_LIGHT_CMDROOT,
     DISTANCE_BETWEEN_STOPLIGHTS,
     FTG_SPEED_PARAMS,
     LIGHT_TYPE,
@@ -378,6 +381,10 @@ class LightString:
         self.currentSegment = 0
         self.rabbitIdx = 0
         self.rabbitCanRun = False
+        self.rabbitRunning = False
+        self.refrabbit = "FtG:rabbit"
+        self.flrabbit = None
+        self.rabbitRunning = False
 
         self.route = None  # route as returned by graph.find(), i.e. a list of vertex indices.
         self._days = 0
@@ -396,6 +403,9 @@ class LightString:
         self._hasLight = has_light
         logger.debug(f"has_light={has_light} -> {self.hasLight}")
         self._on_active = False
+        self.airport_light_level = xp.findDataRef(AMBIANT_RWY_LIGHT_VALUE)  # [off, lo, med, hi] = [0, 0.25, 0.5, 0.75, 1]
+        self.runway_level_original = 1.0
+        self.newLastLit = 0
 
         # PREFERENCES
         #
@@ -1119,7 +1129,91 @@ class LightString:
         self.changeRabbit(length=length, duration=speed, ahead=ahead)
         logger.info(f"mode: {mode}: {length} lights, {round(speed, 2)}secs (ahead={self.num_lights_ahead} lights)")
 
-    def rabbit(self, start: int):
+    def setNewLastLit(self, newLastLit: int):
+        self.newLastLit = newLastLit
+
+    def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
+        # pylint: disable=unused-argument
+        # show rabbit in front of plane.
+        # plane is supposed to Follow the greens and it close to green light index self.lastLit.
+        # We cannot use XP's counter because it does not increment by 1 just for us.
+        try:
+            return self.rabbit()
+        except:
+            logger.error("issue in rabbit flight loop, retrying in 5 seconds", exc_info=True)
+        return 5.0
+
+    def startFlightLoop(self):
+        self.lastLit = 0
+        self.acf_light_progress = 0
+        self.last_acf_light_progress = 0
+        self.last_acf_light_progress_cnt = 0
+
+        if self.hasRabbit():
+            if not self.rabbitRunning:
+                self.flrabbit = xp.createFlightLoop(callback=self.rabbitFLCB, phase=xp.FlightLoop_Phase_BeforeFlightModel, refCon=self.refrabbit)
+                xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)  # starts in a second, arbitrary
+                self.rabbitRunning = True
+                logger.debug(f"rabbit started ({self.rabbit_mode})")
+            else:
+                logger.debug(f"rabbit running ({self.rabbit_mode})")
+        else:
+            logger.debug("no rabbit requested")
+
+        # Dim runway lights according to preferences
+        ll = get_global("RUNWAY_LIGHT_LEVEL_WHILE_FTG", preferences=self.prefs)
+        ll = ll.lower()
+        if ll.startswith("l"):
+            ll = "lo"
+        elif ll.startswith("m"):
+            ll = "med"
+        elif ll.startswith("h"):
+            ll = "hi"
+        elif ll.startswith("o"):
+            ll = "off"
+        if self.hasLight:
+            self.runway_level_original = xp.getDataf(self.airport_light_level)
+            if ll is not None:
+                cmdref = xp.findCommand(AMBIANT_RWY_LIGHT_CMDROOT + ll)
+                if cmdref is not None:
+                    xp.commandOnce(cmdref)
+                    currlevel = xp.getDataf(self.airport_light_level)
+                    logger.debug(f"runway lights preference set to {ll} (original={self.runway_level_original}, during FtG={currlevel})")
+
+    def stopFlightLoop(self):
+        if self.rabbitRunning and self.flrabbit is not None:
+            xp.destroyFlightLoop(self.flrabbit)
+            self.rabbitRunning = False
+            self.flrabbit = None
+            logger.debug("rabbit stopped")
+        else:
+            logger.debug("rabbit not running")
+
+        # Restore runway lights according to what it was
+        if self.hasLight:
+            level = AMBIANT_RWY_LIGHT.HIGH
+            currlevel = self.runway_level_original
+            if self.airport_light_level is not None:
+                currlevel = xp.getDataf(self.airport_light_level)
+            if currlevel != self.runway_level_original:
+                if self.runway_level_original == 0:
+                    level = AMBIANT_RWY_LIGHT.OFF
+                elif self.runway_level_original <= 0.25:
+                    level = AMBIANT_RWY_LIGHT.LOW
+                elif self.runway_level_original <= 0.5:
+                    level = AMBIANT_RWY_LIGHT.MEDIUM
+                logger.debug(f"new level {level} ({currlevel} => {self.runway_level_original})")
+                cmdref = xp.findCommand(AMBIANT_RWY_LIGHT_CMDROOT + level)
+                if cmdref is not None:
+                    xp.commandOnce(cmdref)
+                    checklevel = xp.getDataf(self.airport_light_level)
+                    logger.debug(f"runway lights restored to {level} (during FtG={currlevel}, after FtG={checklevel})")
+                else:
+                    logger.debug(f"runway lights command not found {AMBIANT_RWY_LIGHT_CMDROOT + level}")
+            else:
+                logger.debug(f"runway lights no need to restore ({currlevel} vs. {self.runway_level_original})")
+
+    def rabbit(self):
         if not self.rabbitCanRun:
             return 10  # checks 10 seconds later
 
@@ -1129,6 +1223,8 @@ class LightString:
             prev = strt + ((sq - 1) % self.num_rabbit_lights)
             if prev < rn:
                 self.lights[prev].on()
+
+        start = self.newLastLit
 
         if self.new_num_rabbit_lights != self.num_rabbit_lights or self.new_num_lights_ahead != self.num_lights_ahead:
             logger.debug(f"adjustment: rabbit #lights: {self.num_rabbit_lights}->{self.new_num_rabbit_lights}, #ahead: {self.num_lights_ahead}->{self.new_num_lights_ahead}")

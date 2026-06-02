@@ -35,28 +35,24 @@ class FlightLoop:
 
     def __init__(self, ftg):
         self.ftg = ftg
-        self.refrabbit = "FtG:rabbit"
-        self.flrabbit = None
-        self.rabbitRunning = False
-        self.refplane = "FtG:aircraft"
-        self.flplane = None
-        self.planeRunning = False
+        # Executor flight loop
         self.refexec = "FtG:rabbit"
         self.flexec = None
         self.execRunning = False
+        # Aircraft monitoring flight loop
+        self.refplane = "FtG:aircraft"
+        self.flplane = None
+        self.planeRunning = False
+
         self.nextIter = PLANE_MONITOR_DURATION  # seconds
         self.lastIter = PLANE_MONITOR_DURATION  # seconds, because it is dynamic
-        self.nextStop = NO_STOP_AHEAD
-        self.lastLit = 0
-        self.distance_to_closest_light = EARTH
-        self.diftingLimit = DRIFTING_LIMIT * DISTANCE_BETWEEN_GREEN_LIGHTS  # After that, we send a warning, and we may cancel FTG.
-        self.last_updated = datetime.now() - timedelta(seconds=MAX_UPDATE_FREQUENCY)
+
+        # Rabbit mode
         self._rabbit_mode = RABBIT_MODE.MED
         self._may_adjust_rabbit = True
-        self.reason = ""
+        self.last_updated = datetime.now() - timedelta(seconds=MAX_UPDATE_FREQUENCY)
         self.manual_mode = False
         self.runway_level_original = 1
-        self.show_clearance_popup = get_global("SHOW_CLEARANCE_POPUP", self.ftg.prefs)
 
         # ASMCMS Level 4 compliance stuff:
         self.target_time = None  # target takeoff hold time, ready to takeoff for ACDM compliance. (Filled/provided externally.)
@@ -77,12 +73,21 @@ class FlightLoop:
         self.total_dist = 0  # total taxi distance
         self.total_time = 0  # total taxi distance
 
+        self.nextStop = NO_STOP_AHEAD
+
+        # Progress tracking
+        self.lastLit = 0
+        self.distance_to_closest_light = EARTH
+        self.diftingLimit = DRIFTING_LIMIT * DISTANCE_BETWEEN_GREEN_LIGHTS  # After that, we send a warning, and we may cancel FTG.
+
         self.last_acf_light_progress = 0
         self.last_acf_light_progress_cnt = 0
         self.acf_light_progress = 0  # most recent light where the acf is. Can only grow.
         self._taxi_ended = False
 
         # less verbose debug
+        self.show_clearance_popup = get_global("SHOW_CLEARANCE_POPUP", self.ftg.prefs)
+        self.reason = ""
         self.closestLight_cnt = 0
         self.old_msg = ""
         self.old_msg2 = ""
@@ -108,100 +113,33 @@ class FlightLoop:
         self.last_acf_light_progress_cnt = 0
 
         if self.hasRabbit():
-            if not self.rabbitRunning:
-                self.flrabbit = xp.createFlightLoop(callback=self.rabbitFLCB, phase=xp.FlightLoop_Phase_BeforeFlightModel, refCon=self.refrabbit)
-                xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)  # starts in a second, arbitrary
-                self.rabbitRunning = True
-                logger.debug(f"rabbit started ({self._rabbit_mode})")
-            else:
-                logger.debug(f"rabbit running ({self._rabbit_mode})")
-        else:
-            logger.debug("no rabbit requested")
+            self.ftg.lights.setNewLastLit(newLastLit=0)
+            self.ftg.lights.startFlightLoop()
 
         if not self.planeRunning:
             self.flplane = xp.createFlightLoop(callback=self.planeFLCB, phase=xp.FlightLoop_Phase_AfterFlightModel, refCon=self.refplane)
             xp.scheduleFlightLoop(self.flplane, self.nextIter, 1)
             self.planeRunning = True
             logger.debug(f"aircraft tracking started (iter={self.nextIter})")
-            # if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
-            #     logger.debug(f"Checking menu {self.ftg.pi.menuIdx}")
-            #     xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Checked)
-            #     logger.debug(f"..checked")
-            # else:
-            #     logger.debug(f"menu not checked (index {self.ftg.pi.menuIdx})")
         else:
             logger.debug("aircraft tracked")
-
-        # Dim runway lights according to preferences
-        ll = get_global("RUNWAY_LIGHT_LEVEL_WHILE_FTG", preferences=self.ftg.prefs)
-        ll = ll.lower()
-        if ll.startswith("l"):
-            ll = "lo"
-        elif ll.startswith("m"):
-            ll = "med"
-        elif ll.startswith("h"):
-            ll = "hi"
-        elif ll.startswith("o"):
-            ll = "off"
-        if self.planeRunning and self.ftg.airport_light_level is not None:
-            self.runway_level_original = xp.getDataf(self.ftg.airport_light_level)
-            if ll is not None:
-                cmdref = xp.findCommand(AMBIANT_RWY_LIGHT_CMDROOT + ll)
-                if cmdref is not None:
-                    xp.commandOnce(cmdref)
-                    currlevel = xp.getDataf(self.ftg.airport_light_level)
-                    logger.debug(f"runway lights preference set to {ll} (original={self.runway_level_original}, during FtG={currlevel})")
 
     def stopFlightLoop(self):
         self.stopExecLoop()
 
-        self.taxiEnd()
-        self.taxiReset()
-        if self.rabbitRunning:
-            xp.destroyFlightLoop(self.flrabbit)
-            self.rabbitRunning = False
-            logger.debug("rabbit stopped")
-        else:
-            logger.debug("rabbit not running")
+        if self.taxiStarted():
+            self.taxiEnd()
+            self.taxiReset()
+
+        if self.hasRabbit():
+            self.ftg.lights.stopFlightLoop()
 
         if self.planeRunning:
             xp.destroyFlightLoop(self.flplane)
             self.planeRunning = False
             logger.debug("aircraft tracking stopped")
-            # if self.ftg.pi is not None and self.ftg.pi.menuIdx is not None and self.ftg.pi.menuIdx >= 0:
-            #     logger.debug(f"Unchecking menu {self.ftg.pi.menuIdx}")
-            #     xp.checkMenuItem(xp.findPluginsMenu(), self.ftg.pi.menuIdx, xp.Menu_Unchecked)
-            #     logger.debug(f"..unchecked")
-            # else:
-            #     logger.debug(f"menu not checked (index {self.ftg.pi.menuIdx})")
         else:
             logger.debug("aircraft not tracked")
-
-        # Restore runway lights according to what it was
-        if not self.planeRunning:
-            level = AMBIANT_RWY_LIGHT.HIGH
-            currlevel = self.runway_level_original
-            if self.ftg.airport_light_level is not None:
-                currlevel = xp.getDataf(self.ftg.airport_light_level)
-            if currlevel != self.runway_level_original:
-                if self.runway_level_original == 0:
-                    level = AMBIANT_RWY_LIGHT.OFF
-                elif self.runway_level_original <= 0.25:
-                    level = AMBIANT_RWY_LIGHT.LOW
-                elif self.runway_level_original <= 0.5:
-                    level = AMBIANT_RWY_LIGHT.MEDIUM
-                logger.debug(f"new level {level} ({currlevel} => {self.runway_level_original})")
-                cmdref = xp.findCommand(AMBIANT_RWY_LIGHT_CMDROOT + level)
-                if cmdref is not None:
-                    xp.commandOnce(cmdref)
-                    checklevel = xp.getDataf(self.ftg.airport_light_level)
-                    logger.debug(f"runway lights restored to {level} (during FtG={currlevel}, after FtG={checklevel})")
-                else:
-                    logger.debug(f"runway lights command not found {AMBIANT_RWY_LIGHT_CMDROOT + level}")
-            else:
-                logger.debug(f"runway lights no need to restore ({currlevel} vs. {self.runway_level_original})")
-        if self.taxiStarted():
-            self.taxiReset()
 
     def hasRabbit(self) -> bool:
         return self.ftg.lights.hasRabbit() if self.ftg.lights is not None else False
@@ -706,6 +644,8 @@ class FlightLoop:
         if closestLight > self.lastLit and dist_to_closestLight < self.diftingLimit:  # Progress OK
             # logger.debug("moving %d %d", closestLight, self.lastLit)
             self.lastLit = closestLight
+            if self.ftg.lights is not None:
+                self.ftg.lights.setNewLastLit(newLastLit=closestLight)
             self.distance_to_closest_light = dist_to_closestLight
             return nextIter
 

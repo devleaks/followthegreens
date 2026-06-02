@@ -18,7 +18,7 @@ except ImportError:
 
 from .version import __VERSION__
 from .globals import logger, get_global, Status, Error, NoError
-from .globals import INTERNAL_CONSTANTS, FTG_STATUS, MOVEMENT, AMBIANT_RWY_LIGHT_VALUE, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE, DISTANCE_TO_RAMPS, GOOD
+from .globals import INTERNAL_CONSTANTS, FTG_STATUS, MOVEMENT, RABBIT_MODE, RUNWAY_BUFFER_WIDTH, SAY_ROUTE, DISTANCE_TO_RAMPS, GOOD
 from .geo import distance, Point
 from .aircraft import Aircraft
 from .airport import Airport
@@ -48,7 +48,6 @@ class FollowTheGreens:
         self.destination = None  # Handy
         self.waiting_for_clearance = False
 
-        self.airport_light_level = xp.findDataRef(AMBIANT_RWY_LIGHT_VALUE)  # [off, lo, med, hi] = [0, 0.25, 0.5, 0.75, 1]
         self.zuluTime = xp.findDataRef("sim/time/zulu_time_sec")
         self.zuluHours = xp.findDataRef("sim/cockpit2/clock_timer/zulu_time_hours")
 
