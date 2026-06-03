@@ -184,3 +184,29 @@ with indications visible to the pilot.
 
 The behavior was designed with some safeguards in mind.
 If, for some reason, the car is missing information, it smoothly brakes and stops.
+
+# Route
+
+For most of its trip, the FMC follows the lights Follow the greens would have laid.
+
+Two small trips are added for cosmetic reason:
+ - On start, the FM car is created next to the aircraft, randomly, on its left or right.
+   The car then travel to the estimated stating position in front of the aircraft in a straight line.
+   It then either stops and wait for the aircraft to move, or starts giving directions if the aircraft
+   is already moving.
+ - At the end, when the car reaches the last point of its strip, it continues on a straight line
+   for about 200m then turns 90° in the direction if was coming from, continue 50 meters, stops,
+   then vanishes. This marks the end if the FM car taxi direction.
+
+FtG permanently monitors the distance between the aircraft and the car and adjusts the speed of the car
+to remain in front of the aircraft at a desired distance. Recall that the distance in front is computed
+from numerous factors:
+ - The size of the aircraft (further if large aircraft)
+ - The taxi speed of the aircraft (to remain in front and give a braking distance security)
+ - The overall visibility (closer if foggy, etc.)
+ - Invitation to acceletate (long straight ride) or slow down (closing to a turn or stop)
+ - The car will stop at holding position.
+
+I the car is too far in front, it will slow down, even stop.
+If it is too close, there probably is a reason why it stays there: Turn, stop, end of route...
+

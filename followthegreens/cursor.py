@@ -12,7 +12,7 @@ except ImportError:
 
 from .globals import RABBIT_MODE, get_global, logger, MOVEMENT, INDICATOR, AIRCRAFT_MIN_SPEED, PLANE_MONITOR_DURATION
 from .geo import Point, bearing, destination, distance, turn
-from .lightstring import XPObject, LightType
+from .lights import XPObject, LightType
 from .route import Vehicle, SMOOTH_ROUTE, OnRoute, NOT_ON_ROUTE
 from .aircraft import AIRCRAFT_STOPPED_SPEED
 
@@ -337,7 +337,7 @@ class Cursor(Vehicle):
     @property
     def paused(self) -> bool:
         # no FL means no action here
-        return self.ftg.flightLoop.paused if self.ftg.flightLoop is not None else True
+        return self._ftg.flightLoop.paused if self._ftg.flightLoop is not None else True
 
     def pause(self):
         self._pause_speed = self.aim_speed
@@ -417,7 +417,7 @@ class Cursor(Vehicle):
     @property
     def usable(self) -> bool:
         c = self.cursor is not None and self.cursor_object.has_obj
-        f = self.ftg is not None and self.lights is not None
+        f = self._ftg is not None and self.lights is not None
         return c and f
 
     @property
@@ -649,7 +649,7 @@ class Cursor(Vehicle):
             self.status = CURSOR_STATUS.HOLD  # lock, prevents tick when changing routes
 
             logger.debug("change route..")
-            self.route = self.ftg.route
+            self.route = self._ftg.route
             logger.log(8, "..new route installed..")
 
             acf_speed = self.aircraft.speed()
@@ -664,7 +664,7 @@ class Cursor(Vehicle):
 
             logger.log(8, "..estimate new position ahead of aircraft..")
             # if route changed we assume aircraft is moving and this.inited
-            ahead = self.aircraft.adjustAhead(rabbit_mode=self.ftg.flightLoop.rabbitMode)
+            ahead = self.aircraft.adjustAhead(rabbit_mode=self._ftg.flightLoop.rabbitMode)
             acf_ahead = min(acf_speed, self.detail.fast_speed) * (NEW_ROUTE_JOIN_TIME * 1.5)
             ahead_at_join = acf_ahead + ahead
             logger.debug(f"..car need to be {sf(ahead, 'm')} ahead when joining route, acf will travel  {sf(acf_ahead, 'm')}, total ahead={sf(ahead_at_join, 'm')}..")
@@ -841,12 +841,12 @@ class Cursor(Vehicle):
         if self.lights is None:
             logger.warning("..no light, cannot continue")
             return
-        closestLight, dist = self.lights.closest(self.ftg.aircraft.position())
+        closestLight, dist = self.lights.closest(self._ftg.aircraft.position())
         if closestLight is None:
             logger.debug("..no close light? cannot continue")
             return
 
-        ahead = self.ftg.aircraft.adjustAhead(rabbit_mode=self.ftg.flightLoop.rabbitMode)
+        ahead = self._ftg.aircraft.adjustAhead(rabbit_mode=self._ftg.flightLoop.rabbitMode)
         light_ahead, light_index, dist_left = self.lights.lightAhead(index_from=closestLight, ahead=ahead)
         self.target.sr_position = OnRoute.fromLight(light=light_ahead, route=self.route.smoothRoute, name="target can continue")
         self.cursor_mid.move(lat=light_ahead.position.lat, lon=light_ahead.position.lon, hdg=0, elev=1.0)
@@ -1023,10 +1023,10 @@ class Cursor(Vehicle):
 
         pos = self.aircraft.position()
 
-        if not self.aircraft.moving() and self.ftg.move == MOVEMENT.DEPARTURE:
+        if not self.aircraft.moving() and self._ftg.move == MOVEMENT.DEPARTURE:
             # 1. Spawn the car next to (random) side of aircraft
             rnd = -1 + 2 * int(random() / 0.5)
-            fs = self.ftg.route.beforeRoute()
+            fs = self._ftg.route.beforeRoute()
             # spawn at spot randomly left or right of current aircraft position
             spawn = destination(fs.start, fs.bearing() + rnd * 90, SPAWN_SIDE_DISTANCE)  # use acf.heading()?
             ahead = self.aircraft.adjustAhead(rabbit_mode=self.lights.rabbit_mode)
@@ -1065,7 +1065,7 @@ class Cursor(Vehicle):
         # 1. Spawn the car next to (random) side of aircraft, half way "ahead" so that pilot can see the car on the side
         ahead = self.aircraft.adjustAhead(rabbit_mode=self.lights.rabbit_mode)
         rnd = 1 if (int(ahead) % 2) == 0 else -1
-        spawn = destination(self.ftg.route.precise_start, self.aircraft.heading(), ahead / 2)  # ahead/2 ahead
+        spawn = destination(self._ftg.route.precise_start, self.aircraft.heading(), ahead / 2)  # ahead/2 ahead
         spawn = destination(spawn, self.aircraft.heading() + rnd * 90, SPAWN_SIDE_DISTANCE)
         closestLight, dist = self.lights.closest(pos)
         if closestLight is None:

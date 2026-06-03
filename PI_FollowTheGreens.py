@@ -757,8 +757,8 @@ class PythonInterface:
                 MAX_LINES += 1
                 car_speed = fc.speed()
             if fl is not None:
-                hp = fl.hudPosition()
-                text_color = fl.hudColors()  # may be we'll pass other colors after
+                hp = self.followTheGreens.hudPosition()
+                text_color = self.followTheGreens.hudColors()  # may be we'll pass other colors after
             LINE = 15 if len(hp) < 3 else hp[2]
             LEFT = max(hp[0], 1)
             TOP = max(hp[1], MAX_LINES * LINE + 1)

@@ -22,8 +22,8 @@ from .globals import INTERNAL_CONSTANTS, FTG_STATUS, MOVEMENT, RABBIT_MODE, RUNW
 from .geo import distance, Point
 from .aircraft import Aircraft
 from .airport import Airport
-from .flightloop import FlightLoop
-from .lightstring import LightString
+from .taxi import Taxi
+from .lights import LightString
 from .ui import UI_BUTTON, UIIM, FTG_COMMANDS
 from .nato import phonetic, toml_dumps
 
@@ -63,6 +63,9 @@ class FollowTheGreens:
         self.ui = None
         self.flightLoop = None
 
+        self._hud_position = get_global("HUD_POSITION", self.prefs)
+        self._hud_colors = get_global("HUD_COLORS", self.prefs)
+
         # frame rate estimates
         self.frp = xp.findDataRef("sim/time/framerate_period")
         self.fr = 1.0
@@ -71,10 +74,17 @@ class FollowTheGreens:
         logger.info(f"created {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
         # logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}")
 
-        # execution flight loop
+        self.pause_dref = xp.findDataRef("sim/time/paused")
+
+        # Executor flight loop
+        self.refexec = "FtG:rabbit"
+        self.flexec = None
+        self.execRunning = False
         self.todo = Queue()
         self._last_enqueue_time = datetime.now()
         self._last_enqueue_exec = FTG_COMMANDS.BYE
+        self.timed = 1.0
+        self.startExecLoop()
 
     def __del__(self):
         # alias to cancel
@@ -84,6 +94,10 @@ class FollowTheGreens:
         logger.info(f"deleted {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
         logger.info("<=" * 50)
         logger.info("\n\n")
+
+    @property
+    def paused(self) -> bool:
+        return xp.getDatai(self.pause_dref) == 1
 
     @property
     def is_holding(self) -> bool:
@@ -102,6 +116,12 @@ class FollowTheGreens:
 
     def inc(self, name: str, qty: int = 1):
         self.stats[name] = qty if name not in self.stats else self.stats[name] + qty
+
+    def hudPosition(self):
+        return self._hud_position
+
+    def hudColors(self):
+        return self._hud_colors
 
     def load_stats(self, filename: str = STATS_FILE_NAME):
         fn = os.path.join(".", "Output", "logbooks", filename)  # relative to X-Plane "rott/home" folder
@@ -128,7 +148,7 @@ class FollowTheGreens:
         self.prefs = {}
         self.init_preferences()
         self.ui = UIIM(ftg=self)  # Where windows are built
-        self.flightLoop = FlightLoop(self)  # where the magic is done
+        self.flightLoop = Taxi(self)  # where the magic is done
         # logger.info(f"initialized {type(self).__name__}")
         self.status = FTG_STATUS.INITIALIZED
         return NoError("initialized")
@@ -186,6 +206,9 @@ class FollowTheGreens:
             logger.info("DEVELOPER_PREFERENCE_ONLY = true, user preferences ignored")
 
         logger.info(f"preferences:\n{pformat(self.prefs)}")
+
+        self._hud_position = get_global("HUD_POSITION", self.prefs)
+        self._hud_colors = get_global("HUD_COLORS", self.prefs)
 
         ll = get_global("LOGGING_LEVEL", self.prefs)
         if type(ll) is int:
@@ -986,53 +1009,6 @@ VERSION = "{__VERSION__}"
         return NoError("terminated")
 
     #
-    # UI integration
-    #
-    def execute(self, action: FTG_COMMANDS):
-        # Enter action to execute
-        # Do not accept same action too fast (< 2 seconds), prevent enqueueing multiple same request
-        if self._last_enqueue_exec == action and (datetime.now() - self._last_enqueue_time).total_seconds() < 2:
-            logger.debug("too quick same enqueue, rejected (double click?)")
-            return
-        self.inc("enqueue")
-        self.todo.put(action)
-        logger.debug(f"requesting {action} ({self.ui.info})")
-        self._last_enqueue_exec = action
-        self._last_enqueue_time = datetime.now()
-
-    def _execute(self):
-        try:
-            e = self.todo.get_nowait()
-            logger.debug(f"{e} ({self.ui.info})")
-            if e == FTG_COMMANDS.START:
-                self.ui.deleteWindow()
-                self.use_car = self.ui.use_car
-                self.move = self.ui.move
-                self.followTheGreens(destination=self.ui.destination)
-            elif e == FTG_COMMANDS.NEWGREENS:
-                self.ui.deleteWindow()
-                self.followTheGreens(destination=self.destination, newGreens=True)
-            elif e == FTG_COMMANDS.CLEAR:
-                self.ui.deleteWindow()
-                self.nextLeg()
-            elif e == FTG_COMMANDS.BYE:
-                self.ui.deleteWindow()
-                self.terminate("bye")
-            elif e == FTG_COMMANDS.CANCEL:
-                self.ui.deleteWindow()
-                self.terminate("cancel")
-            elif e == FTG_COMMANDS.AIRPORT:
-                self.airport = None
-                self.setAirport(self.ui.alt_airport)
-            else:
-                logger.warning(f"EXECUTOR unhandled {e} ({self.ui.info})")
-            self.inc("execute")
-        except Empty:
-            pass
-        except:
-            logger.error("error", exc_info=True)
-
-    #
     # General information
     #
     def hourOfDay(self) -> float:
@@ -1064,6 +1040,65 @@ VERSION = "{__VERSION__}"
                 ss = k
         logger.debug(f"{h}h, good {ss}")
         return text % ss
+
+    # UI integration
+    # executor flight loop
+    #
+    def startExecLoop(self):
+        self.flexec = xp.createFlightLoop(callback=self.executeFLCB, phase=xp.FlightLoop_Phase_BeforeFlightModel, refCon=self.refexec)
+        xp.scheduleFlightLoop(self.flexec, 1.0, 1)  # starts in a second, arbitrary
+        self.execRunning = True
+        logger.debug("execute loop started")
+
+    def stopExecLoop(self):
+        xp.destroyFlightLoop(self.flexec)
+        self.execRunning = False
+        logger.debug("execute loop stopped")
+
+    def execute(self, action: FTG_COMMANDS):
+        # Enter action to execute
+        # Do not accept same action too fast (< 2 seconds), prevent enqueueing multiple same request
+        if self._last_enqueue_exec == action and (datetime.now() - self._last_enqueue_time).total_seconds() < 2:
+            logger.debug("too quick same enqueue, rejected (double click?)")
+            return
+        self.inc("enqueue")
+        self.todo.put(action)
+        logger.debug(f"requesting {action} ({self.ui.info})")
+        self._last_enqueue_exec = action
+        self._last_enqueue_time = datetime.now()
+
+    def executeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
+        try:
+            e = self.todo.get_nowait()
+            logger.debug(f"{e} ({self.ui.info})")
+            if e == FTG_COMMANDS.START:
+                self.ui.deleteWindow()
+                self.use_car = self.ui.use_car
+                self.move = self.ui.move
+                self.followTheGreens(destination=self.ui.destination)
+            elif e == FTG_COMMANDS.NEWGREENS:
+                self.ui.deleteWindow()
+                self.followTheGreens(destination=self.destination, newGreens=True)
+            elif e == FTG_COMMANDS.CLEAR:
+                self.ui.deleteWindow()
+                self.nextLeg()
+            elif e == FTG_COMMANDS.BYE:
+                self.ui.deleteWindow()
+                self.terminate("bye")
+            elif e == FTG_COMMANDS.CANCEL:
+                self.ui.deleteWindow()
+                self.terminate("cancel")
+            elif e == FTG_COMMANDS.AIRPORT:
+                self.airport = None
+                self.setAirport(self.ui.alt_airport)
+            else:
+                logger.warning(f"EXECUTOR unhandled {e} ({self.ui.info})")
+            self.inc("execute")
+        except Empty:
+            pass
+        except:
+            logger.error(f"issue in execute flight loop, retrying in {self.timed} seconds", exc_info=True)
+        return self.timed  # seconds
 
     #
     # PI integration

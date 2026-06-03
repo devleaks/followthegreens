@@ -4,6 +4,7 @@
 import math
 import os.path
 from random import randint
+from datetime import datetime, timedelta
 
 from followthegreens.route import SMOOTH_ROUTE
 
@@ -37,6 +38,8 @@ from .globals import (
 HARDCODED_MIN_DISTANCE = 50  # meters
 HARDCODED_MIN_TIME = 0.04  # secs
 HARDCODED_MIN_RABBIT_LENGTH = 4  # lights
+
+MAX_UPDATE_FREQUENCY = 10  # seconds, rabbit cannot change again more that 10 seconds it changed
 
 
 class LightType:
@@ -386,6 +389,12 @@ class LightString:
         self.flrabbit = None
         self.rabbitRunning = False
 
+        # Rabbit mode
+        self._rabbit_mode = RABBIT_MODE.MED
+        self._may_adjust_rabbit = True
+        self.last_updated = datetime.now() - timedelta(seconds=MAX_UPDATE_FREQUENCY)
+        self.manual_mode = False
+
         self.route = None  # route as returned by graph.find(), i.e. a list of vertex indices.
         self._days = 0
 
@@ -406,6 +415,7 @@ class LightString:
         self.airport_light_level = xp.findDataRef(AMBIANT_RWY_LIGHT_VALUE)  # [off, lo, med, hi] = [0, 0.25, 0.5, 0.75, 1]
         self.runway_level_original = 1.0
         self.newLastLit = 0
+        self.old_msg2 = ""
 
         # PREFERENCES
         #
@@ -1120,15 +1130,6 @@ class LightString:
         self.new_num_lights_ahead = ahead
         self.new_rabbit_duration = duration
 
-    def rabbitMode(self, mode: RABBIT_MODE):
-        if not self.hasRabbit():
-            return
-        self.rabbit_mode = mode
-        length, speed, ahead = self.newRabbitParameters(mode)
-        # self.resetRabbit()  # moved to rabbit()
-        self.changeRabbit(length=length, duration=speed, ahead=ahead)
-        logger.info(f"mode: {mode}: {length} lights, {round(speed, 2)}secs (ahead={self.num_lights_ahead} lights)")
-
     def setNewLastLit(self, newLastLit: int):
         self.newLastLit = newLastLit
 
@@ -1212,6 +1213,232 @@ class LightString:
                     logger.debug(f"runway lights command not found {AMBIANT_RWY_LIGHT_CMDROOT + level}")
             else:
                 logger.debug(f"runway lights no need to restore ({currlevel} vs. {self.runway_level_original})")
+
+    @property
+    def rabbitMode(self) -> RABBIT_MODE:
+        return self._rabbit_mode
+
+    @rabbitMode.setter
+    def rabbitMode(self, mode: RABBIT_MODE):
+        # Need to add a function to NOT change rabbit too often, once every 10 secs. is a minimum
+        if not self.hasRabbit():
+            return
+        if self.rabbitMode == mode:
+            return
+        if not self.may_rabbit_autotune:
+            logger.debug(f"rabbit adjustment not permitted ({self.reason})")
+            return
+        now = datetime.now()
+        delay = (now - self.last_updated).total_seconds()
+        if delay < MAX_UPDATE_FREQUENCY:
+            logger.debug(f"must wait {round(MAX_UPDATE_FREQUENCY - delay, 2)} seconds before changing rabbit")
+            return
+
+        self._rabbit_mode = mode
+        self.last_updated = now
+        logger.debug(f"rabbit mode set to {mode}")
+
+        length, speed, ahead = self.newRabbitParameters(mode)
+        # self.resetRabbit()  # moved to rabbit()
+        self.changeRabbit(length=length, duration=speed, ahead=ahead)
+        logger.info(f"mode: {mode}: {length} lights, {round(speed, 2)}secs (ahead={self.num_lights_ahead} lights)")
+
+    @property
+    def may_rabbit_autotune(self) -> bool:
+        return self._may_adjust_rabbit
+
+    def allowRabbitAutotune(self, reason: str = ""):
+        self._may_adjust_rabbit = True
+        self.reason = reason
+        logger.debug(f"rabbit adjustment authorized (reason {reason})")
+
+    def disallowRabbitAutotune(self, reason: str = ""):
+        self._may_adjust_rabbit = False
+        self.reason = reason
+        logger.debug(f"rabbit adjustment not permitted (reason {reason})")
+
+    def manualRabbitMode(self, mode: RABBIT_MODE):
+        self.manual_mode = True
+        logger.debug("manual rabbit mode")
+        self.rabbitMode = mode
+
+    def automaticRabbitMode(self):
+        self.manual_mode = False
+        logger.debug("rabbit mode automagic")
+
+    def adjustRabbit(self, aircraft, closestLight, flightloop):
+        # Important note:
+        # In planeFLCB(), if we are closing to a STOP, the following is set:
+        #   self.rabbitMode = RABBIT_MODE.SLOWEST
+        # If we are not close to a stop, here we are to check for turns.
+        #
+        # logger.debug("adjusting rabbit")
+        # if not self.hasRabbit():
+        #     logger.debug("..no rabbit")
+        #     return
+
+        # I. Collect information
+        # 1. Distance to next vertex (= distance to next potential turn)
+        aircraft = flightloop.ftg.aircraft
+        position = aircraft.position()
+        acf_speed = aircraft.speed()
+
+        route = self.route
+        light = self.lights[closestLight]
+        next_vertex = light.edgeIndex + 1
+        if next_vertex >= len(route.route):  # end of route
+            next_vertex = len(route.route) - 1
+            logger.info("reached end of route")
+        nextvtxid = route.route[next_vertex]
+        nextvtx = route.graph.get_vertex(nextvtxid)
+
+        # 2. distance to that next vertex and turn at that vertex
+        dist_from_acf_to_next_vtx = distance(Point(lat=position[0], lon=position[1]), nextvtx)
+
+        if round(self.last_dist_from_acf_to_next_vtx, 1) == round(dist_from_acf_to_next_vtx, 1):  # not moved
+            msg = "stopped"
+            if self.old_msg != msg:
+                logger.debug(msg)
+                self.old_msg = msg
+            return
+
+        self.last_dist_from_acf_to_next_vtx = dist_from_acf_to_next_vtx
+        turn = route.turns[light.edgeIndex]
+
+        # 3. current speed
+        acf_move = acf_speed * flightloop.lastIter
+
+        # logger.debug(f"closest light: vertex index {light.edgeIndex}, next vertex={nextvtx}, distance={round(dist, 1)}, turn={round(turn, 0)}, speed={round(speed, 1)}")
+        # logger.debug(f"start turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
+
+        # From observation/experience:
+        # Taxi very fast> 15 m/s
+        # Taxi fast=12 m/s
+        # Taxi cautious = 6m/s
+        # Turn (90°): 3-4 m/s
+        # Brake: 12m/s to 3: 100 m with A321, 200m with A330
+        # We decide:
+        # Turn < 15°, speed "cautious"
+        # Turn > 15°, speed "turn"
+        #
+        # 4. Find next "significant" turn of more than TURN_LIMIT
+        # following is precomputed once and for all in mkDistToBrake() (.dtb[<route-vertex-index>])
+        # dist2 = dist_from_acf_to_next_vtx
+        # dist_before2 = dist2
+        TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
+
+        idx = next_vertex
+        while abs(turn) < TURN_LIMIT and idx < len(route.turns):
+            turn = route.turns[idx]
+            # dist_before2 = dist2
+            # dist2 = dist2 + route.edges[idx].cost
+            idx = idx + 1
+        if idx >= len(route.route):  # end of route
+            idx = len(route.route) - 1
+            logger.info("reached end of route")
+
+        # logger.debug(f"current vertex={light.edgeIndex}, distance to next vertex {idx}: {round(dist_from_acf_to_next_vtx, 1)}m")
+        # logger.debug(f"at vertext {idx}: turn={round(route.turns[idx], 1)} DEG")
+        dist_from_next_vtx_to_next_turn = 0 if abs(route.turns[next_vertex]) > TURN_LIMIT else route.dtb[next_vertex]
+        # next_turn_vertex_index = next_vertex if abs(route.turns[next_vertex]) > TURN_LIMIT else route.dtb_at[next_vertex]
+        # could also be route.dtb_at[light.edgeIndex]
+        # logger.debug(f"at vertext {idx}: distance to add to next turn={round(dist_from_next_vtx_to_next_turn, 1)}m")
+
+        dist_before = dist_from_acf_to_next_vtx + dist_from_next_vtx_to_next_turn
+        flightloop.dist_to_next_turn = dist_before  # for hud, temporarily
+        flightloop.dist_from_next_vtx_to_next_turn = dist_before  # for hud, temporarily
+        taxi_speed = max(acf_speed, aircraft.avgTaxiSpeed())  # m/s
+        time_to_next_vertex = dist_from_acf_to_next_vtx / taxi_speed
+
+        # logger.debug(f"acf speed={round(acf_speed, 1)}, moved {round(acf_move, 1)}m during last iteration ({self.lastIter} secs)")
+        # logger.debug(f"at index {light.edgeIndex}, next turn at index {idx-1}, {round(turn)}D at {round(dist_before, 1)}m")
+        # logger.debug(f"dist to next vertex {next_vertex}: {round(dist_from_acf_to_next_vtx, 1)}m, dist from next_vertex to next turn: {round(dist_from_next_vtx_to_next_turn, 1)}m")
+
+        # dist to next vertex + remaining at next vertex = total left
+        flightloop.remaining_dist = dist_from_acf_to_next_vtx + route.dleft[next_vertex]
+        # logger.debug(f"remaining dist to {next_vertex}: nxt {round(dist_from_acf_to_next_vtx, 1)}m + end {round(route.dleft[next_vertex], 1)}m = {round(self.remaining_dist, 1)}m")
+
+        flightloop.remaining_time = time_to_next_vertex + route.tleft[next_vertex] + 30
+        # logger.debug(
+        #     f"remaining time to {next_vertex}: nxt {round(time_to_next_vertex, 1)}sec + end {round(route.tleft[next_vertex], 1)}sec + mgn 30sec = {round(self.remaining_time, 1)}sec"
+        # )
+
+        # logger.debug(f"next turn index control next_turn_vertex_index={next_turn_vertex_index}, dtb_at[light.edgeIndex]={route.dtb_at[light.edgeIndex]}, idx={idx-1} (computed)")
+
+        # logical controls
+        # 1. dist to next turn + remaining at turn = total left
+        # logger.debug(f"remaining dist: nxt turn at index {idx-1} {round(dist_before, 1)}m + end {round(route.dleft[idx-1], 1)}m = {round(dist_before + route.dleft[idx-1], 1)}m")
+
+        # logger.debug(f"total d={round(self.total_dist, 1)}m, t={round(self.total_time, 1)}s ({minsec(self.total_time)})")
+
+        # precompute for hud
+        flightloop.is_late = flightloop.late(t0=flightloop.remaining_time)  # will display original estimated vs new estimate
+        flightloop.remaining = f"{round(flightloop.remaining_dist):4d}m, {minsec(flightloop.remaining_time)}"
+        # logger.debug(f"remaining: {round(self.remaining_dist, 1)}m, {round(self.remaining_time/60)}min, {'(late)' if self.is_late else '(on time)'}")
+        # logger.debug(f"{self.remaining}")
+
+        if not self.may_rabbit_autotune:
+            logger.debug(f"..autotune not permitted ({self.reason})")
+            return
+
+        # II. From distance to turn, and angle of turn, assess situation
+        # II.1  determine target speed (range)
+        SMALL_TURN_LIMIT = 15.0  # °, below this, it is a small turn, recommended to slow down a bit but not too much
+        MOVEIT_DIST = 400.0  # m no reason to not go fast
+        SPEED_DELTA = 4.0  # in m/s, should may be a % of average range speed
+
+        taxi_speed_ranges = aircraft.taxiSpeedRanges()
+        braking_distance = aircraft.brakingDistance()  # m should be a function of acf mass/type and current speed
+
+        target = taxi_speed_ranges[TAXI_SPEED.MED]  # target speed range
+        comment = "continue"
+
+        if dist_before < braking_distance:
+            if abs(turn) < SMALL_TURN_LIMIT:
+                comment = "small turn at braking distance, caution"
+                target = taxi_speed_ranges[TAXI_SPEED.CAUTION]
+            else:
+                comment = "turn at braking distance"
+                target = taxi_speed_ranges[TAXI_SPEED.TURN]
+        elif dist_before > MOVEIT_DIST:
+            comment = "no turn before large distance, move it"
+            target = taxi_speed_ranges[TAXI_SPEED.FAST]
+
+        # II.2 adjust rabbit mode from current speed to target speed range
+        advise = "on target"  # ..within range, mode = normal/medium
+        mode = RABBIT_MODE.MED
+
+        speed_range = target
+        if acf_speed < AIRCRAFT_STOPPED_SPEED:  # m/s
+            advise = f"probably stopped ({round(acf_speed, 1)}m/s < {AIRCRAFT_STOPPED_SPEED})"
+        elif acf_speed < speed_range[0]:
+            delta = speed_range[0] - acf_speed
+            if delta > SPEED_DELTA:
+                mode = RABBIT_MODE.FASTEST
+                advise = "really too slow, accelerate"
+            else:
+                mode = RABBIT_MODE.FASTER
+                advise = "too slow, accelerate"
+        elif acf_speed > speed_range[1]:
+            delta = acf_speed - speed_range[1]
+            if delta > SPEED_DELTA:
+                mode = RABBIT_MODE.SLOWEST
+                advise = "really too fast, brake"
+            else:
+                mode = RABBIT_MODE.SLOWER
+                advise = "too fast, brake"
+
+        msg = f"acf speed={round(acf_speed, 1)}, target={target}; rabbit mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})"
+        if msg != self.old_msg2:
+            logger.debug(msg)
+            self.old_msg2 = msg
+
+        try:
+            if self.rabbitMode != mode:
+                logger.info(msg)
+                self.rabbitMode = mode
+        except:
+            logger.error("set rabbitMode", exc_info=True)
 
     def rabbit(self):
         if not self.rabbitCanRun:

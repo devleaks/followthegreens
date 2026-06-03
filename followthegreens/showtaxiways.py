@@ -19,7 +19,7 @@ except ImportError:
 
 from .followthegreens import FollowTheGreens
 from .airport import Airport
-from .lightstring import LightString
+from .lights import LightString
 from .globals import logger, NoError, FTG_STATUS
 
 
