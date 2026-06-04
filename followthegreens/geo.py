@@ -310,11 +310,12 @@ def lineintersect(line1, line2):
     return None
 
 
-def nearestPointToLines(p, lines):
+def nearestPointToLines(p, lines) -> tuple:
     # First the nearest point to a collection of lines.
     # Lines is an array if Line()
     # Returns the point and and distance to it.
     nearest = None
+    good_line = None
     dist = math.inf
     for line in lines:
         d1 = distance(p, line.start)
@@ -336,8 +337,9 @@ def nearestPointToLines(p, lines):
             if d < dist:
                 dist = d
                 nearest = intersect
+                good_line = line
 
-    return [nearest, dist]
+    return [nearest, dist, good_line]
 
 
 def pointInPolygon(point, polygon):

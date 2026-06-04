@@ -6,6 +6,7 @@ followthegreens/aircraft.py|20579
 followthegreens/airport.py|36161
 followthegreens/cars/indicator/indicator.obj|158899
 followthegreens/cars/indicator/indicator.png|642862
+followthegreens/cars/xcsl/credits.html|590
 followthegreens/cars/xcsl/FMC.obj|913239
 followthegreens/cars/xcsl/FMC.png|3874996
 followthegreens/cars/xcsl/FMC2.obj|640513
@@ -15,15 +16,14 @@ followthegreens/cars/xcsl/FMC_LIT.png|837666
 followthegreens/cars/xcsl/FMC_NML.png|824897
 followthegreens/cars/xcsl/FMCglass.obj|19995
 followthegreens/cars/xcsl/FMCglass.png|47836
-followthegreens/cars/xcsl/credits.html|590
 followthegreens/cars/xcsl/x-csl-info.info|101
 followthegreens/cars/xcsl/xsb_aircraft.txt|263
 followthegreens/cursor.py|53527
-followthegreens/flightloop.py|39175
 followthegreens/followthegreens.py|28946
 followthegreens/geo.py|11610
 followthegreens/globals.py|17235
 followthegreens/graph.py|26408
+followthegreens/lights.py|0
 followthegreens/lights/amber.obj|1877
 followthegreens/lights/green.obj|1817
 followthegreens/lights/lights.png|11640
@@ -35,11 +35,11 @@ followthegreens/lights/taxiway.obj|489
 followthegreens/lights/taxiway_alt.obj|489
 followthegreens/lights/taxiway_red.obj|363
 followthegreens/lights/white.obj|1817
-followthegreens/lightstring.py|52050
 followthegreens/nato.py|2898
 followthegreens/oned.py|6651
 followthegreens/route.py|49881
 followthegreens/se.py|4935
 followthegreens/showtaxiways.py|4026
+followthegreens/taxi.py|0
 followthegreens/ui.py|23314
 followthegreens/version.py|129

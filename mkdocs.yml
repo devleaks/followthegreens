@@ -28,6 +28,7 @@ nav:
 - Preferences: preferences.md
 - Changelog: changelog.md
 - Developer Notes: devnotes.md
+- Troubleshooting: debug.md
 
 markdown_extensions:
 - pymdownx.snippets

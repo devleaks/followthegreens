@@ -15,7 +15,7 @@ a funny addition to the core, serious, hi-tech Follow the greens.
  - Follow the greens is A-SMGCS (Advanced Surface Movement Guidance and Control System)
  - A Follow Me Car is also A-SMGCS (_Antique_ Surface Movement Guidance and Control System)
 
-Pursuing that spirit, Follow me car is added as a seriously fun addition:
+Pursuing that spirit, Follow me car is added as a serious addition:
 
 *After extensive study of ideal number of visible lights ahead, questioning numerous A.I.,
 sources agreed to the same number of lights:

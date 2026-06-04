@@ -1,11 +1,28 @@
 
 # Current, X-Plane 12 Only
 
-- [2.3.0](https://github.com/devleaks/followthegreens/releases) - XX-XXX-2026
+- [3.0.0](https://github.com/devleaks/followthegreens/releases) - XX-JUN-2026
 
-    - Preferences can be adjusted in a file, preferences are documented.
-    - Lights are laid on a path with smoother turns, no more sharp angles.
-    - When using no rabbit and exactly 42 lights ahead, a Follow Me car guides the pilot instead of green lights.
+    - Added Follow Me car alternative to Follow the greens.
+    - Better UI for quick option setup in a single screen.
+    - Common options or preferences accessible through user interface "advanced" features.
+    - Changed UI from standard X-Plane SDK Widgets to Dear ImGui (through XPPython3).
+    - Preferences can be adjusted permanently in a file, all preferences are documented;
+      preference can be specified per airport or per aircraft type or even per movement
+      (departure/arrival, like Follow the greens on departure, Follow Me car on arrival).
+    - Integration with X-dispatch for taxi route planning, including manual planning of route.
+    - Green lights are laid on a path with smooth turns, no more sharp angles.
+    - «4D» for both Follow the greens (Advanced Surface Movement Guidance and Control System)
+        and Follow Me car (Antique Surface Movement Guidance and Control System):
+      - Follow the greens rabbit light speed and length automagically adjusted to invite pilots to speed up or slow down taxi ride.
+      - Distance of Follow Me car in front of aircraft is an invitation to slow down if car is close to not swallow it with your Trent Ultrafan engines,
+        or speed up taxi ride and monitor brake temperature if car is far in front of aircraft.
+    - HUD with Follow the greens information and recommandation (monitoring of distances, speeds, times, guidance to adjust taxi ride to optimal).
+    - Additional care to smooth Follow Me car ride with natural movements, accelerations, decelerations, turn indications, pause to wait for aircraft,
+      stop when clearance requested, permanent aircraft-car distance monitoring and adjustment.
+      (aircraft type dependent, a GA is not a A380, to be improved).
+    - No other dependency than XPPython3 (and xplane_airport python package if available).
+    - More fun added to taxi ride.
 
 
 - [2.2.0](https://github.com/devleaks/followthegreens/releases) - 10-FEB-2026

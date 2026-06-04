@@ -7,9 +7,10 @@ try:
 except ImportError:
     print("X-Plane not loaded")
 
-from .globals import logger, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT, AMBIANT_RWY_LIGHT, RABBIT_MODE
+from .globals import logger, TAXIWAY_WIDTH_CODE, TAXI_SPEED, RABBIT, AIRCRAFT, AMBIANT_RWY_LIGHT, RABBIT_MODE, AIRCRAFT_MIN_SPEED
 from .geo import distance, Point
 from .se import daylight
+from .route import Vehicle
 
 # fmt: off
 ICAO_AND_IATA_AIRLINERS_CODES = [
@@ -111,8 +112,8 @@ AIRCRAFT_TYPES = {
             RABBIT.SPEED: 0.20,  # SECONDS
         },
         AIRCRAFT.VISUAL_RANGE: {
-            "RANGE": [70, 150],
-            "LIMITS": [70, 150],
+            "RANGE": [50, 100],
+            "LIMITS": [40, 130],
         },
     },
     TAXIWAY_WIDTH_CODE.D: {  # Large narrow body, small wide body
@@ -138,8 +139,8 @@ AIRCRAFT_TYPES = {
             RABBIT.SPEED: 0.20,  # SECONDS
         },
         AIRCRAFT.VISUAL_RANGE: {
-            "RANGE": [70, 150],
-            "LIMITS": [70, 150],
+            "RANGE": [60, 120],
+            "LIMITS": [50, 150],
         },
     },
     TAXIWAY_WIDTH_CODE.E: {  # Large wide body
@@ -164,8 +165,8 @@ AIRCRAFT_TYPES = {
             RABBIT.SPEED: 0.20,  # SECONDS
         },
         AIRCRAFT.VISUAL_RANGE: {
-            "RANGE": [70, 150],
-            "LIMITS": [70, 150],
+            "RANGE": [60, 130],
+            "LIMITS": [60, 150],
         },
     },
     TAXIWAY_WIDTH_CODE.F: {  # Jumbo jets
@@ -194,16 +195,19 @@ AIRCRAFT_TYPES = {
     },
 }
 
-ACF_MIN_SPEED = 3  # m/s
+AIRCRAFT_STOPPED_SPEED = 0.01  # m/s, under that speed, things are considered stopped, not moving.
 DEFAULT_HARDCODED_RANGE = [70, 150]
 HARDCODED_AHEAD_LIMITS = [45, 250]
 
 
-class Aircraft:
+class Aircraft(Vehicle):
 
-    SPEED_STOPPED = 0.02  # m/s
+    # Adjustment of distance and/or speed for rabbit
+    RABBIT_FACTOR_DISTANCE = {RABBIT_MODE.SLOWEST: 0.70, RABBIT_MODE.SLOWER: 0.85, RABBIT_MODE.MED: 1.00, RABBIT_MODE.FASTER: 1.15, RABBIT_MODE.FASTEST: 1.30}
+    RABBIT_FACTOR_SPEED = {RABBIT_MODE.SLOWEST: 0.85, RABBIT_MODE.SLOWER: 0.92, RABBIT_MODE.MED: 1.00, RABBIT_MODE.FASTER: 1.08, RABBIT_MODE.FASTEST: 1.15}
 
     def __init__(self, prefs: dict = {}):
+        Vehicle.__init__(self)
         self.prefs = prefs
         self.icao = None
 
@@ -215,6 +219,7 @@ class Aircraft:
         self.groundspeed = xp.findDataRef("sim/flightmodel/position/groundspeed")
         self.tiller = xp.findDataRef("ckpt/tiller")  # check if pilot is turning
         self.visibility_dref = xp.findDataRef("sim/weather/visibility_reported_m")
+        self.bt_dref = xp.findDataRef("AirbusFBW/BrakeTemperatureArray")
 
         self.width_code = TAXIWAY_WIDTH_CODE.C  # init to default
         self.init()
@@ -235,6 +240,11 @@ class Aircraft:
         self.rabbit_speed_pref = False
         # If modified in preference file
         self.setPreferences()
+        self._ahead_range_base = []
+
+        self._last_speed = -1
+        self._last_speed_time = datetime.utcnow()
+        self._last_acceleration = 0
 
         self.positions = [self.position()]
         self.speeds = [self.speed()]
@@ -310,8 +320,35 @@ class Aircraft:
         else:
             logger.debug("aircraft has no preference for class or type")
 
+    # Vehicle Interface
+    #
     def position(self) -> list:
         return [xp.getDataf(self.lat), xp.getDataf(self.lon)]
+
+    def position_point(self) -> Point:
+        return Point(lat=xp.getDataf(self.lat), lon=xp.getDataf(self.lon))
+
+    def heading(self) -> float:
+        return xp.getDataf(self.psi)
+
+    def speed(self) -> float:
+        s = xp.getDataf(self.groundspeed)  # sometimes fluctuates around 0...
+        now = datetime.utcnow()
+        delta = (now - self._last_speed_time).total_seconds()
+        if self._last_speed > 0 and (0 < delta < 2):
+            self._last_acceleration = (self._last_speed - s) / delta
+        self._last_speed = s
+        self._last_speed_time = now
+        return s if s > AIRCRAFT_STOPPED_SPEED else 0.0
+
+    def acceleration(self) -> float:
+        return self._last_acceleration
+
+    def brake_temperature(self) -> float:
+        arr = []
+        c = xp.getDatavf(self.bt_dref, arr, count=4) if self.bt_dref is not None else [0, 0, 0, 0]
+        c = min(c, 4)
+        return sum(arr[:c]) / c if c > 0 else 0.0
 
     def daylight(self, now: datetime = datetime.now(tz=timezone.utc)) -> bool:
         # report if it is daylight at aircraft position on ground at supplied datetime
@@ -331,22 +368,32 @@ class Aircraft:
     def visibility(self) -> float:
         return xp.getDataf(self.visibility_dref)
 
-    def aheadRange(self) -> list:
+    def aheadRangeBase(self) -> list:
         # provides a reasonable range for this aircraft type
         # adjust for visibility and aircraft length (because measure starts under the aircraft)
+        MIN_BRACKET = 40.0  # m
         r = self.acf_vizrange.get("RANGE", DEFAULT_HARDCODED_RANGE)
         r0 = r
         l = self.acf_vizrange.get("LIMITS", HARDCODED_AHEAD_LIMITS)
         logger.log(8, f"initial range={r}, limits={l})")
 
-        # extends if acf speed is fast
+        # extends for acf speed (to allow for braking)
         acf_speed = self.speed()
-        if acf_speed > 10:
+        f = 1.0
+        if acf_speed > 12:
             f = 1.5
-            r = [r[0] * f, r[1] * f]
+        elif acf_speed > 10:
+            f = 1.4
+        elif acf_speed > 6:
+            f = 1.2
+        elif acf_speed > 3:
+            f = 1.1
+
+        r = [r[0] * f, r[1] * f]
+        if f > 1.0:
             logger.log(8, f"corrected for speed ({round(self.speed(), 1)}m/s, f={f}): {r}, {l})")
 
-        # reduces if viz is low
+        # reduces if viz is low (do no extend if viz is good, just reduce if limited viz)
         viz = self.visibility()
         f = 1.0
         if viz < 500:
@@ -370,6 +417,10 @@ class Aircraft:
         if r != a:
             logger.log(8, f"restricted to limits: {r}, {l})")
 
+        if r[1] - r[0] < MIN_BRACKET:
+            r[1] = r[0] + MIN_BRACKET
+            logger.log(8, f"extended to min bracket {MIN_BRACKET}: {r})")
+
         # we add some aircraft sizes, because lights are counted almost from the back of the acf
         acf_length_factor = 1.0
         acf_add = acf_length_factor * self.acf_length
@@ -384,58 +435,47 @@ class Aircraft:
             logger.log(8, f"restricted to limits: {r}, {HARDCODED_AHEAD_LIMITS})")
 
         logger.debug(
-            f"ahead_range {r0} adjusted to {r} for acf speed and visibility (acf_speed={round(acf_speed, 1)}m/s, viz={round(viz, 1)}m, acf_length={round(self.acf_length, 1)}m, hard limits={HARDCODED_AHEAD_LIMITS})"
+            f"ahead range base {r} adjusted from {r0} for visibility and aircraft speed (viz={round(viz, 1)}m, acf_speed={round(acf_speed, 1)}m/s, acf_length={round(self.acf_length, 1)}m, hard limits={HARDCODED_AHEAD_LIMITS}, no rabbit mode)"
         )
+        self._ahead_range_base = r
+        return self._ahead_range_base
+
+    def adjustAheadRange(self, rabbit_mode: RABBIT_MODE) -> list:
+        # adjust for rabbit mode (slower=closer/faster=further)
+        MIN_BRACKET = 40  # m
+        r = self._ahead_range_base.copy()
+        l = self.acf_vizrange.get("LIMITS", HARDCODED_AHEAD_LIMITS)
+
+        # correction of valid range for rabbit speed/mode
+        if rabbit_mode != RABBIT_MODE.MED:
+            r[0] *= self.RABBIT_FACTOR_DISTANCE[rabbit_mode]
+            r[1] *= self.RABBIT_FACTOR_DISTANCE[rabbit_mode]
+            b = r[1] - r[0]
+            if b < MIN_BRACKET:
+                logger.log(8, f"bracket too small ({b})")
+                r[1] = r[0] + MIN_BRACKET
+            logger.log(8, f"range adjusted for rabbit mode {rabbit_mode} {r}")
+            a = r
+            r[0] = max(r[0], HARDCODED_AHEAD_LIMITS[0])
+            r[1] = min(r[1], HARDCODED_AHEAD_LIMITS[1])
+            if a != r:
+                logger.log(8, f"restricted to limits: {r}, {HARDCODED_AHEAD_LIMITS})")
+        r = [round(d, 1) for d in r]
+        logger.debug(f"ahead range {r}")
+        # logger.debug(f"ahead range {r} adjusted from {self._ahead_range_base} for rabbit_mode={rabbit_mode}, hard limits={HARDCODED_AHEAD_LIMITS})")
         return r
 
-    def adjustAhead(self, rabbit_mode: RABBIT_MODE) -> float:
+    def adjustAhead(self, rabbit_mode: RABBIT_MODE, return_range: bool = False) -> float | tuple:
         # adjust aircraft/environment (visibility, daylight, etc.) range
         # for aircraft speed and rabbit mode (which is an invitation to adjust speed:
         # too fast->range smaller, too slow->range larger)
         #
-        # ADJUSTED RANGE
-        RABBIT_FACTOR = {RABBIT_MODE.SLOWEST: 0.50, RABBIT_MODE.SLOWER: 0.70, RABBIT_MODE.MED: 1.00, RABBIT_MODE.FASTER: 1.25, RABBIT_MODE.FASTEST: 1.50}
-        ahead_range = self.aheadRange()  # already adjusted for visibility conditions
-        ahead_range0 = ahead_range
-        logger.log(8, f"acceptable range for speed/viz {ahead_range0}")
-        # correction of valid range for rabbit speed/mode
-        if rabbit_mode != RABBIT_MODE.MED:
-            ahead_range[0] *= RABBIT_FACTOR[rabbit_mode]
-            ahead_range[1] *= RABBIT_FACTOR[rabbit_mode]
-            logger.log(8, f"range adjusted for rabbit mode {rabbit_mode} {ahead_range0}")
-            a = ahead_range
-            ahead_range[0] = max(ahead_range[0], HARDCODED_AHEAD_LIMITS[0])
-            ahead_range[1] = min(ahead_range[1], HARDCODED_AHEAD_LIMITS[1])
-            if a != ahead_range:
-                logger.log(8, f"restricted to limits: {ahead_range}, {HARDCODED_AHEAD_LIMITS})")
-
-        #
-        # AHEAD
-        acf_speed = self.speed()
-        acf_speed_factor = 10.0
-        acf_length = self.acf_length if self.acf_length is not None else 50
-        acf_length_factor = 2.0
-        ahead = acf_length * acf_length_factor + acf_speed * acf_speed_factor
-        ahead0 = ahead
-        logger.log(
-            8, f"ahead estimation {round(ahead0, 1)}m ({round(acf_length * acf_length_factor, 1)} + {round(acf_speed * acf_speed_factor, 1)} (acf_speed={round(acf_speed, 1)}m/s))"
-        )
-
-        #
-        # AHEAD IN ADJUSTED RANGE
-        if ahead < ahead_range[0]:
-            ahead = ahead_range[0]
-        if ahead > ahead_range[1]:
-            ahead = ahead_range[1]
-        logger.debug(f"ahead {round(ahead0, 1)}m adjusted to {round(ahead, 1)}m (rabbit mode={rabbit_mode}; {ahead_range0} -> {ahead_range}m)")
-        return ahead
-
-    def heading(self) -> float:
-        return xp.getDataf(self.psi)
-
-    def speed(self) -> float:
-        s = xp.getDataf(self.groundspeed)  # sometimes fluctuates around 0...
-        return s if s > Aircraft.SPEED_STOPPED else 0.0
+        ahead_range = self.adjustAheadRange(rabbit_mode=rabbit_mode)  # already adjusted for visibility conditions
+        ahead = min(ahead_range) + (max(ahead_range) - min(ahead_range)) * 0.4  # 0.4 inside the braket values
+        logger.debug(f"ahead={round(ahead, 1)}m")
+        if not return_range:
+            return ahead
+        return ahead, ahead_range
 
     def mark(self) -> int:
         self.positions.append(self.position())
@@ -443,7 +483,11 @@ class Aircraft:
         return len(self.positions)
 
     def moving(self) -> float:
-        return xp.getDataf(self.groundspeed) > ACF_MIN_SPEED
+        return xp.getDataf(self.groundspeed) > AIRCRAFT_MIN_SPEED
+
+    def stopped(self) -> float:
+        s = xp.getDataf(self.groundspeed)
+        return True if s is None else s < AIRCRAFT_STOPPED_SPEED
 
     def moved(self, orig: int = 0) -> float:
         pos = self.position()

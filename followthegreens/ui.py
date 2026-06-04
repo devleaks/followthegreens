@@ -1,135 +1,140 @@
 # User Interface Utility Class
-# Creates FTG windows.
+# Creates FTG windows using imgui through xppython3
 #
-from random import random
 from datetime import datetime
+from enum import StrEnum, Enum
+
+from .version import __VERSION__
+from .globals import MOVEMENT, logger, get_global
+from .cursor import FOLLOW_ME_CARS
 
 try:
-    import xp
+    from XPPython3 import xp, xp_imgui
+    import imgui
 except ImportError:
     print("X-Plane not loaded")
 
-from .globals import get_global, logger, MOVEMENT, GOOD
 
-# Some texts we need to recognize. May be later translated.
-CLOSE_TEXT = "Close"
-CANCEL_TEXT = "Cancel Follow the greens"
-FINISH_TEXT = "Finish"
-CLEARANCE_TEXT = "Clearance received"
-CANCELSHORT_TEXT = "Cancel"
-CONTINUE_TEXT = "Continue"
-IAMLOST_TEXT = "New greens please"
-NEWDEST_TEXT = "New destination"
-
-
-SPECIAL_DEBUG = False
+class FTG_COMMANDS(StrEnum):
+    START = "START"  # starts session
+    CANCEL = "CANCEL"  # terminates FTG
+    CLEAR = "CLEAR"  # clearance received, continue
+    NEWGREENS = "NEWGREENS"  # new greens/route requested, continue
+    BYE = "BYE"  # terminates after completion
+    CONTINUE = "CONTINUE"  # no op? similar to close
+    OK = "OK"  # no op? similar to close
+    CLOSE = "CLOSE"  # close window
+    AIRPORT = "AIRPORT"  # change airport
 
 
-class UIUtil:
+class UI_BUTTON(Enum):
+    CLEARANCE = ("Clearance received", FTG_COMMANDS.CLEAR)
+    CANCEL = ("Cancel", FTG_COMMANDS.CANCEL)  # terminates FTG
+    BYE = ("Bye", FTG_COMMANDS.BYE)  # terminates after completion
+    CONTINUE = ("Continue", FTG_COMMANDS.CONTINUE)  # no op? similar to close
+    OK = ("OK", FTG_COMMANDS.OK)  # no op? similar to close
+    CLOSE = ("Close", FTG_COMMANDS.CLOSE)  # close window
+    NEWGREENS = ("New greens", FTG_COMMANDS.NEWGREENS)  # new greens/route requested, continue
+
+
+RABBIT_SPEEDS = {"no rabbit": 0.00, "slow": 1.00, "medium": 0.50, "fast": 0.16}
+
+
+class UIIM:
+
+    WIN_WIDTH = 480  # px
+    WIN_HEIGHT = 260  # px, height of "small report window", collect window is twice as height
+
+    WIN_TOP = (2 * 260) + 200  # px
+    WIN_LEFT = 100  # px
+
+    STAND_COMBO = 20  # show combo from that many item on
+    STAND_COMBO_WIDTH = 240  # px
+
+    DESTINATION = -1  # or 0 to select first available destination if any
+
+    LIGHT_MAX = 16  # or 0 to select first available destination if any
+
     def __init__(self, ftg):
         self.ftg = ftg
-        self.mainWindow = None
-        self.icao = None
-        self.dest = None
-        self.destinationIdx = 0
-        self.validDestinations = []
-        self.validDestIdxs = []
-        self.linetops = []
-        self.strHeight = 0
+
+        self._airport = "<None>"
+        self.alt_airport = self.airport
+        self.use_runway_threshold = True
+        self.dest_idx = self.DESTINATION if self.DESTINATION < len(self.dest_dep) else -1
+        self.deparr = [True, False] if ftg.move == MOVEMENT.DEPARTURE else [False, True]
+        self._deparr = ftg.move == MOVEMENT.DEPARTURE
+
+        self.light_type = [True, False]
+        self.rabbit_length = 8
+        self.rabbit_speed_idx = 2
+        self.lights_ahead = 0
+        self.use_4d = True
+
+        self.use_car = False
+        self.fmcars = list(FOLLOW_ME_CARS.keys()) + ["Other"]
+        self.fmcar_idx = 1
+        self.use_indicator = True
+
+        self.advanced_options = False
+
+        self.hint = None  # hint is unique
+        self.errors = set()
+
+        self.win_pos = get_global("WINDOW_LEFT_TOP", ftg.prefs)
+        self.win_pos_new = self.win_pos.copy()
+        self.win_autohide = True
+        self.win_timeout = 30  # secs
+
+        self.window_flags = 0
+        self.window_flags |= imgui.WINDOW_NO_COLLAPSE
+        self.window = None
+        self._last = datetime.now()
         self._canHide = True
-        self.displayTime = 0
-        self.waiting_for_clearance = False
-        self.mainwindow_autohide = get_global("MAINWINDOW_AUTOHIDE", self.ftg.prefs)
-        self.mainwindow_display_time = get_global("MAINWINDOW_DISPLAY_TIME", self.ftg.prefs)
 
-    def window(self, strings, btns):
-        if self.mainWindow and "widgetID" in self.mainWindow.keys():  # We create a new window each time we are called.
-            xp.destroyWidget(self.mainWindow["widgetID"], 1)
-            self.mainWindow = None
+        self._screen_l, self._screen_t, self._screen__r, self._screen__b = xp.getScreenBoundsGlobal()
 
-        widgetWindow = {
-            "widgetID": None,
-            "widgets": {},
-        }  # the ID of the main window containing all other widgets  # hash of all child widgets we care about
-        self.mainWindow = widgetWindow
+    #
+    # Window management
+    #
+    @property
+    def destination(self) -> str | None:
+        destinations = self.dest_dep if self.deparr[0] else self.dest_arr
+        return str(destinations[self.dest_idx]) if len(destinations) > 0 and self.dest_idx != -1 else None
 
-        self.fontID = xp.Font_Proportional
-        _w, strHeight, _ignore = xp.getFontDimensions(self.fontID)
-        self.strHeight = strHeight
-        linespace = 2.0
+    @property
+    def timedout(self) -> bool:
+        return self.win_autohide and (datetime.now() - self._last).total_seconds() > self.win_timeout
 
-        self.wLeft = get_global("MAINWINDOW_FROM_LEFT", self.ftg.prefs)
-        self.wBottom = get_global("MAINWINDOW_FROM_BOTTOM", self.ftg.prefs)
-        self.wTop = self.wBottom + get_global("MAINWINDOW_HEIGHT", self.ftg.prefs) + len(strings) * int(linespace * self.strHeight)
-        self.wRight = self.wLeft + get_global("MAINWINDOW_WIDTH", self.ftg.prefs)
-        widgetCenter = int(self.wLeft + (self.wRight - self.wLeft) / 2)
+    @property
+    def hasWindow(self) -> bool:
+        return self.window is not None
 
-        widgetWindow["widgetID"] = xp.createWidget(
-            self.wLeft,
-            self.wTop,
-            self.wRight,
-            self.wBottom,
-            0,
-            f"Follow the {self.ftg.thing}",
-            1,
-            0,
-            xp.WidgetClass_MainWindow,
-        )
+    def isVisible(self) -> bool:
+        if self.hasWindow:
+            return xp.getWindowIsVisible(self.window.windowID) == 1
+        return False
 
-        xp.addWidgetCallback(widgetWindow["widgetID"], self.cbMainWindow)
+    def showWindow(self, canHide: bool = True):
+        if self.hasWindow:
+            # self.win_pos = self.win_pos_new.copy()
+            xp.setWindowIsVisible(self.window.windowID, visible=1)
+            self.canHide = canHide
+            self.resetTimeout()
 
-        # xp.setWidgetProperty(widgetWindow['widgetID'], xp.Property_MainWindowType, xp.MainWindowStyle_Translucent)
-        xp.setWidgetProperty(widgetWindow["widgetID"], xp.Property_MainWindowHasCloseBoxes, 1)
+    def hideWindow(self):
+        if self.hasWindow and self.canHide:
+            xp.setWindowIsVisible(self.window.windowID, visible=0)
 
-        # Add five label / editable text fields.
-        # We determine placement based on the size of the font.
-        # We'll "keep" the text fields so we can interact with them
+    def toggleWindowVisibility(self):
+        if self.isVisible():
+            self.hideWindow()
+        else:
+            self.showWindow()
 
-        # Display lines of strings, going upward...
-        self.linetops = []
-        for s in strings:
-            strWidth = xp.measureString(self.fontID, s)
-            left = self.wLeft + 10
-            right = int(left + strWidth)
-            top = int(self.wTop - 35 - len(self.linetops) * linespace * self.strHeight)
-            bottom = int(top - self.strHeight)
-            self.linetops.append([top, right])  # where line finishes
-            xp.createWidget(
-                left,
-                top,
-                right,
-                bottom,
-                1,
-                s,
-                0,
-                widgetWindow["widgetID"],
-                xp.WidgetClass_Caption,
-            )
-
-        # Line of buttons
-        buttons, bwidth = self.mkButtons(btns)
-        top = int(self.wBottom + 30)
-        bottom = int(top - 1.2 * self.strHeight)
-        left0 = int(widgetCenter - bwidth / 2)
-        for k, btn in buttons.items():
-            left = left0 + btn["left"]
-            right = left0 + btn["right"]
-            widgetWindow["widgets"][btn["name"]] = xp.createWidget(
-                left,
-                top,
-                right,
-                bottom,
-                1,
-                btn["text"],
-                0,
-                widgetWindow["widgetID"],
-                xp.WidgetClass_Button,
-            )
-            if btn["cb"]:
-                xp.addWidgetCallback(widgetWindow["widgets"][btn["name"]], btn["cb"])
-
-        self.canHide = True  # new window can always be hidden
-        return widgetWindow["widgetID"]
+    def hideWindowIfTimedout(self, elapsedSinceLastCall: float):
+        if self.timedout:
+            self.hideWindow()
 
     @property
     def canHide(self) -> bool:
@@ -141,458 +146,385 @@ class UIUtil:
             logger.debug(f"allow UI to hide={self._canHide}")
         self._canHide = canHide
 
-    def mkButtons(self, btns):
-        buttons = {}
-        prev = False
+    def addError(self, error: str):
+        self.errors.add(error)
 
-        for b, cb in btns.items():
-            buttons[b] = {}
-            if not prev:
-                buttons[b]["left"] = 0
-            else:
-                buttons[b]["left"] = prev["right"] + 10  # inter-button
-            buttons[b]["name"] = "btn" + str(len(buttons.keys()))
-            buttons[b]["text"] = b
-            buttons[b]["cb"] = cb
-            buttons[b]["swidth"] = int(xp.measureString(self.fontID, b))
-            buttons[b]["right"] = int(buttons[b]["left"] + buttons[b]["swidth"] + 10)  # inside button
-            prev = buttons[b]
+    def hasErrors(self) -> bool:
+        return len(self.errors) > 0
 
-        return (buttons, prev["right"])  # total width of all buttons
+    def getErrors(self) -> bool:
+        return "\n".join(self.errors)
 
-    def mainWindowExists(self):
-        return self.mainWindow is not None and "widgetID" in self.mainWindow.keys()
+    def clearErrors(self):
+        self.errors = set()
 
-    def isMainWindowVisible(self):
-        if self.mainWindowExists():
-            return xp.isWidgetVisible(self.mainWindow["widgetID"])
+    def resetTimeout(self):
+        self._last = datetime.now()
+
+    def createWindow(self, report: dict = {}):
+        if self.hasWindow:
+            return
+        DEFAULT_TEXT = ["<No text>"]
+        l, t, _r, _b = (self._screen_l, self._screen_t, self._screen__r, self._screen__b)
+        left_offset = self.win_pos[0]
+        top_offset = self.win_pos[1]
+        text = report.get("text", DEFAULT_TEXT)
+        has_text = text != DEFAULT_TEXT
+        h = (len(text) + 4) * 20 if has_text else self.WIN_HEIGHT
+        if top_offset < h:
+            top_offset = h + 10
+        if has_text:  # info with buttons
+            self.window = xp_imgui.Window(
+                left=l + left_offset,
+                top=top_offset,
+                right=l + left_offset + self.WIN_WIDTH,
+                bottom=top_offset - h,
+                visible=1,
+                draw=self.report,
+                refCon=report,
+            )
+        else:  # general welcome screen for data collection
+            self.use_car = self.ftg.use_car
+            self.window = xp_imgui.Window(
+                left=l + left_offset,
+                top=top_offset,
+                right=l + left_offset + self.WIN_WIDTH,
+                bottom=top_offset - h,
+                visible=1,
+                draw=self.collect,
+                refCon=report,
+            )
+        self.canHide = True  # new window can always be hidden
+        self.resetTimeout()
+        self.window.setTitle("Follow the greens")
+
+    def deleteWindow(self):
+        if self.window is None:
+            return
+        self.window.delete()
+        self.window = None
+        self.hint = None
+
+    def execute(self, action: FTG_COMMANDS):
+        self.ftg.execute(action)
+
+    def terminate(self) -> bool:
+        self.deleteWindow()
+        return True
+
+    #
+    # Data for collection
+    #
+    @property
+    def move(self) -> MOVEMENT:
+        return MOVEMENT.DEPARTURE if self._deparr else MOVEMENT.ARRIVAL
+
+    @move.setter
+    def move(self, move):
+        self.deparr = [True, False] if move == MOVEMENT.DEPARTURE else [False, True]
+
+    @property
+    def guide(self) -> str:
+        return "car" if self.use_car else "greens"
+
+    @property
+    def use_taxiway_lights(self) -> bool:
+        return self.light_type[1]
+
+    @property
+    def fmcar(self) -> str | None:
+        return str(self.fmcars[self.fmcar_idx]) if len(self.fmcars) > 0 and self.fmcar_idx != -1 else None
+
+    @property
+    def rabbit_speed(self) -> float | None:
+        return list(RABBIT_SPEEDS.values())[self.rabbit_speed_idx] if self.rabbit_speed_idx != -1 else None
+
+    @property
+    def hasAirport(self) -> bool:
+        r = self.ftg is not None and self.ftg.airport is not None
+        if r:  # check if airport has changed
+            if self.ftg.airport.icao != self._airport:
+                self._airport = self.ftg.airport.icao
+                self.alt_airport = self.airport
+                self.resetDestination()
+        return r
+
+    @property
+    def airport_ok(self) -> bool:
+        if self.hasAirport:
+            return self.ftg.airport.usable()
         return False
 
-    def showMainWindow(self, canHide=True):
-        if SPECIAL_DEBUG:
-            logger.debug(f"showMainWindow canHide={self.canHide}")
-        if self.mainWindowExists():
-            xp.showWidget(self.mainWindow["widgetID"])
-            self.ftg._last_ui_shown = datetime.now()
-            self.canHide = canHide
-            self.displayTime = 0
+    @property
+    def airport(self):
+        return self.ftg.airport.icao if self.hasAirport else "<None>"
 
-    def hideMainWindowIfOk(self, elapsed=0):
-        # We always hide it on request, even if canHide is False
-        self.displayTime += elapsed
-        if self.mainwindow_autohide and self.displayTime > self.mainwindow_display_time and self.canHide:
-            if SPECIAL_DEBUG:
-                logger.debug("auto hiding UI")
-            self.hideMainWindow()
+    @property
+    def dest_dep(self):
+        return sorted(self.ftg.airport.runways.keys()) if self.hasAirport else []
+
+    @property
+    def dest_arr(self):
+        return sorted(self.ftg.airport.ramps.keys()) if self.hasAirport else []
+
+    def resetDestination(self):
+        self.dest_idx = self.DESTINATION if self.DESTINATION < len(self.dest_dep) else -1
+
+    @property
+    def info(self):
+        return f"{self.airport}, {self.move}, {self.destination}, {self.guide}"
+
+    #
+    # Reporting window
+    #
+    def show_help_marker(self, desc):
+        imgui.text_disabled("(?)")
+        if imgui.is_item_hovered():
+            imgui.begin_tooltip()
+            imgui.push_text_wrap_pos(imgui.get_font_size() * 35.0)
+            imgui.text_unformatted(desc)
+            imgui.pop_text_wrap_pos()
+            imgui.end_tooltip()
+
+    def radioButtons(self, prompts: list, values: list) -> list:
+        v = []
+        for i in range(len(prompts)):
+            v.append(False)
+            v[i] = imgui.radio_button(prompts[i], values[i])
+            imgui.same_line()
+        imgui.new_line()
+        return v if any(v) else values
+
+    def collect(self, _windowID, refCon):
+        if self.window is None:
+            return
+
+        l, t, _r, _b = (self._screen_l, self._screen_t, self._screen__r, self._screen__b)
+        p = xp.getWindowGeometry(windowID=self.window.windowID)  # left, top, right, bottom
+        left_offset = p[0]
+        top_offset = p[1]
+        h = self.WIN_HEIGHT if not self.advanced_options else 2 * self.WIN_HEIGHT
+        if top_offset < h:
+            top_offset = h + 10
+        xp.setWindowGeometry(windowID=self.window.windowID, left=l + left_offset, top=top_offset, right=l + left_offset + self.WIN_WIDTH, bottom=top_offset - h)
+
+        # Most "big" widgets share a common width settings by default.
+        imgui.push_item_width(imgui.get_window_width() * 0.65)
+        # Use 2/3 of the space for widgets and 1/3 for labels (default)
+        imgui.push_item_width(imgui.get_font_size() * -12)
+        # Use fixed width for labels (by passing a negative value), the rest goes to widgets. We choose a width proportional to our font size.
+
+        #
+        # 1. LOCATION
+        #
+        # 1.1 AIRPORT
+        if self.airport == "<None>" or not self.airport_ok:
+            imgui.text(f"{self.airport}   Airport ICAO  ")
+            self.addError("Airport is invalid")
         else:
-            if SPECIAL_DEBUG:
-                logger.debug(f"UI not allowed to hide (canHide={self.canHide}, elapsed={round(self.displayTime, 1)} < {self.mainwindow_display_time})")
+            imgui.text(f"At {self.airport}")
 
-    def hideMainWindow(self):
-        # We always hide it on request, even if canHide is False
-        if self.mainWindowExists():
-            xp.hideWidget(self.mainWindow["widgetID"])
+        imgui.same_line()
+        if imgui.button(label="Change.."):
+            imgui.open_popup("Change Airport")
+        if imgui.begin_popup_modal(title="Change Airport", visible=None, flags=imgui.WINDOW_ALWAYS_AUTO_RESIZE)[0]:
+            imgui.push_item_width(60)
+            changed, self.alt_airport = imgui.input_text(label="New airport ICAO", value=self.alt_airport, buffer_length=6)
+            imgui.pop_item_width()
+            if imgui.button(label="OK", width=80, height=0):
+                self.execute(FTG_COMMANDS.AIRPORT)
+                imgui.close_current_popup()
+            imgui.set_item_default_focus()
+            imgui.same_line()
+            if imgui.button(label="Cancel", width=80, height=0):
+                imgui.close_current_popup()
+            imgui.end_popup()
 
-    def toggleVisibilityMainWindow(self):
-        if self.mainWindowExists():
-            if SPECIAL_DEBUG:
-                logger.debug(f"isMainWindowVisible: {self.isMainWindowVisible()}")
-            if self.isMainWindowVisible():
-                self.hideMainWindow()
+        # 1.2 DEPARTURE/ARRIVAL
+        self.deparr = self.radioButtons(["Departure", "Arrival"], self.deparr)
+
+        # 1.3 DESTINATION
+        if self._deparr != self.deparr[0]:
+            self._deparr = self.deparr[0]
+            self.dest_idx = self.DESTINATION if self.DESTINATION < len(self.dest_dep) else -1
+        destinations = self.dest_dep if self.deparr[0] else self.dest_arr
+        destinations = destinations.copy()
+        if self.deparr[1] and len(self.dest_arr) > self.STAND_COMBO:
+            imgui.push_item_width(self.STAND_COMBO_WIDTH)
+            clicked, self.dest_idx = imgui.combo("Stand", self.dest_idx, self.dest_arr)
+            imgui.pop_item_width()
+        else:
+            if imgui.button(label="Select runway.." if self.deparr[0] else "Select stand.."):
+                imgui.open_popup("destination")
+            imgui.same_line()
+            imgui.text_unformatted("<None>" if self.dest_idx == -1 else destinations[self.dest_idx])
+            if imgui.begin_popup("destination"):
+                imgui.text("Runway" if self.deparr[0] else "Stand")
+                imgui.separator()
+                for i in range(len(destinations)):
+                    _, destinations[i] = imgui.selectable(destinations[i])
+                    if destinations[i]:
+                        self.dest_idx = i
+                imgui.end_popup()
+
+        # 1.4 alt
+        clicked, self.use_car = imgui.checkbox(label="Use Follow Me car instead of taxiway green lights", state=self.use_car)
+
+        # 1.5 GO!
+        imgui.spacing()
+        imgui.spacing()
+        if self.dest_idx != -1:
+            imgui.push_style_color(imgui.COLOR_BUTTON, 0.0, 0.8, 0.1, 1.0)
+            imgui.push_style_color(imgui.COLOR_BUTTON_HOVERED, 0.0, 0.8, 0.1, 1.0)
+            imgui.push_style_color(imgui.COLOR_BUTTON_ACTIVE, 0.0, 1.0, 0.1, 1.0)
+        else:
+            imgui.push_style_color(imgui.COLOR_BUTTON, 0.4, 0.4, 0.4, 1.0)
+            imgui.push_style_color(imgui.COLOR_BUTTON_HOVERED, 0.4, 0.4, 0.4, 1.0)
+            imgui.push_style_color(imgui.COLOR_BUTTON_ACTIVE, 0.4, 0.4, 0.4, 1.0)
+        if imgui.button(label="Follow the " + self.guide):
+            if self.dest_idx != -1:
+                self.hideWindow()
+                self.execute(FTG_COMMANDS.START)
+                self.hint = None
             else:
-                self.showMainWindow()
+                self.hint = "Select " + ("runway" if self._deparr else "destination stand")
 
-    def destroyMainWindow(self):
-        if self.mainWindowExists():
-            xp.hideWidget(self.mainWindow["widgetID"])
-            xp.destroyWidget(self.mainWindow["widgetID"], 1)
-            self.mainWindow = None
+        imgui.pop_style_color(3)
+        imgui.same_line()
+        self.show_help_marker("Press to start")
+        imgui.spacing()
+        imgui.spacing()
 
-    #
-    #
-    # MAIN WINDOW prompts
-    #
-    def greetings(self, text="Good %s."):
-        h = self.ftg.hourOfDay()
-        ss = list(GOOD.keys())[-1]  # last one is good night, from 0-4 and 20-24.
-        for k, v in GOOD.items():
-            if h > v:
-                ss = k
-        logger.debug(f"bye: {h}h, good {ss}")
-        return text % ss
+        clicked, self.advanced_options = imgui.checkbox(label="Show advanced options", state=self.advanced_options)
 
-    def promptForAirport(self):
-        # Create a window to prompt for airport ICAO code
-        logger.debug("prompt for airport")
-        prompt = "Please enter this airport ICAO code"
-        widgetWindow = self.window(
-            ["Welcome. We could not find the airport where you are located.", prompt],
-            {f"Follow the {self.ftg.thing}": self.cbAirport, CANCELSHORT_TEXT: self.cbCancel},
-        )
+        #
+        # 2. Options
+        #
+        if self.advanced_options:
+            #
+            # 2.1 FTG Options
+            #
+            show, _ = imgui.collapsing_header("Follow the greens options", visible=not self.use_car)
+            if show:
+                imgui.push_item_width(240)
+                changed, self.rabbit_length = imgui.slider_int("Rabbit length", self.rabbit_length, 0, self.LIGHT_MAX)
+                changed, self.rabbit_speed_idx = imgui.slider_int("Rabbit speed", self.rabbit_speed_idx, 0, 3)  # none, slow, normal, fast
+                imgui.same_line()
+                imgui.text("(" + list(RABBIT_SPEEDS.keys())[self.rabbit_speed_idx] + f" (~ {self.rabbit_speed}s))")
+                changed, self.lights_ahead = imgui.slider_int("Lights ahead", self.lights_ahead, 0, self.LIGHT_MAX)
+                imgui.same_line()
+                self.show_help_marker("0 light ahead means show greens to next stop")
+                imgui.pop_item_width()
+                clicked, self.use_4d = imgui.checkbox(label="Use 4D", state=self.use_4d)
+                self.light_type = self.radioButtons(["Omni directional", "Taxiway"], self.light_type)
 
-        left = self.linetops[1][1] + 10
-        right = int(left + 100)
-        top = self.linetops[2][0]
-        bottom = int(top - self.strHeight)
-        widget = xp.createWidget(
-            left,
-            top,
-            right,
-            bottom,
-            1,
-            "icao",
-            0,
-            self.mainWindow["widgetID"],
-            xp.WidgetClass_TextField,
-        )
-        self.mainWindow["widgets"]["icao"] = widget
+            #
+            # 2.1 FMC Options
+            #
+            show, _ = imgui.collapsing_header("Follow Me Car options", visible=self.use_car)
+            if show:
+                clicked, self.fmcar_idx = imgui.combo("Model", self.fmcar_idx, self.fmcars)
+                # imgui.same_line()
+                # show_help_marker(
+                #     'Refer to the "Combo" section below for an explanation of the full BeginCombo/EndCombo API, and demonstration of various flags.\n'
+                # )
+                clicked, self.use_indicator = imgui.checkbox(label="Use indicator", state=self.use_indicator)
+                imgui.same_line()
+                self.show_help_marker("An Indicator is a sign board on top of car to indicate direction and other messages")
+                clicked, self.use_4d = imgui.checkbox(label="Use 4D", state=self.use_4d)
 
-        return widgetWindow
+            #
+            # 2.3 Options
+            #
+            show, _ = imgui.collapsing_header("Plugin options")
+            if show:
+                # l, t, _r, _b = (0, 1620, 3840, 0)
+                # imgui.text("Window top left position (from screen bottom left)")
+                # changed, self.win_pos_new[0] = imgui.slider_int("From Left", self.win_pos_new[0], 0, _r - self.WIN_LEFT - 10)
+                # imgui.same_line()
+                # self.show_help_marker("Top of window from left of screen")
+                # changed, self.win_pos_new[1] = imgui.slider_int("From Bottom", self.win_pos_new[1], int(10 + 2 * self.WIN_HEIGHT), t)
+                # imgui.same_line()
+                # self.show_help_marker("Top of window from bottom of screen")
+                # imgui.spacing()
+                checked, self.win_autohide = imgui.checkbox(label="Auto Hide", state=self.win_autohide)
+                if self.win_autohide:
+                    changed, self.win_timeout = imgui.slider_int("Hide timeout (seconds)", self.win_timeout, 10, 120)
+                imgui.spacing()
+                if self.deparr[0]:
+                    checked, self.use_runway_threshold = imgui.checkbox(label="Use runway threshold", state=self.use_runway_threshold)
 
-    def promptForDestination(self, status: str = "", location: str = None):
-        # Create a window to prompt for a local airport destination, either a runway or a parking position
-        move = self.ftg.move
-        welcome = "Welcome. We could not guess where you want to taxi."
-        if location != None and len(location) > 1:
-            welcome = f"We are at {location}." + welcome
-        if status != "":
-            welcome = status + " Try again. Where do you want to taxi?"
-        logger.debug(f"prompt for destination ({self.ftg.move}, {welcome})")
-
-        button = None
-        prompt = None
-        text = None
-        if move == MOVEMENT.DEPARTURE:
-            self.validDestinations = self.ftg.airport.getDestinations(MOVEMENT.DEPARTURE)
-            prompt = "Please enter runway for departure"
-            button = "It is an arrival"
-            text = "RWY/HLD"
-        else:
-            self.validDestinations = self.ftg.airport.getDestinations(MOVEMENT.ARRIVAL)
-            prompt = "Please enter stand number for arrival"
-            button = "It is a departure"
-            text = "RAMP"
-
-        if len(self.validDestinations) > 0:
-            self.validDestinations.sort()
-            self.validDestIdxs = list(map(lambda x: x[0].upper(), self.validDestinations))
-            self.destinationIdx = int(random() * len(self.validDestinations))
-            text = self.validDestinations[self.destinationIdx]
-
-        widgetWindow = self.window(
-            [
-                welcome,
-                prompt,
-                "Click inside the text box and use UP and DOWN arrow to cycle through values.",
-            ],
-            {f"Follow the {self.ftg.thing}": self.cbDestination, CANCELSHORT_TEXT: self.cbCancel},
-        )
-
-        left = self.linetops[1][1] + 10
-        right = int(left + 100)
-        top = self.linetops[1][0] - 2
-        bottom = int(top - self.strHeight)
-        widget = xp.createWidget(
-            left,
-            top,
-            right,
-            bottom,
-            1,
-            text,
-            0,
-            self.mainWindow["widgetID"],
-            xp.WidgetClass_TextField,
-        )
-        self.mainWindow["widgets"]["dest"] = widget
-        xp.addWidgetCallback(self.mainWindow["widgets"]["dest"], self.cbUpDown)
-
-        strWidth = xp.measureString(self.fontID, button)
-        left = right + 20  # after the above textfield
-        right = int(left + 1.1 * strWidth)
-        # top = int(self.wTop - 40 - self.strHeight)
-        # bottom = int(top - self.strHeight)
-        widget = xp.createWidget(left, top, right, bottom, 1, button, 0, widgetWindow, xp.WidgetClass_Button)
-        self.mainWindow["widgets"]["move"] = widget
-        xp.addWidgetCallback(self.mainWindow["widgets"]["move"], self.cbMovement)
-
-        return widgetWindow
-
-    def followTheGreen(self):
-        logger.debug("show follow the greens")
-        btns = {CANCEL_TEXT.replace("greens", self.ftg.thing): self.cbCancel}
-        if self.dest:
-            btns[IAMLOST_TEXT.replace("greens", "route" if self.ftg.alternate else "route")] = self.cbNewGreen
-        return self.window(
-            [
-                f"Follow the {self.ftg.thing}.",
-                "(You can close this window with the little x in the above window title bar.)",
-            ],
-            btns,
-        )
-
-    def promptForClearance(self, intro: list = [], destination: str = ""):
-        logger.debug("prompt for clearance")
-        # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
-        btns = {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel}
-        if self.dest:
-            btns[IAMLOST_TEXT.replace("greens", "route" if self.ftg.alternate else "route")] = self.cbNewGreen
-        self.waiting_for_clearance = True
-        dst = f" to {destination}" if destination != "" else ""
-        return self.window(
-            intro
-            + [
-                self.ftg.situation(),
-                f"Follow the {self.ftg.thing}{dst} until you encounter red stop lights across the taxiway.",
-                "At the stop lights, contact ATC for clearance. Press Clearance received when cleared.",
-            ],
-            btns,
-        )
-
-    def tryAgain(self, text):
-        logger.debug("prompt to try again")
-        # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
-        btns = {NEWDEST_TEXT: self.cbNewDestination, CANCEL_TEXT.replace("greens", self.ftg.thing): self.cbCancel}
-        if self.dest:
-            btns[IAMLOST_TEXT.replace("greens", "route" if self.ftg.alternate else "route")] = self.cbNewGreen
-        return self.window(
-            [
-                "We could not find a route to your destination.",
-                "Get closer to taxiways and try again.",
-            ],
-            btns,
-        )
-
-    def promptForDeparture(self):
-        logger.debug("prompt for departure")
-        # In front of the last stopbar, ask to ask for clearance for departure and press continue when clearance obtained.
-        self.waiting_for_clearance = True
-        btns = {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel}
-        if self.dest:
-            btns[IAMLOST_TEXT.replace("greens", "route" if self.ftg.alternate else "route")] = self.cbNewGreen
-        return self.window(
-            [
-                self.ftg.situation(),
-                f"Follow the {self.ftg.thing} until you encounter red stop lights across the taxiway",
-                "before departure runway.",
-                "Contact ATC, press Clearance received when cleared for runway.",
-            ],
-            btns,
-        )
-
-    def promptForParked(self, destination: str = ""):
-        logger.debug("invite to ftg to parking")
-        btns = {CONTINUE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel}
-        if self.dest:
-            btns[IAMLOST_TEXT.replace("greens", "route" if self.ftg.alternate else "route")] = self.cbNewGreen
-        # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
-        return self.window(
-            [
-                self.ftg.situation(),
-                f"Follow the {self.ftg.thing} to the parking stand {destination}.",
-                "Press Continue when parked.",
-            ],
-            btns,
-        )
-
-    def bye(self):
-        logger.debug("showing goodbye")
-        msgs = [self.ftg.situation(), "You are approaching your destination."]
-        if self.ftg.move == MOVEMENT.DEPARTURE:
-            msgs += ["Contact ATC for takeoff clearance."]
-        msgs += [self.greetings("Enjoy your %s.")]
-        return self.window(
-            msgs,
-            {FINISH_TEXT: self.cbBye},
-        )
-
-    def enjoy(self):
-        logger.debug("showing turn off all taxiway lights")
-        return self.window(
-            [
-                "All taxiways in the network are lit. Press " + FINISH_TEXT + " to hide them.",
-                self.greetings("Enjoy your %s."),
-            ],
-            {FINISH_TEXT: self.cbBye},
-        )
-
-    def sorry(self, message):
-        # Open a window with explanation.
-        logger.info(f"showing sorry ({message})")
-        return self.window(
-            [
-                f"We are sorry. We cannot provide Follow the {self.ftg.thing} service at this airport.",
-                message,
-            ],
-            {CLOSE_TEXT: self.cbClose},
-        )
+        self.status(show_version=self.advanced_options)
 
     #
+    # Data collection window
     #
-    # CALLBACK for buttons and caption
-    #
-    def cbMainWindow(self, inMessage, inWidget, inParam1, inParam2):
-        # pylint: disable=unused-argument
-        # Router for all window events (when button pressed)
-        if inMessage == xp.Message_CloseButtonPushed:
-            xp.hideWidget(self.mainWindow["widgetID"])
-            return 1
-        return 0
+    def status(self, show_version: bool = True):
+        imgui.spacing()
+        imgui.spacing()
+        imgui.spacing()
+        imgui.spacing()
+        imgui.spacing()
+        imgui.spacing()
 
-    def cbAirport(self, inMessage, inWidget, inParam1, inParam2):
-        # pylint: disable=unused-argument
-        if inMessage == xp.Msg_PushButtonPressed:
-            if "icao" in self.mainWindow["widgets"].keys():
-                self.icao = xp.getWidgetDescriptor(self.mainWindow["widgets"]["icao"])
-                logger.debug(f"airport: {self.icao}")  # logger.info in followthegreens.py
-                xp.hideWidget(self.mainWindow["widgetID"])
-                nextWindow = self.ftg.getDestination(self.icao)
-                xp.showWidget(nextWindow)
-            return 1
-        return 0
+        if self.hasErrors():
+            imgui.text_colored(self.getErrors(), r=1.0, g=0.0, b=0.0)
 
-    def cbUpDown(self, message, widgetID, param1, param2):
-        # We intercept some keypress we are interested in _first_
-        if message == xp.Msg_KeyPress and not (param1[1] & xp.UpFlag):
-            if param1[2] == xp.VK_DOWN or (param1[2] == xp.VK_N and param1[1] & xp.ControlFlag):
-                self.destinationIdx = (self.destinationIdx + 1) % len(self.validDestinations)
-                xp.setWidgetDescriptor(widgetID, self.validDestinations[self.destinationIdx])
-                return 1
-            if param1[2] == xp.VK_UP or (param1[2] == xp.VK_P and param1[1] & xp.ControlFlag):
-                xp.setWidgetDescriptor(widgetID, self.validDestinations[self.destinationIdx])
-                self.destinationIdx = (self.destinationIdx - 1) % len(self.validDestinations)
-                return 1
-            if param1[2] >= xp.VK_0 and param1[2] <= xp.VK_Z:
-                # thanks for the hint: https://forums.x-plane.org/index.php?/forums/topic/238447-best-ui-for-list-of-value/&tab=comments#comment-2130991
-                c = chr(param1[2]).upper()
-                idx = -1
-                try:
-                    idx = self.validDestIdxs.index(c)
-                except ValueError:
-                    idx = -1
-                if idx > -1:
-                    self.destinationIdx = idx
-                    xp.setWidgetDescriptor(widgetID, self.validDestinations[self.destinationIdx])
-                return 1
-            # if any other key as been pressed, we ignore it.
-            return 1
-        return 0
+        imgui.spacing()
 
-    def cbDestination(self, inMessage, inWidget, inParam1, inParam2):
-        # pylint: disable=unused-argument
-        if inMessage == xp.Msg_PushButtonPressed:
-            if "dest" in self.mainWindow["widgets"].keys():
-                self.dest = xp.getWidgetDescriptor(self.mainWindow["widgets"]["dest"])
-                logger.debug(f"destination: {self.dest}")  # logger.info in followthegreens.py
-                xp.hideWidget(self.mainWindow["widgetID"])
-                nextWindow = self.ftg.followTheGreen(self.dest)
-                xp.showWidget(nextWindow)
-            return 1
-        return 0
+        if self.hint is not None:
+            imgui.text_colored("Hint: " + self.hint, r=0.0, g=0.8, b=0.8)
 
-    def cbNewDestination(self, inMessage, inWidget, inParam1, inParam2):
-        # pylint: disable=unused-argument
-        if inMessage == xp.Msg_PushButtonPressed:
-            xp.hideWidget(self.mainWindow["widgetID"])
-            nextWindow = self.promptForDestination()
-            logger.info("new destination requested")
-            xp.showWidget(nextWindow)
-            return 1
-        return 0
+        if show_version:
+            imgui.spacing()
+            imgui.text("Follow the greens rel. " + __VERSION__)
 
-    def cbNewGreen(self, inMessage, inWidget, inParam1, inParam2):
-        # pylint: disable=unused-argument
-        if inMessage == xp.Msg_PushButtonPressed:
-            if not self.dest:
-                return 0
-            xp.hideWidget(self.mainWindow["widgetID"])
-            nextWindow = self.ftg.newGreen(self.dest)
-            logger.info("new greens provided")
-            xp.showWidget(nextWindow)
-            return 1
-        return 0
+    def report(self, _windowID, refCon):
+        # refCon = {
+        #     "text": ["bla"],
+        #     "buttons": [UI_BUTTON.OK],
+        #     "error": "bla",
+        #     "hint": "bla",
+        # }
+        text = refCon.get("text", ["<No text>"])
+        imgui.push_item_width(imgui.get_font_size() * -12)
+        imgui.text_wrapped("\n".join(text))
+        imgui.spacing()
+        imgui.spacing()
 
-    def cbMovement(self, inMessage, inWidget, inParam1, inParam2):
-        # pylint: disable=unused-argument
-        if inMessage == xp.Msg_PushButtonPressed:
-            xp.hideWidget(self.mainWindow["widgetID"])
-            if self.ftg.move == MOVEMENT.DEPARTURE:
-                self.ftg.move = MOVEMENT.ARRIVAL
+        buttons = refCon.get("buttons", [UI_BUTTON.OK])
+        for b in buttons:
+            p = b.value[0]
+            if p == "New greens" and self.use_car:
+                p = "New route"
+            w = 80 if len(p) < 12 else 150
+            if imgui.button(label=p, width=w, height=0):
+                self.execute(b.value[1])
+                self.resetTimeout()
+            imgui.same_line()
+
+        imgui.new_line()
+
+        self.hint = refCon.get("hint", self.hint)
+        e = refCon.get("error")
+        if e is not None:
+            if type(e) in [list, tuple]:
+                for m in e:
+                    self.addError(m)
             else:
-                self.ftg.move = MOVEMENT.DEPARTURE
-            logger.info(f"movement changed to {self.ftg.move}")
-            nextWindow = self.promptForDestination()
-            xp.showWidget(nextWindow)
-            return 1
-        return 0
+                self.addError(e)
+        self.status()
 
-    def cbClearance(self, inMessage, inWidget, inParam1, inParam2):
-        # pylint: disable=unused-argument
-        if inMessage == xp.Msg_PushButtonPressed:
-            xp.hideWidget(self.mainWindow["widgetID"])
-            self.waiting_for_clearance = False
-            logger.info("clearance received")
-            nextWindow = self.ftg.nextLeg()
-            xp.showWidget(nextWindow)
-            return 1
-        return 0
 
-    def cbClose(self, inMessage, inWidget, inParam1, inParam2):
-        # pylint: disable=unused-argument
-        # Just closes the window. Do no alter any other process.
-        if inMessage == xp.Msg_PushButtonPressed:
-            logger.info("closing window")
-            xp.hideWidget(self.mainWindow["widgetID"])
-            return 1
-        return 0
-
-    def cbCancel(self, inMessage, inWidget, inParam1, inParam2):
-        # pylint: disable=unused-argument
-        # Cancels FollowTheGreen
-        if inMessage == xp.Msg_PushButtonPressed:
-            xp.hideWidget(self.mainWindow["widgetID"])
-            logger.info("cancelled")
-            self.ftg.terminate("user cancelled")
-            return 1
-        return 0
-
-    def cbBye(self, inMessage, inWidget, inParam1, inParam2):
-        # pylint: disable=unused-argument
-        # Cancels FollowTheGreen
-        if inMessage == xp.Msg_PushButtonPressed:
-            xp.hideWidget(self.mainWindow["widgetID"])
-            logger.info("terminate")
-            self.ftg.terminate("terminated normally")
-            return 1
-        return 0
-
-    #
-    #
-    # COMMANDS triggered through X-Plane
-    #
-    def clearanceReceived(self):
-        logger.info("clearance command received")
-        if self.waiting_for_clearance:
-            xp.hideWidget(self.mainWindow["widgetID"])
-            self.waiting_for_clearance = False
-            nextWindow = self.ftg.nextLeg()
-            xp.showWidget(nextWindow)
-        else:
-            logger.info("not waiting for clearance, ignoring command")
-
-    def newGreensReceived(self):
-        logger.info("new greens command received")
-        if not self.dest:
-            logger.info("no destination")
-            return 1
-        if self.mainWindow is not None:
-            xp.hideWidget(self.mainWindow["widgetID"])
-            nextWindow = self.ftg.newGreen(self.dest)
-            xp.showWidget(nextWindow)
-        else:
-            logger.info("no window, probably not active")
-        return 1
-
-    def cancelReceived(self, comment: str):
-        logger.info("cancel command received")
-        xp.hideWidget(self.mainWindow["widgetID"])
-        self.ftg.terminate(comment)
+# Options to pass
+# Greens
+# - speed, length
+# - light type
+# Car
+# - Model
+# - Indicator y/n OK
+# Global
+# - 4D y/n
+# - Position: OK
+# - Autohide timeout: OK
+# - Use threshold: OK

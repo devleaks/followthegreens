@@ -575,6 +575,22 @@ You can get support in the [forum thread dedicated to FtG](https://forums.x-plan
 You can also get support on the [following discord server](https://discord.gg/s8mRAbFysx).
 
 
+## Limits, Constraints
+
+Follow the greens, the original project is conceptually simple and should not misbehave.
+If it does, please report the issue and we'll see if we can address it.
+
+The follow me car is a far more complex object to manipulate.
+In some instances, it may not behave smoothly, it my not turn smoothly,
+it may accelerate or brake suddenly, or appear to turn on the spot.
+All these behaviors are not issues or bugs, they are limits of this development.
+This is will always occurs in rare highly specific circumstances.
+For normal operations, on a standard airport, within the framework of its normal use,
+misbehavior will be rare.
+
+If you think you can fix one of these misbehavior, please submit a pull request.
+
+
 # See Also
 
 [Developer notes](devnotes.md).

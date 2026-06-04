@@ -4,15 +4,42 @@
 # Enjoy.
 #
 #
+import sys
+import os
 import re
 from traceback import print_exc
 from typing import Any
 
 try:
     import xp
+    from XPPython3.utils import xp_pip
 except ImportError:
     print("X-Plane not loaded")
 
+missing_modules = []
+try:
+    import xplane_airports
+except ModuleNotFoundError:
+    missing_modules.append("xplane_airports")
+
+
+PLUGIN_FOLDER_NAME = "followthegreens"
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))  # .../PythonPlugins
+
+# Ensure PythonPlugins root is importable so package imports work
+if _THIS_DIR not in sys.path:
+    sys.path.insert(0, _THIS_DIR)
+
+# Optional safety: ensure folder exists
+_PLUGIN_DIR = os.path.join(_THIS_DIR, PLUGIN_FOLDER_NAME)
+if not os.path.isdir(_PLUGIN_DIR):
+    raise ImportError(f"Missing plugin folder: {_PLUGIN_DIR}")
+
+# ---------------------------------------------------------------------
+# IMPORTANT:
+# We must import followthegreens as a PACKAGE to allow relative imports
+# inside followthegreens.py (e.g. from .version import __VERSION__).
+# Therefore, we add the PythonPlugins root to sys.path and import
 from followthegreens import (
     __VERSION__,
     __NAME__,
@@ -52,6 +79,14 @@ from followthegreens import (
 SHOW_TRACE = False
 
 
+AMBER = (1.0, 0.85, 0.0)
+RED = (1.0, 0.0, 0.0)
+GREEN = (0, 1, 0)
+CYAN = (0.0, 1.0, 1.0)
+WHITE = (1.0, 1.0, 1.0)
+HUD_LEVEL = 2  # 0, 1, 2
+
+
 class PythonInterface:
 
     def __init__(self):
@@ -68,6 +103,8 @@ class PythonInterface:
 
         self.isRunningRef = None
         self.getIndicatorRef = None
+
+        self.widgetID = None
 
         # 1. Follow The Greens
         self.menuIdx = None
@@ -118,6 +155,14 @@ class PythonInterface:
                 FTG_HUD: [FTG_HUD_DESC, self.hudToggle],
             }
         self._hud = False  # now shown by default
+        self._hud_pos = {}
+        self._speed = 0.0
+        self._speed_color = (1, 1, 1)
+        self._speed_cnt = 0
+        # notify
+        self.not_message = "Follow the greens"
+        self.not_color = (1, 1, 1)
+        self.not_duration = 100
 
     def debug(self, message, force: bool = False):
         if self.trace or force:
@@ -229,9 +274,12 @@ class PythonInterface:
         if STW_MENU is not None:
             oldidx = self.menuIdx_st
             if self.menuIdx_st is not None and self.menuIdx_st >= 0:
-                xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx_st)
-                self.menuIdx_st = None
-                self.debug(f"XPluginStop: menu item «{STW_MENU}» removed (index was {oldidx})")
+                try:
+                    xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx_st)
+                    self.menuIdx_st = None
+                    self.debug(f"XPluginStop: menu item «{STW_MENU}» removed (index was {oldidx})")
+                except:
+                    self.debug(f"XPluginStop: removeMenuItem «{STW_MENU}» error", force=True)
             else:
                 self.debug(f"XPluginStop: menu item «{STW_MENU}» not removed (index {oldidx})")
 
@@ -245,21 +293,27 @@ class PythonInterface:
                     print_exc()
 
         # Follow the Greens
-        oldidx = self.menuIdx
-        if self.menuIdx is not None and self.menuIdx >= 0:
-            xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx)
-            self.menuIdx = None
-            self.debug(f"XPluginStop: menu item «{FTG_MENU}» removed (index was {oldidx})")
-        else:
-            self.debug(f"XPluginStop: menu item «{FTG_MENU}» not removed (index {oldidx})")
-
         oldidx = self.menuIdx2
         if self.menuIdx2 is not None and self.menuIdx2 >= 0:
-            xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx2)
-            self.menuIdx2 = None
-            self.debug(f"XPluginStop: menu item «{FTC_MENU}» removed (index was {oldidx})")
+            try:
+                xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx2)
+                self.menuIdx2 = None
+                self.debug(f"XPluginStop: menu item «{FTC_MENU}» removed (index was {oldidx})")
+            except:
+                self.debug(f"XPluginStop: removeMenuItem «{FTC_MENU}» error", force=True)
         else:
             self.debug(f"XPluginStop: menu item «{FTC_MENU}» not removed (index {oldidx})")
+
+        oldidx = self.menuIdx
+        if self.menuIdx is not None and self.menuIdx >= 0:
+            try:
+                xp.removeMenuItem(xp.findPluginsMenu(), self.menuIdx)
+                self.menuIdx = None
+                self.debug(f"XPluginStop: menu item «{FTG_MENU}» removed (index was {oldidx})")
+            except:
+                self.debug(f"XPluginStop: removeMenuItem «{FTG_MENU}» error", force=True)
+        else:
+            self.debug(f"XPluginStop: menu item «{FTG_MENU}» not removed (index {oldidx})")
 
         if self.isRunningRef is not None:  # and self.isRunningRef > 0?
             xp.unregisterDataAccessor(self.isRunningRef)
@@ -283,6 +337,10 @@ class PythonInterface:
 
     def XPluginEnable(self):
         self.debug("XPluginEnable: enabling..", force=True)
+
+        if len(missing_modules) > 0:
+            xp_pip.load_packages(missing_modules, "Loading missing modules", "Modules loaded.\nCheck for errors, and RESTART X-Plane.")
+            return 0  # to disable the plugin
 
         if FTG_HUD is not None:
             xp.registerDrawCallback(self.hud)
@@ -360,8 +418,54 @@ class PythonInterface:
         return None
 
     def XPluginReceiveMessage(self, inFromWho, inMessage, inParam):
-        # Should may be handle change of location/airport?
-        pass
+        # Both messages invalidate all previously-loaded XPLMObjectRef and
+        # XPLMInstanceRef capsules.  If FTG still holds stale capsules and then
+        # tries to call xp.createInstance() it raises:
+        #   TypeError: mismatch in requested capsule type
+        # which freezes / crashes the plugin.
+        #
+        # Fix: on either message we tear down every live light instance and
+        # unload every cached object reference so that the next illumination
+        # cycle re-loads everything from scratch with fresh capsules.
+
+        try:
+
+            if inMessage in (xp.MSG_SCENERY_LOADED, xp.MSG_AIRPORT_LOADED):
+                msg_name = "SCENERY_LOADED" if inMessage == xp.MSG_SCENERY_LOADED else "AIRPORT_LOADED"
+                self.debug(f"XPluginReceiveMessage: {msg_name} — invalidating lights..", force=True)
+
+                if not self.enabled:
+                    return
+
+                if self.followTheGreens is not None:
+                    # Destroy all live XPLMInstanceRef objects (turns lights off
+                    # and sets every Light.instance back to None).
+                    if self.followTheGreens.newLocation():
+                        self.notify(message="New location", color=GREEN)
+                        self.debug(f"XPluginReceiveMessage: ..{msg_name.lower().replace('_', ' ')}", force=True)
+                    else:
+                        self.debug(f"XPluginReceiveMessage: ..{msg_name.lower().replace('_', ' not ')}", force=True)
+
+            if inMessage == xp.MSG_PLANE_LOADED:
+                msg_name = "PLANE_LOADED"
+                self.debug(f"XPluginReceiveMessage: {msg_name} — loading aircraft..", force=True)
+
+                if not self.enabled:
+                    return
+
+                if self.followTheGreens is not None:
+                    # Destroy all live XPLMInstanceRef objects (turns lights off
+                    # and sets every Light.instance back to None).
+                    if self.followTheGreens.newAircraft():
+                        self.notify(message="New aircraft", color=GREEN)
+                        self.debug("XPluginReceiveMessage: ..aircraft loaded", force=True)
+                    else:
+                        self.debug("XPluginReceiveMessage: ..aircraft not loaded", force=True)
+
+        except Exception:
+            # Never let a message handler crash XP.
+            print_exc()
+            self.debug("XPluginReceiveMessage: exception", force=True)
 
     # Commands
     def clearanceCmd(self, commandRef, phase: int, refCon: Any):
@@ -435,6 +539,7 @@ class PythonInterface:
             try:
                 self.followTheGreens.ui.newGreensReceived()
                 self.debug("newGreensCmd: executed")
+                self.notify(message="New green requested", color=GREEN)
                 return 1
             except:
                 self.debug("newGreensCmd: exception")
@@ -455,6 +560,7 @@ class PythonInterface:
             try:
                 self.followTheGreens.bookmark()
                 self.debug("bookmarkCmd: executed")
+                self.notify(message="Bookmarked", color=GREEN)
                 return 1
             except:
                 self.debug("bookmarkCmd: exception")
@@ -482,7 +588,7 @@ class PythonInterface:
         if self.followTheGreens and phase == 0:
             self.debug("_followTheGreensCmd: available")
             try:
-                self.followTheGreens.start(alternate=alternate)
+                self.followTheGreens.run(use_car=alternate)
                 self.debug("_followTheGreensCmd: started")
                 return 1
             except:
@@ -532,7 +638,7 @@ class PythonInterface:
                 return 0
             else:
                 try:
-                    self.showTaxiways.start()
+                    self.showTaxiways.run()
                     self.debug("showTaxiwaysCmd: started")
                     return 1
                 except:
@@ -605,6 +711,7 @@ class PythonInterface:
             return 0
         if phase == 0:
             self._hud = not self._hud
+            self.followTheGreens.bookmark(f"hud set to {self._hud}")
             return 1
         return 0
 
@@ -615,11 +722,11 @@ class PythonInterface:
 
     def getRunningStatusCallback(self, inRefcon):
         # Returns 1 if actually running (lights blinking on taxiways). 0 otherwise.
-        return 1 if self.followTheGreens is not None and self.followTheGreens.flightLoop.rabbitRunning else 0
+        return 1 if self.followTheGreens is not None and self.followTheGreens.lights is not None and self.followTheGreens.lights.rabbitRunning else 0
 
     def getFTGIsHoldingCallback(self, inRefcon):
         # Returns 1 if actually running (lights blinking on taxiways). 0 otherwise.
-        return 1 if self.followTheGreens is not None and self.followTheGreens.ui.waiting_for_clearance else 0
+        return 1 if self.followTheGreens is not None and self.followTheGreens.ui is not None and self.followTheGreens.ui.waiting_for_clearance else 0
 
     # Future use
     def runningStatusChangedCallback(self, inRefcon):
@@ -632,21 +739,109 @@ class PythonInterface:
 
     def hud(self, phase, after, refCon):
         if not self._hud or self.followTheGreens is None:
+            if self.widgetID is not None:  # turn off hud
+                xp.destroyWidget(self.widgetID, 1)
+                self.widgetID = None
             return
-        if not self.followTheGreens.flightLoop.rabbitRunning:
+        if self.followTheGreens is None or self.followTheGreens.lights is None:
             return
+        try:
+            text_color = GREEN  # default
+            MAX_LINES = 4
+            WIDTH = 160
 
-        fl = self.followTheGreens.flightLoop
-        hp = fl.hudPosition()
-        LINE = 15 if len(hp) < 3 else hp[2]
-        LEFT = max(hp[0], 1)
-        TOP = max(hp[1], 3 * LINE + 1)
+            fl = self.followTheGreens.flightLoop
+            fc = self.followTheGreens.fmcar
+            car_speed = None
+            if fc is not None:
+                MAX_LINES += 1
+                car_speed = fc.speed()
+            if fl is not None:
+                hp = self.followTheGreens.hudPosition()
+                text_color = self.followTheGreens.hudColors()  # may be we'll pass other colors after
+            LINE = 15 if len(hp) < 3 else hp[2]
+            LEFT = max(hp[0], 1)
+            TOP = max(hp[1], MAX_LINES * LINE + 1)
 
+            if self.widgetID is None:
+                self.widgetID = xp.createWidget(LEFT - 3, TOP + 10, LEFT + WIDTH, max(TOP - MAX_LINES * LINE - 10, 0), 1, "", 1, 0, xp.WidgetClass_MainWindow)
+                xp.setWidgetProperty(self.widgetID, xp.Property_MainWindowType, xp.MainWindowStyle_Translucent)
+
+            # Alternate: display strings as captions on the widget
+            # strings = []
+
+            # for w in self.widgets:
+            #   xp.destroyWidget(w, 1)
+            # self.widgets = []
+            # i = 0
+
+            # for s in strings:
+            #     strWidth = xp.measureString(self.fontID, s)
+            #     left = LEFT
+            #     right = int(LEFT + strWidth)
+            #     top = TOP - i * line
+            #     bottom = int(top - self.strHeight)
+            #     i += 1
+            #     widget.append(xp.createWidget(
+            #         left,
+            #         top,
+            #         right,
+            #         bottom,
+            #         1,
+            #         s,
+            #         0,
+            #         self.widgetID,
+            #         xp.WidgetClass_Caption,
+            #     ))
+
+            xp.setGraphicsState(0, 1, 0, 0, 0, 0, 0)
+            xp.drawString(text_color, LEFT - 3, TOP, "TAXI")  # Title/header
+            xp.drawString(CYAN, LEFT + 65, TOP, self.vu)  # cannot change color of VU identifier (standard)
+            color = RED if fl.is_late else GREEN  # cannot change color of timing status (meaningful)
+            xp.drawString(color, LEFT, TOP - LINE, fl.remaining)  # 1234m, 12:45   indication
+            xp.drawString(color, LEFT, TOP - 2 * LINE, f"! {round(fl.dist_to_next_turn):4d}m")  # 1234m
+            color = RED if self.followTheGreens.lights.rabbitRunning else AMBER  # cannot change color of rabbit status (meaningful)
+            if self.followTheGreens.status.value == "ACTIVE":
+                xp.drawString(text_color, LEFT, TOP - 3 * LINE, fl.rabbitText)  # Rabbit status
+            else:
+                xp.drawString(color, LEFT, TOP - 3 * LINE, self.followTheGreens.status.value)  # FtG status
+            if fc is not None:
+                xp.drawString(text_color, LEFT, TOP - 4 * LINE, fc.hudText)  # Global status
+            acf_speed = self.followTheGreens.aircraft.speed()
+            curr_speed = acf_speed
+            speed_color = self._speed_color
+            if curr_speed > 15.0:
+                speed_color = RED
+            elif curr_speed > self._speed:
+                speed_color = GREEN
+            elif curr_speed < self._speed:
+                speed_color = AMBER
+            elif curr_speed == self._speed or round(curr_speed, 1) == 0.0:
+                speed_color = text_color
+            self._speed_cnt -= 1
+            if self._speed_cnt < 0:
+                self._speed = curr_speed
+                self._speed_color = speed_color
+                self._speed_cnt = 100
+            xtraline = f"Speed {round(acf_speed, 1)}m/s"
+            if fc is not None and HUD_LEVEL > 0:
+                xtraline = fc.getExtraLine()
+            xp.drawString(speed_color, LEFT, TOP - MAX_LINES * LINE, xtraline)  # Aircraft speed
+        except:
+            xp.drawString((1, 0, 0), 287, 90, "TAXI HUD ERROR")  # almost everything hardcoded..;
+            xp.drawString((0.0, 1.0, 1.0), 400, 90, self.vu)
+            self.debug("hud: exception", force=True)
+            print_exc()
+
+    def _notify(self, phase, after, refCon):
         xp.setGraphicsState(0, 1, 0, 0, 0, 0, 0)
-        xp.drawString((0.0, 1.0, 0.0), LEFT - 3, TOP, "GREENS")  # Title/header
-        xp.drawString((0.0, 1.0, 1.0), LEFT + 65, TOP, self.vu)
-        color = (1.0, 0.0, 0.0) if fl.is_late else (0.0, 1.0, 0.0)
-        xp.drawString(color, LEFT, TOP - LINE, fl.remaining)  # 1234m, 12:45   indication
-        xp.drawString(color, LEFT, TOP - 2 * LINE, f"! {round(fl.dist_to_next_turn):4d}m")  # 1234m
-        color = (1.0, 0.0, 0.0) if fl.rabbitRunning else (0.7, 0.7, 0.0)
-        xp.drawString((0.0, 1.0, 0.0), LEFT, TOP - 3 * LINE, self.followTheGreens.status.value)  # status
+        xp.drawString(self.not_color, 220, 90 + 15, self.not_message)
+        self.not_duration = self.not_duration - 1
+        if self.not_duration <= 0:
+            xp.unregisterDrawCallback(self._notify)
+
+    def notify(self, message: str = "Follow the greens", color: tuple = WHITE, duration: int = 100):
+        self.not_message = message
+        self.not_color = color
+        self.not_duration = duration
+        xp.registerDrawCallback(self._notify)

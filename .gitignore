@@ -148,3 +148,11 @@ ftg_smooth_route.geojson
 ftg_srvertices.geojson
 ftg_straight.geojson
 ftg_straight*.geojson
+*.geojson
+followthegreens/lights/lmax.obj
+followthegreens/lights/lmin.obj
+followthegreens/lights/lmid.obj
+followthegreens/route.json
+followthegreens/lights/lstop.obj
+followthegreens/route-arr-auto.json
+followthegreens/route-arr-man.json

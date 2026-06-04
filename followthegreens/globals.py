@@ -156,18 +156,14 @@ MAINWINDOW_AUTOHIDE = True  # If false, main UI window will always remain visibl
 MAINWINDOW_DISPLAY_TIME = 30  # If above true, main UI window will disappear after that amount seconds of inactivity
 
 # you may carefully adjust those:
-MAINWINDOW_FROM_LEFT = 100  # Distance of main UI window from left of screen
-MAINWINDOW_FROM_BOTTOM = 80  # Distance of the bottom of the main window from the bottom of the screen
-
-# don't touch those:
-MAINWINDOW_WIDTH = 500  # Normal main window width. May need adjustment if font size is changed
-MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from space and title bar
+WINDOW_LEFT_TOP = [100, 600]
 
 # Reference point is top left corner of HUD.
 # First number is distance of reference point from left of screen,
 # Second number is distance of reference point is distance from bottom of screen.
-# Second number must be larger than 45 to leave room for 3 lines of text
-HUD_POSITION = [220, 50]
+# Second number must be larger than 15 * number of lines of text
+HUD_POSITION = [220, 90]
+HUD_COLORS = (0.0, 1.0, 0.0)  # default to greens, of course
 
 SHOW_CLEARANCE_POPUP = True
 
@@ -270,6 +266,7 @@ class FTGJSON(StrEnum):
 # of aircraft movements
 #
 class AIRPORT(Enum):
+    USE_THRESHOLD = "USE_THRESHOLD"
     DISTANCE_BETWEEN_GREEN_LIGHTS = "DISTANCE_BETWEEN_GREEN_LIGHTS"
     DISTANCE_BETWEEN_STOPLIGHTS = "DISTANCE_BETWEEN_STOPLIGHTS"
     DISTANCE_BETWEEN_LIGHTS = "DISTANCE_BETWEEN_LIGHTS"
@@ -283,15 +280,19 @@ class MOVEMENT(StrEnum):
     DEPARTURE = "departure"
 
 
+RUNWAY_BUFFER_WIDTH = 100  # meters. When no runway surface available, imaging a runway that wide
+
 DISTANCE_TO_RAMPS = 100  # meters, if closer that this to a ramp, assume departure, otherwise, assume arrival
 TOO_FAR = 500  # meters, if further than this from a taxiway, does not kick in.
-RUNWAY_BUFFER_WIDTH = 100  # meters. When no runway surface available, imaging a runway that wide
 WARNING_DISTANCE = 150  # When getting close to a STOP BAR, show main window.
 DRIFTING_LIMIT = 5  # times DISTANCE_BETWEEN_GREEN_LIGHTS, after this limit, we consider data unreliable.
 DRIFTING_DISTANCE = 200  # When drifting away from "closest" light, after this distance, we send a warning
 
-PLANE_MONITOR_DURATION = 5  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
-MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before getting potential stop bar
+PLANE_MONITOR_DURATION = 3  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
+
+AIRCRAFT_MIN_SPEED = 2.0  # m/s, aircraft minimum movement detection
+AIRCRAFT_MIN_DIST = 20  # m, aircraft minimum movement detection
+
 
 # ################################
 # FTG LIGHTS
@@ -304,6 +305,8 @@ ADD_LIGHT_AT_VERTEX = False  # Add a light at each taxiway network vertex on the
 ADD_LIGHT_AT_LAST_VERTEX = False  # Add a light at the last vertex, even if it is closer than DISTANCE_BETWEEN_GREEN_LIGHTS
 
 LEAD_OFF_RUNWAY_DISTANCE = 160  # meters, will determine number of alterning green/amber lights after leaving the runway
+
+MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before getting potential stop bar
 
 
 # ################################
@@ -348,9 +351,9 @@ class INDICATOR(IntEnum):
     STOP = 1
     RIGHT = 2
     LEFT = 3
+    SLOW = 4
+    EMPTY = 5
 
-
-#    EMPTY = 4
 
 # These are global default values, only used if no other value if found.
 LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
@@ -415,6 +418,28 @@ LIGHT_TYPE_OBJFILES = {
     # LIGHT_TYPE.OUTER: "green.obj",
 }
 
+LIGHT_TYPE_OBJFILES_TAXIWAY = {
+    LIGHT_TYPE.OFF: "off_light.obj",
+    LIGHT_TYPE.FIRST: "taxi_gg.obj",
+    LIGHT_TYPE.TAXIWAY: "taxi_gg.obj",
+    LIGHT_TYPE.TAXIWAY_ALT: "taxi_g.obj",  # should be unidirectional
+    LIGHT_TYPE.STOP: "taxi_r.obj",
+    LIGHT_TYPE.VERTEX: "green.obj",
+    LIGHT_TYPE.WARNING: "amber.obj",
+    LIGHT_TYPE.LAST: "taxi_gg.obj",
+    LIGHT_TYPE.DEFAULT: "white.obj",
+    LIGHT_TYPE.ACTIVE: "taxi_gg.obj",
+    LIGHT_TYPE.RUNWAY_GUARD: "runway.obj",
+    LIGHT_TYPE.RUNWAY: "taxi_g.obj",  # taxiway lead-in/out lights, alternating green/amber, should be unidirectional
+    LIGHT_TYPE.RUNWAY_ALT: "taxi_y.obj",  # same
+    # LIGHT_TYPE.ACTIVE_DEP: "green.obj",
+    # LIGHT_TYPE.ACTIVE_ARR: "green.obj",
+    # LIGHT_TYPE.ACTIVE_ILS: "green.obj",
+    # LIGHT_TYPE.ONEWAY: "green.obj",
+    # LIGHT_TYPE.INNER: "green.obj",
+    # LIGHT_TYPE.OUTER: "green.obj",
+}
+
 # ################################
 # LIST OF INTERNAL CONSTANTS
 #
@@ -444,10 +469,9 @@ INTERNAL_CONSTANTS = [
     "RUNWAY_LIGHT_LEVEL_WHILE_FTG",
     "TOO_FAR",
     "WARNING_DISTANCE",
-    "MAINWINDOW_FROM_BOTTOM",
-    "MAINWINDOW_FROM_LEFT",
-    "MAINWINDOW_HEIGHT",
-    "MAINWINDOW_WIDTH",
+    "HUD_POSITION",
+    "HUD_COLORS",
+    "WINDOW_LEFT_TOP",
     "MAINWINDOW_AUTOHIDE",
     "MAINWINDOW_DISPLAY_TIME",
 ]
@@ -486,10 +510,7 @@ ALL_INTERNAL_CONSTANTS = [
     "LIGHT_TYPE_OBJFILES",
     "LIGHTS_AHEAD",
     "LOGGING_LEVEL",
-    "MAINWINDOW_FROM_BOTTOM",
-    "MAINWINDOW_FROM_LEFT",
-    "MAINWINDOW_HEIGHT",
-    "MAINWINDOW_WIDTH",
+    "WINDOW_LEFT_TOP",
     "MAINWINDOW_AUTOHIDE",
     "MAINWINDOW_DISPLAY_TIME",
     "MIN_SEGMENTS_BEFORE_HOLD",
@@ -559,3 +580,19 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger("FtG")
+
+
+class Status:
+    def __init__(self, status: bool, message: str) -> None:
+        self.status = status
+        self.message = message
+
+
+class NoError(Status):
+    def __init__(self, info: str) -> None:
+        Status.__init__(self, status=True, message=info)
+
+
+class Error(Status):
+    def __init__(self, message: str) -> None:
+        Status.__init__(self, status=False, message=message)

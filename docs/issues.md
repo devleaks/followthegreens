@@ -15,7 +15,7 @@ First exit is more than 500m away.
 
 Workaround:
 
-Let aricraft moving forward until it is less that 500m away from taxiway vertex.
+Let aircraft moving forward until it is less that 500m away from taxiway vertex.
 
 
 # Pause
@@ -26,15 +26,22 @@ There should not be any issue with that.
 If the aircraft does not move, greens don't change.
 
 
-# Aircraft Relocation
+# Follow me car Jumps
 
-Follow the Greens takes a «picture» of the situation when a new session is started.
-If the aircraft is changed or relocated after the session is started,
-pilot should cancel the previous session and restart a new one to take
-into account all changes.
+In rare, known circumstances, the Follow Me Car may produce little "jumps" rather than smoothly follow a curve.
+This happens when 2 turns are too close to each other, when the first turn "terminates" inside the second turn.
+This is a rare event as taxiways are more often large straight lines.
 
 
-# FMC stop
+# User Interface
 
-When FMC stops in a turn or at the end of a turn,
-it restarts at the same distance but on the edge (little jump).
+When using operating system-type windows, it does not resize when switching _Advanced options_ on or off.
+
+
+# Borderline Cases
+
+In some occurence, there might be a problem for the Follow me car to respect constraints
+and provide a smooth ride. Here are a few identified cases:
+
+- On apparition, the car moves in front of the aircraft from a side position.
+  The car may not stop at a stop bar if the initial route that joins the taxi route intercepts _after_  the stop line (rare occurrences).

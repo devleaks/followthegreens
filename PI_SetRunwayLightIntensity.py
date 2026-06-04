@@ -1,7 +1,7 @@
 # Adds X-Plane Plugins menu entries to control runway lights
 import xp
 
-__VERSION__ = "1.0.2"
+__VERSION__ = "1.0.3"
 __NAME__ = "Set Runway Light Intensity"
 __DESCRIPTION__ = "Wrapper around X-Plane runway light control commands"
 
@@ -9,7 +9,7 @@ __DESCRIPTION__ = "Wrapper around X-Plane runway light control commands"
 class PythonInterface:
 
     LEVEL = {
-        "hi": "Hight",
+        "hi": "High",
         "med": "Medium",
         "lo": "Low",
         "off": "Off",

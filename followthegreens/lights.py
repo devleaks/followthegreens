@@ -4,6 +4,7 @@
 import math
 import os.path
 from random import randint
+from datetime import datetime, timedelta
 
 from followthegreens.route import SMOOTH_ROUTE
 
@@ -17,10 +18,16 @@ from .globals import (
     TAXIWAY_DIRECTION,
     logger,
     get_global,
+    Error,
+    NoError,
+    AMBIANT_RWY_LIGHT,
+    AMBIANT_RWY_LIGHT_VALUE,
+    AMBIANT_RWY_LIGHT_CMDROOT,
     DISTANCE_BETWEEN_STOPLIGHTS,
     FTG_SPEED_PARAMS,
     LIGHT_TYPE,
     LIGHT_TYPE_OBJFILES,
+    LIGHT_TYPE_OBJFILES_TAXIWAY,
     MOVEMENT,
     RABBIT_MODE,
     TAXIWAY_ACTIVE,
@@ -29,9 +36,10 @@ from .globals import (
 )
 
 HARDCODED_MIN_DISTANCE = 50  # meters
-HARDCODED_MAX_DISTANCE = int(6 * 7)  # m
 HARDCODED_MIN_TIME = 0.04  # secs
 HARDCODED_MIN_RABBIT_LENGTH = 4  # lights
+
+MAX_UPDATE_FREQUENCY = 10  # seconds, rabbit cannot change again more that 10 seconds it changed
 
 
 class LightType:
@@ -167,12 +175,16 @@ POINT_COUNTS    0 0 0 0
 
 class XPObject:
 
-    def __init__(self, position, heading, index, dist: float = 0.0, dist2: float = 0.0):
-        self.edgeIndex = index  # # of edge of route, starting from 0
-        self.distFromEdgeStart = dist
-        self.distToEdgeEnd = dist2
+    def __init__(self, position, heading, index: int, dist: float = 0.0, sr_index: int = 0, sr_dist: float = 0.0):
         self.position = position
         self.heading = heading  # this should be the heading to the previous light
+
+        self.edgeIndex = index  # # of edge of route, starting from 0
+        self.distFromEdgeStart = dist  # dist from start of above edge
+
+        self.srIndex = sr_index  # index on smooth route (last vertex, current edge), starting from 0
+        self.distFromsrIndex = sr_dist  # dist from above vertex/start of edge
+
         self.params = []  # LIGHT_PARAM_DEF       full_custom_halo        9   R   G   B   A   S       X   Y   Z   F
         self.drefs = []
         self.lightObject = None
@@ -182,18 +194,18 @@ class XPObject:
 
     def groundXYZ(self, latstr, lonstr, altstr):
         lat, lon, alt = (float(latstr), float(lonstr), float(altstr))
-        (x, y, z) = xp.worldToLocal(lat, lon, alt)  # this return proper altitude
+        x, y, z = xp.worldToLocal(lat, lon, alt)  # this return proper altitude
         probe = xp.createProbe(xp.ProbeY)
         info = xp.probeTerrainXYZ(probe, x, y, z)
         if info.result == xp.ProbeError:
             logger.debug("terrain error")
-            (x, y, z) = xp.worldToLocal(lat, lon, alt)
+            x, y, z = xp.worldToLocal(lat, lon, alt)
         elif info.result == xp.ProbeMissed:
             logger.debug("terrain Missed")
-            (x, y, z) = xp.worldToLocal(lat, lon, alt)
+            x, y, z = xp.worldToLocal(lat, lon, alt)
         elif info.result == xp.ProbeHitTerrain:
             # logger.debug("Terrain info is [{}] {}".format(info.result, info))
-            (x, y, z) = (info.locationX, info.locationY, info.locationZ)
+            x, y, z = (info.locationX, info.locationY, info.locationZ)
             # (lat, lng, alt) = xp.localToWorld(info.locationX, info.locationY, info.locationZ)
             # logger.debug('lat, lng, alt is {} feet'.format((lat, lng, alt * 3.28)))
         xp.destroyProbe(probe)
@@ -207,7 +219,7 @@ class XPObject:
             return
         self.lightObject = lightType.obj
         pitch, roll, alt = (0, 0, 0)
-        (x, y, z) = self.groundXYZ(self.position.lat, self.position.lon, alt)
+        x, y, z = self.groundXYZ(self.position.lat, self.position.lon, alt)
         self.xyz = (x, y, z, pitch, self.heading, roll)
 
         if lightTypeOff is not None and self.instanceOff is None:
@@ -240,7 +252,7 @@ class XPObject:
             lat = p.lat
             lon = p.lon
         pitch, roll, alt = (0, 0, 0)
-        (x, y, z) = self.groundXYZ(lat, lon, alt)
+        x, y, z = self.groundXYZ(lat, lon, alt)
         # if fwd != 0.0:
         #     x, y = self.coordinates_of_adjusted_ref(x, z, fwd, 0, hdg)
         xyz = (x, y + elev, z, pitch, hdg, roll)
@@ -260,9 +272,9 @@ class XPObject:
 class Light(XPObject):
     # A light to follow, or a stopbar light
     # Holds a referece to its instance
-    def __init__(self, lightType, position, heading, index, dist: float = 0, dist2: float = 0.0):
+    def __init__(self, lightType, position, heading, index, dist: float = 0, sr_index: int = 0, sr_dist: float = 0.0):
         self.lightType = lightType
-        XPObject.__init__(self, position, heading, index, dist, dist2)
+        XPObject.__init__(self, position, heading, index, dist, sr_index, sr_dist)
 
 
 class Stopbar:
@@ -360,10 +372,11 @@ class LightString:
     #    (108-75)*distance_between_green_lights
     # No need for sophisticated calculation. Error is at most distance_between_green_lights.
 
-    def __init__(self, airport, aircraft, preferences: dict = {}):
+    def __init__(self, airport, aircraft, preferences: dict = {}, has_light: bool = True, use_taxiway_lights: bool = False):
         self.airport = airport  # get some lighting preference from there
         self.aircraft = aircraft  # get some rabbit preference from there
         self.prefs = preferences  # get FtG preference from there
+        self.light_objects = LIGHT_TYPE_OBJFILES_TAXIWAY if use_taxiway_lights else LIGHT_TYPE_OBJFILES
 
         self.lights = []  # all green lights from start to destination indexed from 0 to len(lights)
         self.stopbars = []  # Keys of this dict are green light indices.
@@ -371,6 +384,16 @@ class LightString:
         self.currentSegment = 0
         self.rabbitIdx = 0
         self.rabbitCanRun = False
+        self.rabbitRunning = False
+        self.refrabbit = "FtG:rabbit"
+        self.flrabbit = None
+        self.rabbitRunning = False
+
+        # Rabbit mode
+        self._rabbit_mode = RABBIT_MODE.MED
+        self._may_adjust_rabbit = True
+        self.last_updated = datetime.now() - timedelta(seconds=MAX_UPDATE_FREQUENCY)
+        self.manual_mode = False
 
         self.route = None  # route as returned by graph.find(), i.e. a list of vertex indices.
         self._days = 0
@@ -386,8 +409,13 @@ class LightString:
         self.lightTypes = None
         self.taxiway_alt = 0
         self.use_wigwag = get_global("ADD_WIGWAG", preferences=self.prefs)
-        self._hasLight = None
+        self._hasLight = has_light
+        logger.debug(f"has_light={has_light} -> {self.hasLight}")
         self._on_active = False
+        self.airport_light_level = xp.findDataRef(AMBIANT_RWY_LIGHT_VALUE)  # [off, lo, med, hi] = [0, 0.25, 0.5, 0.75, 1]
+        self.runway_level_original = 1.0
+        self.newLastLit = 0
+        self.old_msg2 = ""
 
         # PREFERENCES
         #
@@ -496,7 +524,15 @@ class LightString:
 
         # control logged info
         self._info_sent = False
-        logger.info(f"rabbit: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}, greens={self.distance_between_green_lights}m")
+        if has_light:
+            logger.info(
+                f"rabbit: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}, greens={self.distance_between_green_lights}m"
+            )
+        else:
+            logger.info(
+                f"rabbit: length={self.num_rabbit_lights}, speed={abs(self.rabbit_duration)}, ahead={abs(self.num_lights_ahead)}, greens={self.distance_between_green_lights}m"
+            )
+            logger.info(f"no lights, res={self.distance_between_green_lights}m")
 
     def destroy(self):
         # Destroy each green light
@@ -519,29 +555,39 @@ class LightString:
     # INFO
     #
     def features(self):
+        """Return GeoJSON features for debugging.
+
+        NOTE: This only affects exported marker colours (e.g. ftg_ls.geojson).
+        In-sim light colours are controlled by the OBJ lights created/loaded in loadObjects().
+        """
+        # Colour-blind friendly markers (route cyan, stopbars magenta)
+        route_hex = "#00d9ff"  # before "#00ff00"
+        stop_hex = "#ff00ff"  # before "#ff0000"
+
         fc = []
         # Lights
         i = 0
         for light in self.lights:
-            light.position.setProp(GEOJSON.MARKER_COLOR.value, "#00ff00")
+            light.position.setProp(GEOJSON.MARKER_COLOR.value, route_hex)
             light.position.setProp(GEOJSON.MARKER_SIZE.value, "small")
+            light.position.setProp("lightIndex", i)
             light.position.setProp("edgeIndex", light.edgeIndex)
             light.position.setProp("distFromEdgeStart", round(light.distFromEdgeStart, 2))
-            light.position.setProp("distToEdgeEnd", round(light.distToEdgeEnd, 2))
-            light.position.setProp("lightIndex", i)
+            light.position.setProp("srIndex", light.srIndex)
+            light.position.setProp("distFromsrIndex", round(light.distFromsrIndex, 2))
             i = i + 1
             fc.append(light.position.feature())
         # logger.debug(f"added {len(self.lights)} lights")
         # Stop lights
         for sb in self.stopbars:
             for light in sb.lights:
-                light.position.setProp(GEOJSON.MARKER_COLOR.value, "#ff0000")
+                light.position.setProp(GEOJSON.MARKER_COLOR.value, stop_hex)
                 light.position.setProp(GEOJSON.MARKER_SIZE.value, "small")
                 light.position.setProp("lightStringIndex", sb.lightStringIndex)
                 light.position.setProp("lightBarIndex", light.edgeIndex)
                 fc.append(light.position.feature())
         # logger.debug(f"added {len(self.stopbars)} stopbars")
-        logger.debug(f"{len(fc)} features")
+        # logger.debug(f"{len(fc)} features")
         return fc
 
     def printSegments(self):
@@ -549,12 +595,18 @@ class LightString:
         logger.info(f"added {len(self.lights)} lights, {self.segments + 1} segments, {len(self.stopbars)} stop bars")
         if len(self.stopbars) > 0:
             segs = []
+            sbars = []
             last = 0
             for i in range(len(self.stopbars)):
+                sbars.append(str(self.stopbars[i].lightStringIndex))
                 segs.append(f"#{i}:{last}-{self.stopbars[i].lightStringIndex - 1}")
                 last = self.stopbars[i].lightStringIndex
-            segs.append(f"#{i}:{last}-{len(self.lights) - 1}")
+            segs.append(f"#{len(self.stopbars)}:{last}-{self.lastLightIndex}")
             logger.debug("segments: " + ", ".join(segs))
+            logger.debug("stop bars at indices: " + ", ".join(sbars))
+        else:
+            logger.debug(f"one segment 0-{len(self.lights)-1}")
+            logger.debug("no stop bar")
 
         logger.debug(f"distance between taxiway center lights: {self.distance_between_green_lights} m")
         logger.debug(f"lights ahead: {self.num_lights_ahead},  {self.aircraft.lights_ahead} m")
@@ -577,7 +629,7 @@ class LightString:
             abs(brng - convertAngleTo360(heading)),
         ]
 
-    def nextStop(self):
+    def nextStop(self) -> int:
         # index of light where should stop next
         # skipping stopbar that are cleared
         i = self.currentSegment
@@ -588,8 +640,48 @@ class LightString:
                 return sb.lightStringIndex
             logger.debug(f"stopbar {i} already cleared")
             i = i + 1
-        # no more stop bar? return last light
-        return len(self.lights) - 1
+        # no more stop bar? return last light, even it is not a stop
+        return self.lastLightIndex
+
+    def mustStopAt(self, nextStop: int) -> bool:
+        # Return true if nextStop is last light and there is no stop bar at the last light
+        logger.debug(f"must stop at {nextStop}?")
+        if len(self.stopbars) > 0:
+            last_light = self.lastLightIndex
+            if nextStop == last_light:
+                logger.debug(f"next stop is last light ({nextStop})")
+                lastStopBar = self.stopbars[-1]
+                r = lastStopBar.lightStringIndex == last_light
+                if r:
+                    logger.debug(f"last stop bar is at last light ({lastStopBar.lightStringIndex} = {last_light})")
+                return r
+            r = self.stopCleared(nextStop)
+            logger.debug(f"next stop is not last light ({nextStop} != {last_light}), next stop bar cleared={r}")
+            return not r
+        logger.debug(f"no stopbar ({nextStop})")
+        return False
+
+    def stopCleared(self, nextStop: int) -> bool:
+        s = None
+        i = 0
+        while s is None and i < len(self.stopbars):
+            if self.stopbars[i].lightStringIndex <= nextStop:  # if nextStop provided by nextStop(), lightStringIndex == nextStop
+                i += 1
+                continue
+            logger.debug(f"at {nextStop}, next stop bar at {self.stopbars[i].lightStringIndex}, cleared={self.stopbars[i].cleared}")
+            s = self.stopbars[i]
+        return s is None or s.cleared
+
+    def toNextStop(self, position):
+        # light index of next stop position and distance to it
+        ns = self.nextStop()
+        light = self.lights[ns]
+        point = Point(position[0], position[1])
+        d = distance(point, light.position)
+        c, d2 = self.closest(position)
+        d3 = abs(c - ns) * self.distance_between_green_lights
+        # logger.debug(f"control: closest={c} (at {round(d2, 1)}m), next stop={ns}, d calc={round(d3, 1)}m, d mesure={round(d, 1)}m")
+        return [ns, d]
 
     def closest(self, position, after: int = 0):
         # Find closest light to position (often aircraft)
@@ -605,21 +697,10 @@ class LightString:
 
         return [idx, dist]
 
-    def toNextStop(self, position):
-        # light index of next stop position and distance to it
-        ns = self.nextStop()
-        light = self.lights[ns]
-        point = Point(position[0], position[1])
-        d = distance(point, light.position)
-        c, d2 = self.closest(position)
-        d3 = abs(c - ns) * self.distance_between_green_lights
-        # logger.debug(f"control: closest={c} (at {round(d2, 1)}m), next stop={ns}, d calc={round(d3, 1)}m, d mesure={round(d, 1)}m")
-        return [ns, d]
-
     def lightAhead(self, index_from: int, ahead: float) -> tuple:
         move = int(ahead / self.distance_between_green_lights)
         left = ahead - move * self.distance_between_green_lights
-        idx = min(index_from + move, len(self.lights) - 1)
+        idx = min(index_from + move, self.lastLightIndex)
         return self.lights[idx], idx, left
 
     # INIT
@@ -634,7 +715,7 @@ class LightString:
             "texture": LightType.DEFAULT_TEXTURE_CODE,
         }
         self.lightTypes = {}
-        for k, f in LIGHT_TYPE_OBJFILES.items():
+        for k, f in self.light_objects.items():
             if self._days == 44 and k != LIGHT_TYPE.STOP:
                 eggfn = LightType.create(name="egg.obj", color=(0.9, 0.1, 0.9), size=18, intensity=10, texture=LightType.DEFAULT_TEXTURE_CODE)
                 self.lightTypes[k] = LightType(k, eggfn)
@@ -756,9 +837,22 @@ class LightString:
         logger.debug(f"{t} lights placed")
         return True
 
-    def populate(self, route, move: MOVEMENT, onRunway: bool = False):
+    def populate(self, ftg, onRunway: bool = False):
         # @todo: If already populated, must delete lights first
         logger.debug(f"populate: on runway = {onRunway}")
+
+        route = ftg.route
+        move = ftg.move
+        # Transfer UI values to airport for use
+        if not ftg.ui.use_car and ftg.ui.advanced_options:
+            self.lights_ahead = ftg.ui.lights_ahead
+            self.lights_ahead_pref = True
+            self.rabbit_length = ftg.ui.rabbit_length
+            self.rabbit_length_pref = True
+            self.rabbit_speed = ftg.ui.rabbit_speed
+            self.rabbit_speed_pref = True
+            logger.info(f"using ui values for greens (la={self.lights_ahead}, rl={self.rabbit_length}, rs={self.rabbit_speed})")
+
         self.route = route
         graph = route.graph
         thisLights = []
@@ -880,12 +974,12 @@ class LightString:
         logger.debug(f"at vertex 0, lights placed={len(thisLights)}")
         secure = len(route.smoothRoute) * 2
         i = 0
-        while srCurrPoint[0] < (len(route.smoothRoute) - 2) and i < secure:
+        while srCurrPoint[0] < (len(route.smoothRoute) - 1) and i < secure:
             r_idx = route.smoothRoute[srCurrPoint[0]].getProp(SMOOTH_ROUTE.ROUTE_INDEX)
             thisEdge = route.edges[r_idx]
             nextLightPos, d_brng, d_idx, d_dist = route.srAhead(i=srCurrPoint[0], dist=self.distance_between_green_lights, start=srCurrPoint[1])
-            distToNextVertex = distance(nextLightPos, route.smoothRoute[d_idx + 1])
-            thisLights.append(Light(self.nextTaxiwayLight(nextLightPos, thisEdge), nextLightPos, d_brng, r_idx, d_dist, distToNextVertex))
+            distFromVertex = distance(nextLightPos, route.vertices[r_idx])
+            thisLights.append(Light(self.nextTaxiwayLight(nextLightPos, thisEdge), nextLightPos, d_brng, r_idx, distFromVertex, d_idx, d_dist))
             srCurrPoint = (d_idx, d_dist)
             # logger.debug(f"srCurrPoint={srCurrPoint} (i={i})")
             i += 1
@@ -924,11 +1018,11 @@ class LightString:
         # Lights up a segment of lights between 2 stop bars
         if not self.lightTypes:
             if not self.loadObjects():
-                return [False, "Could not load light objects."]
+                return Error("Could not load light objects.")
 
         if not self.xyzPlaced:  # do it once and for all. Lights rarely move.
             if not self.placeLights():
-                return [False, "Could not place light objects."]
+                return Error("Could not place light objects.")
 
         self.currentSegment = segment
         start = 0
@@ -940,7 +1034,7 @@ class LightString:
                 lastSb = self.stopbars[segment - 1]
                 start = lastSb.lightStringIndex
             end = len(self.lights)
-            logger.debug(f"illuminated last segment {segment} between {start} and {end}")
+            logger.debug(f"planning to illuminate last segment {segment} between {start} and {end}")
         else:
             sbend = self.stopbars[segment]
             if segment > 0:
@@ -948,18 +1042,20 @@ class LightString:
                 sbbeging = self.stopbars[segment - 1]
                 start = sbbeging.lightStringIndex
             end = sbend.lightStringIndex
-            logger.debug(f"illuminated segment {segment} between {start} and {end}")
+            logger.debug(f"planning to illuminate segment {segment} between {start} and {end}")
 
         if start == end:
-            logger.warning(f"illuminated segment {segment} between {start} and {end}: no light to illuminate")
+            logger.warning(f"planning to illuminate segment {segment} between {start} and {end}: no light to illuminate")
 
         if (self.num_lights_ahead is None or self.num_lights_ahead == 0) and self.hasLight:
             # Instanciate for each green light in segment and stop bar
+            logger.debug("no light ahead: illuminated whole greens")
             for i in range(start, end):
                 self.lights[i].on()
+            logger.debug(f"illuminated segment {segment} between {start} and {end}")
             # map(lambda x: x.on(self.txy_light_obj), self.lights[start:end])
-            logger.debug("no light ahead: illuminated whole greens")
-        # else, lights will be turned on in front of rabbit
+        else:
+            logger.debug(f"lights will be turned on progressively in front of rabbit (la={self.num_lights_ahead}, hasLight={self.hasLight})")
 
         # Instanciate for each stop light
         # for sb in self.stopbars:
@@ -975,7 +1071,7 @@ class LightString:
         if not self.rabbitCanRun:
             self.rabbitCanRun = True
 
-        return [True, "greens are set"]
+        return NoError("greens are set")
 
     def offToIndex(self, idx):
         if idx < len(self.lights):
@@ -999,13 +1095,17 @@ class LightString:
         if self._hasLight is not None:
             # logger.debug(f"haslLight1 {self._hasLight}")
             return self._hasLight
-        # logger.debug(f"rabbit_speed={self.rabbit_speed}, rabbit_length={self.rabbit_length}, num_lights_ahead={self.num_lights_ahead} => {(self.rabbit_length > 0 and self.num_lights_ahead != HARDCODED_MAX_DISTANCE) or self.rabbit_speed > 0}")
-        r = (self.rabbit_length > 0 and self.num_lights_ahead != HARDCODED_MAX_DISTANCE) or self.rabbit_speed > 0
-        # logger.debug(f"haslLight {r}")
-        return r
+        return True
+
+    @property
+    def lastLightIndex(self) -> int:
+        return -1 if self.lights is None or len(self.lights) == 0 else len(self.lights) - 1
+
+    def isLastLight(self, index) -> bool:
+        return index >= 0 and index == self.lastLightIndex
 
     def hasRabbit(self) -> bool:
-        return (abs(self.rabbit_duration) > 0 and self.num_rabbit_lights > 0) or self.lights_ahead > 0
+        return self.hasLight and ((abs(self.rabbit_duration) > 0 and self.num_rabbit_lights > 0) or self.lights_ahead > 0)
 
     def resetRabbit(self):
         # set all lights
@@ -1030,16 +1130,317 @@ class LightString:
         self.new_num_lights_ahead = ahead
         self.new_rabbit_duration = duration
 
+    def setNewLastLit(self, newLastLit: int):
+        self.newLastLit = newLastLit
+
+    def rabbitFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
+        # pylint: disable=unused-argument
+        # show rabbit in front of plane.
+        # plane is supposed to Follow the greens and it close to green light index self.lastLit.
+        # We cannot use XP's counter because it does not increment by 1 just for us.
+        try:
+            return self.rabbit()
+        except:
+            logger.error("issue in rabbit flight loop, retrying in 5 seconds", exc_info=True)
+        return 5.0
+
+    def startFlightLoop(self):
+        self.lastLit = 0
+        self.acf_light_progress = 0
+        self.last_acf_light_progress = 0
+        self.last_acf_light_progress_cnt = 0
+
+        if self.hasRabbit():
+            if not self.rabbitRunning:
+                self.flrabbit = xp.createFlightLoop(callback=self.rabbitFLCB, phase=xp.FlightLoop_Phase_BeforeFlightModel, refCon=self.refrabbit)
+                xp.scheduleFlightLoop(self.flrabbit, 1.0, 1)  # starts in a second, arbitrary
+                self.rabbitRunning = True
+                logger.debug(f"rabbit started ({self.rabbit_mode})")
+            else:
+                logger.debug(f"rabbit running ({self.rabbit_mode})")
+        else:
+            logger.debug("no rabbit requested")
+
+        # Dim runway lights according to preferences
+        ll = get_global("RUNWAY_LIGHT_LEVEL_WHILE_FTG", preferences=self.prefs)
+        ll = ll.lower()
+        if ll.startswith("l"):
+            ll = "lo"
+        elif ll.startswith("m"):
+            ll = "med"
+        elif ll.startswith("h"):
+            ll = "hi"
+        elif ll.startswith("o"):
+            ll = "off"
+        if self.hasLight:
+            self.runway_level_original = xp.getDataf(self.airport_light_level)
+            if ll is not None:
+                cmdref = xp.findCommand(AMBIANT_RWY_LIGHT_CMDROOT + ll)
+                if cmdref is not None:
+                    xp.commandOnce(cmdref)
+                    currlevel = xp.getDataf(self.airport_light_level)
+                    logger.debug(f"runway lights preference set to {ll} (original={self.runway_level_original}, during FtG={currlevel})")
+
+    def stopFlightLoop(self):
+        if self.rabbitRunning and self.flrabbit is not None:
+            xp.destroyFlightLoop(self.flrabbit)
+            self.rabbitRunning = False
+            self.flrabbit = None
+            logger.debug("rabbit stopped")
+        else:
+            logger.debug("rabbit not running")
+
+        # Restore runway lights according to what it was
+        if self.hasLight:
+            level = AMBIANT_RWY_LIGHT.HIGH
+            currlevel = self.runway_level_original
+            if self.airport_light_level is not None:
+                currlevel = xp.getDataf(self.airport_light_level)
+            if currlevel != self.runway_level_original:
+                if self.runway_level_original == 0:
+                    level = AMBIANT_RWY_LIGHT.OFF
+                elif self.runway_level_original <= 0.25:
+                    level = AMBIANT_RWY_LIGHT.LOW
+                elif self.runway_level_original <= 0.5:
+                    level = AMBIANT_RWY_LIGHT.MEDIUM
+                logger.debug(f"new level {level} ({currlevel} => {self.runway_level_original})")
+                cmdref = xp.findCommand(AMBIANT_RWY_LIGHT_CMDROOT + level)
+                if cmdref is not None:
+                    xp.commandOnce(cmdref)
+                    checklevel = xp.getDataf(self.airport_light_level)
+                    logger.debug(f"runway lights restored to {level} (during FtG={currlevel}, after FtG={checklevel})")
+                else:
+                    logger.debug(f"runway lights command not found {AMBIANT_RWY_LIGHT_CMDROOT + level}")
+            else:
+                logger.debug(f"runway lights no need to restore ({currlevel} vs. {self.runway_level_original})")
+
+    @property
+    def rabbitMode(self) -> RABBIT_MODE:
+        return self._rabbit_mode
+
+    @rabbitMode.setter
     def rabbitMode(self, mode: RABBIT_MODE):
+        # Need to add a function to NOT change rabbit too often, once every 10 secs. is a minimum
         if not self.hasRabbit():
             return
-        self.rabbit_mode = mode
+        if self.rabbitMode == mode:
+            return
+        if not self.may_rabbit_autotune:
+            logger.debug(f"rabbit adjustment not permitted ({self.reason})")
+            return
+        now = datetime.now()
+        delay = (now - self.last_updated).total_seconds()
+        if delay < MAX_UPDATE_FREQUENCY:
+            logger.debug(f"must wait {round(MAX_UPDATE_FREQUENCY - delay, 2)} seconds before changing rabbit")
+            return
+
+        self._rabbit_mode = mode
+        self.last_updated = now
+        logger.debug(f"rabbit mode set to {mode}")
+
         length, speed, ahead = self.newRabbitParameters(mode)
         # self.resetRabbit()  # moved to rabbit()
         self.changeRabbit(length=length, duration=speed, ahead=ahead)
         logger.info(f"mode: {mode}: {length} lights, {round(speed, 2)}secs (ahead={self.num_lights_ahead} lights)")
 
-    def rabbit(self, start: int):
+    @property
+    def may_rabbit_autotune(self) -> bool:
+        return self._may_adjust_rabbit
+
+    def allowRabbitAutotune(self, reason: str = ""):
+        self._may_adjust_rabbit = True
+        self.reason = reason
+        logger.debug(f"rabbit adjustment authorized (reason {reason})")
+
+    def disallowRabbitAutotune(self, reason: str = ""):
+        self._may_adjust_rabbit = False
+        self.reason = reason
+        logger.debug(f"rabbit adjustment not permitted (reason {reason})")
+
+    def manualRabbitMode(self, mode: RABBIT_MODE):
+        self.manual_mode = True
+        logger.debug("manual rabbit mode")
+        self.rabbitMode = mode
+
+    def automaticRabbitMode(self):
+        self.manual_mode = False
+        logger.debug("rabbit mode automagic")
+
+    def adjustRabbit(self, aircraft, closestLight, flightloop):
+        # Important note:
+        # In planeFLCB(), if we are closing to a STOP, the following is set:
+        #   self.rabbitMode = RABBIT_MODE.SLOWEST
+        # If we are not close to a stop, here we are to check for turns.
+        #
+        # logger.debug("adjusting rabbit")
+        # if not self.hasRabbit():
+        #     logger.debug("..no rabbit")
+        #     return
+
+        # I. Collect information
+        # 1. Distance to next vertex (= distance to next potential turn)
+        aircraft = flightloop.ftg.aircraft
+        position = aircraft.position()
+        acf_speed = aircraft.speed()
+
+        route = self.route
+        light = self.lights[closestLight]
+        next_vertex = light.edgeIndex + 1
+        if next_vertex >= len(route.route):  # end of route
+            next_vertex = len(route.route) - 1
+            logger.info("reached end of route")
+        nextvtxid = route.route[next_vertex]
+        nextvtx = route.graph.get_vertex(nextvtxid)
+
+        # 2. distance to that next vertex and turn at that vertex
+        dist_from_acf_to_next_vtx = distance(Point(lat=position[0], lon=position[1]), nextvtx)
+
+        if round(self.last_dist_from_acf_to_next_vtx, 1) == round(dist_from_acf_to_next_vtx, 1):  # not moved
+            msg = "stopped"
+            if self.old_msg != msg:
+                logger.debug(msg)
+                self.old_msg = msg
+            return
+
+        self.last_dist_from_acf_to_next_vtx = dist_from_acf_to_next_vtx
+        turn = route.turns[light.edgeIndex]
+
+        # 3. current speed
+        acf_move = acf_speed * flightloop.lastIter
+
+        # logger.debug(f"closest light: vertex index {light.edgeIndex}, next vertex={nextvtx}, distance={round(dist, 1)}, turn={round(turn, 0)}, speed={round(speed, 1)}")
+        # logger.debug(f"start turn={round(turn, 0)} at {round(dist, 1)}m, current speed={round(speed, 1)}")
+
+        # From observation/experience:
+        # Taxi very fast> 15 m/s
+        # Taxi fast=12 m/s
+        # Taxi cautious = 6m/s
+        # Turn (90°): 3-4 m/s
+        # Brake: 12m/s to 3: 100 m with A321, 200m with A330
+        # We decide:
+        # Turn < 15°, speed "cautious"
+        # Turn > 15°, speed "turn"
+        #
+        # 4. Find next "significant" turn of more than TURN_LIMIT
+        # following is precomputed once and for all in mkDistToBrake() (.dtb[<route-vertex-index>])
+        # dist2 = dist_from_acf_to_next_vtx
+        # dist_before2 = dist2
+        TURN_LIMIT = 10.0  # °, below this, it is not considered a turn, just a small break in an almost straight line
+
+        idx = next_vertex
+        while abs(turn) < TURN_LIMIT and idx < len(route.turns):
+            turn = route.turns[idx]
+            # dist_before2 = dist2
+            # dist2 = dist2 + route.edges[idx].cost
+            idx = idx + 1
+        if idx >= len(route.route):  # end of route
+            idx = len(route.route) - 1
+            logger.info("reached end of route")
+
+        # logger.debug(f"current vertex={light.edgeIndex}, distance to next vertex {idx}: {round(dist_from_acf_to_next_vtx, 1)}m")
+        # logger.debug(f"at vertext {idx}: turn={round(route.turns[idx], 1)} DEG")
+        dist_from_next_vtx_to_next_turn = 0 if abs(route.turns[next_vertex]) > TURN_LIMIT else route.dtb[next_vertex]
+        # next_turn_vertex_index = next_vertex if abs(route.turns[next_vertex]) > TURN_LIMIT else route.dtb_at[next_vertex]
+        # could also be route.dtb_at[light.edgeIndex]
+        # logger.debug(f"at vertext {idx}: distance to add to next turn={round(dist_from_next_vtx_to_next_turn, 1)}m")
+
+        dist_before = dist_from_acf_to_next_vtx + dist_from_next_vtx_to_next_turn
+        flightloop.dist_to_next_turn = dist_before  # for hud, temporarily
+        flightloop.dist_from_next_vtx_to_next_turn = dist_before  # for hud, temporarily
+        taxi_speed = max(acf_speed, aircraft.avgTaxiSpeed())  # m/s
+        time_to_next_vertex = dist_from_acf_to_next_vtx / taxi_speed
+
+        # logger.debug(f"acf speed={round(acf_speed, 1)}, moved {round(acf_move, 1)}m during last iteration ({self.lastIter} secs)")
+        # logger.debug(f"at index {light.edgeIndex}, next turn at index {idx-1}, {round(turn)}D at {round(dist_before, 1)}m")
+        # logger.debug(f"dist to next vertex {next_vertex}: {round(dist_from_acf_to_next_vtx, 1)}m, dist from next_vertex to next turn: {round(dist_from_next_vtx_to_next_turn, 1)}m")
+
+        # dist to next vertex + remaining at next vertex = total left
+        flightloop.remaining_dist = dist_from_acf_to_next_vtx + route.dleft[next_vertex]
+        # logger.debug(f"remaining dist to {next_vertex}: nxt {round(dist_from_acf_to_next_vtx, 1)}m + end {round(route.dleft[next_vertex], 1)}m = {round(self.remaining_dist, 1)}m")
+
+        flightloop.remaining_time = time_to_next_vertex + route.tleft[next_vertex] + 30
+        # logger.debug(
+        #     f"remaining time to {next_vertex}: nxt {round(time_to_next_vertex, 1)}sec + end {round(route.tleft[next_vertex], 1)}sec + mgn 30sec = {round(self.remaining_time, 1)}sec"
+        # )
+
+        # logger.debug(f"next turn index control next_turn_vertex_index={next_turn_vertex_index}, dtb_at[light.edgeIndex]={route.dtb_at[light.edgeIndex]}, idx={idx-1} (computed)")
+
+        # logical controls
+        # 1. dist to next turn + remaining at turn = total left
+        # logger.debug(f"remaining dist: nxt turn at index {idx-1} {round(dist_before, 1)}m + end {round(route.dleft[idx-1], 1)}m = {round(dist_before + route.dleft[idx-1], 1)}m")
+
+        # logger.debug(f"total d={round(self.total_dist, 1)}m, t={round(self.total_time, 1)}s ({minsec(self.total_time)})")
+
+        # precompute for hud
+        flightloop.is_late = flightloop.late(t0=flightloop.remaining_time)  # will display original estimated vs new estimate
+        flightloop.remaining = f"{round(flightloop.remaining_dist):4d}m, {minsec(flightloop.remaining_time)}"
+        # logger.debug(f"remaining: {round(self.remaining_dist, 1)}m, {round(self.remaining_time/60)}min, {'(late)' if self.is_late else '(on time)'}")
+        # logger.debug(f"{self.remaining}")
+
+        if not self.may_rabbit_autotune:
+            logger.debug(f"..autotune not permitted ({self.reason})")
+            return
+
+        # II. From distance to turn, and angle of turn, assess situation
+        # II.1  determine target speed (range)
+        SMALL_TURN_LIMIT = 15.0  # °, below this, it is a small turn, recommended to slow down a bit but not too much
+        MOVEIT_DIST = 400.0  # m no reason to not go fast
+        SPEED_DELTA = 4.0  # in m/s, should may be a % of average range speed
+
+        taxi_speed_ranges = aircraft.taxiSpeedRanges()
+        braking_distance = aircraft.brakingDistance()  # m should be a function of acf mass/type and current speed
+
+        target = taxi_speed_ranges[TAXI_SPEED.MED]  # target speed range
+        comment = "continue"
+
+        if dist_before < braking_distance:
+            if abs(turn) < SMALL_TURN_LIMIT:
+                comment = "small turn at braking distance, caution"
+                target = taxi_speed_ranges[TAXI_SPEED.CAUTION]
+            else:
+                comment = "turn at braking distance"
+                target = taxi_speed_ranges[TAXI_SPEED.TURN]
+        elif dist_before > MOVEIT_DIST:
+            comment = "no turn before large distance, move it"
+            target = taxi_speed_ranges[TAXI_SPEED.FAST]
+
+        # II.2 adjust rabbit mode from current speed to target speed range
+        advise = "on target"  # ..within range, mode = normal/medium
+        mode = RABBIT_MODE.MED
+
+        speed_range = target
+        if acf_speed < AIRCRAFT_STOPPED_SPEED:  # m/s
+            advise = f"probably stopped ({round(acf_speed, 1)}m/s < {AIRCRAFT_STOPPED_SPEED})"
+        elif acf_speed < speed_range[0]:
+            delta = speed_range[0] - acf_speed
+            if delta > SPEED_DELTA:
+                mode = RABBIT_MODE.FASTEST
+                advise = "really too slow, accelerate"
+            else:
+                mode = RABBIT_MODE.FASTER
+                advise = "too slow, accelerate"
+        elif acf_speed > speed_range[1]:
+            delta = acf_speed - speed_range[1]
+            if delta > SPEED_DELTA:
+                mode = RABBIT_MODE.SLOWEST
+                advise = "really too fast, brake"
+            else:
+                mode = RABBIT_MODE.SLOWER
+                advise = "too fast, brake"
+
+        msg = f"acf speed={round(acf_speed, 1)}, target={target}; rabbit mode={self.rabbitMode}, recommanded={mode} ({comment}, {advise})"
+        if msg != self.old_msg2:
+            logger.debug(msg)
+            self.old_msg2 = msg
+
+        try:
+            if self.rabbitMode != mode:
+                logger.info(msg)
+                self.rabbitMode = mode
+        except:
+            logger.error("set rabbitMode", exc_info=True)
+
+    def rabbit(self):
         if not self.rabbitCanRun:
             return 10  # checks 10 seconds later
 
@@ -1049,6 +1450,8 @@ class LightString:
             prev = strt + ((sq - 1) % self.num_rabbit_lights)
             if prev < rn:
                 self.lights[prev].on()
+
+        start = self.newLastLit
 
         if self.new_num_rabbit_lights != self.num_rabbit_lights or self.new_num_lights_ahead != self.num_lights_ahead:
             logger.debug(f"adjustment: rabbit #lights: {self.num_rabbit_lights}->{self.new_num_rabbit_lights}, #ahead: {self.num_lights_ahead}->{self.new_num_lights_ahead}")
@@ -1126,11 +1529,11 @@ class LightString:
         # Lights up a segment of lights between 2 stop bars
         if not self.lightTypes:
             if not self.loadObjects():
-                return [False, "Could not load light objects."]
+                return Error("Could not load light objects.")
 
         if not self.xyzPlaced:  # do it once and for all. Lights rarely move.
             if not self.placeLights():
-                return [False, "Could not place light objects."]
+                return Error("Could not place light objects.")
 
         for light in self.lights:
             light.on()

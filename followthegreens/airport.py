@@ -4,6 +4,7 @@
 import os
 import re
 import math
+from sre_compile import dis
 from typing import Tuple
 
 try:
@@ -11,9 +12,22 @@ try:
 except ImportError:
     print("X-Plane not loaded")
 
+has_xplane_airports = False
+try:
+    from xplane_airports.AptDat import AptDat, Airport
+
+    has_xplane_airports = True
+except ImportError:
+    print("xplane_airports not loaded")
+
+
 from .globals import (
+    TAXIWAY_DIRECTION,
     logger,
     get_global,
+    Status,
+    Error,
+    NoError,
     DISTANCE_TO_RAMPS,
     TAXIWAY_TYPE,
     RUNWAY_BUFFER_WIDTH,
@@ -26,13 +40,16 @@ from .globals import (
 )
 from .geo import Point, Line, Polygon, destination, distance, pointInPolygon
 from .graph import Graph, Edge, Vertex
-from .cursor import CursorType, Cursor
+from .cursor import CursorType, Cursor, FOLLOW_ME_CARS
 from .route import Route
 
 SYSTEM_DIRECTORY = "."
 
 
 class Runway(Line):
+
+    INSIDE = 50  # m
+
     # A place to be. But not too long.
     def __init__(self, name, width, lat, lon, dt, dbo, lat2, lon2, pol):
         Line.__init__(self, Point(lat, lon), Point(lat2, lon2))
@@ -46,8 +63,10 @@ class Runway(Line):
         else:
             self.polygon = pol
         self.threshold = self.start
+        self.threshold_alt = self.start
         self.first_exit = self.threshold
         self.mkThreshold()
+        self.mkThresholdAlt()
 
     def onRunway(self, point):
         if self.polygon is None:
@@ -62,6 +81,11 @@ class Runway(Line):
         self.threshold = destination(src=self.start, brngDeg=self.bearing(), d=move)
         self.first_exit = self.threshold
         logger.debug(f"displaced threshold at {round(move,1)}m")
+
+    def mkThresholdAlt(self):
+        # If no displaced threshold, the threshold is the start
+        self.threshold_alt = destination(src=self.start, brngDeg=self.bearing(), d=self.INSIDE)
+        logger.debug(f"inside alternate threshold at {round(self.INSIDE,1)}m")
 
     def runwayExits(self, graph: Graph) -> set:
         # return vertex that this on taxiway network, that is NOT a on a runway edge
@@ -183,15 +207,17 @@ class Airport:
     Note: Should be split with generic non dependant airport and airport with routing, dependant on Graph
     """
 
-    HARDCODED_MAX_DISTANCE = int(6 * 7)  # m DO NOT CHANGE
     MTWYLDWC = 10  # count
 
     def __init__(self, icao, prefs: dict = {}):
         self.icao = icao.upper()
         self.prefs = prefs
         self.name = ""
+        self.apt_data = None
         self.cursor_type = None  # keep track of meta data of current cursor (turn radius, speeds, etc.)
         self.atc_ground = None
+        self.latitude = 0
+        self.longitude = 0
         self.altitude = 0  # ASL, in meters
         self.loaded = False
         self.scenery_pack = False
@@ -202,12 +228,19 @@ class Airport:
         self.holds = {}
         self.ramps = {}
 
+        self.status = False
+
         #
         # PREFERENCES - Fetched by LightString
         # Set sensible default value from global preferences
         self.use_threshold = get_global("USE_THRESHOLD", self.prefs)
         if self.use_threshold is None:
-            self.use_threshold = True
+            self.use_threshold = False
+        self.use_threshold_pref = False
+
+        self.use_car = get_global("USE_CAR", self.prefs)
+        if self.use_car is None:
+            self.use_car = False
 
         self.distance_between_green_lights = get_global(AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value, self.prefs)  # meters for follow_the_greens()
         self.distance_between_taxiway_lights = get_global(AIRPORT.DISTANCE_BETWEEN_LIGHTS.value, self.prefs)  # meters, for show_taxiways()
@@ -226,25 +259,34 @@ class Airport:
         logger.debug(f"airport rabbit: length={self.rabbit_length}L, speed={self.rabbit_speed}s, ahead={self.lights_ahead}L")
         logger.debug(f"airport rabbit: btw greens={self.distance_between_green_lights}m, whole net={self.distance_between_taxiway_lights}m")
 
-    def prepare(self):
-        status = self.load()
+    def position(self) -> tuple:
+        if self.apt_data is not None:
+            return (self.apt_data.latitude, self.apt_data.longitude, self.altitude)
+        return (self.latitude, self.longitude, self.altitude)
+
+    def prepare(self, filename: str | None = None) -> Status:
+        if filename is None:
+            status = self.load()
+        else:
+            logger.debug(f"loading from file {filename}")
+            status = self.loadFile(filename)
         if not status:
-            return [False, f"We could not find airport named '{self.icao}'."]
+            return Error(f"We could not find airport named '{self.icao}'.")
 
         # status = self.load_smooth()
         # if not status:
-        #     return [False, f"We could not find smooth taxiway lines for airport named '{self.icao}'."]
+        #     return Error(f"We could not find smooth taxiway lines for airport named '{self.icao}'.")
 
         # Info 5
         # logger.debug(f"has ATC {self.hasATC()}")  # actually, we don't care.
 
         status = self.mkRoutingNetwork()
         if not status:
-            return [False, f"We could not build taxiway network for {self.icao}."]
+            return Error(f"We could not build taxiway network for {self.icao}.")
 
         status = self.ldRunways()
         if len(status) == 0:
-            return [False, f"We could not find runways for {self.icao}."]
+            return Error(f"We could not find runways for {self.icao}.")
         # Info 7
         logger.debug(f"runways: {status.keys()}")
 
@@ -253,11 +295,27 @@ class Airport:
 
         status = self.ldRamps()
         if len(status) == 0:
-            return [False, f"We could not find ramps/parking for {self.icao}."]
+            return Error(f"We could not find ramps/parking for {self.icao}.")
         # Info 8
         logger.debug(f"ramps: {status.keys()}")
 
-        return [True, "Airport ready"]
+        self.status = True
+        return NoError("Airport ready")
+
+    def usable(self, move: MOVEMENT | None = None) -> bool:
+        # should check has taxiways, has runway, has at least one ramp?
+        if not self.graph.usable():
+            logger.debug("graph not usable")
+            return False
+        ok = False
+        if move is not None:
+            if move == MOVEMENT.DEPARTURE:
+                ok = len(self.runways) > 0
+            else:
+                ok = len(self.ramps) > 0
+        else:
+            ok = True
+        return ok and self.status
 
     def hasPreferences(self) -> bool:
         return self.icao in self.prefs.get("Airports", {})
@@ -272,6 +330,10 @@ class Airport:
         if len(prefs) > 0:
             logger.debug(f"airport {self.icao} preferences: {prefs}")
             if prefs is not None:
+                self.use_car = prefs.get("USE_CAR", self.use_car)
+                if AIRPORT.USE_THRESHOLD in prefs:
+                    self.use_threshold = prefs.get(AIRPORT.USE_THRESHOLD)
+                    self.use_threshold_pref = True
                 if AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value in prefs:
                     self.distance_between_green_lights = prefs[AIRPORT.DISTANCE_BETWEEN_GREEN_LIGHTS.value]
                     self.distance_between_green_lights_pref = True
@@ -302,27 +364,37 @@ class Airport:
         self.distance_between_taxiway_lights_pref = False
         self.setPreferences()
 
-    def fmcar(self, route, alternate: bool = False) -> Cursor | None:
+    def fmcar(self, ftg) -> Cursor | None:
         # fmcar should be **created** before lights are placed because
         # if fmcar, distance_between_green_lights will be hardcoded to convenient value (~10m)
         #
         # DID WE ASK FOR FMCAR
-        if self.lights_ahead != Airport.HARDCODED_MAX_DISTANCE or self.rabbit_length != 0 or self.rabbit_speed != 0:
-            logger.debug(f"no fmcar (la={self.lights_ahead}, rl={self.rabbit_length}, rs={self.rabbit_speed})")
+
+        if not ftg.use_car:
+            logger.debug("no use of fmcar")
             return None
         # MAYBE, depends on movement
         # check at airport-level first...
+        uifmcar = ftg.ui.fmcar
+        fmcar = FOLLOW_ME_CARS.get(uifmcar)
+        logger.debug(f"UI FM car {uifmcar}")
+        if fmcar is None:  # none provided through UI (may be Other)
+            fmcar = self.prefs.get("FollowMeCar", {})
+        if len(fmcar) == 0:
+            logger.debug("no FM car")
+            return
+
         apt = self.prefs.get("Airports", {})
         prefs = apt.get(self.icao, {})
         movement = prefs.get("MOVEMENT")
         # if no value, check at global level, if no value, all movements are OK
         if movement is None:
             movement = self.prefs.get("MOVEMENT", ",".join([m.value for m in MOVEMENT]))
-        if route.move.value not in movement:
-            logger.debug(f"no fmcar for {route.move} ({movement} only)")
-            # Setting global default rather than HARDCODED_MAX_DISTANCE/0/0
-            logger.info(f"no fmcar on {route.move.value} at {self.icao}")
-            self.rabbit_speed = get_global(RABBIT.LIGHTS_AHEAD.value, self.prefs)
+        if ftg.move.value not in movement:
+            logger.debug(f"no fmcar for {ftg.move} ({movement} only)")
+            # Setting global default
+            logger.info(f"no fmcar on {ftg.move.value} at {self.icao}")
+            self.lights_ahead = get_global(RABBIT.LIGHTS_AHEAD.value, self.prefs)
             if self.lights_ahead == 0:
                 self.lights_ahead = LIGHTS_AHEAD
             self.lights_ahead_pref = True
@@ -337,7 +409,6 @@ class Airport:
             logger.info(f"using global default for greens (la={self.lights_ahead}, rl={self.rabbit_length}, rs={self.rabbit_speed})")
             return None
         # YES
-        fmcar = self.prefs.get("FollowMeCar", {})
         adj = ""
         if self.distance_between_green_lights > self.MTWYLDWC:  # min twy light distance with/when fmcar
             adj = f", distance between taxiway lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
@@ -345,7 +416,13 @@ class Airport:
             self.distance_between_green_lights_pref = True
         logger.debug(f"using fmcar {fmcar}{adj}")
         # If developer mode, show lights as well
-        if self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False) and self.rabbit_length == 0 and self.rabbit_speed == 0:
+        self.cursor_type = CursorType(**fmcar)
+        self.cursor_type.indicator = ftg.ui.use_indicator  # transfert from UI
+        return Cursor(self.cursor_type, ftg)
+
+    def ensureDev(self) -> bool:
+        # returns has_light
+        if self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False):
             self.lights_ahead = 0
             self.lights_ahead_pref = True
             self.rabbit_length = 10
@@ -353,19 +430,8 @@ class Airport:
             self.rabbit_speed = 0.166
             self.rabbit_speed_pref = True
             logger.debug(f"and lights for development (forced rabbit_speed={self.rabbit_speed} != 0)")
-        self.cursor_type = CursorType(**fmcar)
-        return Cursor(self.cursor_type, route)
-
-    def ensureFmcar(self):
-        self.lights_ahead = Airport.HARDCODED_MAX_DISTANCE
-        self.lights_ahead_pref = True
-        self.rabbit_length = 0
-        self.rabbit_length_pref = True
-        self.rabbit_speed = 0
-        self.rabbit_speed_pref = True
-        self.distance_between_green_lights = self.MTWYLDWC
-        self.distance_between_green_lights_pref = True
-        logger.info("use of fmcar enforced")
+            return True
+        return False
 
     def load(self):
         APT_FILES = {}
@@ -405,39 +471,56 @@ class Airport:
         for scenery, filename in APT_FILES.items():
             if self.loaded:
                 return self.loaded
-
             logger.debug(f"scenery pack {scenery.strip()}..")
-            apt_dat = open(filename, "r", encoding="utf-8", errors="ignore")
-            line = apt_dat.readline()
+            self.loadFile(filename=filename)
 
-            while not self.loaded and line:  # while we have not found our airport and there are more lines in this pack
-                if re.match("^1 ", line, flags=0):  # if it is a "startOfAirport" line
-                    newparam = line.split()  # if no characters supplied to split(), multiple space characters as one
-                    # logger.debug(f"airport: {newparam[4]}")
-                    if newparam[4] == self.icao:  # it is the airport we are looking for
-                        self.name = " ".join(newparam[5:])
-                        self.altitude = newparam[1]
-                        # Info 4.a
-                        logger.info(f"found airport {newparam[4]} '{self.name}' in '{filename}'")
-                        self.scenery_pack = filename  # remember where we found it
-                        self.lines.append(AptLine(line.strip()))  # keep first line
-                        line = apt_dat.readline()  # next line in apt.dat
-                        while line and not re.match("^1 ", line, flags=0):  # while we do not encounter a line defining a new airport...
-                            testline = AptLine(line.strip())
-                            if testline.linecode() is not None:
-                                self.lines.append(testline)
-                            else:
-                                logger.debug(f"did not load empty line '{line.strip()}'")
-                            line = apt_dat.readline()  # next line in apt.dat
-                        # Info 4.b
-                        logger.info(f"read {len(self.lines)} lines for {self.name}")
-                        self.loaded = True
+        return self.loaded
 
-                if line:  # otherwize we reached the end of file
+    def loadXplaneAirport(self, filename):
+        if has_xplane_airports:
+            self.apt_data = None
+            try:
+                apt_dat = AptDat(path_to_file=filename)
+                apt_data = apt_dat[self.icao]
+                logger.info(f"xplane_airports read {self.icao}: {apt_data.from_file} {apt_data.name} {apt_data.id}")
+                self.apt_data = apt_data
+            except:
+                logger.error(f"could not load {self.icao} from {filename}", exc_info=True)
+        else:
+            logger.warning("xplane_airports not installed")
+
+    def loadFile(self, filename) -> bool:
+        apt_dat = open(filename, "r", encoding="utf-8", errors="ignore")
+        line = apt_dat.readline()
+
+        while not self.loaded and line:  # while we have not found our airport and there are more lines in this pack
+            if re.match("^1 ", line, flags=0):  # if it is a "startOfAirport" line
+                newparam = line.split()  # if no characters supplied to split(), multiple space characters as one
+                # logger.debug(f"airport: {newparam[4]}")
+                if newparam[4] == self.icao:  # it is the airport we are looking for
+                    self.loadXplaneAirport(filename=filename)
+                    self.name = " ".join(newparam[5:])
+                    self.altitude = newparam[1]
+                    # Info 4.a
+                    logger.info(f"found airport {newparam[4]} '{self.name}' in '{filename}'")
+                    self.scenery_pack = filename  # remember where we found it
+                    self.lines.append(AptLine(line.strip()))  # keep first line
                     line = apt_dat.readline()  # next line in apt.dat
+                    while line and not re.match("^1 ", line, flags=0):  # while we do not encounter a line defining a new airport...
+                        testline = AptLine(line.strip())
+                        if testline.linecode() is not None:
+                            self.lines.append(testline)
+                        else:
+                            logger.debug(f"did not load empty line '{line.strip()}'")
+                        line = apt_dat.readline()  # next line in apt.dat
+                    # Info 4.b
+                    logger.info(f"read {len(self.lines)} lines for {self.name}")
+                    self.loaded = True
 
-            apt_dat.close()
+            if line:  # otherwize we reached the end of file
+                line = apt_dat.readline()  # next line in apt.dat
 
+        apt_dat.close()
         return self.loaded
 
     def dumpAptFile(self, filename):
@@ -498,7 +581,7 @@ class Airport:
         # 1201  25.29549372  051.60759816 both 16 unnamed entity(split)
         def addVertex(aptline):  # same for both taxiways and service roads
             args = aptline.content().split()
-            return self.graph.add_vertex(args[3], Point(args[0], args[1]), args[2], " ".join(args[3:]))
+            return self.graph.add_vertex(node=args[3], point=Point(args[0], args[1]), usage=args[2], name=" ".join(args[3:]))
 
         def addRoads(aptline):  # same for both taxiways and service roads
             args = aptline.content().split()
@@ -553,13 +636,15 @@ class Airport:
                     logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}")
             elif aptline.linecode() == 1206:  # edge
                 args = aptline.content().split()
-                if len(args) == 3:
+                if len(args) >= 3:
                     src = self.roads.get_vertex(args[0])
                     dst = self.roads.get_vertex(args[1])
                     cost = distance(src, dst)
                     # src, dst, cost, direction, usage, name
                     edge = Edge(src=src, dst=dst, cost=cost, direction=args[2], usage="road", name="")
                     self.roads.add_edge(edge)
+                    if len(args) > 3:
+                        logger.debug(f"extra params: {args[3:]}")
                     roadEdgeCount += 1
                 else:
                     logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}")
@@ -656,7 +741,7 @@ class Airport:
         logger.debug(f"{closest} at {round(shortest, 1)}m")
         return [closest, shortest]
 
-    def onRunway(self, position, width: float | None = None, heading: float | None = None):
+    def onRunway(self, position, width: float | None = None, heading: float | None = None) -> Runway | None:
         # Width is in meter
         logger.debug(f"onRunway? position={position}, width={width}, heading={heading}")
         point = Point(position[0], position[1])
@@ -679,7 +764,7 @@ class Airport:
                             logger.debug(
                                 f"on {name}, same orientation (rwy width={rwy.width}m, ac heading={round(heading, 1)}, rwy heading={round(rwy.bearing(), 1)}, delta={round(d, 2)})"
                             )
-                            return [True, rwy]
+                            return rwy
                     else:
                         logger.debug(f"not on runway {name} (rwy width={rwy.width}m)")  # , {polygon.coords()}
                 else:
@@ -695,25 +780,26 @@ class Airport:
             if polygon is not None:
                 if pointInPolygon(point, polygon):
                     logger.debug(f"on {name}, no orientation (rwy width={rwy.width}m)")
-                    return [True, rwy]
+                    return rwy
                 else:
                     logger.debug(f"not on runway {name}")  # , {polygon.coords()}
             else:
                 logger.debug(f"no polygon for runway {name}")
 
-        return [False, None]
+        logger.debug("does not appear to be on any runway")
+        return None
 
     def guessMove(self, coord) -> MOVEMENT:
         # Info 10
-        onRwy, runway = self.onRunway(coord)
-        if onRwy:
+        runway = self.onRunway(coord)
+        if runway is not None:
             logger.info("aircraft appears to be on runway, assuming arrival")
             return MOVEMENT.ARRIVAL
-        ret = self.findClosestRamp(coord)
-        if ret[1] < DISTANCE_TO_RAMPS:  # meters, we are close to a ramp.
+        res = self.findClosestRamp(coord)
+        if res[1] < DISTANCE_TO_RAMPS:  # meters, we are close to a ramp.
             closest = ""
-            if type(ret[0]) is str:
-                closest = f" close to stand {ret[0]}"
+            if type(res[0]) is str:
+                closest = f" close to stand {res[0]}"
             logger.info(f"aircraft appears to be on apron{closest}, assuming departure")
             return MOVEMENT.DEPARTURE
         logger.info("aircraft is far from known ramps, assuming arrival")
@@ -739,23 +825,23 @@ class Airport:
             self.ldRamps()
         return self.ramps.get(name)
 
-    def getDestinations(self, mode: MOVEMENT) -> list:
-        if mode == MOVEMENT.DEPARTURE:
+    def getDestinations(self, move: MOVEMENT) -> list:
+        if move == MOVEMENT.DEPARTURE:
             return list(list(self.runways.keys()) + list(self.holds.keys()))
 
         return list(self.ramps.keys())
 
-    def mkRoute(self, aircraft, destination, move: MOVEMENT, use_strict_mode: bool) -> tuple:
-        # Returns (True, route object) or (False, error message)
+    def mkRoute(self, aircraft, destination, move: MOVEMENT, use_strict_mode: bool) -> Status:
+        # Returns NoError(route object) or Error(error message)
         # From aircraft position..
         arrival_runway = None
         if move == MOVEMENT.ARRIVAL:
             pos = aircraft.position()
             if not pos:
                 logger.debug("plane could not be located")
-                return (False, "We could not locate your aircraft.")
+                return Error("We could not locate your aircraft.")
             hdg = aircraft.heading()
-            onRwy, arrival_runway = self.onRunway(pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg)
+            arrival_runway = self.onRunway(pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg)
 
         # ..to destination
         dst_pos = None
@@ -764,17 +850,17 @@ class Airport:
             if destination in self.runways.keys():
                 dst_pos = self.getRunway(destination)
                 if dst_pos is None:  # we sure to find one because first test
-                    return (False, f"We could not find runway {destination}.")
+                    return Error(f"We could not find runway {destination}.")
                 dst_type = "runway"
             elif destination in self.holds.keys():
                 dst_pos = self.holds[destination].coords()
                 if dst_pos is None:  # we sure to find one because first test
-                    return (False, f"We could not find hold position {destination}.")
+                    return Error(f"We could not find hold position {destination}.")
                 dst_type = "hold"
         else:
             dst_pos = self.getRamp(destination)
             if dst_pos is None:
-                return (False, f"We could not find stand {destination}.")
+                return Error(f"We could not find stand {destination}.")
             dst_type = "stand"
 
         route = Route.Find(self.graph, aircraft, arrival_runway, dst_pos, dst_type, move, use_strict_mode, self.use_threshold)
@@ -784,13 +870,154 @@ class Airport:
             if dst_pos is not None and dst_type == "runway":
                 route.departure_runway = dst_pos
             logger.debug(f"route {route.text(destination=destination)}")
-            r = None
-            if self.cursor_type is not None:
-                r = self.cursor_type.turn_radius
+            r = None if self.cursor_type is None else self.cursor_type.turn_radius
             route.build(acf_speed=aircraft.avgTaxiSpeed(), radius=r)
-            return (True, route)
+            return NoError(route)
 
-        return (False, "We could not find a route to your destination.")
+        return Error("We could not find a route to your destination.")
+
+    def mkRouteExternal(self, aircraft, start, destination, route: list, move: MOVEMENT) -> Status:
+        route = [str(i) for i in route]
+
+        route_ext = Route(graph=self.graph)
+        route_ext.route = route  # todo: check all vertices are known
+        route_ext.move = move
+
+        vext = [i for i in route if i not in self.graph.vert_dict]
+        logger.debug(f"unknown vertices: {vext}")
+        if len(vext) > 0:
+            return Error(f"unknown vertices in route: {vext}")
+
+        if move == MOVEMENT.DEPARTURE:
+            # From stand..
+            src_pos = None
+            src_type = ""
+            if start in self.ramps.keys():
+                src_pos = self.ramps[start]
+                if src_pos is None:  # we sure to find one because first test
+                    return Error(f"We could not find stand {start}.")
+                src_type = "stand"
+            route_ext.precise_start = src_pos
+
+            # ..to runway
+            dst_pos = None
+            dst_type = ""
+            if destination in self.runways.keys():
+                rwy = self.getRunway(destination)
+                if rwy is None:  # we sure to find one because first test
+                    return Error(f"We could not find runway {rwy}.")
+                dst_pos = rwy.threshold if self.use_threshold else rwy.start
+                route_ext.precise_end = dst_pos
+                route_ext.departure_runway = rwy
+            elif destination in self.holds.keys():
+                dst_pos = self.holds[destination].coords()
+                if dst_pos is None:  # we sure to find one because first test
+                    return Error(f"We could not find hold position {destination}.")
+                route_ext.precise_end = dst_pos
+            else:
+                return Error(f"We could not find destination {destination}.")
+        else:  # ARRIVAL
+            # From runway..
+            src_pos = aircraft.position_point()
+            src_type = "aircraft"
+            if start in self.runways.keys():
+                rwy = self.runways[start]
+                if rwy is None:  # we sure to find one because first test
+                    return Error(f"We could not find runway {start}.")
+                route_ext.arrival_runway = rwy
+                # src_pos = rwy.end
+                # src_type = "runway"
+            route_ext.precise_start = src_pos
+
+            # ..to stand
+            dst_pos = None
+            dst_type = ""
+            if destination in self.ramps.keys():
+                dst_pos = self.ramps[destination]
+                if dst_pos is None:  # we sure to find one because first test
+                    return Error(f"We could not find stand {destination}.")
+                route_ext.precise_end = dst_pos
+                dst_type = "stand"
+
+        r = None if self.cursor_type is None else self.cursor_type.turn_radius
+        route_ext.build(acf_speed=aircraft.avgTaxiSpeed(), radius=r)
+
+        logger.info(f"external route built from {start} to {destination}")
+        return NoError(route_ext)
+
+    def mkAdhocRouteExternal(self, aircraft, start, destination, route: list | dict, move: MOVEMENT) -> Status:
+        #
+        g = Graph(name="adhoc")
+        # Make vertices
+        local_route = []
+        if type(route) is dict:  # route is either a linestring feature (expanded into its points) or a collection of point features
+            i = 0
+            for f in route["features"]:
+                if f["geometry"]["type"] == "Point":
+                    c = f["geometry"]["coordinates"]
+                    g.add_vertex(node=str(i), point=Point(lat=c[1], lon=c[0]), usage="", name="")
+                    local_route.append(str(i))
+                    i += 1
+                elif f["geometry"]["type"] == "LineString":
+                    last = None
+                    for c in f["geometry"]["coordinates"]:
+                        this = g.add_vertex(node=str(i), point=Point(lat=c[1], lon=c[0]), usage="", name="")
+                        local_route.append(str(i))
+                        i += 1
+                        if last is not None:
+                            d = distance(last, this)
+                            e = Edge(src=last, dst=this, cost=d, direction=TAXIWAY_DIRECTION.BOTH, usage="taxiway_C", name="T")
+                            g.add_edge(e)
+                        last = this
+                else:
+                    logger.info(f"geojson feature {f} ignored")
+        else:
+            i = 0
+            for c in route:
+                g.add_vertex(node=str(i), point=Point(lat=c[0], lon=c[1]), usage="", name="")
+                i += 1
+            # Make edges
+            last = g.get_vertex(n="0")
+            for c in g.vert_dict.values():
+                d = distance(last, c)
+                e = Edge(src=last, dst=c, cost=d, direction=TAXIWAY_DIRECTION.BOTH, usage="taxiway_C", name="T")
+                g.add_edge(e)
+                last = c
+            # Make route
+            local_route = [str(i) for i in range(len(g.vert_dict))]
+
+        g.stats()
+        logger.debug(f"route {local_route}")
+
+        # Check
+        logger.debug("free route proximity to taxiways..")
+        STICK_TO_TAXIWAYS = True
+        STICKING_DISTANCE = 20.0  # meters
+        for k, v in g.vert_dict.items():
+            n, d, l = self.graph.findClosestPointOnEdges(v)
+            if n is not None:
+                logger.debug(f"point {k} at {round(d, 1)}m from taxiway {l.name}")
+                if STICK_TO_TAXIWAYS and d < STICKING_DISTANCE:
+                    logger.debug("sticking")
+                    v.lat = n.lat
+                    v.lon = n.lon
+            else:
+                logger.debug(f"point {k} not close to taxiway")
+        logger.debug("..done")
+
+        # Create Adhoc Route
+        route_ext = Route(graph=g)
+        route_ext.route = local_route
+        route_ext.move = move
+        # Add meta-data
+        route_ext.precise_start = g.get_vertex(n="0")
+        route_ext.precise_end = g.get_vertex(n=str(len(g.vert_dict) - 1))
+        #
+        r = None if self.cursor_type is None else self.cursor_type.turn_radius
+        route_ext.build(acf_speed=aircraft.avgTaxiSpeed(), radius=r)
+
+        logger.info(f"external adhoc route built from {start} to {destination}")
+        return NoError(route_ext)
 
     def hasATC(self):
         # Returns ATC ground frequency if it exists
