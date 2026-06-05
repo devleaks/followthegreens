@@ -68,7 +68,7 @@ Try to catch the rabbit.
 
 # Installation
 
-Release 2 will not work on X-Plane 11.
+Newer releases (2 or above) will not work on X-Plane 11.
 If you want to use Follow the greens on X-Plane 11, you have to use [Release 1](https://github.com/devleaks/followthegreens/releases/tag/1.7.0).
 
 FtG plugin is written in the python language.
@@ -88,7 +88,7 @@ Once XPPython3 plugin is installed, python plugin scripts are placed in
 
 [Download the FtG plugin code](https://github.com/devleaks/followthegreens/releases) and unzip it.
 
-Place both the file `PI_Followthegreens.py` and the folder `followthegreens` in `<X-Plane 12 Folder> / resources / plugins / PythonPlugins`.
+Place both file `PI_Followthegreens.py` and folder `followthegreens` in `<X-Plane 12 Folder> / resources / plugins / PythonPlugins`.
 
 That's it.
 
@@ -126,13 +126,13 @@ To start follow the greens, you will need to supply some information.
 If you are at a stand location, ready for departure, you will need to supply the runway you are taking-off from.
 Follow the greens will light the path to the entrance of the runway.
 
-![Departure dialog](images/departure.png)
+![Departure dialog](images/std-dep.png)
 
 If you just landed and roll out, heading for your stand, you will need to supply the stand number.
 It must be a stand location known from X-Plane for that airport.
 Follow the greens will light the way to the stand.
 
-![Arrival dialog](images/arrival.png)
+![Arrival dialog](images/std-arr.png)
 
 If your path come across an holding position, FtG will indicate the holding position with a red bar of lights
 across the taxiway.
@@ -144,7 +144,7 @@ Follow the greens is not aware of the ATC ground in use, and the ATC ground is n
 Therefore, when ATC has given clearance and you aknowledged it, you can press the the «Clearance received» button
 in the dialog box.
 
-![Clearance dialog](images/clearance.png)
+![Clearance dialog](images/run-ftg.png)
 
 Follow the greens will resume, turn off the red lights and light the next segment of greens.
 
@@ -183,7 +183,21 @@ There is absolutely not AI, just HFAB (human fun and bugs, Claude did not even h
 ![FtG Views](images/ex2-on.png)
 
 
+# What's New in Release 3: Alternative Follow Me Car
+
+Release 3 of Follow the greens offers a _follow me car_
+as an alternative to taxiway green lights.
+
+To get a car running in front of the aircraft rather than taxiway green lights,
+check _Use Follow Me car rather than taxiway green lights_.
+
+The car will follow the exact same route Follow the greens would highlight.
+
+
 # Preference Parameters
+
+
+## Follow the greens Parameters
 
 Follow the greens exposes a few limited set of preference parameters.
 Parameters are specified in a preference file that can be found at
@@ -227,7 +241,7 @@ Preference file is (re-)loaded each time a new FtG session is started.
 Here is description of the parameters available for customization.
 
 
-## Rabbit Length
+### Rabbit Length
 
 The rabbit is the pulsating light in front of the aircraft.
 Its _length_ is the number of lights that are pulsating.
@@ -239,7 +253,7 @@ RABBIT_LENGTH = 10
 ```
 
 
-### Rabbit Duration
+#### Rabbit Duration
 
 It is the time that the pulsating light is switched off.
 
@@ -252,7 +266,7 @@ then the rabbit will switch off its first light.
 RABBIT_DURATION = 0.2
 ```
 
-## Lights Ahead
+### Lights Ahead
 
 This is the number of light that are lit in front of the rabbit lights.
 As the aircraft progresses, more lights are lit in front of the rabbit.
@@ -278,17 +292,9 @@ LIGHTS_AHEAD = 1
 ```
 to have just one light ahead after the rabbit.
 
-## Use Threshold
-
-Normally, FtG4D will guide you to the threshold of the runway.
-If you'd rather go the the extreme begining of the runway, set it to false:
-
-```
-USE_THRESHOLD = false
-```
 
 
-## Runway Light Intensity Control
+### Runway Light Intensity Control
 
 While FtG rabbit runs, all runway lights are dimmed to a preference value:
 
@@ -315,7 +321,7 @@ standard X-Plane commands:
 - `sim/operation/rwy_lights_hi` (sim/graphics/scenery/airport_light_level=1)
 
 
-## Automagic Rabbit Speed Control
+### Automagic Rabbit Speed Control
 
 The goal of Release 2 is to supply taxi speed information to the pilot in addition to the direction (follow the greens).
 The speed information is supplied with two _indicators_:
@@ -337,7 +343,7 @@ and the type of the aircraft (if available), a _speed range_ is estimated (min v
 Warning and braking distances are estimeted from the current speed and aircraft type if available.
 
 
-## Manual Rabbit Speed Control
+### Manual Rabbit Speed Control
 
 The speed and length of the rabbit can be controlled by two preference parameters:
 
@@ -369,7 +375,28 @@ for discovery or testing for example.
 Once you'll get a feeling of the different mode, it will be magic to taxi just watching the greens.
 
 
-## Strict Route Search Mode
+## Follow Me Car Preferences
+
+Soon.
+
+### Follow Me Car Model
+
+
+### Indicator Signboard
+
+
+## Other Preferences
+
+### Use Threshold
+
+Normally, FtG4D will guide you to the threshold of the runway.
+If you'd rather go the the extreme begining of the runway, set it to false:
+
+```
+USE_THRESHOLD = false
+```
+
+### Strict Route Search Mode
 
 The goal of FtG is to provide a route from where the aircraft is located to a destination,
 either a runway entry, or a parking stand.

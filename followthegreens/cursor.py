@@ -1216,8 +1216,12 @@ class Cursor(Vehicle):
             if self.onRoute() and self.aim_speed > 0.0:
                 self.setAimSpeed(speed=0.0, reason="on route and aircraft stopped")
             else:
-                logger.debug("aircraft stopped, nothing to adjust")
+                msg = "aircraft stopped, nothing to adjust"
+                if self.msg != msg:
+                    self.msg = msg
+                    logger.debug(self.msg)
             return
+        self.msg = ""
 
         acf_speed = aircraft.speed()
         ahead, drange = aircraft.adjustAhead(rabbit_mode=rabbit_mode, return_range=True)

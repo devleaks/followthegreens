@@ -79,7 +79,7 @@ class Taxi:
     @property
     def may_rabbit_autotune(self) -> bool:
         if self.ftg.lights is not None:
-            return self.ftg.lights.may_rabbit_autotune()
+            return self.ftg.lights.may_rabbit_autotune
         return True
 
     @property
@@ -114,6 +114,20 @@ class Taxi:
     def rabbitMode(self, mode: RABBIT_MODE):
         if self.ftg.lights is not None:
             self.ftg.lights.rabbitMode = mode
+
+    @property
+    def rabbitText(self):
+        if self.rabbitMode is None:
+            return "---"
+        if self.rabbitMode == RABBIT_MODE.FASTER:
+            return "ACCELERATE"
+        elif self.rabbitMode == RABBIT_MODE.FASTEST:
+            return "ACCELERATE"
+        elif self.rabbitMode == RABBIT_MODE.SLOWER:
+            return "SLOW"
+        elif self.rabbitMode == RABBIT_MODE.SLOWEST:
+            return "SLOW"
+        return "KEEP GOING"
 
     # 4D
     #

@@ -101,12 +101,7 @@ class OnRoute:
         try:
             return self.route[self.index]
         except IndexError:
-            logger.error(f"OnRoute {self.name}: index={self.index} route length={len(self.route)}")
-            string_io = StringIO()
-            print_stack(file=string_io)
-            ret = string_io.getvalue()
-            string_io.close()
-            logger.debug(ret)
+            logger.error(f"OnRoute {self.name}: index={self.index} route length={len(self.route)}", exc_info=True)
 
     @property
     def bearing(self) -> float:
@@ -143,12 +138,15 @@ class OnRoute:
             logger.warning("not on route")
             return False
         r = self.route == target.route
+        # which path caused this?
         if not r:
             string_io = StringIO()
             print_stack(file=string_io)
             ret = string_io.getvalue()
             string_io.close()
-            logger.debug(ret)
+            logger.debug("THIS IS NOT AN ERROR - THIS IS DEVELOPMENT TRACEBACK")
+            logger.debug("\n" + ret)
+            logger.debug("END OF TRACEBACK")
         return r
 
     def after(self, target: OnRoute) -> bool:

@@ -9,68 +9,12 @@ select Follow the car... plugin menu entry.
 
 # Follow Me Car Preferences
 
-Follow Me Car was always considered as a joke, a side project, an accident,
-a funny addition to the core, serious, hi-tech Follow the greens.
+Follow Me Car was always considered as a side project,
+an addition to the core, hi-tech Follow the greens.
 
  - Follow the greens is A-SMGCS (Advanced Surface Movement Guidance and Control System)
  - A Follow Me Car is also A-SMGCS (_Antique_ Surface Movement Guidance and Control System)
 
-Pursuing that spirit, Follow me car is added as a serious addition:
-
-*After extensive study of ideal number of visible lights ahead, questioning numerous A.I.,
-sources agreed to the same number of lights:
-It does not matter, as long as you do not use 42 lights.
-42 is already used for answering a far more complex question.
-So we had to come up with a solution in case a pilot requires exactly 42 lights ahead.
-We came with the solution of using a follow me car instead of the green lights.
-So if you require no rabbit (rabbit_length=0, rabbit_speed=0) and exactly 42 lights ahead (lights_ahead=42),
-you will see no green lights in front of you but a follow me car instead.
-For 42 Universal Safety considerations. You understand.
-We apologise for the inconvenience.*
-
-*Don’t worry, the car will follow the same route as the greens would show you.
-It will monitor your speed and invite you to taxi faster if it is far in front of you,
-and you’ll have to slow down if you get closer to it,
-to not mill the car with your RR Trent UltraFan engines.
-Just follow it, keep a safe distance, don’t run over it.
-It is a real 4D Follow Me car.
-It might even use its turn indicator lights to warn you of an imminent sharp turn or
-display a STOP message when there is a red line ahead.
-The car will not run over the stop red lines.
-It will also wait for clearance. Just like you.*
-
-*Antique is the new Advanced.*
-
-
-## Global Follow Me Car
-
-If you do not want to use Follow the greens and prefer Follow Me Car,
-add the following preferences at the _global_ level:
-
-```
-RABBIT_LENGTH = 0
-RABBIT_SPEED = 0
-LIGHTS_AHEAD = 42
-```
-
-You will never get Follow the greens, all airports will use Follow Me Car.
-
-
-## Local Follow Me Car
-
-If you prefer to use Follow Me Car as some airport only,
-you must add the same preferences at an _airport_ level.
-
-```
-[Airports.EBLG]
-RABBIT_LENGTH = 0
-RABBIT_SPEED = 0
-LIGHTS_AHEAD = 42
-```
-
-The above preferences will use Follow the greens at all airports
-except at Liège Airport where it will use a Follow Me Car
-(as it is in real life.)
 
 
 ## Follow Me Car Preferences
@@ -114,7 +58,7 @@ Here is a small list of limitations, and known issues.
 
 Follow Me Car are limited in their U-turn capabilities.
 They will do it, but almost immediately at their current place.
-Turns of more that about 150° are subject to the same limitation.
+Turns of more than about 150° are subject to the same limitation.
 
 If lost, or if the aircraft did not follow indicated paths, it might get lost.
 Follow the greens provides a instruction to generate, on the fly, a new route
