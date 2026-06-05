@@ -18,7 +18,7 @@ followthegreens/cars/xcsl/FMCglass.png|4260338456
 followthegreens/cars/xcsl/credits.html|3659499169
 followthegreens/cars/xcsl/x-csl-info.info|1772261579
 followthegreens/cars/xcsl/xsb_aircraft.txt|1351490319
-followthegreens/cursor.py|811010525
+followthegreens/cursor.py|3776769348
 followthegreens/followthegreens.py|2418722874
 followthegreens/geo.py|3856324147
 followthegreens/globals.py|2749009232
@@ -36,9 +36,9 @@ followthegreens/lights/taxiway_alt.obj|2453200326
 followthegreens/lights/taxiway_red.obj|2795754834
 followthegreens/lights/white.obj|1415050574
 followthegreens/nato.py|2108547532
-followthegreens/route.py|3167884768
+followthegreens/route.py|362434071
 followthegreens/se.py|3652223195
 followthegreens/showtaxiways.py|2287572817
-followthegreens/taxi.py|2733086807
+followthegreens/taxi.py|3539615033
 followthegreens/ui.py|4069022094
-followthegreens/version.py|3700219825
+followthegreens/version.py|3712923014
