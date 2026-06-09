@@ -72,7 +72,7 @@ class UIIM:
         self.use_4d = True
 
         self.use_car = False
-        self.fmcars = list(FOLLOW_ME_CARS.keys()) + ["Other"]
+        self.fmcars = list(FOLLOW_ME_CARS.keys())
         self.fmcar_idx = 1
         self.use_indicator = True
 
@@ -387,7 +387,10 @@ class UIIM:
                 self.execute(FTG_COMMANDS.START)
                 self.hint = None
             else:
-                self.hint = "Select " + ("runway" if self._deparr else "destination stand")
+                self.hint = "Select " + ("runway" if self.deparr[0] else "destination stand")
+
+        if self.hint is not None and self.hint.startswith("Select "):
+            self.hint = "Select " + ("runway" if self.deparr[0] else "destination stand")
 
         imgui.pop_style_color(3)
         imgui.same_line()

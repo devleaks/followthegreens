@@ -371,19 +371,20 @@ class Airport:
         # DID WE ASK FOR FMCAR
 
         if not ftg.use_car:
-            logger.debug("no use of fmcar")
+            logger.info("no follow me car")
             return None
         # MAYBE, depends on movement
         # check at airport-level first...
         uifmcar = ftg.ui.fmcar
         fmcar = FOLLOW_ME_CARS.get(uifmcar)
         logger.debug(f"UI FM car {uifmcar}")
-        if fmcar is None or len(fmcar) == 0 or uifmcar == FM_CAR_PREFERENCE:  # none provided through UI (may be Other)
+        if fmcar is None or len(fmcar) == 0 or uifmcar == FM_CAR_PREFERENCE:  # none provided through UI
             fmcar = self.prefs.get("FollowMeCar", {})
-            logger.debug(f"fm car from preferences: {fmcar}")
+            logger.debug(f"follow me car from preferences: {fmcar}")
         if len(fmcar) == 0:
-            logger.debug("no FM car")
+            logger.info("no follow me car found")
             return
+        logger.info(f"follow me car: {fmcar}")
 
         apt = self.prefs.get("Airports", {})
         prefs = apt.get(self.icao, {})

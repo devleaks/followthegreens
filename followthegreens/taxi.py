@@ -49,9 +49,6 @@ class Taxi:
         self.remaining_dist = 0
         self.is_late = False
         self.remaining = "waiting for data..."
-        self.dist_to_next_turn = 0
-        self.dist_from_next_vtx_to_next_turn = 0
-        self.last_dist_from_acf_to_next_vtx = -1
         self.total_dist = 0  # total taxi distance
         self.total_time = 0  # total taxi distance
 
@@ -118,7 +115,11 @@ class Taxi:
     @property
     def rabbitText(self):
         if self.rabbitMode is None:
-            return "---"
+            return "NO GREENS"
+        if not self.taxiStarted():
+            return "START TAXI"
+        if self.taxiEnded():
+            return "TAXI ENDED"
         if self.rabbitMode == RABBIT_MODE.FASTER:
             return "ACCELERATE"
         elif self.rabbitMode == RABBIT_MODE.FASTEST:

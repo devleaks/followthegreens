@@ -18,6 +18,7 @@ from .globals import (
     TAXIWAY_DIRECTION,
     logger,
     get_global,
+    minsec,
     Error,
     NoError,
     AMBIANT_RWY_LIGHT,
@@ -31,9 +32,11 @@ from .globals import (
     MOVEMENT,
     RABBIT_MODE,
     TAXIWAY_ACTIVE,
+    TAXI_SPEED,
     TAXIWAY_WIDTH,
     TAXIWAY_WIDTH_CODE,
 )
+from .aircraft import AIRCRAFT_STOPPED_SPEED
 
 HARDCODED_MIN_DISTANCE = 50  # meters
 HARDCODED_MIN_TIME = 0.04  # secs
@@ -388,6 +391,7 @@ class LightString:
         self.refrabbit = "FtG:rabbit"
         self.flrabbit = None
         self.rabbitRunning = False
+        self.old_msg = ""
 
         # Rabbit mode
         self._rabbit_mode = RABBIT_MODE.MED
@@ -416,6 +420,7 @@ class LightString:
         self.runway_level_original = 1.0
         self.newLastLit = 0
         self.old_msg2 = ""
+        self.last_dist_from_acf_to_next_vtx = -1
 
         # PREFERENCES
         #
@@ -1266,7 +1271,7 @@ class LightString:
         self.manual_mode = False
         logger.debug("rabbit mode automagic")
 
-    def adjustRabbit(self, aircraft, closestLight, flightloop):
+    def adjustRabbit(self, flightloop, closestLight):
         # Important note:
         # In planeFLCB(), if we are closing to a STOP, the following is set:
         #   self.rabbitMode = RABBIT_MODE.SLOWEST

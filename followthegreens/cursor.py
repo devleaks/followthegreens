@@ -10,7 +10,7 @@ try:
 except ImportError:
     print("X-Plane not loaded")
 
-from .globals import RABBIT_MODE, get_global, logger, MOVEMENT, INDICATOR, AIRCRAFT_MIN_SPEED, PLANE_MONITOR_DURATION
+from .globals import RABBIT_MODE, logger, MOVEMENT, INDICATOR, AIRCRAFT_MIN_SPEED, PLANE_MONITOR_DURATION
 from .geo import Point, bearing, destination, distance, turn
 from .lights import XPObject, LightType
 from .route import Vehicle, SMOOTH_ROUTE, OnRoute, NOT_ON_ROUTE
