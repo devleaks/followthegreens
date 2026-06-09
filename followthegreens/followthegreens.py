@@ -70,11 +70,9 @@ class FollowTheGreens:
         self.frp = xp.findDataRef("sim/time/framerate_period")
         self.fr = 1.0
 
-        self.xp_log_dir = os.path.join(".", "Output", "caches", "followthegreens")  # relative to X-Plane "root/home" folder, needs to be created first
-        logger.info(f"created {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
-        # logger.info(f"XPPython3 {xp.VERSION}, X-Plane {xp.getVersions()}")
-
         self.pause_dref = xp.findDataRef("sim/time/paused")
+
+        logger.info(f"created {type(self).__name__} {__VERSION__} at {datetime.now().astimezone().isoformat()}")
 
         # Executor flight loop
         self.refexec = "FtG:rabbit"

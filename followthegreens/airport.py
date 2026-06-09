@@ -40,7 +40,7 @@ from .globals import (
 )
 from .geo import Point, Line, Polygon, destination, distance, pointInPolygon
 from .graph import Graph, Edge, Vertex
-from .cursor import CursorType, Cursor, FOLLOW_ME_CARS
+from .cursor import CursorType, Cursor, FOLLOW_ME_CARS, FM_CAR_PREFERENCE
 from .route import Route
 
 SYSTEM_DIRECTORY = "."
@@ -378,8 +378,9 @@ class Airport:
         uifmcar = ftg.ui.fmcar
         fmcar = FOLLOW_ME_CARS.get(uifmcar)
         logger.debug(f"UI FM car {uifmcar}")
-        if fmcar is None:  # none provided through UI (may be Other)
+        if fmcar is None or len(fmcar) == 0 or uifmcar == FM_CAR_PREFERENCE:  # none provided through UI (may be Other)
             fmcar = self.prefs.get("FollowMeCar", {})
+            logger.debug(f"fm car from preferences: {fmcar}")
         if len(fmcar) == 0:
             logger.debug("no FM car")
             return

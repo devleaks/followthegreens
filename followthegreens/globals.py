@@ -569,6 +569,9 @@ def minsec(t: float) -> str:
 # ################################
 # LOGGING
 #
+# LOGDIRNAME = os.path.join(".", "Output", "logs", "followthegreens")  # relative to X-Plane "root/home" folder, needs to be created first
+# if not os.path.exists(LOGDIRNAME):
+#     os.makedirs(LOGDIRNAME, exist_ok=True)
 LOGFILENAME = "ftg_log.txt"
 LOGGING_LEVEL = logging.INFO  # can be modified by preference
 logging.basicConfig(

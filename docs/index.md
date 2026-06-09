@@ -231,6 +231,7 @@ The _Indicator_ is a signboard on top of the car.
 If present, it will display textual instruction on top of the follow me car like `TURN >>>` or `! STOP !`,
 in addition to the `FOLLOW ME`.
 
+
 ##### Note
 
 Technically speaking...
@@ -250,6 +251,14 @@ It will automatically re-appear when needed (clearance requested, etc.).
 If the use prefers to leave the user interface visible, auto-hide can be supressed.
 If auto-hide is selected, the number of second before the interface disappears can
 be adjusted between 10 seconds and 2 minutes.
+
+
+#### Use Threshold
+
+If checks, Follow the greens tries to guide you at the runway threshold
+(if available) rather than the runway edge.
+If no threshold is specified in the airport definition file,
+an articifial threshold is created about 200m from the runway edge.
 
 
 ## X-Dispatch

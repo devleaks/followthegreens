@@ -65,7 +65,7 @@ Defining a preference at the top-level means that the preference
 applies to the entire application unless an airport- or aircraft-specific
 preference redefines it.
 
-
+1. `LOGGING_LEVEL`: Controls the amount of information that is written into Follow the greens log file. The lower the level, the more information gets written.
 1. `DISTANCE_BETWEEN_GREEN_LIGHTS`: Distance between taxiway center lights (expressed in meters.)
 1. `RABBIT_SPEED`: Rabbit speed, including completely disabled by setting the speed to `0`. (Expressed in fraction of a second; would be the same for all aicrafts.)
 1. `RABBIT_LENGTH`: Rabbit length (would be the same for all aicrafts.)
@@ -95,6 +95,10 @@ Example:
 USE_THRESHOLD = true
 ```
 
+Please note boolean value need to be exactly key word `true` or `false`, in lower case.
+All other values will be ignored and my cause the preference file not being loaded.
+
+
 # Preferences for Aircrafts
 
 The following preferences can be specified (and redefined) at the aircraft _class_ (`A` to `F`) or aircraft type level:
@@ -102,12 +106,14 @@ The following preferences can be specified (and redefined) at the aircraft _clas
 1. `RABBIT_SPEED`
 1. `RABBIT_LENGTH`
 1. `LIGHTS_AHEAD`
+1. `VISUAL_RANGE.RANGE`: Approximate minimal and maximal distance for car in front of aircraft.
+1. `VISUAL_RANGE.LIMITS`: Minimal and maximal distance for car in front of aircraft.
 
 Example:
 
 ```
 [Aircrafts.C]
-VISUAL_RANGE.RANGE = [40, 80]
+VISUAL_RANGE.RANGE = [40, 80]  # in meters
 ```
 
 # Preferences for Follow the greens
@@ -200,7 +206,7 @@ To create a realistic light, you can use the following snippet:
 taxiway = "r:2"
 ```
 
-would create a realistic taxiway RED light with double light intensity.
+would create a realistic taxiway RED light with double (`2`) light intensity.
 
 
 Note that FtG lights, standard or realistic,
@@ -230,7 +236,7 @@ which would _create_ a file named `path/to/personal-object-light.obj`
 with default custom light values (color=white, intensity=20, size=20)
 as explained above.
 
-Path objects for lights are relative to the `followthegreens/lights` folder.
+Path objects for lights are relative to the `followthegreens / lights` folder.
 
 
 ### Taxiway Light Objects
@@ -267,20 +273,20 @@ the following snippet must be used:
 
 ```
 [FollowMeCar]
-filename: str = "xcsl/FMC.obj"  # or "custom/my_own_fm_van.obj"
-slow_speed: float = 3.0  # all speed m/s, for turns, careful move, slow move
-normal_speed: float = 7.0  # ~ 25km/h, normal travel speed
-leave_speed: float = 10.0  # expedite speed to leave/clear an area
-fast_speed: float = 14.0  # running fast to a destination far away
-max_speed: float = 18.0
-turn_radius: float = 25.0  # m
-acceleration: float = 1.0  # m/s^2
-deceleration: float = -1.0  # m/s^2
+filename = "xcsl/FMC.obj"  # or "custom/my_own_fm_van.obj"
+slow_speed = 3.0  # all speed m/s, for turns, careful move, slow move
+normal_speed = 7.0  # ~ 25km/h, normal travel speed
+leave_speed = 10.0  # expedite speed to leave/clear an area
+fast_speed = 14.0  # running fast to a destination far away
+max_speed = 18.0
+turn_radius = 25.0  # m
+acceleration = 1.0  # m/s^2
+deceleration = -1.0  # m/s^2
 ```
 
 `filename` can either be an existing Follow Me Car object
 or a user-supplied alternate object.
-Path objects are relative to the `followthegreens/cars` folder.
+Path objects are relative to the `followthegreens / cars` folder.
 
 
 ## Follow Me Car Indicator
@@ -305,8 +311,8 @@ you need to add the following preferences:
 [FollowMeCar]
 filename = "xcsl/FMC.obj"
 indicator = true
-indicator_shift = [2.02, -1.8]  # in meters
-indicator_warning_distance: float = 50.0  # m
+indicator_shift = [2.02, -1.8]  # in meters [+above center of car, +forward center of car]
+indicator_warning_distance: float = 50.0  # m, warns that many meters before the turn/stop.
 ```
 
 `ìndicator_shift` is the location of the center of the Indicator object relative
