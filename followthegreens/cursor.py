@@ -42,6 +42,7 @@ class HUD_TEXT(StrEnum):
 FOLLOW_ME_CARS = {
     "Follow Me Truck": {"filename": "xcsl/FMC.obj", "indicator": True, "indicator_shift": [1.95, -0.70]},
     "Follow Me Car": {"filename": "xcsl/FMC2.obj", "indicator": True, "indicator_shift": [2.02, -1.8]},
+    "Preference": {},
 }
 
 

@@ -166,18 +166,106 @@ It will do so until you reach your destination.
 
 That is it. Nothing more. Nothing less.
 
-![FtG Views](images/ex2-off.png)
-![FtG Views](images/ex2-on.png)
-
 
 ## Options
 
-![Follow the greens options](images/full-ftg-dep.png)
+
+### Follow the greens Options
+
+![Follow the greens options](images/full-greens-dep.png)
+
+
+#### Rabbit Length
+
+Number of pulsating lights in front of the aircraft.
+
+In normal condition, this is computed from the desired length of the pulsating light in front of the aircraft
+(which defaults to twice the length of the aircraft) and the distance between lights.
+
+
+#### Rabbit Speed
+
+This is the speed at which lights are pulsating in front of the aircraft.
+
+When adjusted through « 4D », lights will be pulsating twice as fast or twice as slower when necessary.
+
+
+#### Lights Ahead
+
+Number of lights after the pulsating lights.
+
+ - 0 light ahead means all lights in front of the rabbit will be lit.
+ - _n_ lights ahead means _n_ lights will be added after the rabbit.
+
+
+To have no lights ahead of the rabbit, you have to add at least one light in front of the rabbit
+which is unnoticable.
+
+
+#### Taxiway Light Types
+
+Follow the greens can either use an artificial, highly visible omni-directional light,
+or a more realistyic taxiway light, only visible if aligned with the taxiway.
+
+In both cases, a taxiway light is placed on the ground and always visible, whether lit or not.
+Also, the intensity of the light is adjusted automatically depending on the environmental condtions
+(night, fog...) and can be adjusted through preferences.
+
+
+
+### Follow Me Car Options
 
 ![Follow the car options](images/full-fmc-arr.png)
 
 
+#### Follow Me Car Model
+
+Follow the greens offers 2 Follow Me car models, courtesy of X-CSL team.
+
+Other models can be provided and used through the preference system.
+
+
+#### Indicator
+
+The _Indicator_ is a signboard on top of the car.
+If present, it will display textual instruction on top of the follow me car like `TURN >>>` or `! STOP !`,
+in addition to the `FOLLOW ME`.
+
+##### Note
+
+Technically speaking...
+
+The _Indicator_ is a separate, autonomous object that can be added to other Follow Me Car models.
+It can be added through the preference system.
+It can even be used autonomously, like a floating signboard on top of a Back-to-the-future hover board!
+
+
+### General Options
+
+#### Interface auto-hide
+
+Follow the greens interface is meant to disappear after a few seconds of non-use.
+It will automatically re-appear when needed (clearance requested, etc.).
+
+If the use prefers to leave the user interface visible, auto-hide can be supressed.
+If auto-hide is selected, the number of second before the interface disappears can
+be adjusted between 10 seconds and 2 minutes.
+
+
 ## X-Dispatch
+
+[X-dispatch](https://x-dispatch.app) is a comprehensive spectacular flight dispatching application
+that allows you to plan and prepare your flight and then launch X-Plane to execute your flight.
+
+X-dispatch allows for taxi planning on both departure and arrival.
+When planning the taxi ride, route can either be automatic (route finding), or manual.
+The manual planning allows to draw an arbitrary taxi path on the ground of the airport.
+The resulting taxi route is saved into a file.
+
+If that file is available, Follow the greens will read that file 
+and highlight the taxi route provided by X-dispatch,
+whether is was automatically computed or manually drawn.
+
 
 
 ## Advanced Options and Preferences
