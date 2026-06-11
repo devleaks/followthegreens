@@ -27,7 +27,7 @@ from .lights import LightString
 from .ui import UI_BUTTON, UIIM, FTG_COMMANDS
 from .nato import phonetic, toml_dumps
 
-PREFERENCE_FILE_NAME = "followthegreens.prf"  # followthegreens.prf
+PREFERENCE_FILE_NAME = "followthegreens.prf"  # followthegreens.toml
 STATS_FILE_NAME = "ftgstats.txt"
 VERSION = "VERSION"
 
@@ -348,7 +348,8 @@ class FollowTheGreens:
 #    <X-Plane Folder> -> Resources -> plugins -> PythonPlugins -> followthegreens
 # It is a human readable plain text file.
 #
-# Do not touch the following lines.
+# Do not touch the following lines refering to version control.
+# They are managed by Follow the greens.
 #
 # Initially created version {__VERSION__} on {datetime.now(tz=timezone.utc)}.
 #
@@ -370,6 +371,10 @@ VERSION = "{__VERSION__}"
 #[Advanced]
 #advanced_preference = false
 #
+# Table names sometimes use '.' as a domain name separator like so:
+#
+#[Advanced.Options]
+#optional_preference = true
 #
 # Taxi safely.
 #
@@ -871,7 +876,7 @@ VERSION = "{__VERSION__}"
         # Called when cleared by TOWER
         self.segment += 1
         # Info 15
-        logger.info(f"segment {self.segment + 1}/{self.lights.segments + 1}")
+        logger.info(f"next segment {self.segment + 1}/{self.lights.segments + 1}")
 
         if self.fmcar is not None:
             try:

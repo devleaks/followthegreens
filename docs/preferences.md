@@ -8,7 +8,7 @@ where numerous options and features can be specified.
 Preferences are loaded each time a new FtG guidance session is started.
 
 The preference file is located in:
-
+thres
 `<X-Plane 12 Folder> / Output / preferences / followthegreens.prf`
 
 It is the same file for Follow the greens and Follow Me Car preferences.
@@ -73,9 +73,8 @@ preference redefines it.
 1. `DISTANCE_BETWEEN_LIGHTS`: Distance between lights when illuminating the whole taxiway network (Show taxiway, expressed in meters.).
 1. `DISTANCE_BETWEEN_STOPLIGHTS` (in meters, a small distance like 1 (dense) to 3 (loose) meters.)
 1. `ADD_WIGWAG`: Adds a «wigwag» light on the side of stop bar if the stop bar is guarding a runway.
-1. `USE_THRESHOLD`: Boolean true/false. Use runway threshold if available rather than runway edge. A fictional threshold is added about 200m inside the runway if no threshold distance is available for the runway.
-
-
+1. `USE_THRESHOLD`: Boolean true/false. Use runway threshold if available rather than runway edge.
+    (An additional fictional threshold is added about 50-200m (depending on runway length) inside the runway if no threshold distance is available for the runway.)
 
 
 # Preferences for Airports
@@ -264,6 +263,18 @@ Lights.OFF = "path/to/favourite-taxiway-light.obj"
 If a Follow Me Car is defined in the preference file,
 it is used if the user select the car model `Preference`.
 
+Follow Me Car preference is global.
+It is not possible to set a different Follow Me Car per airport for example.
+(This may be possible in the future if there is a demand for it.)
+
+However, it is possible, at the airport level, to only allow Follow Me Car
+for departure and/or arrival.
+It is therefore conceivable to use Follow the greens for departure,
+and Follow Me Car for arrival, on a specific airport basis.
+
+Follow Me Car does not drive on the left or right side of the road,
+it remains in the middle of the taxiway.
+
 
 ## Follow Me Car Alternative
 
@@ -273,7 +284,7 @@ the following snippet must be used:
 
 ```
 [FollowMeCar]
-filename = "xcsl/FMC.obj"  # or "custom/my_own_fm_van.obj"
+filename = "xcsl/FMC.obj"  # or "custom/my_own_fm_van.obj" ("xcsl/FMC.obj" and "xcsl/FMC2.obj" are provided courtesy of X-CSL team.)
 slow_speed = 3.0  # all speed m/s, for turns, careful move, slow move
 normal_speed = 7.0  # ~ 25km/h, normal travel speed
 leave_speed = 10.0  # expedite speed to leave/clear an area
@@ -288,6 +299,16 @@ deceleration = -1.0  # m/s^2
 or a user-supplied alternate object.
 Path objects are relative to the `followthegreens / cars` folder.
 
+For example, to change the normal speed of the Follow Me Car:
+
+```
+[FollowMeCar]
+filename = "xcsl/FMC2.obj"
+normal_speed = 9.0  # m/s
+```
+
+and select Follow Me Car model "Preference".
+
 
 ## Follow Me Car Indicator
 
@@ -297,7 +318,11 @@ The _Indicator_ is a signboard on top of the car that can displays 4 messages:
 - Turn Right
 - Stop
 
-It is an _autonomous object_ that can be used independently of the follow me car,
+(It can also display no message at all.)
+
+It also contains 2 large beacon lights that are animated on turns.
+
+The Indicator is an _autonomous object_ that can be used independently of the follow me car,
 or added to any follow me car object.
 
 To add the indicator object to one of the two Follow Me Cars provided by Follow the greens,
@@ -328,4 +353,9 @@ Indicator is better used with smaller aircraft, where the car remains
 at smaller distance from the aircraft.
 
 For a A380, where the car runs a few hundred meters in front of the car
-you need good eyes to read the signboard.
+you need good pilot eyes to read the signboard.
+But, large turn indicator will blink in the direction of the turn.
+
+
+
+Taxi safely.

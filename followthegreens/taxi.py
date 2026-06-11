@@ -18,7 +18,7 @@ from .globals import (
     DRIFTING_LIMIT,
     AIRCRAFT_MIN_DIST,
 )
-from .geo import EARTH, Point, distance
+from .geo import EARTH
 
 # Hardcaded here, not preferences
 AIRCRAFT_STOPPED_SPEED = 0.01  # m/s, under that speed, things are considered stopped, not moving.
@@ -59,6 +59,7 @@ class Taxi:
         self.distance_to_closest_light = EARTH
         self.diftingLimit = DRIFTING_LIMIT * DISTANCE_BETWEEN_GREEN_LIGHTS  # After that, we send a warning, and we may cancel FTG.
 
+        self.dist_to_next_turn = 0
         self.last_acf_light_progress = 0
         self.last_acf_light_progress_cnt = 0
         self.acf_light_progress = 0  # most recent light where the acf is. Can only grow.
@@ -356,8 +357,10 @@ class Taxi:
         self.total_dist = self.total_dist + acf_move
 
         # @todo: WARNING_DISTANCE should be computed from acf type (weigth, size) and speed
-        if nextStop and warn < aircraft.warningDistance():
-            logger.debug(f"closing to stop (at light index={nextStop}, d={round(warn, 1)}m)")
+        acfwarn = aircraft.warningDistance()
+        if nextStop and warn < acfwarn:
+            t = self.ftg.lights.mustStopAt(nextStop=nextStop)
+            logger.debug(f"closing to stop (at light index={nextStop}, d={round(warn, 1)}m (< {acfwarn}m), must stop={t})")
             self.nextStop = nextStop
             if self.hasFMCar():
                 fmcar.mustStopSoon()
@@ -395,8 +398,7 @@ class Taxi:
         if self.ftg.lights.isLastLight(index=closestLight):  # at end
             self.taxiEnd()
 
-        if self.hasRabbit():
-            self.ftg.lights.adjustRabbit(flightloop=self, closestLight=closestLight)  # Here is the 4D!
+        self.ftg.lights.adjustRabbit(flightloop=self, closestLight=closestLight)  # Here is the 4D!
 
         if self.hasFMCar() and self.taxiEnded() and fmcar.isDeleted():
             self.ftg.fmcar = None  # ready to create a new one

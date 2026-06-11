@@ -657,13 +657,14 @@ class LightString:
                 logger.debug(f"next stop is last light ({nextStop})")
                 lastStopBar = self.stopbars[-1]
                 r = lastStopBar.lightStringIndex == last_light
+                t = "" if r else "not "
                 if r:
-                    logger.debug(f"last stop bar is at last light ({lastStopBar.lightStringIndex} = {last_light})")
+                    logger.debug(f"last stop bar is {t}at last light ({lastStopBar.lightStringIndex} = {last_light}), returning {r}")
                 return r
             r = self.stopCleared(nextStop)
-            logger.debug(f"next stop is not last light ({nextStop} != {last_light}), next stop bar cleared={r}")
+            logger.debug(f"next stop is not last light ({nextStop} != {last_light}), next stop bar cleared={r}, returning {not r}")
             return not r
-        logger.debug(f"no stopbar ({nextStop})")
+        logger.debug(f"no stopbar ({nextStop}), returning False")
         return False
 
     def stopCleared(self, nextStop: int) -> bool:

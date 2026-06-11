@@ -387,7 +387,7 @@ class Cursor(Vehicle):
 
     def getExtraLine(self) -> str:
         t = self.aircraft.brake_temperature()
-        ts = "" if t == 0.0 else f" T {t: 5.1f}"
+        ts = "" if t == 0.0 else f" B {t: 5.1f}"
         return f"A {round(self.aircraft.speed(), 1): 4.1f} C {round(self.speed(), 1): 4.1f} D {round(self.current_distance, 1): 5.1f}" + ts
 
     def setAimSpeed(self, speed, reason: str = ""):
@@ -935,13 +935,19 @@ class Cursor(Vehicle):
             return self._last_position  # speed = 0.0 is wrong...
 
         if self.endOfRoute():
-            logger.debug("end of route reached")
+            msg = "end of route reached"
             if not self.loadRoute():
                 if self.aim_speed == 0:
-                    logger.debug("no more route")
+                    msg = msg + ", no more route"
                 else:
                     self.setAimSpeed(speed=0.0, reason="no more route")
+                if self.msg != msg:
+                    self.msg = msg
+                    logger.debug(self.msg)
                 return self.current.sr_position, 0.0
+            if self.msg != msg:
+                self.msg = msg
+                logger.debug(self.msg)
 
         if self.at_rest() and self.aim_speed == 0.0:  # must remain at rest
             if a := self.sMO(1, "at rest, must remain at rest"):

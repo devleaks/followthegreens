@@ -265,7 +265,7 @@ def bearing(src, dst):
     return brng
 
 
-def destination(src, brngDeg, d):
+def destination(src, brngDeg, d) -> Point:
     lat = math.radians(src.lat)
     lon = math.radians(src.lon)
     brng = math.radians(brngDeg)
