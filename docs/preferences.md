@@ -7,16 +7,15 @@ where numerous options and features can be specified.
 
 Preferences are loaded each time a new FtG guidance session is started.
 
-The preference file is located in:
-thres
+The preference file is located in 
 `<X-Plane 12 Folder> / Output / preferences / followthegreens.prf`
 
-It is the same file for Follow the greens and Follow Me Car preferences.
+It is the same file for both Follow the greens and Follow Me Car preferences.
 
 If the file is not found, there won't be any preference set up.
 FtG will create an empty file at that location for later use.
 
-If a preference file is found, loaded preferences are logged in the ftg_log.txt file.
+If a preference file is found, loaded preferences are logged in the `ftg_log.txt` file.
 It is then easy to control which values are being used in the application.
 
 
@@ -42,7 +41,7 @@ but can also be restricted to a single airport or a single aircraft type.
 
 ```
 [Airports.EBBR]
-DISTANCE_BETWEEN_GREEN_LIGHTS = 8.0
+DISTANCE_BETWEEN_GREEN_LIGHTS = 12.0
 USE_THRESHOLD = true
 ```
 
@@ -80,6 +79,7 @@ preference redefines it.
 # Preferences for Airports
 
 The following preferences can be specified (and redefined) at the airport-level:
+
 1. `DISTANCE_BETWEEN_GREEN_LIGHTS`
 1. `RABBIT_SPEED`
 1. `RABBIT_LENGTH`
@@ -115,6 +115,16 @@ Example:
 VISUAL_RANGE.RANGE = [40, 80]  # in meters
 ```
 
+will be valid for all aircraft in class `C` (medium sized aircrafts like A320, B737).
+(Classes `A` to `F` are ICAO Aerodrome Reference Code used in airport geometric design.)
+
+```
+[Aircrafts.A380]
+VISUAL_RANGE.RANGE = [100, 200]  # in meters
+```
+
+will be valid for 
+
 # Preferences for Follow the greens
 
 The following preferences are specific to Follow the greens:
@@ -128,7 +138,7 @@ The following preferences are specific to Follow the greens:
 
 ## Lights
 
-### Meaning of Lights
+### Types of Lights (by Meanings)
 
 FtG lights different _types of lights_ at precise locations.
 You can adjust some of the light parameters to change the size, color, and intensity of each _type of light_.
@@ -158,11 +168,11 @@ This would change the `TAXIWAY_ALT` light type to a bright yellow light.
 (The above preference will effectively _create_ a new light with a _random name_ with the supplied paramters and load it.)
 
 
-### Type of Lights
+### Models of Lights (Appearance)
 
-FtG uses two types of light:
-1. default omni directional light
-1. realistic taxiway light
+FtG uses two models of light:
+1. _default_ omni directional light
+1. _realistic_ taxiway light
 
 The *default light* is a simple, spheric, omni directional light.
 It can be configured using the parameters:
@@ -186,10 +196,16 @@ The standard realistic light has twice the brightness of a regular taxiway light
 and stand out in both daylight and night lights.
 
 ![FtG Light Regular](images/regular1.png)
+
+Omni Directional Lights
+
 ![FtG Light Realistic](images/taxiway1.png)
+
+Realistic Taxiway Lights
 
 On the above pictures, please notice how lights are visible or not,
 as seen sideway, on the forefront or after the first turn.
+
 
 Realistic lights only have two parameters:
 
@@ -213,10 +229,15 @@ are NOT affected by the `sim/graphics/scenery/airport_light_level` dataref
 that sets the overall intensity of runway lights.
 
 ![FtG Light Regular](images/regular2.png)
+
+Omni Directional Lights
+
 ![FtG Light Realistic](images/taxiway2.png)
 
+Realistic Taxiway Lights
 
-### Alternate Light Object File
+
+### Alternate Light 3D-Object File
 
 To use another object light, you must use the following syntax:
 
@@ -238,7 +259,7 @@ as explained above.
 Path objects for lights are relative to the `followthegreens / lights` folder.
 
 
-### Taxiway Light Objects
+### Taxiway Light Object with _no light_
 
 The above light _objects_ are *lights*, i.e. surfaces that _emit_ a 3D light.
 They have no 3D object representing them on the screen on a rendering.

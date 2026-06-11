@@ -47,3 +47,23 @@ Some other additional files may also be created to help debugging, like:
 
 GeoJSON files contain geographic information like paths, object positions, etc.
 and can be visualized on sites like geojson.io.
+
+# Important
+
+When reporting an issue, please make sure you always transfert the following files:
+
+```
+<X-Plane 12>
+    log.txt                              <--- X-Plane log file
+    XPPython3Log.txt                     <--- XPPython3 plugin log file
+    /Resources
+        /plugins
+            /PythonPlugins/
+                ftg_log.txt              <--- Follow the greens log file
+```
+
+You can compress the three files in a zip archive for example.
+
+Many thanks for your help.
+
+Taxi safely.
