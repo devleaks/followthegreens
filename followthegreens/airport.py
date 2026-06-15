@@ -368,13 +368,11 @@ class Airport:
         # fmcar should be **created** before lights are placed because
         # if fmcar, distance_between_green_lights will be hardcoded to convenient value (~10m)
         #
-        # DID WE ASK FOR FMCAR
-
+        # did we ask for fmcar?
         if not ftg.use_car:
             logger.info("no follow me car")
             return None
-        # MAYBE, depends on movement
-        # check at airport-level first...
+        # get car definition
         uifmcar = ftg.ui.fmcar
         fmcar = FOLLOW_ME_CARS.get(uifmcar)
         logger.debug(f"UI FM car {uifmcar}")
@@ -383,47 +381,20 @@ class Airport:
             logger.debug(f"follow me car from preferences: {fmcar}")
         if len(fmcar) == 0:
             logger.info("no follow me car found")
-            return
-        logger.info(f"follow me car: {fmcar}")
-
-        apt = self.prefs.get("Airports", {})
-        prefs = apt.get(self.icao, {})
-        movement = prefs.get("MOVEMENT")
-        # if no value, check at global level, if no value, all movements are OK
-        if movement is None:
-            movement = self.prefs.get("MOVEMENT", ",".join([m.value for m in MOVEMENT]))
-        if ftg.move.value not in movement:
-            logger.debug(f"no fmcar for {ftg.move} ({movement} only)")
-            # Setting global default
-            logger.info(f"no fmcar on {ftg.move.value} at {self.icao}")
-            self.lights_ahead = get_global(RABBIT.LIGHTS_AHEAD.value, self.prefs)
-            if self.lights_ahead == 0:
-                self.lights_ahead = LIGHTS_AHEAD
-            self.lights_ahead_pref = True
-            self.rabbit_length = get_global(RABBIT.LENGTH.value, self.prefs)
-            if self.rabbit_length == 0:
-                self.rabbit_length = RABBIT_LENGTH
-            self.rabbit_length_pref = True
-            self.rabbit_speed = get_global(RABBIT.SPEED.value, self.prefs)
-            if self.rabbit_speed == 0:
-                self.rabbit_speed = RABBIT_SPEED
-            self.rabbit_speed_pref = True
-            logger.info(f"using global default for greens (la={self.lights_ahead}, rl={self.rabbit_length}, rs={self.rabbit_speed})")
             return None
-        # YES
         adj = ""
         if self.distance_between_green_lights > self.MTWYLDWC:  # min twy light distance with/when fmcar
             adj = f", distance between taxiway lights reduced from {self.distance_between_green_lights}m to {self.MTWYLDWC}m"
             self.distance_between_green_lights = self.MTWYLDWC
             self.distance_between_green_lights_pref = True
-        logger.debug(f"using fmcar {fmcar}{adj}")
+        logger.info(f"using fmcar {fmcar}{adj}")
         # If developer mode, show lights as well
         self.cursor_type = CursorType(**fmcar)
         self.cursor_type.indicator = ftg.ui.use_indicator  # transfert from UI
         return Cursor(self.cursor_type, ftg)
 
     def ensureDev(self) -> bool:
-        # returns has_light
+        # returns has_light if follow me car in use
         if self.prefs.get("DEVELOPER_PREFERENCE_ONLY", False):
             self.lights_ahead = 0
             self.lights_ahead_pref = True
@@ -530,45 +501,6 @@ class Airport:
         for line in self.lines:
             aptfile.write(f"{line.linecode()} {line.content()}\n")
         aptfile.close()
-
-    # def loadSmoothedTaxiwayNetwork(self):
-    #     fn = os.path.join(os.path.dirname(__file__), "..", f"{self.icao}.geojson")
-    #     data = {}
-    #     if not os.path.exists(fn):
-    #         return False
-
-    #     with open(fn, "r") as fp:
-    #         data = json.load(fp)
-    #     logger.debug(f"loaded {len(data['features'])} features")
-
-    #     # Create vertices, list edges
-    #     cnt = 1
-    #     for f in data["features"]:
-    #         g = f["geometry"]
-    #         if g["type"] == "Point":  # there shouldn't be any
-    #             self.smoothGraph.add_vertex(cnt, point=Point(lat=g["coordinates"][1], lon=g["coordinates"][0]), usage="taxiway")
-    #             cnt = cnt + 1
-    #         elif g["type"] == "LineString":
-    #             last = None
-    #             for p in g["coordinates"]:
-    #                 self.smoothGraph.add_vertex(cnt, point=Point(lat=p[1], lon=p[0]), usage="taxiway")
-    #                 if last is not None:
-    #                     cost = distance(self.smoothGraph.vert_dict[cnt - 1], self.smoothGraph.vert_dict[cnt])
-    #                     self.smoothGraph.add_edge(
-    #                         edge=Edge(
-    #                             src=self.smoothGraph.vert_dict[cnt - 1],
-    #                             dst=self.smoothGraph.vert_dict[cnt],
-    #                             cost=cost,
-    #                             direction="both",
-    #                             usage="taxiway",
-    #                             name="",
-    #                         )
-    #                     )
-    #                 last = self.smoothGraph.vert_dict[cnt]
-    #                 cnt = cnt + 1
-    #     # logger.debug(f"added {len(self.smoothGraph.vert_dict)} vertices, {len(self.smoothGraph.edges_arr)} edges")
-    #     self.smoothGraph.stats()
-    #     return True
 
     def stats(self):
         s = {}
