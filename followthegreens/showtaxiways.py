@@ -52,7 +52,7 @@ class ShowTaxiways(FollowTheGreens):
 
         logger.info(f"airport {self.airport.icao}  ready")
         self._status = FTG_STATUS.AIRPORT
-        self.lights = LightString(airport=self.airport, aircraft=self.aircraft, preferences=self.prefs)
+        self.lights = LightString(airport=self.airport, aircraft=self.aircraft, ui=self.ui, preferences=self.prefs)
         self._status = FTG_STATUS.READY
         self.lights.showAll(self.airport)
 

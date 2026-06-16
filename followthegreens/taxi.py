@@ -358,18 +358,21 @@ class Taxi:
 
         # @todo: WARNING_DISTANCE should be computed from acf type (weigth, size) and speed
         acfwarn = aircraft.warningDistance()
+        must_stop = self.ftg.lights.mustStopAt(nextStop=nextStop)
         if nextStop and warn < acfwarn:
-            t = self.ftg.lights.mustStopAt(nextStop=nextStop)
-            logger.debug(f"closing to stop (at light index={nextStop}, d={round(warn, 1)}m (< {acfwarn}m), must stop={t})")
+            logger.debug(f"closing to stop (at light index={nextStop}, d={round(warn, 1)}m (< {acfwarn}m), must stop={must_stop})")
             self.nextStop = nextStop
-            if self.hasFMCar():
-                fmcar.mustStopSoon()
-            if self.hasRabbit():
-                if self.rabbitMode != RABBIT_MODE.SLOWEST:
-                    self.allowRabbitAutotune("close to stop, allow autotune to force update to SLOWEST..")
-                    self.rabbitMode = RABBIT_MODE.SLOWEST
-                    # prevent rabbit auto-tuning, must remain slow until stop bar cleared
-                    self.disallowRabbitAutotune("..close to stop, autotune forced to SLOWEST")
+            if must_stop:
+                if self.hasFMCar():
+                    fmcar.mustStopSoon()
+                if self.hasRabbit():
+                    if self.rabbitMode != RABBIT_MODE.SLOWEST:
+                        self.allowRabbitAutotune("close to stop, allow autotune to force update to SLOWEST..")
+                        self.rabbitMode = RABBIT_MODE.SLOWEST
+                        # prevent rabbit auto-tuning, must remain slow until stop bar cleared
+                        self.disallowRabbitAutotune("..close to stop, autotune forced to SLOWEST")
+            else:
+                logger.debug("not a mandatory stop")
             if not self.ftg.ui.isVisible() and self.show_clearance_popup:
                 # logger.debug("showing UI")
                 self.ftg.ui.showWindow(canHide=False)

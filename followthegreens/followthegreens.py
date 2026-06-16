@@ -734,7 +734,7 @@ VERSION = "{__VERSION__}"
         if self.move == MOVEMENT.ARRIVAL:
             runway = self.airport.onRunway(pos, width=RUNWAY_BUFFER_WIDTH, heading=hdg)  # RUNWAY_BUFFER_WIDTH either side of runway, return [True,Runway()] or Error(None)
 
-        self.lights = LightString(airport=self.airport, aircraft=self.aircraft, preferences=self.prefs, has_light=has_light, use_taxiway_lights=self.use_taxiway_lights)
+        self.lights = LightString(airport=self.airport, aircraft=self.aircraft, ui=self.ui, preferences=self.prefs, has_light=has_light, use_taxiway_lights=self.use_taxiway_lights)
         self.lights._days = self.dayOfYear()
         self.lights.populate(ftg=self, onRunway=runway is not None)
         if len(self.lights.lights) == 0:

@@ -229,7 +229,7 @@ class XPObject:
             if lightTypeOff.has_obj:
                 self.instanceOff = xp.createInstance(lightTypeOff.obj, self.drefs)
                 xp.instanceSetPosition(self.instanceOff, self.xyz, self.params)
-                # logger.debug("LightString::place: light off placed")
+                # logger.debug("light off placed")
             else:
                 logger.debug(f"lightType off {lightTypeOff.name} appears to have no object, not placed")
 
@@ -375,7 +375,7 @@ class LightString:
     #    (108-75)*distance_between_green_lights
     # No need for sophisticated calculation. Error is at most distance_between_green_lights.
 
-    def __init__(self, airport, aircraft, preferences: dict = {}, has_light: bool = True, use_taxiway_lights: bool = False):
+    def __init__(self, airport, aircraft, ui, preferences: dict = {}, has_light: bool = True, use_taxiway_lights: bool = False):
         self.airport = airport  # get some lighting preference from there
         self.aircraft = aircraft  # get some rabbit preference from there
         self.prefs = preferences  # get FtG preference from there
@@ -475,6 +475,9 @@ class LightString:
                     logger.debug(f"rabbit_length set to at least {HARDCODED_MIN_RABBIT_LENGTH} lights")
                     self.rabbit_length = HARDCODED_MIN_RABBIT_LENGTH
                 self.rabbit_length_from = "aircraft"
+        if ui.advanced_options:
+            self.rabbit_length = ui.rabbit_length
+            self.rabbit_length_from = "ui"
         logger.debug(f"rabbit_length {self.rabbit_length} (from {self.rabbit_length_from})")
         self.num_rabbit_lights = self.rabbit_length  # can be 0, this adjusts with acf speed
         if self.num_rabbit_lights > 0:
@@ -495,6 +498,9 @@ class LightString:
             if aircraft.rabbit_speed_pref:
                 self.rabbit_speed = aircraft.rabbit_speed
                 self.rabbit_speed_from = "aircraft"
+        if ui.advanced_options and ui.rabbit_speed is not None:
+            self.rabbit_speed = ui.rabbit_speed
+            self.rabbit_speed_from = "ui"
         logger.debug(f"rabbit_speed {self.rabbit_speed} (from {self.rabbit_speed_from})")
         self.rabbit_duration = self.rabbit_speed  # this adjusts with acf speed
 
@@ -519,6 +525,9 @@ class LightString:
                     logger.debug("lights_ahead set to at least 10 lights")
                     self.lights_ahead = 10
                 self.lights_ahead_from = "aircraft"
+        if ui.advanced_options:
+            self.lights_ahead = ui.lights_ahead
+            self.lights_ahead_from = "ui"
         logger.debug(f"lights_ahead {self.lights_ahead} (from {self.lights_ahead_from})")
         self.num_lights_ahead = self.lights_ahead  # this adjusts with acf speed
 
@@ -831,16 +840,19 @@ class LightString:
 
     def placeLights(self):
         loff = self.lightTypes[LIGHT_TYPE.OFF] if self.hasLight else None
+        logger.debug(f"light off {loff}")
+        t = 0
         for light in self.lights:
             light.place(self.lightTypes[light.lightType], loff)
-        t = len(self.lights)
+            t += 1
+        logger.debug(f"{t} regular lights placed")
 
         for sb in self.stopbars:
             sb.place(self.lightTypes, loff)
             t += len(sb.lights)
 
         self.xyzPlaced = True
-        logger.debug(f"{t} lights placed")
+        logger.debug(f"total: {t} lights placed")
         return True
 
     def populate(self, ftg, onRunway: bool = False):
