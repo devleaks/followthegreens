@@ -19,11 +19,11 @@ followthegreens/cars/xcsl/credits.html|3659499169
 followthegreens/cars/xcsl/x-csl-info.info|1772261579
 followthegreens/cars/xcsl/xsb_aircraft.txt|1351490319
 followthegreens/cursor.py|3550977422
-followthegreens/followthegreens.py|2170270055
+followthegreens/followthegreens.py|1763116330
 followthegreens/geo.py|2123571880
 followthegreens/globals.py|3091451703
 followthegreens/graph.py|511284911
-followthegreens/lights.py|1893609835
+followthegreens/lights.py|3867222426
 followthegreens/lights/amber.obj|2281468011
 followthegreens/lights/green.obj|833283030
 followthegreens/lights/lights.png|1859086726
@@ -38,7 +38,7 @@ followthegreens/lights/white.obj|1415050574
 followthegreens/nato.py|2108547532
 followthegreens/route.py|1112445670
 followthegreens/se.py|3652223195
-followthegreens/showtaxiways.py|2287572817
-followthegreens/taxi.py|1810690028
+followthegreens/showtaxiways.py|426961324
+followthegreens/taxi.py|2602314155
 followthegreens/ui.py|3895455742
-followthegreens/version.py|3737805288
+followthegreens/version.py|3682957165
