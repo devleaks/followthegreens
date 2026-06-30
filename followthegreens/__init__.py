@@ -28,5 +28,6 @@ from .globals import (
     STW_COMMAND_DESC,
     STW_MENU,
 )
+from .airport import REQUIRED_XPLANE_AIRPORTS
 from .followthegreens import FollowTheGreens
 from .showtaxiways import ShowTaxiways

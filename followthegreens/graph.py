@@ -92,7 +92,7 @@ class Edge(Line):
     def __init__(self, src, dst, cost, direction, usage, name):
         Line.__init__(self, src, dst)
         self.name = name  # segment name, not unique! For documentation only.
-        self.cost = cost  # cost = distance to next vertext
+        self.cost = cost if cost > 0.0 else distance(src, dst)
 
         # oneway/twoway
         self.direction = TAXIWAY_DIRECTION(direction)

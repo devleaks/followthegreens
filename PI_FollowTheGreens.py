@@ -7,6 +7,7 @@
 import sys
 import os
 import re
+from importlib.metadata import version
 from traceback import print_exc
 from typing import Any
 
@@ -15,13 +16,6 @@ try:
     from XPPython3.utils import xp_pip
 except ImportError:
     print("X-Plane not loaded")
-
-missing_modules = []
-try:
-    import xplane_airports
-except ModuleNotFoundError:
-    missing_modules.append("xplane_airports")
-
 
 PLUGIN_FOLDER_NAME = "followthegreens"
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))  # .../PythonPlugins
@@ -44,6 +38,7 @@ from followthegreens import (
     __VERSION__,
     __NAME__,
     __DESCRIPTION__,
+    REQUIRED_XPLANE_AIRPORTS,
     FollowTheGreens,
     ShowTaxiways,
     RABBIT_MODE,
@@ -74,6 +69,18 @@ from followthegreens import (
     STW_COMMAND_DESC,
     STW_MENU,
 )
+
+missing_modules = []
+try:
+    import xplane_airports
+
+    v = version("xplane_airports")
+    print(f"xplane_airports version {v}")
+    if v < REQUIRED_XPLANE_AIRPORTS:  # should use packaging.version
+        missing_modules.append(f"git+https://github.com/devleaks/xplane_airports.git@{REQUIRED_XPLANE_AIRPORTS}")
+        print(f"xplane_airports requesting version {REQUIRED_XPLANE_AIRPORTS}")
+except ModuleNotFoundError:
+    missing_modules.append(f"git+https://github.com/devleaks/xplane_airports.git@{REQUIRED_XPLANE_AIRPORTS}")
 
 # Produces additional debugging information in XPPython3Log.txt file if set to True
 SHOW_TRACE = False
@@ -339,8 +346,14 @@ class PythonInterface:
         self.debug("XPluginEnable: enabling..", force=True)
 
         if len(missing_modules) > 0:
-            xp_pip.load_packages(missing_modules, "Loading missing modules", "Modules loaded.\nCheck for errors, and RESTART X-Plane.")
-            return 0  # to disable the plugin
+            try:
+                xp_pip.load_packages(missing_modules, "Loading missing modules", "Modules loaded.\nCheck for errors, and RESTART X-Plane.")
+                self.debug(f"XPluginEnable: loaded packages {missing_modules}", force=True)
+                return 0  # to disable the plugin
+            except:
+                self.debug("XPluginEnable: error loading packages", force=True)
+        else:
+            self.debug("XPluginEnable: all packages ok", force=True)
 
         if FTG_HUD is not None:
             xp.registerDrawCallback(self.hud)

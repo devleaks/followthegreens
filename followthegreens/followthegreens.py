@@ -482,12 +482,11 @@ VERSION = "{__VERSION__}"
             )
             + "\n"
         )
-        logger.info(f"starting new green session at {datetime.now().astimezone().isoformat()} (session id = {self.session})..")
 
+        logger.info(f"starting new green session at {datetime.now().astimezone().isoformat()} (session id = {self.session})..")
         # From here on, there is no opened window
         #
         # Info 1
-        logger.info("starting..")
         self.use_car = use_car
         self.status = FTG_STATUS.START
 
@@ -538,7 +537,10 @@ VERSION = "{__VERSION__}"
 
     def setAirport(self, apt: str | None = None) -> Status:
         # if apt is supplied, tries to load it, otherwise guess from aircraft position
-        logger.debug(f"trying to set airport {apt}..")
+        if apt is None:
+            logger.debug(f"trying to guess airport from aircraft location..")
+        else:
+            logger.debug(f"trying to set airport {apt}..")
 
         airport_name = apt
         if airport_name is None:  # guess it
@@ -558,9 +560,10 @@ VERSION = "{__VERSION__}"
                 return Error("Airport not found")
 
             airport_name = airport.navAidID
+            logger.debug(f"..guessed airport {airport_name}")
 
         if self.airport is not None and (self.airport.icao == airport_name):
-            logger.debug(f"airport {apt} already loaded")
+            logger.debug(f"airport {airport_name} already loaded")
             return NoError("already loaded")
 
         if apt is not None:  # we must try to load the supplied new airport
@@ -692,7 +695,8 @@ VERSION = "{__VERSION__}"
             return
 
         # Info 12
-        logger.info(f"..route to {destination}: {self.route}")
+        logger.info(f"route: {self.route}")
+        logger.info(f"route to {destination}: {self.route.text()}")
         self.destination = destination
         logger.info(f"destination {destination}")
         self.status = FTG_STATUS.DESTINATION
@@ -973,7 +977,8 @@ VERSION = "{__VERSION__}"
         logger.debug(f"terminating {reason}..")
 
         # remove interaction first
-        self.ui.terminate()
+        if self.ui is not None:
+            self.ui.terminate()
 
         if self.status in [FTG_STATUS.TERMINATED, FTG_STATUS.DELETED, FTG_STATUS.DISABLED]:
             logger.warning(f"{type(self).__name__} already terminated")

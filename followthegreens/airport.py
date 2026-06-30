@@ -4,8 +4,10 @@
 import os
 import re
 import math
-from sre_compile import dis
 from typing import Tuple
+from importlib.metadata import version
+
+from followthegreens import graph
 
 try:
     import xp
@@ -15,6 +17,7 @@ except ImportError:
 has_xplane_airports = False
 try:
     from xplane_airports.AptDat import AptDat, Airport
+    from xplane_airports.AptDetail import DetailedAirport
 
     has_xplane_airports = True
 except ImportError:
@@ -37,6 +40,7 @@ from .globals import (
     LIGHTS_AHEAD,  # for default values if no fmcar
     RABBIT_LENGTH,
     RABBIT_SPEED,
+    TAXIWAY_WIDTH_CODE,
 )
 from .geo import Point, Line, Polygon, destination, distance, pointInPolygon
 from .graph import Graph, Edge, Vertex
@@ -44,6 +48,9 @@ from .cursor import CursorType, Cursor, FOLLOW_ME_CARS, FM_CAR_PREFERENCE
 from .route import Route
 
 SYSTEM_DIRECTORY = "."
+
+REQUIRED_XPLANE_AIRPORTS = "5.0.5"
+INSTALL_WITH_XPLANE_AIRPORTS = False
 
 
 class Runway(Line):
@@ -220,6 +227,7 @@ class Airport:
         self.longitude = 0
         self.altitude = 0  # ASL, in meters
         self.loaded = False
+        self.installed = False
         self.scenery_pack = False
         self.lines = []
         self.graph = Graph(name="taxiways")
@@ -280,24 +288,25 @@ class Airport:
         # Info 5
         # logger.debug(f"has ATC {self.hasATC()}")  # actually, we don't care.
 
-        status = self.mkRoutingNetwork()
-        if not status:
-            return Error(f"We could not build taxiway network for {self.icao}.")
+        if not self.installed:
+            status = self.mkRoutingNetwork()
+            if not status:
+                return Error(f"We could not build taxiway network for {self.icao}.")
 
-        status = self.ldRunways()
-        if len(status) == 0:
-            return Error(f"We could not find runways for {self.icao}.")
-        # Info 7
-        logger.debug(f"runways: {status.keys()}")
+            status = self.ldRunways()
+            if len(status) == 0:
+                return Error(f"We could not find runways for {self.icao}.")
+            # Info 7
+            logger.debug(f"runways: {status.keys()}")
 
-        status = self.ldHolds()
-        logger.debug(f"holding positions: {status.keys()}")
+            status = self.ldHolds()
+            logger.debug(f"holding positions: {status.keys()}")
 
-        status = self.ldRamps()
-        if len(status) == 0:
-            return Error(f"We could not find ramps/parking for {self.icao}.")
-        # Info 8
-        logger.debug(f"ramps: {status.keys()}")
+            status = self.ldRamps()
+            if len(status) == 0:
+                return Error(f"We could not find ramps/parking for {self.icao}.")
+            # Info 8
+            logger.debug(f"ramps: {status.keys()}")
 
         self.status = True
         return NoError("Airport ready")
@@ -449,18 +458,113 @@ class Airport:
 
         return self.loaded
 
-    def loadXplaneAirport(self, filename):
+    def loadXplaneAirport(self, filename) -> bool:
+        # See https://gateway.x-plane.com/api
         if has_xplane_airports:
             self.apt_data = None
+            logger.info(f"xplane_airports version {version('xplane_airports')}")
             try:
                 apt_dat = AptDat(path_to_file=filename)
-                apt_data = apt_dat[self.icao]
+                apt_data = DetailedAirport.from_airport(airport=apt_dat[self.icao])
                 logger.info(f"xplane_airports read {self.icao}: {apt_data.from_file} {apt_data.name} {apt_data.id}")
+                logger.info(f"xplane_airports {self.icao}: has taxi routes: {apt_data.has_taxi_route}")  #  {dir(apt_data)}
+                if hasattr(apt_data, "taxi_network"):
+                    if apt_data.taxi_network is not None:
+                        logger.debug(f"taxi network: {len(apt_data.taxi_network.nodes)} nodes, {len(apt_data.taxi_network.edges)} edges")
+                if hasattr(apt_data, "road_network"):
+                    if apt_data.road_network is not None:
+                        logger.debug(f"road network: {len(apt_data.road_network.nodes)} nodes, {len(apt_data.road_network.edges)} edges")
                 self.apt_data = apt_data
+                return self.mkAirport()
             except:
                 logger.error(f"could not load {self.icao} from {filename}", exc_info=True)
         else:
             logger.warning("xplane_airports not installed")
+        return False
+
+    def mkAirport(self) -> bool:
+
+        # service roads
+        roads = Graph("roads from xplane_airports")
+        if self.apt_data is not None:
+            for k, v in self.apt_data.road_network.nodes.items():
+                roads.add_vertex(node=str(k), point=Point(float(v.lat), float(v.lon)), usage="road", name=str(k))
+            for e in self.apt_data.road_network.edges:
+                src = roads.get_vertex(str(e.node_begin))
+                dst = roads.get_vertex(str(e.node_end))
+                if src is not None and dst is not None:
+                    cost = distance(src, dst)
+                    edge = Edge(src=src, dst=dst, cost=0.0, direction="oneway" if e.one_way else "twoway", usage="road", name=e.name)
+                    roads.add_edge(edge)
+                else:
+                    logger.warning(f"{e.node_begin} or {e.node_end} not found ({src}, {dst})")
+        roads.stats()
+
+        # Truck parkings
+        parkings = {}
+        for p in self.apt_data.truck_parkings:
+            parkings[p.name] = p
+        logger.debug(f"xplane_airports added {len(parkings)} truck parkings")
+
+        # Destination
+        destinations = {}
+        for p in self.apt_data.truck_destinations:
+            destinations[p.name] = p
+        logger.debug(f"xplane_airports added {len(destinations)} truck destinations")
+
+        # taxiways
+        graph = Graph("taxiways from xplane_airports")
+        if self.apt_data is not None:
+            for k, v in self.apt_data.taxi_network.nodes.items():
+                graph.add_vertex(node=str(k), point=Point(float(v.lat), float(v.lon)), usage=v.usage, name=str(k))
+            self.apt_data.inject_active_zones()
+            for e in self.apt_data.taxi_network.edges:
+                src = graph.get_vertex(str(e.node_begin))
+                dst = graph.get_vertex(str(e.node_end))
+                if src is not None and dst is not None:
+                    cost = distance(src, dst)
+                    edge = Edge(src=src, dst=dst, cost=0.0, direction="oneway" if e.one_way else "twoway", usage="road", name=e.name)
+                    edge.width_code = TAXIWAY_WIDTH_CODE(e.icao_width.value) if e.icao_width else "C"
+                    # Add active
+                    if e.active_zones is not None:
+                        for z in e.active_zones:
+                            edge.add_active(z.zone, z.runways)
+                    graph.add_edge(edge)
+                else:
+                    logger.warning(f"{e.node_begin} or {e.node_end} not found ({src}, {dst})")
+        graph.stats()
+
+        # Ramps
+        ramps = {}
+        for r in self.apt_data.startup_locations:
+            ramp = Ramp(name=r.name, heading=r.heading, lat=r.lat, lon=r.lon)
+            ramp.locationType = r.type_str
+            ramp.aircrafts = r.aircraft_types
+            ramp.icaoType = r.icao_code
+            ramp.operationType = r.oper_type
+            ramp.airlines = r.airline
+            ramps[r.name] = ramp
+        logger.debug(f"xplane_airports added {len(ramps)} ramps")
+
+        # Runways
+        runways = {}
+        for r in self.apt_data.land_runways:
+            runway = Polygon.new(lat1=r.lat, lon1=r.lon, lat2=r.end_lat, lon2=r.end_lon, width=r.width)
+            runways[r.name] = Runway(name=r.name, width=r.width, lat=r.lat, lon=r.lon, dt=r.threshold, dbo=r.overrun, lat2=r.end_lat, lon2=r.end_lon, pol=runway)
+        logger.debug(f"xplane_airports added {len(runways)} runways")
+
+        # Holding position
+        holds = {}
+        logger.debug(f"xplane_airports added {len(holds)} holding positions")
+
+        if INSTALL_WITH_XPLANE_AIRPORTS and not self.installed:
+            self.graph = graph
+            self.roads = roads
+            self.runways = runways
+            self.ramps = ramps
+            self.holds = holds
+            self.installed = True
+        return self.installed
 
     def loadFile(self, filename) -> bool:
         apt_dat = open(filename, "r", encoding="utf-8", errors="ignore")
@@ -471,12 +575,15 @@ class Airport:
                 newparam = line.split()  # if no characters supplied to split(), multiple space characters as one
                 # logger.debug(f"airport: {newparam[4]}")
                 if newparam[4] == self.icao:  # it is the airport we are looking for
-                    self.loadXplaneAirport(filename=filename)
                     self.name = " ".join(newparam[5:])
                     self.altitude = newparam[1]
                     # Info 4.a
                     logger.info(f"found airport {newparam[4]} '{self.name}' in '{filename}'")
                     self.scenery_pack = filename  # remember where we found it
+                    if self.loadXplaneAirport(filename=filename):
+                        logger.info(f"{self.icao} installed with xplane_airports {version('xplane_airports')}")
+                        # self.loaded = True
+                        # return self.loaded
                     self.lines.append(AptLine(line.strip()))  # keep first line
                     line = apt_dat.readline()  # next line in apt.dat
                     while line and not re.match("^1 ", line, flags=0):  # while we do not encounter a line defining a new airport...
@@ -578,7 +685,7 @@ class Airport:
                     edge = Edge(src=src, dst=dst, cost=cost, direction=args[2], usage="road", name="")
                     self.roads.add_edge(edge)
                     if len(args) > 3:
-                        logger.debug(f"extra params: {args[3:]}")
+                        logger.debug(f"line code {aptline.linecode()}: extra params: {args[3:]}, ignored")
                     roadEdgeCount += 1
                 else:
                     logger.debug(f"not enough params {aptline.linecode()} {aptline.content()}")
