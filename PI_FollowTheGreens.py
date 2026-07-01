@@ -84,7 +84,7 @@ except ModuleNotFoundError:
 
 # Produces additional debugging information in XPPython3Log.txt file if set to True
 SHOW_TRACE = False
-
+AUTOLOAD = False
 
 AMBER = (1.0, 0.85, 0.0)
 RED = (1.0, 0.0, 0.0)
@@ -345,7 +345,7 @@ class PythonInterface:
     def XPluginEnable(self):
         self.debug("XPluginEnable: enabling..", force=True)
 
-        if len(missing_modules) > 0:
+        if len(missing_modules) > 0 and AUTOLOAD:
             try:
                 xp_pip.load_packages(missing_modules, "Loading missing modules", "Modules loaded.\nCheck for errors, and RESTART X-Plane.")
                 self.debug(f"XPluginEnable: loaded packages {missing_modules}", force=True)
@@ -353,7 +353,10 @@ class PythonInterface:
             except:
                 self.debug("XPluginEnable: error loading packages", force=True)
         else:
-            self.debug("XPluginEnable: all packages ok", force=True)
+            if len(missing_modules) > 0:
+                self.debug("XPluginEnable: some packages missing, no auto installation", force=True)
+            else:
+                self.debug("XPluginEnable: all packages ok", force=True)
 
         if FTG_HUD is not None:
             xp.registerDrawCallback(self.hud)
