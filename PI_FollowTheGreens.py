@@ -7,6 +7,7 @@
 import sys
 import os
 import re
+import platform
 from importlib.metadata import version
 from traceback import print_exc
 from typing import Any
@@ -70,6 +71,7 @@ from followthegreens import (
     STW_MENU,
 )
 
+AUTOLOAD = True  # auto pip-loading missing packages, fails on Steam
 missing_modules = []
 try:
     import xplane_airports
@@ -84,7 +86,6 @@ except ModuleNotFoundError:
 
 # Produces additional debugging information in XPPython3Log.txt file if set to True
 SHOW_TRACE = False
-AUTOLOAD = False
 
 AMBER = (1.0, 0.85, 0.0)
 RED = (1.0, 0.0, 0.0)
@@ -347,6 +348,39 @@ class PythonInterface:
 
         if len(missing_modules) > 0 and AUTOLOAD:
             try:
+                # Steam modifies the library path and some libraries are found BEFORE XPPython3's.
+                # So we reset the path and prepend XPPython3 libraries before Steam's
+                #
+                steam = os.getenv("SteamAppId")
+                if steam is not None and steam != "":
+                    self.debug(f"XPluginEnable: detected Steam installation ({steam})", force=True)
+                    # 1. find x-plane root
+                    xppythonlib = xp.getSystemPath()
+                    # 2. build path to xppython libs
+                    # 3. add path to LD library path(s)
+                    opsys = platform.system()
+                    python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+                    if opsys == "Linux":
+                        xppythonlib = os.path.join(xppythonlib, "Resources", "plugins", "XPPython3", "lin_x64", f"python{python_version}", "lib")
+                        currpath = os.getenv("LD_LIBRARY_PATH")
+                        os.environ["LD_LIBRARY_PATH"] = f"{xppythonlib}:{currpath}"
+                        self.debug(f"XPluginEnable: added {xppythonlib} to library path", force=True)
+                    elif opsys == "Darwin":
+                        xppythonlib = os.path.join(xppythonlib, "Resources", "plugins", "XPPython3", "mac_x64", f"python{python_version}", "lib")
+                        currpath = os.getenv("LD_LIBRARY_PATH")
+                        os.environ["LD_LIBRARY_PATH"] = f"{xppythonlib}:{currpath}"
+                        self.debug(f"XPluginEnable: added {xppythonlib} to library path", force=True)
+                    elif opsys == "Windows":
+                        dirs = ["libs", "Lib"; "DLLs"]
+                        for d in dirs:
+                            addme = os.path.join(xppythonlib, "Resources", "plugins", "XPPython3", "win_x64", d)
+                            os.add_dll_directory(addme)
+                        self.debug(f"XPluginEnable: added {xppythonlib}/{{{','.join(dirs)}}} to library path", force=True)
+                    else:
+                        self.debug(f"XPluginEnable: invalid system {opsys}", force=True)
+                #
+                # end of Steam patch
+
                 xp_pip.load_packages(missing_modules, "Loading missing modules", "Modules loaded.\nCheck for errors, and RESTART X-Plane.")
                 self.debug(f"XPluginEnable: loaded packages {missing_modules}", force=True)
                 return 0  # to disable the plugin

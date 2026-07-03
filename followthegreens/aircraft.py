@@ -218,7 +218,7 @@ class Aircraft(Vehicle):
         self.psi = xp.findDataRef("sim/flightmodel/position/psi")
         self.groundspeed = xp.findDataRef("sim/flightmodel/position/groundspeed")
         self.tiller = xp.findDataRef("ckpt/tiller")  # check if pilot is turning
-        self.visibility_dref = xp.findDataRef("sim/weather/visibility_reported_m")
+        self.visibility_dref = xp.findDataRef("sim/weather/aircraft/visibility_reported_sm")
         self.bt_dref = xp.findDataRef("AirbusFBW/BrakeTemperatureArray")
 
         self.width_code = TAXIWAY_WIDTH_CODE.C  # init to default
@@ -365,8 +365,8 @@ class Aircraft(Vehicle):
             return AMBIANT_RWY_LIGHT.MED
         return AMBIANT_RWY_LIGHT.HIGH
 
-    def visibility(self) -> float:
-        return xp.getDataf(self.visibility_dref)
+    def visibility(self) -> float:  # in meters
+        return xp.getDataf(self.visibility_dref) * 1.609344
 
     def aheadRangeBase(self) -> list:
         # provides a reasonable range for this aircraft type
