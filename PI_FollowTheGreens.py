@@ -363,21 +363,35 @@ class PythonInterface:
                     if opsys == "Linux":
                         xppythonlib = os.path.join(xppythonlib, "Resources", "plugins", "XPPython3", "lin_x64", f"python{python_version}", "lib")
                         currpath = os.getenv("LD_LIBRARY_PATH")
-                        os.environ["LD_LIBRARY_PATH"] = f"{xppythonlib}:{currpath}"
-                        self.debug(f"XPluginEnable: added {xppythonlib} to library path", force=True)
+                        if os.path.exists(currpath):
+                            os.environ["LD_LIBRARY_PATH"] = f"{xppythonlib}:{currpath}"
+                            self.debug(f"XPluginEnable: added {xppythonlib} to library path", force=True)
+                        else:
+                            self.debug(f"XPluginEnable: no path added to library path", force=True)
                     elif opsys == "Darwin":
                         xppythonlib = os.path.join(xppythonlib, "Resources", "plugins", "XPPython3", "mac_x64", f"python{python_version}", "lib")
                         currpath = os.getenv("LD_LIBRARY_PATH")
-                        os.environ["LD_LIBRARY_PATH"] = f"{xppythonlib}:{currpath}"
-                        self.debug(f"XPluginEnable: added {xppythonlib} to library path", force=True)
+                        if os.path.exists(currpath):
+                            os.environ["LD_LIBRARY_PATH"] = f"{xppythonlib}:{currpath}"
+                            self.debug(f"XPluginEnable: added {xppythonlib} to library path", force=True)
+                        else:
+                            self.debug(f"XPluginEnable: no path added to library path", force=True)
                     elif opsys == "Windows":
                         dirs = ["libs", "Lib", "DLLs"]
+                        added = []
                         for d in dirs:
                             addme = os.path.join(xppythonlib, "Resources", "plugins", "XPPython3", "win_x64", d)
-                            os.add_dll_directory(addme)
-                        self.debug(f"XPluginEnable: added {xppythonlib}/{{{','.join(dirs)}}} to library path", force=True)
+                            if os.path.exists(addme):
+                                os.add_dll_directory(addme)
+                                added.append(d)
+                        if len(added) > 0:
+                            self.debug(f"XPluginEnable: added {xppythonlib}/{{{','.join(added)}}} to library path", force=True)
+                        else:
+                            self.debug(f"XPluginEnable: no path added to library path", force=True)
                     else:
                         self.debug(f"XPluginEnable: invalid system {opsys}", force=True)
+                else:
+                    self.debug(f"XPluginEnable: not on Steam")
                 #
                 # end of Steam patch
 
