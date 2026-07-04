@@ -371,7 +371,7 @@ class PythonInterface:
                         os.environ["LD_LIBRARY_PATH"] = f"{xppythonlib}:{currpath}"
                         self.debug(f"XPluginEnable: added {xppythonlib} to library path", force=True)
                     elif opsys == "Windows":
-                        dirs = ["libs", "Lib"; "DLLs"]
+                        dirs = ["libs", "Lib", "DLLs"]
                         for d in dirs:
                             addme = os.path.join(xppythonlib, "Resources", "plugins", "XPPython3", "win_x64", d)
                             os.add_dll_directory(addme)
