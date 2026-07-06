@@ -589,6 +589,7 @@ VERSION = "{__VERSION__}"
         # test
         apt_loc = self.airport.position()
         if apt_loc[0] != 0.0 and apt_loc[1] != 0.0:
+            pos = self.aircraft.position()
             apt_dist = distance(Point(pos[0], pos[1]), Point(apt_loc[0], apt_loc[1]))
             logger.debug(f"airport location at {round(apt_dist, 1)}m from aircraft")
             if apt_dist > 10000:
