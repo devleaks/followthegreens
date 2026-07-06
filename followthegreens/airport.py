@@ -4,6 +4,7 @@
 import os
 import re
 import math
+from io import StringIO
 from typing import Tuple
 from importlib.metadata import version
 
@@ -51,6 +52,16 @@ SYSTEM_DIRECTORY = "."
 
 REQUIRED_XPLANE_AIRPORTS = "5.2.2"
 INSTALL_WITH_XPLANE_AIRPORTS = False
+
+
+# Add XP 12 location for Global Airports
+DEFAULT_AIRPORTS_FILE = os.path.join(
+    SYSTEM_DIRECTORY,
+    "Global Scenery",
+    "Global Airports",
+    "Earth nav data",
+    "apt.dat",
+)
 
 
 class Runway(Line):
@@ -436,16 +447,8 @@ class Airport:
                 scenery = scenery_packs.readline()
             scenery_packs.close()
 
-        # Add XP 12 location for Global Airports
-        default_airports_file = os.path.join(
-            SYSTEM_DIRECTORY,
-            "Global Scenery",
-            "Global Airports",
-            "Earth nav data",
-            "apt.dat",
-        )
-        if os.path.exists(default_airports_file) and os.path.isfile(default_airports_file):
-            APT_FILES["default airports"] = default_airports_file
+        if os.path.exists(DEFAULT_AIRPORTS_FILE) and os.path.isfile(DEFAULT_AIRPORTS_FILE):
+            APT_FILES["default airports"] = DEFAULT_AIRPORTS_FILE
         # else:
         #     logger.warning(f"default airport file {DEFAULT_AIRPORTS} not found")
         # logger.debug(f"APT files: {APT_FILES}")
@@ -458,13 +461,31 @@ class Airport:
 
         return self.loaded
 
-    def loadXplaneAirport(self, filename) -> bool:
+    def loadXplaneAirportFromLines(self) -> bool:
         # See https://gateway.x-plane.com/api
         if has_xplane_airports:
+            if len(self.lines) > 0:
+                try:
+                    logger.warning(f"xplane_airports not loading from default file {DEFAULT_AIRPORTS_FILE} for performance reason")
+                    logger.warning(f"xplane_airports loading from {len(self.lines)} target lines read")
+                    lines = [f"{l.linecode()} {l.content()}" for l in self.lines]
+                    apt_data = DetailedAirport.from_lines(dat_lines=lines, from_file_name=DEFAULT_AIRPORTS_FILE)
+                    logger.info(f"xplane_airports read {self.icao}: {apt_data.from_file} {apt_data.name} {apt_data.id}")
+                    logger.info(f"xplane_airports {self.icao}: has taxi routes: {apt_data.has_taxi_route}")  #  {dir(apt_data)}
+                    self.apt_data = apt_data
+                    return self.mkAirport()
+                except:
+                    logger.error(f"could not load {self.icao} from lines", exc_info=True)
+                    return False
+
+    def loadXplaneAirport(self, filename) -> bool:
+        # See https://gateway.x-plane.com/api
+        if has_xplane_airports and filename != DEFAULT_AIRPORTS_FILE:
             self.apt_data = None
             logger.info(f"xplane_airports version {version('xplane_airports')}")
             try:
                 apt_dat = AptDat(path_to_file=filename)
+                logger.debug(f"AptDat: {len(apt_dat.airports)}")
                 apt_data = DetailedAirport.from_airport(airport=apt_dat[self.icao])
                 logger.info(f"xplane_airports read {self.icao}: {apt_data.from_file} {apt_data.name} {apt_data.id}")
                 logger.info(f"xplane_airports {self.icao}: has taxi routes: {apt_data.has_taxi_route}")  #  {dir(apt_data)}
@@ -517,7 +538,6 @@ class Airport:
         if self.apt_data is not None:
             for k, v in self.apt_data.taxi_network.nodes.items():
                 graph.add_vertex(node=str(k), point=Point(float(v.lat), float(v.lon)), usage=v.usage, name=str(k))
-            self.apt_data.inject_active_zones()
             for e in self.apt_data.taxi_network.edges:
                 src = graph.get_vertex(str(e.node_begin))
                 dst = graph.get_vertex(str(e.node_end))
@@ -601,12 +621,23 @@ class Airport:
                 line = apt_dat.readline()  # next line in apt.dat
 
         apt_dat.close()
+
+        if filename == DEFAULT_AIRPORTS_FILE:
+            if self.loadXplaneAirportFromLines():
+                logger.info(f"{self.icao} installed with xplane_airports {version('xplane_airports')}")
+
         return self.loaded
 
     def dumpAptFile(self, filename):
         aptfile = open(filename, "w")
+        # note: need to write file header
+        # I
+        # 1200 ...
+        #
         for line in self.lines:
             aptfile.write(f"{line.linecode()} {line.content()}\n")
+        # note: need to write file footer
+        # 99
         aptfile.close()
 
     def stats(self):

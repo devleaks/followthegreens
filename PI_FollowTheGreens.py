@@ -385,7 +385,7 @@ class PythonInterface:
                                 os.add_dll_directory(addme)
                                 added.append(d)
                         if len(added) > 0:
-                            self.debug(f"XPluginEnable: added {xppythonlib}/{{{','.join(added)}}} to library path", force=True)
+                            self.debug(f"XPluginEnable: added {xppythonlib}{{{','.join(added)}}} to library path", force=True)
                         else:
                             self.debug(f"XPluginEnable: no path added to library path", force=True)
                     else:
@@ -394,9 +394,11 @@ class PythonInterface:
                     self.debug(f"XPluginEnable: not on Steam")
                 #
                 # end of Steam patch
-
-                xp_pip.load_packages(missing_modules, "Loading missing modules", "Modules loaded.\nCheck for errors, and RESTART X-Plane.")
-                self.debug(f"XPluginEnable: loaded packages {missing_modules}", force=True)
+                try:
+                    xp_pip.load_packages(missing_modules, "Loading missing modules", "Modules loaded.\nCheck for errors, and RESTART X-Plane.")
+                    self.debug(f"XPluginEnable: loaded packages {missing_modules}", force=True)
+                except:
+                    self.debug(f"XPluginEnable: could not load packages {missing_modules}", force=True)
                 return 0  # to disable the plugin
             except:
                 self.debug("XPluginEnable: error loading packages", force=True)
