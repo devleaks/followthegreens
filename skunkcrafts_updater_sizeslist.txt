@@ -19,7 +19,7 @@ followthegreens/cars/xcsl/credits.html|596
 followthegreens/cars/xcsl/x-csl-info.info|101
 followthegreens/cars/xcsl/xsb_aircraft.txt|263
 followthegreens/cursor.py|69657
-followthegreens/followthegreens.py|48059
+followthegreens/followthegreens.py|48102
 followthegreens/geo.py|11693
 followthegreens/globals.py|18475
 followthegreens/graph.py|27071
