@@ -20,6 +20,7 @@ except ImportError:
 from .followthegreens import FollowTheGreens
 from .airport import Airport
 from .lights import LightString
+from .ui import UI_BUTTON
 from .globals import logger, NoError, FTG_STATUS
 
 
@@ -37,11 +38,11 @@ class ShowTaxiways(FollowTheGreens):
             status = self.airport.prepare()  # [ok, errmsg]
             if not status[0]:
                 logger.warning(f"airport not ready: {status[1]}")
-                self.ui2.createWindow(
+                self.ui.createWindow(
                     report={
                         "text": [status[1]],
                         "error": "Airport not ready",
-                        "cancel": True,
+                        "buttons": [UI_BUTTON.CANCEL],
                     }
                 )
                 return
@@ -59,11 +60,11 @@ class ShowTaxiways(FollowTheGreens):
         self.inc("show_taxiways")
         if len(self.lights.lights) == 0:
             logger.warning("no lights")
-            self.ui2.createWindow(
+            self.ui.createWindow(
                 report={
                     "text": "We could not light taxiways",
                     "error": "No light",
-                    "cancel": True,
+                    "buttons": [UI_BUTTON.CANCEL],
                 }
             )
             return
@@ -71,10 +72,10 @@ class ShowTaxiways(FollowTheGreens):
         self.inc("taxiway_lights", qty=len(self.lights.lights))
         self.lights.printSegments()
         self._status = FTG_STATUS.ACTIVE
-        self.ui2.createWindow(
+        self.ui.createWindow(
             report={
-                "text": "All taxiways are lit. Press Continue to turn lights off.",
-                "continue": True,
+                "text": [f"All taxiways are lit. Press {UI_BUTTON.BYE.value[0]} to turn lights off."],
+                "buttons": [UI_BUTTON.BYE],
             }
         )
 
@@ -84,7 +85,7 @@ class ShowTaxiways(FollowTheGreens):
             self.lights = None
 
         self._status = FTG_STATUS.INACTIVE
-        self.ui2.deleteWindow()
+        self.ui.deleteWindow()
         self._status = FTG_STATUS.TERMINATED
         self.inc("terminate_taxiways")
         self.save_stats()

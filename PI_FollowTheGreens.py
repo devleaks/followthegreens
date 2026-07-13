@@ -85,7 +85,7 @@ except ModuleNotFoundError:
     missing_modules.append(f"git+https://github.com/devleaks/xplane_airports.git@{REQUIRED_XPLANE_AIRPORTS}")
 
 # Produces additional debugging information in XPPython3Log.txt file if set to True
-SHOW_TRACE = False
+SHOW_TRACE = True
 
 AMBER = (1.0, 0.85, 0.0)
 RED = (1.0, 0.0, 0.0)
@@ -194,6 +194,8 @@ class PythonInterface:
             except:
                 self.debug("XPluginStart: exception", force=True)
                 print_exc()
+        else:
+            self.debug("XPluginStart: ShowTaxiways not requested")
 
         for cmd, what in self.commands.items():
             self.CmdRefs[cmd] = xp.createCommand(cmd, what[0])
@@ -215,12 +217,14 @@ class PythonInterface:
         else:
             self.debug(f"XPluginStart: menu item «{FTC_MENU}» added (index {self.menuIdx2})")
 
-        if STW_MENU is not None:
+        if STW_MENU is not None and self.showTaxiways is not None:
             self.menuIdx_st = xp.appendMenuItemWithCommand(xp.findPluginsMenu(), STW_MENU, self.CmdRefs[STW_COMMAND])
             if self.menuIdx_st is None or (self.menuIdx_st is not None and self.menuIdx_st < 0):
                 self.debug("XPluginStart: Show Taxiways menu not added")
             else:
                 self.debug(f"XPluginStart: menu item «{STW_MENU}» added (index={self.menuIdx_st})")
+        else:
+            self.debug("XPluginStart: ShowTaxiways menu not installed")
 
         self.debug("XPluginStart: creation of FollowTheGreens is postposed when enabling")
         if STW_MENU is not None:
@@ -693,7 +697,7 @@ class PythonInterface:
         if self.showTaxiways is not None and phase == 0:
             self.debug("showTaxiwaysCmd: available")
 
-            if self.showTaxiways.ui.mainWindowExists():  # already running, we stop it...
+            if self.showTaxiways.ui.hasWindow:  # already running, we stop it...
                 try:
                     self.showTaxiways.terminate("normal termination")
                     self.debug("showTaxiwaysCmd: ended")

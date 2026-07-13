@@ -80,7 +80,7 @@ class Vertex(Point):  ## Vertex(Point)
 class Active:
     def __init__(self, active, runways):
         self.active = TAXIWAY_ACTIVE(active)
-        self.runways = runways.split(",")
+        self.runways = runways.split(",") if type(runways) is str else runways
         if len(self.runways) > 4:
             logger.warning("more than 4 runways for active segment")
 
