@@ -546,9 +546,10 @@ class Airport:
                     edge = Edge(src=src, dst=dst, cost=0.0, direction="oneway" if e.one_way else "twoway", usage="road", name=e.name)
                     edge.width_code = TAXIWAY_WIDTH_CODE(e.icao_width.value) if e.icao_width else "C"
                     # Add active
-                    if e.active_zones is not None:
+                    if hasattr(e, "active_zones") and e.active_zones is not None:
                         for z in e.active_zones:
                             edge.add_active(z.zone, z.runways)
+                    # should report that there is no active zone
                     graph.add_edge(edge)
                 else:
                     logger.warning(f"{e.node_begin} or {e.node_end} not found ({src}, {dst})")

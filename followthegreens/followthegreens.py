@@ -95,7 +95,12 @@ class FollowTheGreens:
 
     @property
     def paused(self) -> bool:
-        return xp.getDatai(self.pause_dref) == 1
+        return xp.getDatai(self.pause_dref) == 1 or self.time_is_frozen
+
+    @property
+    def time_is_frozen(self) -> bool:
+        # time is stopped in main loop, need to check in flight loop (=thread)
+        return self.flightLoop.time_is_frozen if self.flightLoop is not None else False
 
     @property
     def is_holding(self) -> bool:

@@ -71,6 +71,9 @@ class Taxi:
         self.old_msg = ""
         self.old_msg2 = ""
 
+        self.zuluTime = xp.findDataRef("sim/time/zulu_time_sec")
+        self._last_zulu = 0.0
+
     # LOCAL RABBIT HOOKS
     # (with lights availability control)
     #
@@ -294,6 +297,15 @@ class Taxi:
         if self.ftg.lights is not None:
             return self.ftg.lights.hasRabbit()
         return False
+
+    @property
+    def time_is_frozen(self) -> bool:
+        # this needs to run in a flight loop
+        curr = xp.getDataf(self.zuluTime)
+        on = self._last_zulu == curr
+        logger.debug(f"{on} {self._last_zulu} vs {curr}")
+        self._last_zulu = curr
+        return on
 
     def _planeFLCB(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, counter, inRefcon):
         # pylint: disable=unused-argument

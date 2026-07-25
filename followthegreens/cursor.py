@@ -338,8 +338,7 @@ class Cursor(Vehicle):
 
     @property
     def paused(self) -> bool:
-        # no FL means no action here
-        return self._ftg.flightLoop.paused if self._ftg.flightLoop is not None else True
+        return self._ftg.paused if self._ftg is not None else True
 
     def pause(self):
         self._pause_speed = self.aim_speed
