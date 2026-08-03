@@ -50,7 +50,7 @@ from .route import Route
 
 SYSTEM_DIRECTORY = "."
 
-REQUIRED_XPLANE_AIRPORTS = "5.2.3"
+REQUIRED_XPLANE_AIRPORTS = "5.3.0"
 INSTALL_WITH_XPLANE_AIRPORTS = False
 
 
@@ -452,7 +452,6 @@ class Airport:
         # else:
         #     logger.warning(f"default airport file {DEFAULT_AIRPORTS} not found")
         # logger.debug(f"APT files: {APT_FILES}")
-
         for scenery, filename in APT_FILES.items():
             if self.loaded:
                 return self.loaded
@@ -465,9 +464,8 @@ class Airport:
         # See https://gateway.x-plane.com/api
         if has_xplane_airports:
             if len(self.lines) > 0:
+                logger.warning(f"xplane_airports loading from {len(self.lines)} target lines read")
                 try:
-                    logger.warning(f"xplane_airports not loading from default file {DEFAULT_AIRPORTS_FILE} for performance reason")
-                    logger.warning(f"xplane_airports loading from {len(self.lines)} target lines read")
                     lines = [f"{l.linecode()} {l.content()}" for l in self.lines]
                     apt_data = DetailedAirport.from_lines(dat_lines=lines, from_file_name=DEFAULT_AIRPORTS_FILE)
                     logger.info(f"xplane_airports read {self.icao}: {apt_data.from_file} {apt_data.name} {apt_data.id}")
@@ -480,25 +478,28 @@ class Airport:
 
     def loadXplaneAirport(self, filename) -> bool:
         # See https://gateway.x-plane.com/api
-        if has_xplane_airports and filename != DEFAULT_AIRPORTS_FILE:
-            self.apt_data = None
-            logger.info(f"xplane_airports version {version('xplane_airports')}")
-            try:
-                apt_dat = AptDat(path_to_file=filename)
-                logger.debug(f"AptDat: {len(apt_dat.airports)}")
-                apt_data = DetailedAirport.from_airport(airport=apt_dat[self.icao])
-                logger.info(f"xplane_airports read {self.icao}: {apt_data.from_file} {apt_data.name} {apt_data.id}")
-                logger.info(f"xplane_airports {self.icao}: has taxi routes: {apt_data.has_taxi_route}")  #  {dir(apt_data)}
-                if hasattr(apt_data, "taxi_network"):
-                    if apt_data.taxi_network is not None:
-                        logger.debug(f"taxi network: {len(apt_data.taxi_network.nodes)} nodes, {len(apt_data.taxi_network.edges)} edges")
-                if hasattr(apt_data, "road_network"):
-                    if apt_data.road_network is not None:
-                        logger.debug(f"road network: {len(apt_data.road_network.nodes)} nodes, {len(apt_data.road_network.edges)} edges")
-                self.apt_data = apt_data
-                return self.mkAirport()
-            except:
-                logger.error(f"could not load {self.icao} from {filename}", exc_info=True)
+        if has_xplane_airports:
+            if filename != DEFAULT_AIRPORTS_FILE:
+                self.apt_data = None
+                logger.info(f"xplane_airports version {version('xplane_airports')}")
+                try:
+                    apt_dat = AptDat(path_to_file=filename)
+                    logger.debug(f"AptDat: {len(apt_dat.airports)}")
+                    apt_data = DetailedAirport.from_airport(airport=apt_dat[self.icao])
+                    logger.info(f"xplane_airports read {self.icao}: {apt_data.from_file} {apt_data.name} {apt_data.id}")
+                    logger.info(f"xplane_airports {self.icao}: has taxi routes: {apt_data.has_taxi_route}")  #  {dir(apt_data)}
+                    if hasattr(apt_data, "taxi_network"):
+                        if apt_data.taxi_network is not None:
+                            logger.debug(f"taxi network: {len(apt_data.taxi_network.nodes)} nodes, {len(apt_data.taxi_network.edges)} edges")
+                    if hasattr(apt_data, "road_network"):
+                        if apt_data.road_network is not None:
+                            logger.debug(f"road network: {len(apt_data.road_network.nodes)} nodes, {len(apt_data.road_network.edges)} edges")
+                    self.apt_data = apt_data
+                    return self.mkAirport()
+                except:
+                    logger.error(f"could not load {self.icao} from {filename}", exc_info=True)
+            else:
+                logger.warning(f"xplane_airports not loading from default file {DEFAULT_AIRPORTS_FILE} for performance reason")
         else:
             logger.warning("xplane_airports not installed")
         return False
