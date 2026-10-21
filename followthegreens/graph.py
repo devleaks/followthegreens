@@ -3,30 +3,23 @@
 # Dijkstra stolen at https://www.bogotobogo.com/python/python_graph_data_structures.php
 # AStar implemented by myself.
 #
-import os
+import logging
 import math
+import json
 from functools import reduce
 
 from .geo import (
     Point,
     Line,
     Polygon,
-    FeatureCollection,
-    bearing,
     distance,
     nearestPointToLines,
     destination,
     pointInPolygon,
-    turn,
 )
-from .globals import (
-    logger,
-    MOVEMENT,
-    TAXIWAY_WIDTH_CODE,
-    TAXIWAY_TYPE,
-    TAXIWAY_ACTIVE,
-    TAXIWAY_DIRECTION,
-)
+from .globals import TAXIWAY_DIR_TWOWAY, DEPARTURE, ARRIVAL
+
+logger = logging.getLogger("follow_the_greens")
 
 
 class Vertex(Point):  ## Vertex(Point)
@@ -55,7 +48,6 @@ class Vertex(Point):  ## Vertex(Point)
 
     def add_neighbor(self, neighbor, weight=0):
         self.adjacent[neighbor] = weight
-        # note: cannot add opposite neighbor.add_neighbor(self) since might be one way only
 
     def get_connections(self, graph, options={}):
         return self.adjacent.keys()
@@ -63,24 +55,11 @@ class Vertex(Point):  ## Vertex(Point)
     def get_neighbors(self):
         return list(map(lambda a: (a, self.adjacent[a]), self.adjacent))
 
-    def turn(self, src, dst) -> float | None:
-        # Turn angle coming from src and going to dst
-        # Will be used as a weighted extra cost when visited from src to dst
-        if src.id not in self.adjacent and self.id not in src.adjacent:
-            logger.warning(f"turn: at {self.id}: from {src.id} to {dst.id}, src not in adjacents {self.adjacent} or self not in src {src.adjacent} ({type(self.id)})")
-        if dst.id not in self.adjacent and self.id not in dst.adjacent:
-            logger.warning(f"turn: at {self.id}: from {src.id} to {dst.id}, dst not in adjacents {self.adjacent} or self not in dst {dst.adjacent} ({type(self.id)})")
-        b1 = bearing(src, self)
-        b2 = bearing(self, dst)
-        return turn(b1, b2)
-
 
 class Active:
     def __init__(self, active, runways):
-        self.active = TAXIWAY_ACTIVE(active)
+        self.active = active
         self.runways = runways.split(",")
-        if len(self.runways) > 4:
-            logger.warning("more than 4 runways for active segment")
 
     def __str__(self):
         return self.active + ":" + ",".join(self.runways)
@@ -89,174 +68,74 @@ class Active:
 class Edge(Line):
     def __init__(self, src, dst, cost, direction, usage, name):
         Line.__init__(self, src, dst)
-        self.name = name  # segment name, not unique! For documentation only.
         self.cost = cost  # cost = distance to next vertext
-
-        # oneway/twoway
-        self.direction = TAXIWAY_DIRECTION(direction)
-
-        # taxiway/runway, width code
-        self.usage = TAXIWAY_TYPE.RUNWAY
-        self.width_code = None
-        if usage.startswith("taxiway"):
-            self.usage = TAXIWAY_TYPE.TAXIWAY
-            if len(usage) == 9:
-                self.width_code = TAXIWAY_WIDTH_CODE(usage[8].upper())
-
-        # inner/outer (non formal guess)
-        self.usage2 = TAXIWAY_DIRECTION.BOTH  # default, unused
-        if "inn" in name.lower():
-            self.usage2 = TAXIWAY_DIRECTION.INNER
-        elif "out" in name.lower():
-            self.usage2 = TAXIWAY_DIRECTION.OUTER
-
-        self.active = []  # array of segment activity, activity can be departure, arrival, or ils.
+        self.direction = direction  # direction of vertex: oneway or twoway
+        self.usage = usage  # type of vertex: runway or taxiway or taxiway_X where X is width code (A-F)
+        self.name = name  # segment name, not unique!
+        self.active = (
+            []
+        )  # array of segment activity, activity can be departure, arrival, or ils.
         # departure require clearance. plane cannot stop on segment of type ils.
 
     def props(self):
         props = self.properties
-        props["stroke"] = "#000080"  # “taxiway”, “runway”, runway dark blue
-        props["stroke-width"] = 5
+        props["stroke"] = "#aa0000"  # “taxiway”, “runway”
+        props["stroke-width"] = 1
         props["stroke-opacity"] = 1
         if self.usage[0:4] == "taxi":
-            props["stroke-width"] = 3
-            props["stroke"] = "#f0f080"  # yellowish
+            props["stroke"] = "#aaaa00"
 
-            if self.has_active(TAXIWAY_ACTIVE.ARRIVAL):
-                props["stroke"] = "#00f000"  # green
-            if self.has_active(TAXIWAY_ACTIVE.DEPARTURE):
-                props["stroke"] = "#0000F0"  # blue
-            if self.has_active(TAXIWAY_ACTIVE.ILS):
-                props["stroke"] = "#ff0000"  # red
-
-        if self.direction == TAXIWAY_DIRECTION.ONEWAY:
+        if self.direction == "oneway":
             props["stroke"] = "#00dd00"
-            props["stroke-width"] = 1
-            props["stroke-style"] = "dashed"
+            props["stroke-width"] = 2
 
-        # Meta
         props["name"] = self.name
         props["cost"] = self.cost
-        props["direction"] = self.direction.value
-        props["usage"] = self.usage.value  # “taxiway”, “runway”
-        props["usage2"] = self.usage2.value  # inner, “outer”, "both"
-        props["width_code"] = self.width_code.value if self.width_code is not None else "-"
-        props["active"] = self.showActives()
-        props["active-rwy"] = self.mkActives()
+        props["direction"] = self.direction
+        props["usage"] = self.usage
+        props["active"] = self.mkActives()
         return props
-
-    @property
-    def is_inner(self):
-        return self.usage2 != TAXIWAY_DIRECTION.OUTER
-
-    @property
-    def is_inner_only(self):
-        return self.usage2 == TAXIWAY_DIRECTION.INNER
-
-    @property
-    def is_outer(self):
-        # note:   !is_inner <> is_outer
-        return self.usage2 != TAXIWAY_DIRECTION.INNER
-
-    @property
-    def is_outer_only(self):
-        return self.usage2 == TAXIWAY_DIRECTION.OUTER
-
-    def add_active(self, active, runways):
-        return self.active.append(Active(active, runways))
-
-    def has_active(self, active: TAXIWAY_ACTIVE | None = None):
-        if active is not None:
-            for a in self.active:
-                if a.active == active:
-                    return True
-            return False
-        return self.has_active(TAXIWAY_ACTIVE.DEPARTURE) or self.has_active(TAXIWAY_ACTIVE.ARRIVAL)
 
     def mkActives(self):
         ret = []
         for a in self.active:
-            ret.append({a.active.value: ",".join(a.runways)})  # "ils": "12L,30R"
+            ret.append({a.active: ",".join(a.runways)})  # "ils": "12L,30R"
         return ret
 
-    def showActives(self) -> str:
-        ret = ""
-        if self.has_active(TAXIWAY_ACTIVE.ARRIVAL):
-            ret = ret + "/A"
-        if self.has_active(TAXIWAY_ACTIVE.DEPARTURE):
-            ret = ret + "/D"
-        if self.has_active(TAXIWAY_ACTIVE.ILS):
-            ret = ret + "/I"
-        return ret.strip("/")
+    def add_active(self, active, runways):
+        return self.active.append(Active(active, runways))
+
+    def has_active(self, active=None):
+        if active:
+            for a in self.active:
+                if a.active == active:
+                    return True
+            return False
+        return self.has_active(DEPARTURE) or self.has_active(ARRIVAL)
+
+    def widthCode(self, default=None):
+        if self.usage and len(self.usage) == 9:
+            return self.usage[8]
+        return default
 
 
 class Graph:  # Graph(FeatureCollection)?
-    def __init__(self, name: str = "unamed"):
-        self.name = name
+    def __init__(self):
         self.vert_dict = {}
         self.edges_arr = []
 
-        # Try to guess if information is supplied or not
-        self._uses_width_code = False
-        self._oneways = False
-        self._runways = False
+    def __str__(self):
+        return json.dumps({"type": "FeatureCollection", "features": self.features()})
 
     def __iter__(self):
         return iter(self.vert_dict.values())
 
-    def stats(self):
-        logger.debug(f"graph {self.name}")
-        s = {}
-        ad = {}
-        for k, v in self.vert_dict.items():
-            if v.usage not in s:
-                s[v.usage] = 0
-            s[v.usage] = s[v.usage] + 1
-            la = len(v.adjacent)
-            if la not in ad:
-                ad[la] = 0
-            ad[la] = ad[la] + 1
-        logger.debug(f"{len(self.vert_dict)} vertices: {s}, {ad}")
-
-        s = {}
-        mi = 100000
-        ma = 0
-        s["width_code"] = 0
-        s["active"] = 0
-        for v in self.edges_arr:
-            if v.direction not in s:
-                s[v.direction] = 0
-            s[v.direction] = s[v.direction] + 1
-            if v.width_code is not None:
-                s["width_code"] += 1
-                if v.width_code not in s:
-                    s[v.width_code] = 0
-                s[v.width_code] = s[v.width_code] + 1
-            if v.usage not in s:
-                s[v.usage] = 0
-            s[v.usage] = s[v.usage] + 1
-            if v.usage2 not in s:
-                s[v.usage2] = 0
-            s[v.usage2] = s[v.usage2] + 1
-            if v.has_active():
-                s["active"] = s["active"] + 1
-            mi = min(mi, v.cost)
-            ma = max(ma, v.cost)
-        logger.debug(f"{len(self.edges_arr)} edges: {s}, cost=[{round(mi, 2)}, {round(ma, 2)}]")
-        if logger.level < 10:
-            fn = os.path.join(os.path.dirname(__file__), "..", f"ftg_tn_{self.name}.geojson")
-            fc = FeatureCollection(features=self.features())
-            fc.save(filename=fn)
-            logger.debug(f"taxiway network saved in {os.path.abspath(fn)}")
-
     def features(self):
         def add(arr, v):
-            arr.append(v.feature())
+            arr.append(v.feature(self))
             return arr
 
-        fc = reduce(add, self.edges_arr, [])
-        logger.debug(f"{len(fc)} features")
-        return fc
+        return reduce(add, self.edges_arr, [])
 
     def add_vertex(self, node, point, usage, name=""):
         new_vertex = Vertex(node, point, usage, name="")
@@ -264,7 +143,10 @@ class Graph:  # Graph(FeatureCollection)?
         return new_vertex
 
     def get_vertex(self, n):
-        return self.vert_dict.get(n)
+        if n in self.vert_dict:
+            return self.vert_dict[n]
+        else:
+            return None
 
     # Options taxiwayOnly = True|False, minSizeCode = {A,B,C,D,E,F}
     def get_connections(self, src, options={}):
@@ -272,11 +154,15 @@ class Graph:  # Graph(FeatureCollection)?
             connectionKeys = []
             for dst in src.adjacent.keys():
                 v = self.get_edge(src.id, dst)
-                code = v.width_code
-                if code is None:
-                    code = TAXIWAY_WIDTH_CODE.F
-                txyOk = ("taxiwayOnly" in options and options["taxiwayOnly"] and v.usage != TAXIWAY_TYPE.RUNWAY) or ("taxiwayOnly" not in options)
-                scdOk = ("minSizeCode" in options and options["minSizeCode"] <= code) or ("minSizeCode" not in options)
+                code = v.widthCode("F")
+                txyOk = (
+                    "taxiwayOnly" in options
+                    and options["taxiwayOnly"]
+                    and v.usage != "runway"
+                ) or ("taxiwayOnly" not in options)
+                scdOk = (
+                    "minSizeCode" in options and options["minSizeCode"] <= code
+                ) or ("minSizeCode" not in options)
                 # logger.debug("%s %s %s %s %s" % (dst, v.usage, code, txyOk, scdOk))
                 if txyOk and scdOk:
                     connectionKeys.append(dst)
@@ -288,91 +174,29 @@ class Graph:  # Graph(FeatureCollection)?
     def add_edge(self, edge):
         if edge.start.id in self.vert_dict and edge.end.id in self.vert_dict:
             self.edges_arr.append(edge)
-            self.vert_dict[edge.start.id].add_neighbor(self.vert_dict[edge.end.id].id, edge.cost)
+            self.vert_dict[edge.start.id].add_neighbor(
+                self.vert_dict[edge.end.id].id, edge.cost
+            )
 
-            if edge.direction == TAXIWAY_DIRECTION.TWOWAY:
-                self.vert_dict[edge.end.id].add_neighbor(self.vert_dict[edge.start.id].id, edge.cost)
-            # Check if information is available
-            if edge.width_code is not None:
-                self._uses_width_code = True
-            if edge.direction == TAXIWAY_DIRECTION.ONEWAY:
-                self._oneways = True
-            if edge.usage == TAXIWAY_TYPE.RUNWAY:
-                self._runways = True
+            if edge.direction == TAXIWAY_DIR_TWOWAY:
+                self.vert_dict[edge.end.id].add_neighbor(
+                    self.vert_dict[edge.start.id].id, edge.cost
+                )
         else:
             logger.critical(f"vertex not found when adding edges {edge.src},{edge.dst}")
 
-    def clone(
-        self,
-        width_code: str,
-        move: str,
-        respect_width: bool = False,
-        respect_inner: bool = False,
-        use_runway: bool = True,
-        respect_oneway: bool = True,
-    ):
-        width_strict = False
-        # logger.debug(
-        #     f"cloning.. width_code={width_code} (strict={width_strict}), move={move} "
-        #     + f"respect_width={respect_width} respect_inner={respect_inner} use_runway={use_runway} respect_oneway={respect_oneway}"
-        # )
-
-        candidates = []
-        for e in self.edges_arr:
-            # Exclusions
-            if respect_width:
-                if e.width_code is not None:
-                    if width_code.value > e.width_code.value:  # not wide enough
-                        continue
-                elif width_strict:
-                    logger.debug(f"strict width mode: edge {e} has no width code, ignored")
-                    continue  # no width info on taxiway, use strict width mode, so must ignore this unlabelled segment
-
-            if respect_inner:
-                if move == MOVEMENT.ARRIVAL and e.is_outer:  # arrival cannot use outer rwy
-                    continue
-                if move == MOVEMENT.DEPARTURE and e.is_inner:  # departure cannot use inner rwy
-                    continue
-            if not use_runway and e.usage == TAXIWAY_TYPE.RUNWAY:  # cannot use runway for taxiing
-                # Note: My understanding of 1202 runway is that runway indicates that the edge IS a runway and can be used for taxiing
-                #       Clearance should be obtained first from ATC. Of course.
-                continue
-
-            # if not excluded, add it
-            if not respect_oneway and e.direction == TAXIWAY_DIRECTION.ONEWAY:
-                e.direction = TAXIWAY_DIRECTION.TWOWAY
-            candidates.append(e)
-
-        graph = Graph(f"{self.name} cloned with restrictions ({move},{width_code},{respect_width},{respect_inner},{use_runway},{respect_oneway})")
-        for e in candidates:
-            start = graph.add_vertex(e.start.id, Point(e.start.lat, e.start.lon), e.start.usage, e.start.name)
-            end = graph.add_vertex(e.end.id, Point(e.end.lat, e.end.lon), e.end.usage, e.end.name)
-
-        for e in candidates:
-            start = graph.get_vertex(e.start.id)
-            end = graph.get_vertex(e.end.id)
-            t = e.usage.value
-            if e.width_code is not None:
-                t = t + "_" + e.width_code.value
-            e2 = Edge(start, end, e.cost, e.direction.value, t, e.name)
-            # copies extra info
-            e2.active = e.active.copy()
-            graph.add_edge(e2)
-
-        logger.debug(
-            f"cloned {len(graph.edges_arr)}/{len(self.edges_arr)}: width_code={width_code} (strict={width_strict}), move={move} "
-            + f"respect_width={respect_width} respect_inner={respect_inner} use_runway={use_runway} respect_oneway={respect_oneway}"
-        )
-        return graph
-
     def get_edge(self, src, dst):
-        arr = list(filter(lambda x: x.start.id == src and x.end.id == dst, self.edges_arr))
+        arr = list(
+            filter(lambda x: x.start.id == src and x.end.id == dst, self.edges_arr)
+        )
         if len(arr) > 0:
             return arr[0]
 
         arr = list(
             filter(
-                lambda x: x.start.id == dst and x.end.id == src and x.direction == TAXIWAY_DIRECTION.TWOWAY,
+                lambda x: x.start.id == dst
+                and x.end.id == src
+                and x.direction == TAXIWAY_DIR_TWOWAY,
                 self.edges_arr,
             )
         )
@@ -390,11 +214,15 @@ class Graph:  # Graph(FeatureCollection)?
         connected = []
 
         for edge in self.edges_arr:
-            code = edge.width_code
-            if code is None:
-                code = TAXIWAY_WIDTH_CODE.F
-            txyOk = ("taxiwayOnly" in options and options["taxiwayOnly"] and edge.usage != TAXIWAY_TYPE.RUNWAY) or ("taxiwayOnly" not in options)
-            scdOk = ("minSizeCode" in options and options["minSizeCode"] <= code) or ("minSizeCode" not in options)
+            code = edge.widthCode("F")  # default all ok.
+            txyOk = (
+                "taxiwayOnly" in options
+                and options["taxiwayOnly"]
+                and edge.usage != "runway"
+            ) or ("taxiwayOnly" not in options)
+            scdOk = ("minSizeCode" in options and options["minSizeCode"] <= code) or (
+                "minSizeCode" not in options
+            )
             # logger.debug("%s %s %s %s %s" % (dst, v.usage, code, txyOk, scdOk))
             if txyOk and scdOk:
                 if edge.src not in connected:
@@ -404,19 +232,23 @@ class Graph:  # Graph(FeatureCollection)?
 
         return connected
 
-    def findClosestPointOnEdges(self, point):  # @todo: construct array of lines on "add_edge"
+    def findClosestPointOnEdges(
+        self, point
+    ):  # @todo: construct array of lines on "add_edge"
         return nearestPointToLines(point, self.edges_arr)
 
     def findClosestVertex(self, point):
         closest = None
         shortest = math.inf
         for n, v in self.vert_dict.items():
-            if len(v.adjacent) > 0:  # It must be a vertex connected to the network of taxiways
+            if (
+                len(v.adjacent) > 0
+            ):  # It must be a vertex connected to the network of taxiways
                 d = distance(v, point)
                 if d < shortest:
                     shortest = d
                     closest = n
-        logger.debug(f"{closest} at {round(shortest, 1)}m")
+        logger.debug(f"{closest} at {shortest}")
         return [closest, shortest]
 
     def findVertexInPolygon(self, polygon):
@@ -427,7 +259,9 @@ class Graph:  # Graph(FeatureCollection)?
         return vertices
 
     def findClosestVertexAheadGuess(self, point, brng, speed):
-        MAX_AHEAD = 500  # m, we could make algorithm grow these until vertex found "ahead"
+        MAX_AHEAD = (
+            500  # m, we could make algorithm grow these until vertex found "ahead"
+        )
         MAX_LATERAL = 200  # m
         AHEAD_START = 300
         LATERAL_START = 40
@@ -457,7 +291,7 @@ class Graph:  # Graph(FeatureCollection)?
         baseR = destination(base, brng - 90, lateral)
         triangle = Polygon([point, baseL, baseR])
         vertices = self.findVertexInPolygon(triangle)
-        logger.debug(f"{ahead}, {lateral}, inside {len(vertices)}")
+        logger.debug(f"{ahead}, {lateral}, inside {len(vertices)}.")
 
         v = None
         d = math.inf
@@ -479,7 +313,7 @@ class Graph:  # Graph(FeatureCollection)?
         # This will store the Shortest path between source and target node
         route = []
         if not source or not target:
-            logger.warning("source or target missing")
+            logger.debug("source or target missing")
             return route
 
         # These are all the nodes which have not been visited yet
@@ -551,13 +385,12 @@ class Graph:  # Graph(FeatureCollection)?
                 node = False
 
         if not node:
-            logger.warning(f"Dijkstra: could not find route from {source} to {target}")
+            logger.debug(f"Dijkstra: could not find route from {source} to {target}")
             return None
         else:
             # Including the source in the path
-            logger.info("..found")
             route.insert(0, source)
-            logger.debug(f"route: {'-'.join([str(r) for r in route])}")
+            logger.debug(f"route: {'-'.join(route)}")
             return route
 
     def heuristic(self, a, b):  # On demand
@@ -578,11 +411,7 @@ class Graph:  # Graph(FeatureCollection)?
         """
         Returns a vertex's neighbors with weight to reach.
         """
-        v = self.get_vertex(a)
-        if v is None:
-            logger.warning(f"vertex not found: {a}")
-            return []
-        return v.get_neighbors()
+        return self.get_vertex(a).get_neighbors()
 
     def AStar(self, start_node, stop_node):
         # open_list is a list of nodes which have been visited, but who's neighbors
@@ -613,11 +442,13 @@ class Graph:  # Graph(FeatureCollection)?
 
             # find a node with the lowest value of f() - evaluation function
             for v in open_list:
-                if n is None or g[v] + self.heuristic(v, stop_node) < g[n] + self.heuristic(n, stop_node):
+                if n == None or g[v] + self.heuristic(v, stop_node) < g[
+                    n
+                ] + self.heuristic(n, stop_node):
                     n = v
 
-            if n is None:
-                logger.warning(f"AStar: could not find route from {start_node} to {stop_node}")
+            if n == None:
+                logger.warning("AStar: route not found")
                 return None
 
             # if the current node is the stop_node
@@ -629,7 +460,7 @@ class Graph:  # Graph(FeatureCollection)?
                     n = parents[n]
                 reconst_path.append(start_node)
                 reconst_path.reverse()
-                logger.info("..found")
+
                 return reconst_path
 
             # for all neighbors of the current node do
@@ -658,5 +489,5 @@ class Graph:  # Graph(FeatureCollection)?
             open_list.remove(n)
             closed_list.add(n)
 
-        logger.warning(f"AStar: could not find route from {start_node} to {stop_node}")
+        logger.warning("AStar: route not found")
         return None

@@ -1,142 +1,19 @@
 # Global constants
 #
-import os
-import logging
-from enum import Enum, StrEnum
-from typing import Any
+SYSTEM_DIRECTORY = "."
 
-# ################################
-#
-# PLEASE DO NOT CHANGE ANY INTERNAL CONSTANT
-# Use the ftgprefs.toml file to set preferences
-#
-#
-#
-# ################################
-# FTG INTERNALS
-#
-# PLEASE DO NOT CHANGE THESE INTERNAL CONSTANT
-#
-# TAXIWAY NETWORK
-#
-# X-Plane APT files constants and keywords
-#
-FTG_PLUGIN_ROOT_PATH = "XPPython3/followthegreens/"
+# X-Plane Interface
+FOLLOW_THE_GREENS_IS_RUNNING = "XPPython3/followthegreens/is_running"
 
-IMPERIAL_UNITS = False  # only for US or Lybia
+XP_FTG_COMMAND = "XPPython3/followthegreens/main_windown_toggle"
+XP_FTG_COMMAND_DESC = "Open or close Follow the Greens window"
 
+XP_FTG_CLEARANCE_COMMAND = "XPPython3/followthegreens/send_clearance_ok"
+XP_FTG_CLEARANCE_COMMAND_DESC = "Clears next stop bar on greens"
 
-class FTG_STATUS(StrEnum):
-    NEW = "NEW"  # ftg just created
-    INITIALIZED = "INITIALIZED"  # ftg initialized (preferences, etc.)
-    READY = "READY"  # ready to be used
+XP_STW_COMMAND = "XPPython3/followthegreens/highlight_taxiways_toggle"
+XP_STW_COMMAND_DESC = "Show / hide taxiway network"
 
-    AIRCRAFT = "AIRCRAFT"  # has aircraft
-    AIRPORT = "AIRPORT"  # has airport info
-    DESTINATION = "DESTINATION"  # has destination, destination is valid
-    ROUTE = "ROUTE"  # has route from aircraft to destination
-    GREENS = "GREENS"  # greens read
-
-    ACTIVE = "ACTIVE"  # greens displayed, rabbit active if any
-    INACTIVE = "INACTIVE"  # rabbit terminated
-    TERMINATED = "TERMINATED"  # ftg terminated
-
-
-class FTG_FSM(StrEnum):
-    INITIALIZED = "INIT"
-    DESTNATION = "DESTNATION"
-    RUNNING = "RUNNING"
-    WAIT_CLR = "WAIT FOR CLEARANCE"
-    WAIT_END = "WAIT END"
-
-
-class NODE_TYPE(StrEnum):
-    BOTH = "both"
-    DESTNATION = "dest"
-    DEPART = "init"
-    JUNCTION = "junc"
-
-
-class TAXIWAY_DIRECTION(StrEnum):
-    ONEWAY = "oneway"
-    TWOWAY = "twoway"
-    INNER = "inner"
-    OUTER = "outer"
-    BOTH = "both"
-
-
-class TAXIWAY_TYPE(StrEnum):
-    TAXIWAY = "taxiway"
-    RUNWAY = "runway"
-    BOTH = "both"
-
-
-class TAXIWAY_ACTIVE(StrEnum):
-    DEPARTURE = "departure"
-    ARRIVAL = "arrival"
-    ILS = "ils"
-
-
-# ################################
-# X-PLANE Interface
-#
-# Menu entry texts
-FTG_MENU = "Follow the greens..."
-STW_MENU = "Show taxiways"  # if None, do not show menu entry for Show Taxiways, mainly used for debugging. Equivalent to Developer Menu->Show airways.
-
-# Commands: Path and description
-FTG_COMMAND = FTG_PLUGIN_ROOT_PATH + "main_windown_toggle"
-FTG_COMMAND_DESC = "Open or close Follow the greens window"
-
-FTG_HUD = FTG_PLUGIN_ROOT_PATH + "taxihud"
-FTG_HUD_DESC = "Show or hide Follow the greens hud"
-
-FTG_CLEARANCE_COMMAND = FTG_PLUGIN_ROOT_PATH + "send_clearance_ok"
-FTG_CLEARANCE_COMMAND_DESC = "Clears next stop bar on greens"
-
-FTG_CANCEL_COMMAND = FTG_PLUGIN_ROOT_PATH + "send_cancel"
-FTG_CANCEL_COMMAND_DESC = "Cancel Follow the greens"
-
-FTG_OK_COMMAND = FTG_PLUGIN_ROOT_PATH + "send_ok"
-FTG_OK_COMMAND_DESC = "Send OK to Follow the greens"
-
-FTG_NEWGREENS_COMMAND = FTG_PLUGIN_ROOT_PATH + "new_greens"
-FTG_NEWGREENS_COMMAND_DESC = "New greens"
-
-STW_COMMAND = FTG_PLUGIN_ROOT_PATH + "highlight_taxiways_toggle"
-STW_COMMAND_DESC = "Show / hide taxiway network"
-
-FTG_SPEED_COMMAND = FTG_PLUGIN_ROOT_PATH + "speed_"  # + FTP_SPEED
-FTG_SPEED_COMMAND_DESC = "Set Follow the Greens rabbit to "  # + FTP_SPEED
-
-FTG_BOOKMARK_COMMAND = FTG_PLUGIN_ROOT_PATH + "bookmark"
-FTG_BOOKMARK_COMMAND_DESC = "Log UTC timestamp in log file"
-
-# Data Accessor
-FTG_IS_RUNNING = FTG_PLUGIN_ROOT_PATH + "is_running"
-FTG_IS_HOLDING = FTG_PLUGIN_ROOT_PATH + "is_holding"  # this is for the next stop, it is set for the *next* stop after clearing a stop
-
-
-# X-PLANE Runway Lights Datarefs
-class AMBIANT_RWY_LIGHT(StrEnum):
-    OFF = "off"
-    LOW = "lo"
-    MEDIUM = "med"
-    MED = "med"
-    HIGH = "hi"
-
-
-AMBIANT_RWY_LIGHT_CMDROOT = "sim/operation/rwy_lights_"  # + AMBIANT_RWY_LIGHT
-AMBIANT_RWY_LIGHT_VALUE = "sim/graphics/scenery/airport_light_level"
-AIRPORTLIGHT_ON = "sim/graphics/scenery/airport_lights_on"
-
-# Preferences
-RUNWAY_LIGHT_LEVEL_WHILE_FTG = AMBIANT_RWY_LIGHT.LOW
-
-
-# ################################
-# FTG USER INTERFACE
-#
 # Main UI Window display and position
 #
 MAINWINDOW_AUTOHIDE = True  # If false, main UI window will always remain visible.
@@ -144,22 +21,77 @@ MAINWINDOW_DISPLAY_TIME = 30  # If above true, main UI window will disappear aft
 
 # you may carefully adjust those:
 MAINWINDOW_FROM_LEFT = 100  # Distance of main UI window from left of screen
-MAINWINDOW_FROM_BOTTOM = 80  # Distance of the bottom of the main window from the bottom of the screen
+MAINWINDOW_FROM_BOTTOM = (
+    80  # Distance of the bottom of the main window from the bottom of the screen
+)
 
 # don't touch those:
-MAINWINDOW_WIDTH = 500  # Normal main window width. May need adjustment if font size is changed
-MAINWINDOW_HEIGHT = 80  # Additional main window height to accommodate from space and title bar
-
-# Reference point is top left corner of HUD.
-# First number is distance of reference point from left of screen,
-# Second number is distance of reference point is distance from bottom of screen.
-# Second number must be larger than 45 to leave room for 3 lines of text
-HUD_POSITION = [220, 50]
-
-SHOW_CLEARANCE_POPUP = True
+MAINWINDOW_WIDTH = (
+    500  # Normal main window width. May need adjustment if font size is changed
+)
+MAINWINDOW_HEIGHT = (
+    80  # Additional main window height to accommodate from space and title bar
+)
 
 
-# AIRPORT/AERONAUTICAL CONSTANTS
+# X-Plane APT files constants and keywords
+#
+NODE_TYPE_BOTH = "both"
+NODE_TYPE_DESTNATION = "dest"
+NODE_TYPE_DEPART = "init"
+NODE_TYPE_JUNCTION = "junc"
+
+TAXIWAY_DIR_ONEWAY = "oneway"
+TAXIWAY_DIR_TWOWAY = "twoway"
+
+TAXIWAY_TYPE_TAXIWAY = "taxiway"
+TAXIWAY_TYPE_RUNWAY = "runway"
+
+TAXIWAY_ACTIVE_DEPARTURE = "departure"
+TAXIWAY_ACTIVE_ARRIVAL = "arrival"
+TAXIWAY_ACTIVE_ILS = "ils"
+
+
+# Follow the greens general constants and keywords
+#
+ARRIVAL = TAXIWAY_ACTIVE_ARRIVAL
+DEPARTURE = TAXIWAY_ACTIVE_DEPARTURE
+
+DISTANCE_TO_RAMPS = 100  # meters, if closer that this to a ramp, assume departure, otherwise, assume arrival
+TOO_FAR = 500  # meters, if further than this from a taxiway, does not kick in.
+WARNING_DISTANCE = 150  # When getting close to a STOP BAR, show main window.
+
+PLANE_MONITOR_DURATION = 3  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
+
+MIN_SEGMENTS_BEFORE_HOLD = (
+    3  # on arrival, number of segments to travel before getting potential stop bar
+)
+DISTANCE_BETWEEN_GREEN_LIGHTS = 20  # 20 meter, distance between lights on ground. I *think* that the standard for taxi cetner line lights is 60 meters.
+DISTANCE_BETWEEN_STOPLIGHTS = 2  # meter, distance between lights on ground.
+ADD_LIGHT_AT_VERTEX = False  # Add a light at each taxiway network vertex on the path
+ADD_LIGHT_AT_LAST_VERTEX = False  # Add a light at the last vertex, even if it is closer than DISTANCE_BETWEEN_GREEN_LIGHTS
+ADD_STOPBAR_AT_LAST_VERTEX = False  # Add a stop bar at the end (artificial)
+
+
+# Follow the greens lighting constants
+#
+DISTANCE_BETWEEN_LIGHTS = 5  # in ~ meter
+
+LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
+RABBIT_TIMEON = 0.4  # sec, set to 0 to cancel rabbit
+RABBIT_TIMEOFF = 2  # sec
+RABBIT_PHASE = 0.3  # sec
+RABBIT_INTENSITY = 2.0  # ratio to current value
+RABBIT_LENGTH = 12  # number of lights
+RABBIT_DURATION = 0.10  # sec
+
+# ATC related constants
+#
+ATC = {"None", "Delivery", "Ground", "Tower", "Tracon", "Center"}
+
+GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}
+
+# Aeronautics constant (notes)
 #
 # ICAO Annex 14 - Aerodrome Reference Code Element 2, Table 1-1
 # (Aeroplane Wingspan; Outer Main Gear Wheel Span)
@@ -178,327 +110,13 @@ SHOW_CLEARANCE_POPUP = True
 # E 14m 65m Boeing 747 to 400 / A330/ 340 , 787-8 (DL)
 # F 16m 80m 747_800, airbus
 #
-# X-Plane World Editor values
-# ---------------------------
-# Size     Wingspan     Examples
-# A        < 15m        C172, B58
-# B        < 24m        King Air C90
-# C        < 36m        B737, A320, MD-80
-# D        < 52m        B767, A310, MD-10
-# E        < 65m        B777, B747, A340
-# F        < 80m        A380
-#
 # Aicraft type/class (size) is used to estimate minimal taxiway width
 #
-class TAXIWAY_WIDTH_CODE(Enum):  # Half width of taxiway in meters
-    A = "A"
-    B = "B"
-    C = "C"
-    D = "D"
-    E = "E"
-    F = "F"
-
-
-class TAXIWAY_WIDTH(Enum):  # Half width of taxiway in meters
-    A = 4  # 7.5m
-    B = 6  # 10.5m
-    C = 8  # 15m or 18m
-    D = 9  # 18m or 23m
-    E = 12  # 23m
-    F = 15  # 30m
-
-
-# ROUTING
-class ROUTING_ALGORITHMS(StrEnum):
-    DIJKSTRA = "dijkstra"
-    ASTAR = "astar"
-
-
-ROUTING_ALGORITHM = ROUTING_ALGORITHMS.ASTAR  # astar, dijkstra (default)
-RESPECT_CONSTRAINTS = True  # set to True at your own risk
-SAY_ROUTE = True  # Print route on pop up display and speak it orally.
-LEVEL4 = 0  # ASMGCS LEVEL 4 Compliance steps (highly experimental, DO NOT CHANGE.)
-
-
-# ################################
-# INTERNALS CONTROL
-# of aircraft movements
-#
-class AIRPORT(Enum):
-    DISTANCE_BETWEEN_GREEN_LIGHTS = "DISTANCE_BETWEEN_GREEN_LIGHTS"
-    DISTANCE_BETWEEN_STOPLIGHTS = "DISTANCE_BETWEEN_STOPLIGHTS"
-    DISTANCE_BETWEEN_LIGHTS = "DISTANCE_BETWEEN_LIGHTS"
-    ADD_LIGHT_AT_VERTEX = "ADD_LIGHT_AT_VERTEX"
-    ADD_LIGHT_AT_LAST_VERTEX = "ADD_LIGHT_AT_LAST_VERTEX"
-    LEAD_OFF_RUNWAY_DISTANCE = "LEAD_OFF_RUNWAY_DISTANCE"
-
-
-class MOVEMENT(StrEnum):
-    ARRIVAL = "arrival"
-    DEPARTURE = "departure"
-
-
-DISTANCE_TO_RAMPS = 100  # meters, if closer that this to a ramp, assume departure, otherwise, assume arrival
-TOO_FAR = 500  # meters, if further than this from a taxiway, does not kick in.
-RUNWAY_BUFFER_WIDTH = 100  # meters. When no runway surface available, imaging a runway that wide
-WARNING_DISTANCE = 150  # When getting close to a STOP BAR, show main window.
-DRIFTING_LIMIT = 5  # times DISTANCE_BETWEEN_GREEN_LIGHTS, after this limit, we consider data unreliable.
-DRIFTING_DISTANCE = 200  # When drifting away from "closest" light, after this distance, we send a warning
-
-PLANE_MONITOR_DURATION = 5  # sec, flight loop to monitor plane movements. No need to rush. Mainly turns lights off behind plane.
-MIN_SEGMENTS_BEFORE_HOLD = 3  # on arrival, number of segments to travel before getting potential stop bar
-
-# ################################
-# FTG LIGHTS
-#
-DISTANCE_BETWEEN_GREEN_LIGHTS = 16  # meters, distance between lights on ground. I *think* that the standard for taxi center line lights is 60 meters.
-DISTANCE_BETWEEN_STOPLIGHTS = 2  # meters, distance between red stop lights on the ground. Should be small, like 2 meters
-DISTANCE_BETWEEN_LIGHTS = 32  # meters, when showing all taxiways. This can build numerous lights! Use 40-80m range.
-
-ADD_LIGHT_AT_VERTEX = False  # Add a light at each taxiway network vertex on the path, artificial, but useful for apt designers
-ADD_LIGHT_AT_LAST_VERTEX = False  # Add a light at the last vertex, even if it is closer than DISTANCE_BETWEEN_GREEN_LIGHTS
-
-LEAD_OFF_RUNWAY_DISTANCE = 160  # meters, will determine number of alterning green/amber lights after leaving the runway
-
-
-# ################################
-# RABBIT
-#
-# Aircraft preferences for FtG
-class AIRCRAFT(Enum):
-    AIRCRAFTS = "AIRCRAFTS"
-    TAXI_SPEED = "TAXI_SPEED"
-    BRAKING_DISTANCE = "BRAKING_DISTANCE"
-    WARNING_DISTANCE = "WARNING_DISTANCE"
-    RABBIT = "RABBIT"
-    AVG_LENGTH = "AVG_LENGTH"
-
-
-# Aircraft preferences for rabbit
-class RABBIT(Enum):
-    LENGTH = "RABBIT_LENGTH"
-    LIGHTS_AHEAD = "LIGHTS_AHEAD"
-    SPEED = "RABBIT_SPEED"
-
-
-class RABBIT_MODE(StrEnum):
-    SLOWEST = "slowest"
-    SLOWER = "slower"
-    MED = "med"
-    FASTER = "faster"
-    FASTEST = "fastest"
-
-
-class TAXI_SPEED(Enum):  # in m/s
-    FAST = "FAST"
-    MED = "MED"
-    SLOW = "SLOW"
-    CAUTION = "CAUTION"
-    TURN = "TURN"
-
-
-# These are global default values, only used if no other value if found.
-LIGHTS_AHEAD = 0  # Number of lights in front of rabbit. If 0, lights all lights up to next stopbar or destination.
-RABBIT_LENGTH = 12  # number of lights that blink in front of aircraft
-RABBIT_SPEED = 0.166  # sec duration of "off" light in rabbit
-
-# Rabbit length and speed variation for each indication
-# Base length and speed depends on airport/aircraft
-FTG_SPEED_PARAMS = {  # [#lights_in_rabbit(int), #secs_for_one_light(float)]
-    RABBIT_MODE.FASTEST: [2, 0.3],  # accelerate (long and fast)
-    RABBIT_MODE.FASTER: [1, 0.6],  # go faster (same length, faster)
-    RABBIT_MODE.MED: [1, 1],  # normal
-    RABBIT_MODE.SLOWER: [1, 2],  # slow down (same length, slower)
-    RABBIT_MODE.SLOWEST: [0.5, 1.5],  # slow down (short and slow)
+AIRCRAFT_TYPES = {  # Half width of taxiway in meters
+    "A": 4,  # 7.5m
+    "B": 6,  # 10.5m
+    "C": 8,  # 15m or 18m
+    "D": 9,  # 18m or 23m
+    "E": 12,  # 23m
+    "F": 15,  # 30m
 }
-
-
-# ################################
-# LIGHTS
-#
-class LIGHT_TYPE(StrEnum):  # DO NOT CHANGE
-    OFF = "OFF"
-    FIRST = "FIRST"
-    TAXIWAY = "TAXIWAY"
-    TAXIWAY_ALT = "TAXIWAY_ALT"
-    STOP = "STOP"
-    WARNING = "WARNING"
-    LAST = "LAST"
-    VERTEX = "VERTEX"
-    DEFAULT = "DEFAULT"
-    ACTIVE = "ACTIVE"
-    RUNWAY = "RUNWAY"  # runway entry guard light
-    # ACTIVE_DEP = "ACTIVE_DEP"  # current edge is active for departure
-    # ACTIVE_ARR = "ACTIVE_ARR"
-    # ACTIVE_ILS = "ACTIVE_ILS"
-    # ONEWAY = "ONEWAY"  # current edge is one way
-    # INNER = "INNER"  # current edge is inner only (not both)
-    # OUTER = "OUTER"
-
-
-LIGHT_TYPE_OBJFILES = {
-    LIGHT_TYPE.OFF: "off_light.obj",
-    LIGHT_TYPE.FIRST: "green.obj",
-    LIGHT_TYPE.TAXIWAY: "green.obj",
-    LIGHT_TYPE.TAXIWAY_ALT: "amber.obj",
-    LIGHT_TYPE.STOP: "red.obj",
-    LIGHT_TYPE.VERTEX: "green.obj",
-    LIGHT_TYPE.WARNING: "amber.obj",
-    LIGHT_TYPE.LAST: "green.obj",
-    LIGHT_TYPE.DEFAULT: "white.obj",
-    LIGHT_TYPE.ACTIVE: "green.obj",
-    LIGHT_TYPE.RUNWAY: "runway.obj",
-    # LIGHT_TYPE.RUNWAY: "green.obj",
-    # LIGHT_TYPE.ACTIVE_DEP: "green.obj",
-    # LIGHT_TYPE.ACTIVE_ARR: "green.obj",
-    # LIGHT_TYPE.ACTIVE_ILS: "green.obj",
-    # LIGHT_TYPE.ONEWAY: "green.obj",
-    # LIGHT_TYPE.INNER: "green.obj",
-    # LIGHT_TYPE.OUTER: "green.obj",
-}
-
-
-# ################################
-# LIST OF INTERNAL CONSTANTS
-#
-# Values of the following parameters is show on debug
-INTERNAL_CONSTANTS = [
-    "LOGGING_LEVEL",
-    "RESPECT_CONSTRAINTS",
-    "USE_THRESHOLD",
-    "RABBIT_SPEED",
-    "RABBIT_LENGTH",
-    "LIGHTS_AHEAD",
-    "DISTANCE_BETWEEN_GREEN_LIGHTS",
-    "DISTANCE_BETWEEN_LIGHTS",
-    "SAY_ROUTE",
-    "DISTANCE_BETWEEN_STOPLIGHTS",
-    "DISTANCE_TO_RAMPS",
-    "ADD_LIGHT_AT_LAST_VERTEX",
-    "ADD_LIGHT_AT_VERTEX",
-    "DRIFTING_DISTANCE",
-    "DRIFTING_LIMIT",
-    "FTG_SPEED_PARAMS",
-    "LEAD_OFF_RUNWAY_DISTANCE",
-    "MIN_SEGMENTS_BEFORE_HOLD",
-    "PLANE_MONITOR_DURATION",
-    "ROUTING_ALGORITHM",
-    "RUNWAY_BUFFER_WIDTH",
-    "RUNWAY_LIGHT_LEVEL_WHILE_FTG",
-    "TOO_FAR",
-    "WARNING_DISTANCE",
-    "MAINWINDOW_FROM_BOTTOM",
-    "MAINWINDOW_FROM_LEFT",
-    "MAINWINDOW_HEIGHT",
-    "MAINWINDOW_WIDTH",
-    "MAINWINDOW_AUTOHIDE",
-    "MAINWINDOW_DISPLAY_TIME",
-]
-
-# Values of the following parameters is show on debug
-ALL_INTERNAL_CONSTANTS = [
-    "ADD_LIGHT_AT_LAST_VERTEX",
-    "ADD_LIGHT_AT_VERTEX",
-    "AIRPORTLIGHT_ON",
-    "AMBIANT_RWY_LIGHT_CMDROOT",
-    "AMBIANT_RWY_LIGHT_VALUE",
-    "DISTANCE_BETWEEN_GREEN_LIGHTS",
-    "DISTANCE_BETWEEN_LIGHTS",
-    "DISTANCE_BETWEEN_STOPLIGHTS",
-    "DISTANCE_TO_RAMPS",
-    "DRIFTING_DISTANCE",
-    "DRIFTING_LIMIT",
-    "FTG_BOOKMARK_COMMAND",
-    "FTG_BOOKMARK_COMMAND_DESC",
-    "FTG_CANCEL_COMMAND",
-    "FTG_CANCEL_COMMAND_DESC",
-    "FTG_CLEARANCE_COMMAND",
-    "FTG_CLEARANCE_COMMAND_DESC",
-    "FTG_COMMAND",
-    "FTG_COMMAND_DESC",
-    "FTG_IS_HOLDING",
-    "FTG_IS_RUNNING",
-    "FTG_MENU",
-    "FTG_OK_COMMAND",
-    "FTG_OK_COMMAND_DESC",
-    "FTG_PLUGIN_ROOT_PATH",
-    "FTG_SPEED_COMMAND",
-    "FTG_SPEED_COMMAND_DESC",
-    "FTG_SPEED_PARAMS",
-    "LEAD_OFF_RUNWAY_DISTANCE",
-    "LIGHT_TYPE_OBJFILES",
-    "LIGHTS_AHEAD",
-    "LOGGING_LEVEL",
-    "MAINWINDOW_FROM_BOTTOM",
-    "MAINWINDOW_FROM_LEFT",
-    "MAINWINDOW_HEIGHT",
-    "MAINWINDOW_WIDTH",
-    "MAINWINDOW_AUTOHIDE",
-    "MAINWINDOW_DISPLAY_TIME",
-    "MIN_SEGMENTS_BEFORE_HOLD",
-    "PLANE_MONITOR_DURATION",
-    "RABBIT_SPEED",
-    "RABBIT_LENGTH",
-    "ROUTING_ALGORITHM",
-    "RUNWAY_BUFFER_WIDTH",
-    "RUNWAY_LIGHT_LEVEL_WHILE_FTG",
-    "SAY_ROUTE",
-    "STW_COMMAND",
-    "STW_COMMAND_DESC",
-    "STW_MENU",
-    "TOO_FAR",
-    "USE_THRESHOLD",
-    "RESPECT_CONSTRAINTS",
-    "WARNING_DISTANCE",
-]
-
-
-# ################################
-# MISCELLANEOUS
-#
-class ATC(StrEnum):
-    NONE = "None"
-    DELIVERY = "Delivery"
-    GROUND = "Ground"
-    TOWER = "Tower"
-    TRACON = "Tracon"
-    CENTER = "Center"
-
-
-# ATC greetings: period of day: hours from which to say it
-GOOD = {"morning": 4, "day": 9, "afternoon": 12, "evening": 17, "night": 20}  # hour time of day when to use appropriate greeting
-# GOOD = {"morning": 4, "day": 6, "afternoon": 9, "evening": 12, "night": 17}  # special US :-D
-
-
-def get_global(name: str, preferences: dict = {}) -> Any:
-    # most globals are defined defined above...
-    # if name not in preferences:
-    #     logger.debug(f"name {name} not in preferences, using global {globals().get(name)}")
-    return preferences.get(name, globals().get(name))
-
-
-def get_global_with_default(name: str, preferences: dict = {}, default: Any = None) -> Any:
-    # Returns default if no global found
-    return preferences.get(name, globals().get(name, default))
-
-
-def minsec(t: float) -> str:
-    # format min:sec
-    a = int(t)
-    return f"{int(a/60)}:{a%60:02d}"
-
-
-# ################################
-# LOGGING
-#
-LOGFILENAME = "ftg_log.txt"
-LOGGING_LEVEL = logging.INFO  # can be modified by preference
-logging.basicConfig(
-    level=LOGGING_LEVEL,
-    format="%(levelname)s %(asctime)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s",
-    handlers=[
-        logging.FileHandler(os.path.join(os.path.dirname(__file__), "..", LOGFILENAME)),
-        logging.StreamHandler(),
-    ],
-)
-logger = logging.getLogger("FtG")

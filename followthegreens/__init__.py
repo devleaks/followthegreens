@@ -1,28 +1,22 @@
-from .version import __VERSION__, __NAME__, __DESCRIPTION__
-from .globals import (
-    RABBIT_MODE,
-    FTG_PLUGIN_ROOT_PATH,
-    FTG_HUD_DESC,
-    FTG_HUD,
-    FTG_CANCEL_COMMAND,
-    FTG_CANCEL_COMMAND_DESC,
-    FTG_OK_COMMAND,
-    FTG_CLEARANCE_COMMAND,
-    FTG_CLEARANCE_COMMAND_DESC,
-    FTG_IS_RUNNING,
-    FTG_OK_COMMAND_DESC,
-    FTG_SPEED_COMMAND,
-    FTG_SPEED_COMMAND_DESC,
-    FTG_COMMAND,
-    FTG_COMMAND_DESC,
-    FTG_BOOKMARK_COMMAND,
-    FTG_BOOKMARK_COMMAND_DESC,
-    FTG_NEWGREENS_COMMAND,
-    FTG_NEWGREENS_COMMAND_DESC,
-    FTG_MENU,
-    STW_COMMAND,
-    STW_COMMAND_DESC,
-    STW_MENU,
-)
+__NAME__ = "Follow the greens"
+__SIGNATURE__ = "xppython3.followthegreens"
+__DESCRIPTION__ = "Follow the greens, an X-Plane ATC A-SMGCS experience."
+__VERSION__ = "1.6.4"
+
+
 from .followthegreens import FollowTheGreens
 from .showtaxiways import ShowTaxiways
+from .aircraft import Aircraft
+from .airport import Airport
+from .flightloop import FlightLoop
+from .geo import Point, Line, Polygon, FeatureCollection
+from .geo import distance, bearing, destination
+from .geo import nearestPointToLines, pointInPolygon
+from .graph import Graph, Edge, Vertex
+from .lightstring import LightString
+from .ui import UIUtil
+from .XPDref import XPDref
+from .globals import FOLLOW_THE_GREENS_IS_RUNNING
+from .globals import XP_FTG_COMMAND, XP_FTG_COMMAND_DESC
+from .globals import XP_STW_COMMAND, XP_STW_COMMAND_DESC
+from .globals import XP_FTG_CLEARANCE_COMMAND, XP_FTG_CLEARANCE_COMMAND_DESC

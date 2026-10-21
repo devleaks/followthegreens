@@ -1,14 +1,18 @@
 # User Interface Utility Class
 # Creates FTG windows.
 #
+import logging
 from random import random
 
-try:
-    import xp
-except ImportError:
-    print("X-Plane not loaded")
+import xp
 
-from .globals import get_global, logger, MOVEMENT, GOOD
+from .globals import ARRIVAL, DEPARTURE, GOOD
+from .globals import MAINWINDOW_AUTOHIDE, MAINWINDOW_DISPLAY_TIME
+from .globals import MAINWINDOW_WIDTH, MAINWINDOW_HEIGHT
+from .globals import MAINWINDOW_FROM_LEFT, MAINWINDOW_FROM_BOTTOM
+
+logger = logging.getLogger("follow_the_greens")
+
 
 # Some texts we need to recognize. May be later translated.
 CLOSE_TEXT = "Close"
@@ -19,9 +23,6 @@ CANCELSHORT_TEXT = "Cancel"
 CONTINUE_TEXT = "Continue"
 IAMLOST_TEXT = "New green please"
 NEWDEST_TEXT = "New destination"
-
-
-SPECIAL_DEBUG = False
 
 
 class UIUtil:
@@ -35,14 +36,14 @@ class UIUtil:
         self.validDestIdxs = []
         self.linetops = []
         self.strHeight = 0
-        self._canHide = True
+        self.canHide = True
         self.displayTime = 0
         self.waiting_for_clearance = False
-        self.mainwindow_autohide = get_global("MAINWINDOW_AUTOHIDE", self.ftg.prefs)
-        self.mainwindow_display_time = get_global("MAINWINDOW_DISPLAY_TIME", self.ftg.prefs)
 
     def window(self, strings, btns):
-        if self.mainWindow and "widgetID" in self.mainWindow.keys():  # We create a new window each time we are called.
+        if (
+            self.mainWindow and "widgetID" in self.mainWindow.keys()
+        ):  # We create a new window each time we are called.
             xp.destroyWidget(self.mainWindow["widgetID"], 1)
             self.mainWindow = None
 
@@ -57,10 +58,14 @@ class UIUtil:
         self.strHeight = strHeight
         linespace = 2.0
 
-        self.wLeft = get_global("MAINWINDOW_FROM_LEFT", self.ftg.prefs)
-        self.wBottom = get_global("MAINWINDOW_FROM_BOTTOM", self.ftg.prefs)
-        self.wTop = self.wBottom + get_global("MAINWINDOW_HEIGHT", self.ftg.prefs) + len(strings) * int(linespace * self.strHeight)
-        self.wRight = self.wLeft + get_global("MAINWINDOW_WIDTH", self.ftg.prefs)
+        self.wLeft = MAINWINDOW_FROM_LEFT
+        self.wTop = (
+            MAINWINDOW_FROM_BOTTOM
+            + MAINWINDOW_HEIGHT
+            + len(strings) * int(linespace * self.strHeight)
+        )
+        self.wRight = MAINWINDOW_FROM_LEFT + MAINWINDOW_WIDTH
+        self.wBottom = MAINWINDOW_FROM_BOTTOM
         widgetCenter = int(self.wLeft + (self.wRight - self.wLeft) / 2)
 
         widgetWindow["widgetID"] = xp.createWidget(
@@ -78,7 +83,9 @@ class UIUtil:
         xp.addWidgetCallback(widgetWindow["widgetID"], self.cbMainWindow)
 
         # xp.setWidgetProperty(widgetWindow['widgetID'], xp.Property_MainWindowType, xp.MainWindowStyle_Translucent)
-        xp.setWidgetProperty(widgetWindow["widgetID"], xp.Property_MainWindowHasCloseBoxes, 1)
+        xp.setWidgetProperty(
+            widgetWindow["widgetID"], xp.Property_MainWindowHasCloseBoxes, 1
+        )
 
         # Add five label / editable text fields.
         # We determine placement based on the size of the font.
@@ -130,16 +137,6 @@ class UIUtil:
         self.canHide = True  # new window can always be hidden
         return widgetWindow["widgetID"]
 
-    @property
-    def canHide(self) -> bool:
-        return self._canHide
-
-    @canHide.setter
-    def canHide(self, canHide):
-        if canHide != self._canHide:
-            logger.debug(f"allow UI to hide={self._canHide}")
-        self._canHide = canHide
-
     def mkButtons(self, btns):
         buttons = {}
         prev = False
@@ -154,7 +151,9 @@ class UIUtil:
             buttons[b]["text"] = b
             buttons[b]["cb"] = cb
             buttons[b]["swidth"] = int(xp.measureString(self.fontID, b))
-            buttons[b]["right"] = int(buttons[b]["left"] + buttons[b]["swidth"] + 10)  # inside button
+            buttons[b]["right"] = int(
+                buttons[b]["left"] + buttons[b]["swidth"] + 10
+            )  # inside button
             prev = buttons[b]
 
         return (buttons, prev["right"])  # total width of all buttons
@@ -168,8 +167,6 @@ class UIUtil:
         return False
 
     def showMainWindow(self, canHide=True):
-        if SPECIAL_DEBUG:
-            logger.debug(f"showMainWindow canHide={self.canHide}")
         if self.mainWindowExists():
             xp.showWidget(self.mainWindow["widgetID"])
             self.canHide = canHide
@@ -178,13 +175,12 @@ class UIUtil:
     def hideMainWindowIfOk(self, elapsed=0):
         # We always hide it on request, even if canHide is False
         self.displayTime += elapsed
-        if self.mainwindow_autohide and self.displayTime > self.mainwindow_display_time and self.canHide:
-            if SPECIAL_DEBUG:
-                logger.debug("auto hiding UI")
+        if (
+            MAINWINDOW_AUTOHIDE
+            and self.displayTime > MAINWINDOW_DISPLAY_TIME
+            and self.canHide
+        ):
             self.hideMainWindow()
-        else:
-            if SPECIAL_DEBUG:
-                logger.debug(f"UI not allowed to hide (canHide={self.canHide}, elapsed={round(self.displayTime, 1)} < {self.mainwindow_display_time})")
 
     def hideMainWindow(self):
         # We always hide it on request, even if canHide is False
@@ -193,8 +189,7 @@ class UIUtil:
 
     def toggleVisibilityMainWindow(self):
         if self.mainWindowExists():
-            if SPECIAL_DEBUG:
-                logger.debug(f"isMainWindowVisible: {self.isMainWindowVisible()}")
+            logger.debug(f"isMainWindowVisible(): {self.isMainWindowVisible()}.")
             if self.isMainWindowVisible():
                 self.hideMainWindow()
             else:
@@ -211,12 +206,12 @@ class UIUtil:
     # MAIN WINDOW prompts
     #
     def greetings(self, text="Good %s."):
-        h = self.ftg.hourOfDay()
-        ss = list(GOOD.keys())[-1]  # last one is good night, from 0-4 and 20-24.
+        h = self.ftg.aircraft.hourOfDay()
+        logger.debug(f"bye: {h}.")
+        ss = list(GOOD.keys())[-1]
         for k, v in GOOD.items():
             if h > v:
                 ss = k
-        logger.debug(f"bye: {h}h, good {ss}")
         return text % ss
 
     def promptForAirport(self):
@@ -256,20 +251,22 @@ class UIUtil:
         button = None
         prompt = None
         text = None
-        if move == MOVEMENT.DEPARTURE:
-            self.validDestinations = self.ftg.airport.getDestinations(MOVEMENT.DEPARTURE)
+        if move == DEPARTURE:
+            self.validDestinations = self.ftg.airport.getDestinations(DEPARTURE)
             prompt = "Please enter runway for departure"
             button = "It is an arrival"
             text = "RWY/HLD"
         else:
-            self.validDestinations = self.ftg.airport.getDestinations(MOVEMENT.ARRIVAL)
-            prompt = "Please enter stand number for arrival"
+            self.validDestinations = self.ftg.airport.getDestinations(ARRIVAL)
+            prompt = "Please enter parking for arrival"
             button = "It is a departure"
             text = "RAMP"
 
         if len(self.validDestinations) > 0:
             self.validDestinations.sort()
-            self.validDestIdxs = list(map(lambda x: x[0].upper(), self.validDestinations))
+            self.validDestIdxs = list(
+                map(lambda x: x[0].upper(), self.validDestinations)
+            )
             self.destinationIdx = int(random() * len(self.validDestinations))
             text = self.validDestinations[self.destinationIdx]
 
@@ -305,7 +302,9 @@ class UIUtil:
         right = int(left + 1.1 * strWidth)
         # top = int(self.wTop - 40 - self.strHeight)
         # bottom = int(top - self.strHeight)
-        widget = xp.createWidget(left, top, right, bottom, 1, button, 0, widgetWindow, xp.WidgetClass_Button)
+        widget = xp.createWidget(
+            left, top, right, bottom, 1, button, 0, widgetWindow, xp.WidgetClass_Button
+        )
         self.mainWindow["widgets"]["move"] = widget
         xp.addWidgetCallback(self.mainWindow["widgets"]["move"], self.cbMovement)
 
@@ -323,17 +322,16 @@ class UIUtil:
             btns,
         )
 
-    def promptForClearance(self, intro: list = []):
+    def promptForClearance(self):
         # In front of a stopbar, ask to ask for clearance and press continue when clearance obtained.
         btns = {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel}
         if self.dest:
             btns[IAMLOST_TEXT] = self.cbNewGreen
         self.waiting_for_clearance = True
         return self.window(
-            intro
-            + [
-                "Follow the greens until you encounter red stop lights across the taxiway.",
-                "At the stop lights, contact ATC for clearance. Press Clearance received when cleared.",
+            [
+                "Follow the greens until you encounter a line of red stop lights.",
+                "At the stop lights, contact TOWER for clearance. Press Continue when cleared.",
             ],
             btns,
         )
@@ -356,8 +354,8 @@ class UIUtil:
         self.waiting_for_clearance = True
         return self.window(
             [
-                "Follow the greens until you encounter red stop lights across the taxiway before departure runway.",
-                "Contact ATC, press Clearance received when cleared for runway.",
+                "Follow the greens until you encounter a line of red stop lights at departure runway.",
+                "Press Continue when cleared for runway.",
             ],
             {CLEARANCE_TEXT: self.cbClearance, CANCELSHORT_TEXT: self.cbCancel},
         )
@@ -376,19 +374,17 @@ class UIUtil:
         )
 
     def bye(self):
-        msgs = ["You have reached your destination."]
-        if self.ftg.move == MOVEMENT.DEPARTURE:
-            msgs += ["Contact ATC for takeoff clearance."]
-        msgs += [self.greetings("Enjoy your %s.")]
         return self.window(
-            msgs,
+            ["You have reached your destination.", self.greetings("Enjoy your %s.")],
             {FINISH_TEXT: self.cbBye},
         )
 
     def enjoy(self):
         return self.window(
             [
-                "All taxiways in the network are lit. Press " + FINISH_TEXT + " to hide them.",
+                "All taxiways in the network are lit. Press "
+                + FINISH_TEXT
+                + " to hide them.",
                 self.greetings("Enjoy your %s."),
             ],
             {FINISH_TEXT: self.cbBye},
@@ -431,13 +427,25 @@ class UIUtil:
     def cbUpDown(self, message, widgetID, param1, param2):
         # We intercept some keypress we are interested in _first_
         if message == xp.Msg_KeyPress and not (param1[1] & xp.UpFlag):
-            if param1[2] == xp.VK_DOWN or (param1[2] == xp.VK_N and param1[1] & xp.ControlFlag):
-                self.destinationIdx = (self.destinationIdx + 1) % len(self.validDestinations)
-                xp.setWidgetDescriptor(widgetID, self.validDestinations[self.destinationIdx])
+            if param1[2] == xp.VK_DOWN or (
+                param1[2] == xp.VK_N and param1[1] & xp.ControlFlag
+            ):
+                self.destinationIdx = (self.destinationIdx + 1) % len(
+                    self.validDestinations
+                )
+                xp.setWidgetDescriptor(
+                    widgetID, self.validDestinations[self.destinationIdx]
+                )
                 return 1
-            if param1[2] == xp.VK_UP or (param1[2] == xp.VK_P and param1[1] & xp.ControlFlag):
-                xp.setWidgetDescriptor(widgetID, self.validDestinations[self.destinationIdx])
-                self.destinationIdx = (self.destinationIdx - 1) % len(self.validDestinations)
+            if param1[2] == xp.VK_UP or (
+                param1[2] == xp.VK_P and param1[1] & xp.ControlFlag
+            ):
+                xp.setWidgetDescriptor(
+                    widgetID, self.validDestinations[self.destinationIdx]
+                )
+                self.destinationIdx = (self.destinationIdx - 1) % len(
+                    self.validDestinations
+                )
                 return 1
             if param1[2] >= xp.VK_0 and param1[2] <= xp.VK_Z:
                 # thanks for the hint: https://forums.x-plane.org/index.php?/forums/topic/238447-best-ui-for-list-of-value/&tab=comments#comment-2130991
@@ -449,7 +457,9 @@ class UIUtil:
                     idx = -1
                 if idx > -1:
                     self.destinationIdx = idx
-                    xp.setWidgetDescriptor(widgetID, self.validDestinations[self.destinationIdx])
+                    xp.setWidgetDescriptor(
+                        widgetID, self.validDestinations[self.destinationIdx]
+                    )
                 return 1
             # if any other key as been pressed, we ignore it.
             return 1
@@ -491,10 +501,10 @@ class UIUtil:
         # pylint: disable=unused-argument
         if inMessage == xp.Msg_PushButtonPressed:
             xp.hideWidget(self.mainWindow["widgetID"])
-            if self.ftg.move == MOVEMENT.DEPARTURE:
-                self.ftg.move = MOVEMENT.ARRIVAL
+            if self.ftg.move == DEPARTURE:
+                self.ftg.move = ARRIVAL
             else:
-                self.ftg.move = MOVEMENT.DEPARTURE
+                self.ftg.move = DEPARTURE
             nextWindow = self.promptForDestination()
             xp.showWidget(nextWindow)
             return 1
@@ -511,14 +521,14 @@ class UIUtil:
         return 0
 
     def clearanceReceived(self):
-        logger.info("clearance command received")
+        logger.info(f"clearance command received")
         if self.waiting_for_clearance:
             xp.hideWidget(self.mainWindow["widgetID"])
             self.waiting_for_clearance = False
             nextWindow = self.ftg.nextLeg()
             xp.showWidget(nextWindow)
         else:
-            logger.info("not waiting for clearance, ignoring command")
+            logger.info(f"not waiting for clearance, ignoring command")
 
     def cbClose(self, inMessage, inWidget, inParam1, inParam2):
         # pylint: disable=unused-argument
@@ -533,33 +543,15 @@ class UIUtil:
         # Cancels FollowTheGreen
         if inMessage == xp.Msg_PushButtonPressed:
             xp.hideWidget(self.mainWindow["widgetID"])
-            self.ftg.terminate("user cancelled")
+            self.ftg.cancel("user cancelled")
             return 1
         return 0
-
-    def newGreensReceived(self):
-        logger.info("new greens command received")
-        if not self.dest:
-            logger.info("no destination")
-            return 1
-        if self.mainWindow is not None:
-            xp.hideWidget(self.mainWindow["widgetID"])
-            nextWindow = self.ftg.newGreen(self.dest)
-            xp.showWidget(nextWindow)
-        else:
-            logger.info("no window, probably not active")
-        return 1
-
-    def cancelReceived(self, comment: str):
-        logger.info("cancel command received")
-        xp.hideWidget(self.mainWindow["widgetID"])
-        self.ftg.terminate(comment)
 
     def cbBye(self, inMessage, inWidget, inParam1, inParam2):
         # pylint: disable=unused-argument
         # Cancels FollowTheGreen
         if inMessage == xp.Msg_PushButtonPressed:
             xp.hideWidget(self.mainWindow["widgetID"])
-            self.ftg.terminate("terminated normally")
+            self.ftg.cancel("terminated normally")
             return 1
         return 0

@@ -9,9 +9,6 @@ import json
 
 # Geology constants
 R = 6371000  # Radius of third rock from the sun, in metres
-EARTH = 39940653000  # Earth circumference, in meter :-)
-
-# Imperial units
 FT = 12 * 0.0254  # 1 FOOT = 12 INCHES
 NAUTICAL_MILE = 1.852  # Nautical mile in meters 6076.118ft=1nm
 
@@ -44,7 +41,6 @@ def convertAngleTo360(alfa):
 
 
 def turn(bi, bo):
-    # turn in [-180, 180]
     t = bi - bo
     if t < 0:
         t += 360
@@ -61,19 +57,12 @@ def sign(x):  # there is no sign function in python...
     return 0
 
 
-MAX_SAME_POINT = 0.25  # m, 25cm
-
-
 class Feature:
     def __init__(self):
         self.properties = {}
         self.featureType = "Feature"
-        self.geomType = ""
 
-    def coords(self, lonLat: bool = False) -> list:
-        return []
-
-    def props(self) -> dict:
+    def props(self):
         return self.properties
 
     def setProp(self, name, value):
@@ -84,14 +73,14 @@ class Feature:
             return self.properties[name]
         return None
 
-    def feature(self) -> dict:
+    def feature(self):
         return {
             "type": "Feature",
             "geometry": self.geom(True),
             "properties": self.props(),
         }
 
-    def geom(self, lonLat: bool = False) -> dict:
+    def geom(self, lonLat=False):
         return {"type": self.geomType, "coordinates": self.coords(lonLat)}
 
     def __str__(self):
@@ -102,15 +91,16 @@ class FeatureCollection:
     def __init__(self, features=[]):
         self.features = features
 
-    def featureCollection(self) -> dict:
+    def featureCollection(self):
         return {"type": "FeatureCollection", "features": self.features}
 
     def __str__(self):
         return json.dumps(self.featureCollection())
 
     def save(self, filename):
-        with open(filename, "w") as fp:
-            json.dump(self.featureCollection(), fp, indent=2)
+        f = open(filename, "w")
+        json.dump(self.featureCollection(), f, indent=2)
+        f.close()
 
 
 class Point(Feature):
@@ -124,17 +114,14 @@ class Point(Feature):
         self.properties["marker-color"] = "#aaaaaa"
         self.properties["marker-size"] = "medium"
 
-    def coords(self, lonLat: bool = False) -> list:
+    def coords(self, lonLat=False):
         if lonLat:
             return [self.lon, self.lat]
         return [self.lat, self.lon]  # should be lon, lat for pure geojson.
 
-    def isSame(self, point, maxdist: float = MAX_SAME_POINT) -> bool:
-        return distance(self, point) < maxdist
-
 
 class Line(Feature):
-    def __init__(self, start: Point, end: Point):
+    def __init__(self, start, end):
         Feature.__init__(self)
         self.geomType = "LineString"
         self.start = start
@@ -143,28 +130,14 @@ class Line(Feature):
         self.properties["strokeWidth"] = 1
         self.properties["strokeOpacity"] = 1
 
-    def coords(self, lonLat=False) -> list:
+    def coords(self, lonLat=False):
         return [self.start.coords(lonLat), self.end.coords(lonLat)]
 
-    def length(self) -> float:
+    def length(self):
         return distance(self.start, self.end)
 
-    def bearing(self, orig: Point | None = None) -> float:
-        if isinstance(orig, Point) and orig == self.end:
-            return bearing(self.end, self.start)
+    def bearing(self):
         return bearing(self.start, self.end)
-
-    def side(self, point) -> int:
-        # "formula" is 𝑑=(𝑥−𝑥1)(𝑦2−𝑦1)−(𝑦−𝑦1)(𝑥2−𝑥1), check d <,> or = 0.
-        # 1=start, 2=end, x=lat, y=lon
-        r = (point.lat - self.start.lat) * (self.end.lon - self.start.lon) - (point.lon - self.start.lon) * (self.end.lat - self.start.lat)
-        return 0 if r == 0 else (1 if r > 0 else -1)
-
-    def middle(self, ratio: float) -> float:
-        return destination(self.start, self.bearing(), self.length() * ratio)
-
-    def distanceToPoint(self, point) -> float:
-        return distanceToLine(point, self.start, self.end)
 
 
 class LineString(Feature):
@@ -194,16 +167,16 @@ class Polygon(Feature):
     def __init__(self, p):
         Feature.__init__(self)
         self.geomType = "Polygon"
-        self.coordinates = p  # List[Point]
+        self.coordinates = p
         self.properties["stroke"] = "#aaaaaa"
         self.properties["strokeWidth"] = 1
         self.properties["strokeOpacity"] = 1
 
-    def coords(self, lonLat: bool = False) -> list:
+    def coords(self, lonLat=False):
         return list(map(lambda x: x.coords(lonLat), self.coordinates))
 
-    @classmethod
-    def new(cls, lat1, lon1, lat2, lon2, width):
+    @staticmethod
+    def mkPolygon(lat1, lon1, lat2, lon2, width):
         p1 = Point(lat1, lon1)
         p2 = Point(lat2, lon2)
         brng = bearing(p1, p2)
@@ -212,16 +185,18 @@ class Polygon(Feature):
         a0 = destination(p1, brng, width / 2)
         a2 = destination(p2, brng, width / 2)
         # other side of centerline
-        brng = brng - 180
+        brng = brng - 90
         a1 = destination(p1, brng, width / 2)
         a3 = destination(p2, brng, width / 2)
-        # join, added last point = first point to "close" polygon
-        return cls([a0, a1, a3, a2, a0])
+        # join
+        return Polygon([a0, a1, a3, a2])
 
 
 def haversine(lat1, lat2, long1, long2):  # in radians.
     dlat, dlong = lat2 - lat1, long2 - long1
-    return math.pow(math.sin(dlat / 2), 2) + math.cos(lat1) * math.cos(lat2) * math.pow(math.sin(dlong / 2), 2)
+    return math.pow(math.sin(dlat / 2), 2) + math.cos(lat1) * math.cos(lat2) * math.pow(
+        math.sin(dlong / 2), 2
+    )
 
 
 def distance(p1, p2):  # in degrees.
@@ -238,7 +213,9 @@ def bearing(src, dst):
     lon2 = math.radians(dst.lon)
 
     y = math.sin(lon2 - lon1) * math.cos(lat2)
-    x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(lon2 - lon1)
+    x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(
+        lon2 - lon1
+    )
     t = math.atan2(y, x)
     brng = convertAngleTo360(math.degrees(t))  # in degrees
     return brng
@@ -250,7 +227,9 @@ def destination(src, brngDeg, d):
     brng = math.radians(brngDeg)
     r = d / R
 
-    lat2 = math.asin(math.sin(lat) * math.cos(r) + math.cos(lat) * math.sin(r) * math.cos(brng))
+    lat2 = math.asin(
+        math.sin(lat) * math.cos(r) + math.cos(lat) * math.sin(r) * math.cos(brng)
+    )
     lon2 = lon + math.atan2(
         math.sin(brng) * math.sin(r) * math.cos(lat),
         math.cos(r) - math.sin(lat) * math.sin(lat2),
@@ -297,11 +276,7 @@ def nearestPointToLines(p, lines):
     dist = math.inf
     for line in lines:
         d1 = distance(p, line.start)
-        if d1 == 0:  # < 0.0001 ?
-            return [Point(lat=line.start.lat, lon=line.start.lon), 0.0]
         d2 = distance(p, line.end)
-        if d2 == 0:
-            return [Point(lat=line.end.lat, lon=line.end.lon), 0.0]
         dl = max(d1, d2)
         brng = bearing(line.start, line.end)
         brng += 90  # perpendicular
@@ -316,7 +291,7 @@ def nearestPointToLines(p, lines):
                 dist = d
                 nearest = intersect
 
-    return [nearest, dist]
+    return [nearest, distance]
 
 
 def pointInPolygon(point, polygon):
@@ -406,7 +381,9 @@ def arcCenter(l0, l1, radius):
     b_out = bearing(l1.start, l1.end)
     turnAngle = turn(b_in, b_out)
     oppositeTurnAngle = turn(b_out, b_in)
-    l0b = lineOffset(l0, sign(turnAngle) * radius)  # offset line is always on right side of line
+    l0b = lineOffset(
+        l0, sign(turnAngle) * radius
+    )  # offset line is always on right side of line
     l1b = lineOffset(l1, sign(oppositeTurnAngle) * radius)
     return lineintersect(l0b, l1b)
 
@@ -488,23 +465,3 @@ def smoothTurns(ls, radius=60, steps=36):
     newls.append(ls[-1])  # last point
 
     return newls
-
-
-def dot(vector_1: list, vector_2: list) -> float:
-    return sum(x * y for x, y in zip(vector_1, vector_2))
-
-
-def distanceToLine(point: Point, segment_start: Point, segment_end: Point):
-    v = [segment_end.lon - segment_start.lon, segment_end.lat - segment_start.lat]
-    w = [point.lon - segment_start.lon, point.lat - segment_start.lat]
-    c1 = dot(w, v)
-    c2 = dot(v, v)
-    b2 = c1 / c2
-    point_2 = [segment_start.lon + (b2 * v[0]), segment_start.lat + (b2 * v[1])]
-    if c1 <= 0:
-        dist = distance(point, segment_start)
-    elif c2 <= c1:
-        dist = distance(point, segment_end)
-    else:
-        dist = distance(point, point_2)
-    return dist
