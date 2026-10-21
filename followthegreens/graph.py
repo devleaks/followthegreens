@@ -199,6 +199,7 @@ class Graph:  # Graph(FeatureCollection)?
         self.name = name
         self.vert_dict = {}
         self.edges_arr = []
+        self.edges_by_name = {}
 
         # Try to guess if information is supplied or not
         self._uses_width_code = False
@@ -309,10 +310,15 @@ class Graph:  # Graph(FeatureCollection)?
     def add_edge(self, edge):
         if edge.start.id in self.vert_dict and edge.end.id in self.vert_dict:
             self.edges_arr.append(edge)
-            self.vert_dict[edge.start.id].add_neighbor(self.vert_dict[edge.end.id].id, edge.cost)
+            if edge.name is not None:
+                if edge.name not in self.edges_by_name:
+                    self.edges_by_name[edge.name] = []
+                self.edges_by_name[edge.name].append(edge)
 
+            self.vert_dict[edge.start.id].add_neighbor(self.vert_dict[edge.end.id].id, edge.cost)
             if edge.direction == TAXIWAY_DIRECTION.TWOWAY:
                 self.vert_dict[edge.end.id].add_neighbor(self.vert_dict[edge.start.id].id, edge.cost)
+
             # Check if information is available
             if edge.width_code is not None:
                 self._uses_width_code = True
