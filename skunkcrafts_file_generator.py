@@ -2,7 +2,8 @@ import os
 import binascii
 import glob
 
-from PI_FollowTheGreens import __VERSION__, __NAME__
+__VERSION__ = "1.6.4"
+__NAME__ = "Follow the greens"
 
 WRITE_FILE = True
 
