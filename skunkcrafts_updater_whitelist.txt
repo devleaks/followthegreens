@@ -18,12 +18,12 @@ followthegreens/cars/xcsl/FMCglass.png|4260338456
 followthegreens/cars/xcsl/credits.html|3659499169
 followthegreens/cars/xcsl/x-csl-info.info|1772261579
 followthegreens/cars/xcsl/xsb_aircraft.txt|1351490319
-followthegreens/cursor.py|3591758057
-followthegreens/followthegreens.py|421447158
+followthegreens/cursor.py|2061021683
+followthegreens/followthegreens.py|891269061
 followthegreens/geo.py|2123571880
-followthegreens/globals.py|3091451703
-followthegreens/graph.py|3277929330
-followthegreens/lights.py|3867222426
+followthegreens/globals.py|1822283168
+followthegreens/graph.py|3517959634
+followthegreens/lights.py|3105682122
 followthegreens/lights/amber.obj|2281468011
 followthegreens/lights/green.obj|833283030
 followthegreens/lights/lights.png|1859086726
@@ -39,6 +39,6 @@ followthegreens/nato.py|2108547532
 followthegreens/route.py|1112445670
 followthegreens/se.py|3652223195
 followthegreens/showtaxiways.py|2113366716
-followthegreens/taxi.py|3329557819
+followthegreens/taxi.py|3365305459
 followthegreens/ui.py|3895455742
-followthegreens/version.py|1986529758
+followthegreens/version.py|1931943771
