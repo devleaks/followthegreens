@@ -21,6 +21,7 @@ from .globals import (
     minsec,
     Error,
     NoError,
+    Status,
     AMBIANT_RWY_LIGHT,
     AMBIANT_RWY_LIGHT_VALUE,
     AMBIANT_RWY_LIGHT_CMDROOT,
@@ -311,6 +312,7 @@ class Stopbar:
         return self._cleared
 
     def clear(self):
+        logger.debug(f"STOPBAR at light {self.lightStringIndex} CLEARED")
         self._cleared = True
 
     def make(self):
@@ -366,6 +368,7 @@ class Stopbar:
             light.destroy()
         logger.debug(f"stop bar at {self.lightStringIndex} destroyed")
 
+NO_SEGMENT = -1
 
 class LightString:
     # Note to self:
@@ -383,8 +386,7 @@ class LightString:
 
         self.lights = []  # all green lights from start to destination indexed from 0 to len(lights)
         self.stopbars = []  # Keys of this dict are green light indices.
-        self.segments = 0
-        self.currentSegment = 0
+        self.currentSegment = NO_SEGMENT
         self.rabbitIdx = 0
         self.rabbitCanRun = False
         self.rabbitRunning = False
@@ -548,6 +550,10 @@ class LightString:
             )
             logger.info(f"no lights, res={self.distance_between_green_lights}m")
 
+    @property
+    def segments(self):
+        return len(self.stopbars)
+
     def destroy(self):
         # Destroy each green light
         self.rabbitCanRun = False
@@ -643,19 +649,31 @@ class LightString:
             abs(brng - convertAngleTo360(heading)),
         ]
 
+    def clearCurrentStopbar(self):
+        if self.currentSegment < len(self.stopbars):
+            self.stopbars[self.currentSegment].clear()
+            logger.debug(f"stopbar {self.currentSegment} cleared")
+
+    def nextStopbar(self) -> Stopbar | None:
+        i = self.currentSegment if self.validCurrentSegment() else 0
+        while i < len(self.stopbars):
+            if not self.stopbars[i].cleared:
+                return self.stopbars[i]
+            # logger.debug(f"stopbar {i} already cleared")
+            i = i + 1
+        # no more stop bar? return last light, even it is not a stop
+        # i0 = self.currentSegment if self.validCurrentSegment() else 0
+        # logger.debug(f"stopbars after {i0} all cleared (curr={self.currentSegment})")
+        return None
+
     def nextStop(self) -> int:
         # index of light where should stop next
         # skipping stopbar that are cleared
-        i = self.currentSegment
-        while i < len(self.stopbars):
-            sb = self.stopbars[i]
-            if not sb.cleared:
-                # logger.debug(f"stopbar {i} not cleared ({sb.lightStringIndex})")
-                return sb.lightStringIndex
-            logger.debug(f"stopbar {i} already cleared")
-            i = i + 1
-        # no more stop bar? return last light, even it is not a stop
-        return self.lastLightIndex
+        sb = self.nextStopbar()
+        if sb is None:
+            logger.debug("returning last light")
+            return self.lastLightIndex
+        return sb.lightStringIndex
 
     def mustStopAt(self, nextStop: int) -> bool:
         # Return true if nextStop is last light and there is no stop bar at the last light
@@ -677,15 +695,21 @@ class LightString:
         return False
 
     def stopCleared(self, nextStop: int) -> bool:
+        # Is stopbar after nextStop cleared?
+        # 1. Find stopbar
         s = None
         i = 0
         while s is None and i < len(self.stopbars):
-            if self.stopbars[i].lightStringIndex <= nextStop:  # if nextStop provided by nextStop(), lightStringIndex == nextStop
+            if self.stopbars[i].lightStringIndex < nextStop:  # if nextStop provided by nextStop(), lightStringIndex == nextStop
                 i += 1
                 continue
-            logger.debug(f"at {nextStop}, next stop bar at {self.stopbars[i].lightStringIndex}, cleared={self.stopbars[i].cleared}")
             s = self.stopbars[i]
-        return s is None or s.cleared
+        if s is None:
+            logger.debug(f"at {nextStop}, no stop bar found at or after, cleared=True")
+            return True
+        # 2. Is it cleared
+        logger.debug(f"at {nextStop}, next stop bar at {s.lightStringIndex}, cleared={s.cleared}")
+        return s.cleared
 
     def toNextStop(self, position):
         # light index of next stop position and distance to it
@@ -929,7 +953,6 @@ class LightString:
                         extremity="start",
                         size=thisEdge.width_code,
                     )
-                    self.segments += 1
                     onRwy = True  # We assume that we a setting a stopbar before a runway crossing. (26/1/2026: Ouch is that correct?)
                 else:
                     logger.debug(f"departure: on runway #={i}, usage={thisEdge.usage}, active={thisEdge.mkActives()}")
@@ -962,7 +985,6 @@ class LightString:
                         extremity="start",
                         size=thisEdge.width_code,
                     )
-                    self.segments += 1
                     onRwy = True  # We assume that we a setting a stopbar before a runway crossing.
                 else:
                     logger.debug(f"arrival: not on runway {i}, {thisEdge.usage}")
@@ -998,6 +1020,8 @@ class LightString:
             nextLightPos, d_brng, d_idx, d_dist = route.srAhead(i=srCurrPoint[0], dist=self.distance_between_green_lights, start=srCurrPoint[1])
             distFromVertex = distance(nextLightPos, route.vertices[r_idx])
             thisLights.append(Light(self.nextTaxiwayLight(nextLightPos, thisEdge), nextLightPos, d_brng, r_idx, distFromVertex, d_idx, d_dist))
+            if len(thisLights) == 2:  # set heading of first light since we did not know it
+                thisLights[0].heading = bearing(thisLights[0].position, thisLights[1].position)
             srCurrPoint = (d_idx, d_dist)
             # logger.debug(f"srCurrPoint={srCurrPoint} (i={i})")
             i += 1
@@ -1026,13 +1050,31 @@ class LightString:
 
     # USAGE
     #
-    def blackenSegment(self, segment):
-        if segment >= len(self.stopbars):
-            return
-        self.stopbars[segment].off()
-        logger.debug(f"blackened stopbar at segment {segment}")
+    def validCurrentSegment(self) -> bool:
+        return self.currentSegment != NO_SEGMENT and self.currentSegment < len(self.stopbars)
 
-    def illuminateSegment(self, segment):
+    def atLastSegment(self) -> bool:
+        return self.currentSegment == self.segments
+
+    def nextSegment(self) -> Status:
+        if self.validCurrentSegment():
+            self.stopbars[self.currentSegment].clear()
+            self.stopbars[self.currentSegment].off()
+            logger.info(f"blackened segment #{self.currentSegment}/{self.segments}, cleared stop bar")
+        if self.currentSegment == NO_SEGMENT:
+            self.currentSegment = 0
+        else:
+            self.currentSegment += 1
+        if self.atLastSegment():
+            logger.info(f"at last segment #{self.currentSegment}/{self.segments}")
+            return NoError("At last segment")
+        ret = self.illuminateSegment()
+        if not ret.status:
+            return ret
+        logger.info(f"illuminated segment #{self.currentSegment}/{self.segments}")
+        return NoError("segment illuminated")
+
+    def illuminateSegment(self):
         # Lights up a segment of lights between 2 stop bars
         if not self.lightTypes:
             if not self.loadObjects():
@@ -1042,43 +1084,40 @@ class LightString:
             if not self.placeLights():
                 return Error("Could not place light objects.")
 
-        self.currentSegment = segment
         start = 0
         end = 0
-        if segment >= len(self.stopbars):  # there might be more green lights after the last stopbars
-            segment = len(self.stopbars)  # can't be larger
-            if segment > 0:
-                self.blackenSegment(segment - 1)
-                lastSb = self.stopbars[segment - 1]
+        if self.currentSegment >= len(self.stopbars):  # there might be more green lights after the last stopbars
+            self.currentSegment = len(self.stopbars)  # can't be larger
+            if self.currentSegment > 0:
+                lastSb = self.stopbars[self.currentSegment - 1]
                 start = lastSb.lightStringIndex
             end = len(self.lights)
-            logger.debug(f"planning to illuminate last segment {segment} between {start} and {end}")
+            logger.debug(f"planning to illuminate last segment {self.currentSegment} between {start} and {end}")
         else:
-            sbend = self.stopbars[segment]
-            if segment > 0:
-                self.blackenSegment(segment - 1)
-                sbbeging = self.stopbars[segment - 1]
+            sbend = self.stopbars[self.currentSegment]
+            if self.currentSegment > 0:
+                sbbeging = self.stopbars[self.currentSegment - 1]
                 start = sbbeging.lightStringIndex
             end = sbend.lightStringIndex
-            logger.debug(f"planning to illuminate segment {segment} between {start} and {end}")
+            logger.debug(f"planning to illuminate segment {self.currentSegment} between {start} and {end}")
 
         if start == end:
-            logger.warning(f"planning to illuminate segment {segment} between {start} and {end}: no light to illuminate")
+            logger.warning(f"planning to illuminate segment {self.currentSegment} between {start} and {end}: no light to illuminate")
 
         if (self.num_lights_ahead is None or self.num_lights_ahead == 0) and self.hasLight:
             # Instanciate for each green light in segment and stop bar
             logger.debug("no light ahead: illuminated whole greens")
             for i in range(start, end):
                 self.lights[i].on()
-            logger.debug(f"illuminated segment {segment} between {start} and {end}")
+            logger.debug(f"illuminated segment {self.currentSegment} between {start} and {end}")
             # map(lambda x: x.on(self.txy_light_obj), self.lights[start:end])
         else:
             logger.debug(f"lights will be turned on progressively in front of rabbit (la={self.num_lights_ahead}, hasLight={self.hasLight})")
 
         # Instanciate for each stop light
         # for sb in self.stopbars:
-        if len(self.stopbars) > 0 and segment < len(self.stopbars):
-            sbend = self.stopbars[segment]
+        if len(self.stopbars) > 0 and self.currentSegment < len(self.stopbars):
+            sbend = self.stopbars[self.currentSegment]
             for light in sbend.lights:
                 light.on()
             logger.debug(f"illuminated {len(sbend.lights)} stop lights")

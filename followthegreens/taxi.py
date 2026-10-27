@@ -266,8 +266,8 @@ class Taxi:
         logger.debug(f"acf speed {round(acf_speed, 1)}m/s, regular iter {self.nextIter}s")
         return self.nextIter
 
-    def hasToStop(self):
-        return self.nextStop != NO_STOP_AHEAD
+    # def hasToStop(self):
+    #     return self.nextStop != NO_STOP_AHEAD
 
     def closingToStop(self, aircraft) -> bool:
         pos = aircraft.position_point()
@@ -392,7 +392,7 @@ class Taxi:
                 logger.debug(f"show_clearance_popup = {self.show_clearance_popup}")
         else:
             self.nextStop = NO_STOP_AHEAD
-            if self.hasFMCar() and fmcar.mustStop():
+            if self.hasFMCar() and fmcar.mustStop():  # had to stop...
                 fmcar.canContinue()
             if not self.may_rabbit_autotune:
                 self.allowRabbitAutotune("no longer close to stop")

@@ -43,7 +43,6 @@ class FollowTheGreens:
         self.lights: LightString | None = None
         self.use_taxiway_lights = False
         self.fmcar = None
-        self.segment = 0  # counter for green segments currently lit -0-----|-1-----|-2---------|-3---
         self.move: MOVEMENT | None = None  # departure or arrival, guessed first, can be changed by pilot.
         self.destination = None  # Handy
         self.waiting_for_clearance = False
@@ -767,15 +766,13 @@ VERSION = "{__VERSION__}"
         self.status = FTG_STATUS.ROUTE
 
         if not new_fmcar and self.fmcar is not None:
-            if self.fmcar is not None:
-                try:
-                    self.fmcar.changeRoute()
-                except:
-                    logger.error("change route", exc_info=True)
+            try:
+                self.fmcar.changeRoute()
+            except:
+                logger.error("change route", exc_info=True)
 
-        self.segment = 0
-        logger.info(f"current segment {self.segment + 1}/{self.lights.segments + 1}")
-        ret = self.lights.illuminateSegment(self.segment)
+        logger.info(f"current segment {self.lights.currentSegment + 1}/{self.lights.segments + 1}")
+        ret = self.lights.nextSegment()
         if not ret.status:
             self.ui.createWindow(
                 report={
@@ -785,7 +782,7 @@ VERSION = "{__VERSION__}"
                 }
             )
             return
-        logger.debug(f"lights instanciated for segment {self.segment}")
+        logger.debug(f"lights instanciated for segment {self.lights.currentSegment}")
 
         initbrgn, initdist, initdiff = self.lights.initial(pos, hdg)
         logger.debug(f"init ({initbrgn}, {initdist}, {initdiff})")
@@ -822,7 +819,6 @@ VERSION = "{__VERSION__}"
         logger.debug(" ".join(intro_arr))
         xp.speakString(speak)
 
-        # self.segment = 0
         if self.lights.segments == 0:  # just one segment
             logger.debug(f"just one segment {self.move}")
             if self.move == MOVEMENT.ARRIVAL:
@@ -887,9 +883,9 @@ VERSION = "{__VERSION__}"
 
     def nextLeg(self):
         # Called when cleared by TOWER
-        self.segment += 1
+        self.lights.clearCurrentStopbar()
         # Info 15
-        logger.info(f"next segment {self.segment + 1}/{self.lights.segments + 1}")
+        logger.info(f"next segment {self.lights.currentSegment + 1}/{self.lights.segments + 1}")
 
         if self.fmcar is not None:
             try:
@@ -897,11 +893,10 @@ VERSION = "{__VERSION__}"
             except:
                 logger.error("can continue", exc_info=True)
 
-        if self.segment > self.lights.segments:
+        if self.lights.atLastSegment():
             # Info 16.a
-            self.status = FTG_STATUS.FINISHED
             logger.info("done")
-            self.segment = 0  # reset
+            self.status = FTG_STATUS.FINISHED
             msgs = [self.situation(), "You are approaching your destination."]
             if self.move == MOVEMENT.DEPARTURE:
                 msgs += ["Contact ATC for takeoff clearance."]
@@ -910,18 +905,18 @@ VERSION = "{__VERSION__}"
             return
 
         self.status = FTG_STATUS.GREENS
-        ret = self.lights.illuminateSegment(self.segment)
+        ret = self.lights.nextSegment()
         if not ret.status:
             self.terminate("issue with light segment illumination")
             self.ui.createWindow(report={"text": [ret.message], "error": "Issue with light segment illumination", "buttons": [UI_BUTTON.CANCEL]})
             return
-        logger.debug(f"lights instanciated (segment={self.segment})")
+        logger.debug(f"lights instanciated (segment={self.lights.currentSegment})")
 
         # re-authorize rabbit auto-tuning
         self.flightLoop.allowRabbitAutotune("next leg")
         self.status = FTG_STATUS.ACTIVE
 
-        if self.move == MOVEMENT.DEPARTURE and self.segment == (self.lights.segments - 1):
+        if self.move == MOVEMENT.DEPARTURE and self.lights.currentSegment == (self.lights.segments - 1):
             # Info 16.a
             self.ui.createWindow(
                 report={
@@ -936,11 +931,10 @@ VERSION = "{__VERSION__}"
             )
             return
 
-        if self.move == MOVEMENT.DEPARTURE and self.segment == self.lights.segments:
+        if self.move == MOVEMENT.DEPARTURE and self.lights.atLastSegment():
             # Info 16.b
             self.status = FTG_STATUS.FINISHED
             logger.info("ready for take-off")
-            self.segment = 0  # reset
             msgs = [self.situation(), "You are approaching your destination."]
             if self.move == MOVEMENT.DEPARTURE:
                 msgs += ["Contact ATC for takeoff clearance."]
@@ -953,7 +947,7 @@ VERSION = "{__VERSION__}"
             )
             return
 
-        if self.move == MOVEMENT.ARRIVAL and self.segment == self.lights.segments:
+        if self.move == MOVEMENT.ARRIVAL and self.lights.atLastSegment():
             # Info 16.c
             self.ui.createWindow(
                 report={

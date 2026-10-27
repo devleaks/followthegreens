@@ -573,12 +573,24 @@ def minsec(t: float) -> str:
 # if not os.path.exists(LOGDIRNAME):
 #     os.makedirs(LOGDIRNAME, exist_ok=True)
 LOGFILENAME = "ftg_log.txt"
+
+def new_log() -> str:
+    f = os.path.join(os.path.dirname(__file__), "..", LOGFILENAME)
+    if os.path.exists(f):
+        i = 0
+        n = os.path.join(os.path.dirname(__file__), "..", f"ftg_log{i}.txt")
+        while(os.path.exists(n)):
+            i += 1
+            n = os.path.join(os.path.dirname(__file__), "..", f"ftg_log{i}.txt")
+        os.rename(f, n)
+    return f
+
 LOGGING_LEVEL = logging.INFO  # can be modified by preference
 logging.basicConfig(
     level=LOGGING_LEVEL,
     format="%(levelname)s %(asctime)s %(filename)s:%(funcName)s:%(lineno)d: %(message)s",
     handlers=[
-        logging.FileHandler(os.path.join(os.path.dirname(__file__), "..", LOGFILENAME)),
+        logging.FileHandler(new_log()),
         logging.StreamHandler(),
     ],
 )
