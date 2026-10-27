@@ -11,6 +11,8 @@ from dataclasses import dataclass, fields
 from io import StringIO
 from traceback import print_stack
 
+from followthegreens.graph import Edge
+
 try:
     import xp
 except ImportError:
@@ -828,8 +830,18 @@ class Route:
         logger.debug(f"..got starting position {pos}..")
 
         src = None
+        good_line = None
+        good_dist = 0.0
         if move == MOVEMENT.DEPARTURE:
             src = self.graph.findClosestVertex(pos_pt)
+            # @todo:
+            # 1. edge = findClosestPointOnEdges(aircraft.position())
+            logger.debug(f"findClosestVertex: {src}")
+            nearest, good_dist, good_line = self.graph.findClosestPointOnEdges(aircraft.position_point())
+            logger.debug(f"findClosestPointOnEdges: {nearest}, {good_dist}, {good_line}")
+            # 2. Find which vertex from above edge is further to destination (edge.start, edge.end) (so that the acf sits on it...)
+            # 3. Add path from position to closest vertex.
+            # 4. Add entire edge to greens (i.e. start from vertext that is fartest)
         else:  # arrival
             if arrival_runway is not None and dst_type == "stand":
                 if dst_pos is not None:
@@ -848,7 +860,7 @@ class Route:
                     src = self.graph.findClosestVertex(pos_pt)
 
         if src is None:
-            logger.debug("no return from findClosestVertex")
+            logger.debug("no source vertext")
             return self.found()
         if src[0] is None:
             logger.debug("no close vertex")
@@ -891,6 +903,19 @@ class Route:
             logger.debug(f"aircraft too far from taxiways ({round(dst[1], 2)}m)")
             return self.found()
         logger.debug("..got destination vertex..")
+
+        if move == MOVEMENT.DEPARTURE and type(good_line) is Edge:  # must choose start or end, ideally, acf must be on edge
+            dest = self.graph.vert_dict[dst[0]]
+            ds = distance(good_line.start, dest)
+            de = distance(good_line.end, dest)
+            if ds > de:
+                if src[1] > good_dist:
+                    src = [good_line.start.id, distance(aircraft.position_point(), good_line.start)]
+                    logger.debug(f"findClosestPointOnEdges: start: adjusted to {src}")
+            else:
+                if src[1] > good_dist:
+                    src = [good_line.end.id, distance(aircraft.position_point(), good_line.end)]
+                    logger.debug(f"findClosestPointOnEdges: end: adjusted to {src}")
 
         self.move = move
 
