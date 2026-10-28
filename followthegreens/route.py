@@ -904,11 +904,12 @@ class Route:
             return self.found()
         logger.debug("..got destination vertex..")
 
-        if move == MOVEMENT.DEPARTURE and type(good_line) is Edge:  # must choose start or end, ideally, acf must be on edge
+        # Refine starting vertex selection in case of departure (see algorithm above)
+        if move == MOVEMENT.DEPARTURE and type(good_line) is Edge:
             dest = self.graph.vert_dict[dst[0]]
             ds = distance(good_line.start, dest)
             de = distance(good_line.end, dest)
-            if ds > de:
+            if ds > de:  # keep the one the further away
                 if src[1] > good_dist:
                     src = [good_line.start.id, distance(aircraft.position_point(), good_line.start)]
                     logger.debug(f"findClosestPointOnEdges: start: adjusted to {src}")
@@ -1089,6 +1090,9 @@ class Route:
             fc.save(fn)
 
     def addExit(self, radius: float, route):
+        def copy(v):
+            return Point(v.lat, v.lon)
+
         route = route[:-1]
         vtx = self.vertices
         turn = Turn(vertex=vtx[-1], l_in=self.edges_orient[-1], l_out=self.orientLastVertex(), radius=radius)

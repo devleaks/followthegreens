@@ -1197,6 +1197,7 @@ class Cursor(Vehicle):
         #   - Car remain sufficiently ahead of aircraft except if stop ahead
         # Adjust car speed
         # Advise on aircraft speed (through hud, car indicator)
+        report = False
         logger.debug("adjusting..")
         # "Slow" speed adjustment procedure, called by flightloop when aircraft has moved; sets aim_speed
         #
@@ -1291,7 +1292,8 @@ class Cursor(Vehicle):
 
         if self.mustStop():
             work_msg += ", must stop"
-            logger.debug(f"REPORT 1 {work_msg}")
+            if report:
+                logger.debug(f"REPORT 1 {work_msg}")
             self.setHudText(HUD_TEXT.STOP.value)
             dts = self.distanceToStop()
             bds = self.brakingDistance()
@@ -1311,15 +1313,18 @@ class Cursor(Vehicle):
                 range_factor = 1 - ((acf_dist - drange[1]) / acf_dist)
             acc_factor = min(rabbit_factor, range_factor, 0.8)
             work_msg = f"fmcar too far, need to slow down (factor={acc_factor}, rabbit_factor={round(rabbit_factor, 2)}, range_factor={round(range_factor, 2)}, {sf(acf_dist, 'm')} > {sf(drange[1], 'm')})"
-            logger.debug(f"REPORT 2 {work_msg}")
+            if report:
+                logger.debug(f"REPORT 2 {work_msg}")
             fmcar_speed = self.smoothConverge(self.current.speed, acf_speed * acc_factor)
         elif acf_dist < drange[0]:  # does the car need to accelerate because too close?
             work_msg = f"fmcar too close ({sf(acf_dist, 'm')} < {sf(drange[0], 'm')})"
-            logger.debug(f"REPORT 3 {work_msg}")
+            if report:
+                logger.debug(f"REPORT 3 {work_msg}")
             # does the car need to slow down because nearing a turn, stop, etc. (rabbit slower, slowest)
             if self.mustStop():
                 work_msg += ", must stop"
-                logger.debug(f"REPORT 4 {work_msg}")
+                if report:
+                    logger.debug(f"REPORT 4 {work_msg}")
                 self.setHudText(HUD_TEXT.STOP.value)
                 dts = self.distanceToStop()
                 bds = self.brakingDistance()
@@ -1336,7 +1341,8 @@ class Cursor(Vehicle):
                 )
             elif rabbit_mode in [RABBIT_MODE.SLOWER, RABBIT_MODE.SLOWEST]:
                 work_msg += f" but it is ok because we need to go slow (rabbit mode={rabbit_mode}, rabbit factor={rabbit_factor})"
-                logger.debug(f"REPORT 5 {work_msg}")
+                if report:
+                    logger.debug(f"REPORT 5 {work_msg}")
                 self.setHudText(HUD_TEXT.SLOW.value)
                 fmcar_speed = acf_speed * rabbit_factor
             else:  # does the car either need to restart moving (from stopped), or accelerate because long straight line? (rabbit faster, fastest)
@@ -1348,33 +1354,40 @@ class Cursor(Vehicle):
                 acc_factor = max(rabbit_factor, range_factor)
                 fmcar_speed = target_speed * acc_factor
                 work_msg += f", need to accelerate, new start speed for estimate={round(target_speed, 1)} (factors: acc_factor={round(acc_factor, 2)}, range_factor={round(range_factor, 2)}, rabbit_factor={round(rabbit_factor, 2)})"
-                logger.debug(f"REPORT 6 {work_msg}")
+                if report:
+                    logger.debug(f"REPORT 6 {work_msg}")
                 if fmcar_speed > self.detail.normal_speed and fmcar_speed > acf_speed:  # no need to go too fast either
                     fmcar_speed = 1.2 * max(self.detail.normal_speed, acf_speed)
                     work_msg += f" max to {round(fmcar_speed, 1)}, "
         else:  # we are within range, we keepup with the aircraft but we might need to show something with rabbit...
             self.setHudText()  # reset, case it was slow
             work_msg = f"fmcar within range (rabbit factor={rabbit_factor})"
-            logger.debug(f"REPORT 7 {work_msg}")
+            if report:
+                logger.debug(f"REPORT 7 {work_msg}")
             if self.moving():
                 if acf_dist < ahead:
                     acc_factor = 1.2
                     fmcar_speed = self.smoothConverge(self.current.speed, self.current.speed * acc_factor)
                     work_msg += ", fmcar should be more ahead, speeding up a bit"
-                    logger.debug(f"REPORT 8 {work_msg}")
+                    if report:
+                        logger.debug(f"REPORT 8 {work_msg}")
                 elif acf_dist > ahead:
                     acc_factor = 0.9
                     fmcar_speed = self.smoothConverge(self.current.speed, self.current.speed * acc_factor)
                     work_msg += ", fmcar should be less ahead, slowing down a bit"
-                    logger.debug(f"REPORT 9 {work_msg}")
+                    if report:
+                        logger.debug(f"REPORT 9 {work_msg}")
                 else:
                     fmcar_speed = self.smoothConverge(self.current.speed, self.current.speed * rabbit_factor)
-                    logger.debug(f"REPORT 10 {work_msg}")
+                    if report:
+                        logger.debug(f"REPORT 10 {work_msg}")
             else:
                 work_msg += ", fmcar at rest, may remain at rest"
-                logger.debug(f"REPORT 11 {work_msg}")
+                if report:
+                    logger.debug(f"REPORT 11 {work_msg}")
 
-        logger.debug(f"REPORT >> {work_msg}")
+        if report:
+            logger.debug(f"REPORT >> {work_msg}")
 
         # 3. action (will also report adjustment)
         self.setAimSpeed(speed=fmcar_speed, reason=work_msg)
