@@ -1063,11 +1063,12 @@ class LightString:
             logger.info(f"blackened segment #{self.currentSegment}/{self.segments}, cleared stop bar")
         if self.currentSegment == NO_SEGMENT:
             self.currentSegment = 0
+            logger.info(f"first segment #{self.currentSegment}/{self.segments}")
         else:
             self.currentSegment += 1
-        if self.atLastSegment():
-            logger.info(f"at last segment #{self.currentSegment}/{self.segments}")
-            return NoError("At last segment")
+        if self.currentSegment > self.segments:
+            logger.info(f"no more segments #{self.currentSegment}/{self.segments}")
+            return NoError("no more segments")
         ret = self.illuminateSegment()
         if not ret.status:
             return ret
