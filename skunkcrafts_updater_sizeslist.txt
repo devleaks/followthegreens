@@ -23,7 +23,7 @@ followthegreens/followthegreens.py|48307
 followthegreens/geo.py|11693
 followthegreens/globals.py|18805
 followthegreens/graph.py|27424
-followthegreens/lights.py|73419
+followthegreens/lights.py|73517
 followthegreens/lights/amber.obj|1877
 followthegreens/lights/green.obj|1817
 followthegreens/lights/lights.png|11640
